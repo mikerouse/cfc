@@ -4,6 +4,8 @@
 
 This document guides the migration of the `council-finance-counters` WordPress plugin into a modern, scalable **Django-based agent system**.
 
+The purpose of this app is to provide visitors with transparency data relating to UK local government entities. This includes and is particularly focused on figures found within each authority's balance sheet, cash flow statements and comprehensive income and expenditure statements as published each financial year. The emphasis is on 'visually striking' ways to show the data using counters and other interesting and novel devices like comparing spend across councils. There will be a comparison basket, allowing up-to six councils to be compared (initially), and there will be user-centric tools allowing users to track and collate councils, as well as provide contributions and comments. Counters will be animated, and the style wll be fresh, minimalist and professional, with a look and feel similar to GOV.UK websites. 
+
 Each “agent” in Django represents a discrete unit of business logic previously managed by PHP classes. This allows for cleaner architecture, easier testing, and more powerful orchestration.
 
 ---
