@@ -1,15 +1,7 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="utf-8">
-    <title>Logged out - Council Finance Counters</title>
-    <style>
-        body { font-family: sans-serif; max-width: 600px; margin: auto; padding: 2em; }
-    </style>
-</head>
-<body>
-    <h1>Signed out</h1>
-    <p>You have been logged out.</p>
-    <p><a href="{% url 'login' %}">Log in again</a></p>
-</body>
-</html>
+{% extends "base.html" %}
+{% block title %}Logged out - Council Finance Counters{% endblock %}
+{% block content %}
+<h1 class="text-2xl font-bold mb-4">Signed out</h1>
+<p>You have been logged out.</p>
+<p><a href="{% url 'login' %}" class="text-blue-700 hover:underline">Log in again</a></p>
+{% endblock %}
