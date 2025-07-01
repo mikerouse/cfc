@@ -39,7 +39,9 @@ ROOT_URLCONF = 'council_finance.urls'
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [],
+        # Look for templates in the project-level "templates" directory so
+        # apps and built-in views can share a consistent style.
+        'DIRS': [BASE_DIR / 'templates'],
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
