@@ -17,6 +17,33 @@
     <p><strong>Email:</strong> {{ user.email }}</p>
     {% if profile %}
         <p><strong>Post code:</strong> {{ profile.postcode|default:'-' }}</p>
+        {% if not profile.postcode %}
+            <p id="postcode-warning" style="color:red;">Please add your postcode.</p>
+            <input id="postcode-input" type="text" placeholder="Postcode">
+            <button id="postcode-save">Save</button>
+            <script>
+            // Helper to pull the CSRF token from the cookie
+            function getCookie(name){
+                const m = document.cookie.match('(^|;)\\s*'+name+'\\s*=\\s*([^;]+)');
+                return m ? m.pop() : '';
+            }
+            document.getElementById('postcode-save').onclick = function(){
+                const pc = document.getElementById('postcode-input').value;
+                fetch('{% url "update_postcode" %}', {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRFToken': getCookie('csrftoken'),
+                        'Content-Type': 'application/x-www-form-urlencoded'
+                    },
+                    body: 'postcode=' + encodeURIComponent(pc)
+                }).then(resp => resp.json()).then(data => {
+                    if(data.postcode){
+                        document.getElementById('postcode-warning').textContent = 'Postcode saved';
+                    }
+                });
+            };
+            </script>
+        {% endif %}
         <h2>Favourite councils</h2>
         <ul>
         {% for council in profile.favourites.all %}

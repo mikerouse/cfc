@@ -1,8 +1,11 @@
-from django.shortcuts import render, get_object_or_404
+from django.shortcuts import render, get_object_or_404, redirect
 from django.db.models import Q
+from django.http import JsonResponse, HttpResponseBadRequest
+from django.contrib.auth import login
 
 from .models import Council, UserProfile
 from django.contrib.auth.decorators import login_required
+from .forms import SignUpForm
 import hashlib
 
 
@@ -60,3 +63,35 @@ def profile_view(request):
         "gravatar_url": gravatar_url,
     }
     return render(request, "registration/profile.html", context)
+
+
+def signup_view(request):
+    """Allow visitors to create an account with a required postcode."""
+
+    if request.method == "POST":
+        form = SignUpForm(request.POST)
+        if form.is_valid():
+            # Create the user and log them in immediately
+            user = form.save()
+            login(request, user)
+            return redirect("profile")
+    else:
+        form = SignUpForm()
+    return render(request, "registration/signup.html", {"form": form})
+
+
+@login_required
+def update_postcode(request):
+    """Handle AJAX requests to update the user's postcode."""
+
+    if request.method != "POST":
+        return HttpResponseBadRequest("POST required")
+
+    postcode = request.POST.get("postcode", "").strip()
+    if not postcode:
+        return JsonResponse({"error": "Postcode required"}, status=400)
+
+    profile = request.user.profile
+    profile.postcode = postcode
+    profile.save()
+    return JsonResponse({"postcode": profile.postcode})
