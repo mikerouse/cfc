@@ -70,3 +70,9 @@ USE_I18N = True
 USE_TZ = True
 
 STATIC_URL = '/static/'
+
+# After a successful login send users to their profile page.
+LOGIN_REDIRECT_URL = '/accounts/profile/'
+
+# Use an in-memory email backend during development and tests.
+EMAIL_BACKEND = 'django.core.mail.backends.locmem.EmailBackend'
