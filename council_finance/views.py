@@ -9,7 +9,7 @@ from django.contrib.auth import login
 from django.utils.crypto import get_random_string
 import hashlib
 
-from .emails import send_confirmation_email
+from .emails import send_confirmation_email, send_email
 from .forms import SignUpForm
 from .models import (
     Council,
@@ -180,11 +180,10 @@ def profile_view(request):
             confirm_link = request.build_absolute_uri(
                 reverse("confirm_profile_change", args=[token])
             )
-            send_mail(
+            send_email(
                 "Confirm profile change",
                 f"Visit the following link to confirm your changes: {confirm_link}",
-                None,
-                [user.email],
+                user.email,
             )
             messages.info(request, "Check your email to confirm profile changes.")
 
