@@ -109,3 +109,26 @@ class EmailConfirmationTest(TestCase):
         with patch("council_finance.emails.send_email") as mock_send:
             self.client.get(reverse("resend_confirmation"))
             self.assertEqual(mock_send.call_count, 1)
+
+    def test_resend_confirmation_handles_api_error(self):
+        """If Brevo raises an ApiException, the user sees an error message."""
+        self.client.login(username="dave", password="secret")
+        from brevo_python.rest import ApiException
+        with patch("council_finance.views.send_confirmation_email") as mock_send:
+            class Resp:
+                status = 400
+                reason = "Bad Request"
+                data = '{"message": "invalid"}'
+
+                @staticmethod
+                def getheaders():
+                    return {}
+
+            mock_send.side_effect = ApiException(http_resp=Resp())
+            response = self.client.get(
+                reverse("resend_confirmation"), follow=True
+            )
+        messages = list(response.context["messages"])
+        self.assertTrue(
+            any("Email not sent: invalid" in str(m) for m in messages)
+        )

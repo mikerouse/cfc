@@ -8,7 +8,8 @@ from django.contrib.auth.hashers import make_password
 from django.contrib.auth import login
 from django.utils.crypto import get_random_string
 import hashlib
-from brevo_python.exceptions import ApiException
+# Brevo's Python SDK exposes ApiException from the `rest` module
+from brevo_python.rest import ApiException
 
 from .emails import send_confirmation_email, send_email
 from .forms import SignUpForm
