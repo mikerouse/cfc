@@ -8,6 +8,7 @@ from django.utils.crypto import get_random_string
 import brevo_python
 from brevo_python.api import TransactionalEmailsApi
 from brevo_python.models import SendSmtpEmail
+from brevo_python.rest import ApiException
 
 from .models import UserProfile
 
@@ -27,7 +28,7 @@ def send_email(subject: str, message: str, recipient: str) -> None:
 
     try:
         api.send_transac_email(email)
-    except brevo_python.ApiException as e:
+    except ApiException as e:
         import logging
         logger = logging.getLogger(__name__)
         logger.error(f"Brevo API error: {e}")
