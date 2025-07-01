@@ -1,7 +1,10 @@
 from django.contrib.auth import get_user_model
-from django.test import Client, TestCase
+from django.test import TestCase
 from django.urls import reverse
-from django.core import mail
+import django
+django.setup()
+
+from unittest.mock import patch
 
 from council_finance.models import UserProfile
 
@@ -39,41 +42,50 @@ class ProfileViewTest(TestCase):
 
 class SignUpTest(TestCase):
     def test_signup_requires_postcode(self):
-        response = self.client.post(reverse("signup"), {
-            "username": "bob",
-            "password1": "Secr3tpass",
-            "password2": "Secr3tpass",
-            "email": "bob@example.com",
-            # postcode missing on purpose
-        })
+        with patch("council_finance.emails.send_email"):
+            response = self.client.post(
+                reverse("signup"),
+                {
+                    "username": "bob",
+                    "password1": "Secr3tpass",
+                    "password2": "Secr3tpass",
+                    "email": "bob@example.com",
+                    # postcode missing on purpose
+                },
+            )
         self.assertContains(response, "This field is required", status_code=200)
 
     def test_signup_creates_profile(self):
-        response = self.client.post(reverse("signup"), {
-            "username": "bob",
-            "password1": "Secr3tpass",
-            "password2": "Secr3tpass",
-            "email": "bob@example.com",
-            "postcode": "ZZ9 9ZZ",
-        })
+        with patch("council_finance.emails.send_email"):
+            response = self.client.post(
+                reverse("signup"),
+                {
+                    "username": "bob",
+                    "password1": "Secr3tpass",
+                    "password2": "Secr3tpass",
+                    "email": "bob@example.com",
+                    "postcode": "ZZ9 9ZZ",
+                },
+            )
         self.assertEqual(response.status_code, 302)
         user = get_user_model().objects.get(username="bob")
         self.assertEqual(user.profile.postcode, "ZZ9 9ZZ")
 
     def test_signup_sends_confirmation_email(self):
-        self.client.post(
-            reverse("signup"),
-            {
-                "username": "carol",
-                "password1": "Secr3tpass",
-                "password2": "Secr3tpass",
-                "email": "carol@example.com",
-                "postcode": "AA1 1AA",
-            },
-        )
-        user = get_user_model().objects.get(username="carol")
-        self.assertTrue(user.profile.confirmation_token)
-        self.assertEqual(len(mail.outbox), 1)
+        with patch("council_finance.emails.send_email") as mock_send:
+            self.client.post(
+                reverse("signup"),
+                {
+                    "username": "carol",
+                    "password1": "Secr3tpass",
+                    "password2": "Secr3tpass",
+                    "email": "carol@example.com",
+                    "postcode": "AA1 1AA",
+                },
+            )
+            user = get_user_model().objects.get(username="carol")
+            self.assertTrue(user.profile.confirmation_token)
+            self.assertEqual(mock_send.call_count, 1)
 
 
 class EmailConfirmationTest(TestCase):
@@ -94,5 +106,6 @@ class EmailConfirmationTest(TestCase):
 
     def test_resend_confirmation(self):
         self.client.login(username="dave", password="secret")
-        self.client.get(reverse("resend_confirmation"))
-        self.assertEqual(len(mail.outbox), 1)
+        with patch("council_finance.emails.send_email") as mock_send:
+            self.client.get(reverse("resend_confirmation"))
+            self.assertEqual(mock_send.call_count, 1)

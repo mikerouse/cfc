@@ -1,5 +1,8 @@
 from django.test import TestCase
 from django.core.management import call_command
+import django
+django.setup()
+
 from council_finance.models import Council, FinancialYear, FigureSubmission
 
 class ImporterAgentTest(TestCase):
