@@ -1,10 +1,12 @@
 from django.shortcuts import render, get_object_or_404, redirect
 from django.db.models import Q
-from django.http import JsonResponse, HttpResponseBadRequest
-from django.contrib.auth import login
-from .models import Council, UserProfile
+from django.http import JsonResponse, HttpResponseBadRequest, Http404
+from django.contrib import messages
+from .emails import send_confirmation_email
 from django.contrib.auth.decorators import login_required
 from .forms import SignUpForm
+from django.contrib.auth import login
+from .models import Council, UserProfile
 import hashlib
 from django.shortcuts import render, get_object_or_404
 from django.db.models import Q, Sum, DecimalField
@@ -48,7 +50,6 @@ def home(request):
     }
 
     return render(request, "council_finance/home.html", context)
-
 
 def council_list(request):
     """Display a list of councils with optional search by name or slug."""
@@ -115,6 +116,9 @@ def signup_view(request):
             # Create the user and log them in immediately
             user = form.save()
             login(request, user)
+            # Send the initial confirmation email
+            send_confirmation_email(user.profile, request)
+            messages.info(request, "Check your inbox to confirm your email.")
             return redirect("profile")
     else:
         form = SignUpForm()
@@ -136,3 +140,27 @@ def update_postcode(request):
     profile.postcode = postcode
     profile.save()
     return JsonResponse({"postcode": profile.postcode})
+
+
+@login_required
+def resend_confirmation(request):
+    """Send another confirmation email to the logged-in user."""
+
+    send_confirmation_email(request.user.profile, request)
+    messages.info(request, "Confirmation email sent.")
+    return redirect("profile")
+
+
+def confirm_email(request, token):
+    """Mark a user's email address as confirmed using the provided token."""
+
+    try:
+        profile = UserProfile.objects.get(confirmation_token=token)
+    except UserProfile.DoesNotExist:
+        raise Http404("Invalid confirmation link")
+
+    profile.email_confirmed = True
+    profile.confirmation_token = ""
+    profile.save()
+    messages.success(request, "Email confirmed. Thank you!")
+    return redirect("profile")

@@ -17,6 +17,10 @@ class UserProfile(models.Model):
     postcode = models.CharField(max_length=20, blank=True)
     # Councils the user has marked as favourites.
     favourites = models.ManyToManyField(Council, blank=True, related_name="fans")
+    # Has the user verified their email address?
+    email_confirmed = models.BooleanField(default=False)
+    # Token used in confirmation links; blank when confirmed.
+    confirmation_token = models.CharField(max_length=64, blank=True)
 
     def __str__(self) -> str:
         return f"Profile for {self.user.username}"

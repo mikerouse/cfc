@@ -1,6 +1,7 @@
 from django.contrib.auth import get_user_model
 from django.test import Client, TestCase
 from django.urls import reverse
+from django.core import mail
 
 from council_finance.models import UserProfile
 
@@ -31,6 +32,10 @@ class ProfileViewTest(TestCase):
         self.profile.refresh_from_db()
         self.assertEqual(self.profile.postcode, "AB1 2CD")
 
+    def test_email_warning_shown_if_not_confirmed(self):
+        self.client.login(username="alice", password="secret")
+        response = self.client.get(reverse("profile"))
+        self.assertContains(response, "email-warning")
 
 class SignUpTest(TestCase):
     def test_signup_requires_postcode(self):
@@ -54,3 +59,40 @@ class SignUpTest(TestCase):
         self.assertEqual(response.status_code, 302)
         user = get_user_model().objects.get(username="bob")
         self.assertEqual(user.profile.postcode, "ZZ9 9ZZ")
+
+    def test_signup_sends_confirmation_email(self):
+        self.client.post(
+            reverse("signup"),
+            {
+                "username": "carol",
+                "password1": "Secr3tpass",
+                "password2": "Secr3tpass",
+                "email": "carol@example.com",
+                "postcode": "AA1 1AA",
+            },
+        )
+        user = get_user_model().objects.get(username="carol")
+        self.assertTrue(user.profile.confirmation_token)
+        self.assertEqual(len(mail.outbox), 1)
+
+
+class EmailConfirmationTest(TestCase):
+    def setUp(self):
+        self.user = get_user_model().objects.create_user(
+            username="dave", email="dave@example.com", password="secret"
+        )
+        self.profile = self.user.profile
+        self.profile.confirmation_token = "token123"
+        self.profile.save()
+
+    def test_confirm_email(self):
+        url = reverse("confirm_email", args=["token123"])
+        self.client.get(url)
+        self.profile.refresh_from_db()
+        self.assertTrue(self.profile.email_confirmed)
+        self.assertEqual(self.profile.confirmation_token, "")
+
+    def test_resend_confirmation(self):
+        self.client.login(username="dave", password="secret")
+        self.client.get(reverse("resend_confirmation"))
+        self.assertEqual(len(mail.outbox), 1)
