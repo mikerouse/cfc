@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Councils</title>
+</head>
+<body>
+    <h1>Councils</h1>
+    <form method="get">
+        <input type="text" name="q" value="{{ query }}" placeholder="Search by name or slug">
+        <button type="submit">Search</button>
+    </form>
+    <ul>
+    {% for council in councils %}
+        <li><a href="{% url 'council_detail' council.slug %}">{{ council.name }}</a></li>
+    {% empty %}
+        <li>No councils found.</li>
+    {% endfor %}
+    </ul>
+</body>
+</html>
