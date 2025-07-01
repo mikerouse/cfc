@@ -8,6 +8,7 @@ from django.contrib.auth.hashers import make_password
 from django.contrib.auth import login
 from django.utils.crypto import get_random_string
 import hashlib
+from brevo_python.exceptions import ApiException
 
 from .emails import send_confirmation_email, send_email
 from .forms import SignUpForm
@@ -262,8 +263,23 @@ def resend_confirmation(request):
         user=request.user,
         defaults={"confirmation_token": get_random_string(32)},
     )
-    send_confirmation_email(profile, request)
-    messages.info(request, "Confirmation email sent.")
+    try:
+        send_confirmation_email(profile, request)
+        messages.info(request, "Confirmation email sent.")
+    except ApiException as e:
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.error(f"Brevo API error: {e}")
+        error_msg = "There was a problem sending the confirmation email. Please try again later."
+        if hasattr(e, 'body') and isinstance(e.body, str):
+            import json
+            try:
+                body = json.loads(e.body)
+                if 'message' in body:
+                    error_msg = f"Email not sent: {body['message']}"
+            except Exception:
+                pass
+        messages.error(request, error_msg)
     return redirect("profile")
 
 

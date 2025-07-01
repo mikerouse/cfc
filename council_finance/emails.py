@@ -25,7 +25,13 @@ def send_email(subject: str, message: str, recipient: str) -> None:
         sender={"email": os.getenv("DEFAULT_FROM_EMAIL", "noreply@example.com")},
     )
 
-    api.send_transac_email(email)
+    try:
+        api.send_transac_email(email)
+    except brevo_python.ApiException as e:
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.error(f"Brevo API error: {e}")
+        raise
 
 
 def send_confirmation_email(profile: UserProfile, request) -> None:
