@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Council Finance Counters</title>
+</head>
+<body>
+    <h1>Welcome to Council Finance Counters</h1>
+    <p>Total council debt: {{ total_debt|floatformat:0 }}</p>
+
+    <form method="get" action="{% url 'home' %}">
+        <input type="text" name="q" value="{{ query }}" placeholder="Search councils">
+        <button type="submit">Search</button>
+    </form>
+    <ul>
+    {% for council in councils %}
+        <li><a href="{% url 'council_detail' council.slug %}">{{ council.name }}</a></li>
+    {% empty %}
+        {% if query %}
+        <li>No councils found.</li>
+        {% endif %}
+    {% endfor %}
+    </ul>
+</body>
+</html>

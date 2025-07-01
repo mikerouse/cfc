@@ -1,7 +1,45 @@
 from django.shortcuts import render, get_object_or_404
-from django.db.models import Q
+from django.db.models import Q, Sum, DecimalField
+from django.db.models.functions import Cast
 
-from .models import Council
+from .models import Council, FinancialYear, FigureSubmission
+
+
+def home(request):
+    """Landing page with search and overall debt counter."""
+    # Pull any search query from the request
+    query = request.GET.get("q", "")
+
+    # Look up councils matching the query when present
+    councils = []
+    if query:
+        councils = Council.objects.filter(
+            Q(name__icontains=query) | Q(slug__icontains=query)
+        )
+
+    # Determine the latest financial year for which we have debt figures
+    latest_year = FinancialYear.objects.order_by("-label").first()
+
+    if latest_year:
+        total_debt = (
+            FigureSubmission.objects.filter(
+                field_name="total_debt", year=latest_year
+            ).aggregate(
+                total=Sum(Cast("value", DecimalField(max_digits=20, decimal_places=2)))
+            )["total"]
+            or 0
+        )
+    else:
+        # Fallback when no figures are loaded
+        total_debt = 0
+
+    context = {
+        "query": query,
+        "councils": councils,
+        "total_debt": total_debt,
+    }
+
+    return render(request, "council_finance/home.html", context)
 
 
 def council_list(request):
