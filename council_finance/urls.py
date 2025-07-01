@@ -6,6 +6,7 @@ from django.contrib.auth.views import LoginView, LogoutView
 from . import views
 
 urlpatterns = [
+    path('', views.home, name='home'),
     path('admin/', admin.site.urls),
     path('plugins/', include('core.urls')),
     # Authentication endpoints for administrators and visitors.
