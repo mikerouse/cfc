@@ -1,7 +1,9 @@
 from django.shortcuts import render, get_object_or_404
 from django.db.models import Q
 
-from .models import Council
+from .models import Council, UserProfile
+from django.contrib.auth.decorators import login_required
+import hashlib
 
 
 def council_list(request):
@@ -35,3 +37,26 @@ def council_detail(request, slug):
         "council_finance/council_detail.html",
         {"council": council},
     )
+
+
+@login_required
+def profile_view(request):
+    """Display information about the currently logged-in user."""
+
+    user = request.user
+    # Attempt to grab the related profile (created automatically via signals).
+    profile = getattr(user, "profile", None)
+    # Compute a gravatar URL based on the user's email.
+    email = (user.email or "").strip().lower()
+    email_hash = hashlib.md5(email.encode("utf-8")).hexdigest() if email else ""
+    gravatar_url = (
+        f"https://www.gravatar.com/avatar/{email_hash}?d=identicon"
+        if email_hash
+        else None
+    )
+    context = {
+        "user": user,
+        "profile": profile,
+        "gravatar_url": gravatar_url,
+    }
+    return render(request, "registration/profile.html", context)
