@@ -1,19 +1,24 @@
 from django.shortcuts import render, get_object_or_404, redirect
-from django.db.models import Q
 from django.http import JsonResponse, HttpResponseBadRequest, Http404
-from django.contrib import messages
-from .emails import send_confirmation_email
-from django.contrib.auth.decorators import login_required
-from .forms import SignUpForm
-from django.contrib.auth import login
-from .models import Council, UserProfile
-from django.utils.crypto import get_random_string
-import hashlib
-from django.shortcuts import render, get_object_or_404
 from django.db.models import Q, Sum, DecimalField
 from django.db.models.functions import Cast
+from django.contrib import messages
+from django.contrib.auth.decorators import login_required
+from django.contrib.auth.hashers import make_password
+from django.contrib.auth import login
+from django.utils.crypto import get_random_string
+import hashlib
 
-from .models import Council, FinancialYear, FigureSubmission
+from .emails import send_confirmation_email
+from .forms import SignUpForm
+from .models import (
+    Council,
+    FinancialYear,
+    FigureSubmission,
+    UserProfile,
+    UserFollow,
+    PendingProfileChange,
+)
 
 
 def home(request):
@@ -146,8 +151,45 @@ def profile_view(request):
     """Display information about the currently logged-in user."""
 
     user = request.user
-    # Attempt to grab the related profile (created automatically via signals).
-    profile = getattr(user, "profile", None)
+    # Ensure we always have a profile so postcode input always appears.
+    profile, _ = UserProfile.objects.get_or_create(
+        user=user,
+        defaults={"confirmation_token": get_random_string(32)},
+    )
+
+    # Handle form submissions
+    if request.method == "POST":
+        # Update visibility directly
+        if "visibility" in request.POST:
+            profile.visibility = request.POST.get("visibility", profile.visibility)
+            profile.save()
+            messages.success(request, "Visibility updated.")
+        # Request a change to names, email or password which must be confirmed
+        elif "change_details" in request.POST:
+            token = get_random_string(32)
+            PendingProfileChange.objects.create(
+                user=user,
+                token=token,
+                new_first_name=request.POST.get("first_name", ""),
+                new_last_name=request.POST.get("last_name", ""),
+                new_email=request.POST.get("email", ""),
+                new_password=make_password(request.POST.get("password1", ""))
+                if request.POST.get("password1")
+                else "",
+            )
+            confirm_link = request.build_absolute_uri(
+                reverse("confirm_profile_change", args=[token])
+            )
+            send_mail(
+                "Confirm profile change",
+                f"Visit the following link to confirm your changes: {confirm_link}",
+                None,
+                [user.email],
+            )
+            messages.info(request, "Check your email to confirm profile changes.")
+
+    # List of accounts following the current user
+    followers = UserFollow.objects.filter(target=user).select_related("follower")
     # Compute a gravatar URL based on the user's email.
     email = (user.email or "").strip().lower()
     email_hash = hashlib.md5(email.encode("utf-8")).hexdigest() if email else ""
@@ -160,6 +202,8 @@ def profile_view(request):
         "user": user,
         "profile": profile,
         "gravatar_url": gravatar_url,
+        "followers": followers,
+        "visibility_choices": UserProfile.VISIBILITY_CHOICES,
     }
     return render(request, "registration/profile.html", context)
 
@@ -190,7 +234,9 @@ def update_postcode(request):
         return HttpResponseBadRequest("POST required")
 
     postcode = request.POST.get("postcode", "").strip()
-    if not postcode:
+    # If the user ticks the refusal box we'll store that instead of a postcode
+    refused = request.POST.get("refused") == "1"
+    if not postcode and not refused:
         return JsonResponse({"error": "Postcode required"}, status=400)
 
     # Ensure the user has a profile; create one if missing.
@@ -198,9 +244,14 @@ def update_postcode(request):
         user=request.user,
         defaults={"confirmation_token": get_random_string(32)},
     )
-    profile.postcode = postcode
+    if refused:
+        profile.postcode = ""
+        profile.postcode_refused = True
+    else:
+        profile.postcode = postcode
+        profile.postcode_refused = False
     profile.save()
-    return JsonResponse({"postcode": profile.postcode})
+    return JsonResponse({"postcode": profile.postcode, "refused": profile.postcode_refused})
 
 
 @login_required
@@ -229,4 +280,23 @@ def confirm_email(request, token):
     profile.confirmation_token = ""
     profile.save()
     messages.success(request, "Email confirmed. Thank you!")
+    return redirect("profile")
+
+
+def confirm_profile_change(request, token):
+    """Apply pending profile updates once the token is visited."""
+
+    change = get_object_or_404(PendingProfileChange, token=token)
+    user = change.user
+    if change.new_first_name:
+        user.first_name = change.new_first_name
+    if change.new_last_name:
+        user.last_name = change.new_last_name
+    if change.new_email:
+        user.email = change.new_email
+    if change.new_password:
+        user.password = change.new_password
+    user.save()
+    change.delete()
+    messages.success(request, "Profile updated.")
     return redirect("profile")

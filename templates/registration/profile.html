@@ -1,63 +1,105 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="utf-8">
-    <title>My profile</title>
-    <style>
-        body { font-family: sans-serif; max-width: 600px; margin: auto; padding: 2em; }
-        img.avatar { border-radius: 50%; }
-    </style>
-</head>
-<body>
-    <h1>Your profile</h1>
-    {% if gravatar_url %}
-        <img class="avatar" src="{{ gravatar_url }}" alt="Gravatar" width="80" height="80">
-    {% endif %}
-    <p><strong>Name:</strong> {{ user.get_full_name|default:user.username }}</p>
-    <p><strong>Email:</strong> {{ user.email }}</p>
-    {% if not profile.email_confirmed %}
-        <p id="email-warning" style="color:red;">
-            Your email is not confirmed.
-            <a href="{% url 'resend_confirmation' %}">Resend confirmation email</a>
-        </p>
-    {% endif %}
-    {% if profile %}
-        <p><strong>Post code:</strong> {{ profile.postcode|default:'-' }}</p>
-        {% if not profile.postcode %}
-            <p id="postcode-warning" style="color:red;">Please add your postcode.</p>
-            <input id="postcode-input" type="text" placeholder="Postcode">
-            <button id="postcode-save">Save</button>
-            <script>
-            // Helper to pull the CSRF token from the cookie
-            function getCookie(name){
-                const m = document.cookie.match('(^|;)\\s*'+name+'\\s*=\\s*([^;]+)');
-                return m ? m.pop() : '';
-            }
-            document.getElementById('postcode-save').onclick = function(){
-                const pc = document.getElementById('postcode-input').value;
-                fetch('{% url "update_postcode" %}', {
-                    method: 'POST',
-                    headers: {
-                        'X-CSRFToken': getCookie('csrftoken'),
-                        'Content-Type': 'application/x-www-form-urlencoded'
-                    },
-                    body: 'postcode=' + encodeURIComponent(pc)
-                }).then(resp => resp.json()).then(data => {
-                    if(data.postcode){
-                        document.getElementById('postcode-warning').textContent = 'Postcode saved';
-                    }
-                });
-            };
-            </script>
-        {% endif %}
-        <h2>Favourite councils</h2>
-        <ul>
-        {% for council in profile.favourites.all %}
-            <li><a href="{% url 'council_detail' council.slug %}">{{ council.name }}</a></li>
-        {% empty %}
-            <li>You have no favourites yet.</li>
-        {% endfor %}
-        </ul>
-    {% endif %}
-</body>
-</html>
+{# Profile page for logged in users using the common base template #}
+{% extends "base.html" %}
+{% block title %}My Profile - Council Finance Counters{% endblock %}
+{% block content %}
+<h1 class="text-2xl font-bold mb-4">My Profile</h1>
+{% if gravatar_url %}
+  <img class="rounded-full w-20 h-20" src="{{ gravatar_url }}" alt="Gravatar">
+  <p class="text-sm mt-1">Profile photo loaded from <a class="text-blue-600 underline" href="https://gravatar.com">Gravatar</a>. Update it there if you wish.</p>
+{% endif %}
+{% if not profile.email_confirmed %}
+  <div id="email-warning" class="bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700 p-4 my-4">
+    <p>Your email is not confirmed. <a href="{% url 'resend_confirmation' %}" class="underline">Resend confirmation email</a></p>
+  </div>
+{% endif %}
+<table class="min-w-full mb-4">
+  <tbody>
+    <tr class="border-b"><th class="text-left py-1 px-2">Username</th><td class="py-1 px-2">{{ user.username }}</td></tr>
+    <tr class="border-b"><th class="text-left py-1 px-2">First name</th><td class="py-1 px-2">{{ user.first_name|default:'-' }}</td></tr>
+    <tr class="border-b"><th class="text-left py-1 px-2">Last name</th><td class="py-1 px-2">{{ user.last_name|default:'-' }}</td></tr>
+    <tr class="border-b"><th class="text-left py-1 px-2">Email</th><td class="py-1 px-2">{{ user.email }}</td></tr>
+    <tr class="border-b"><th class="text-left py-1 px-2">Postcode</th><td class="py-1 px-2">{{ profile.postcode|default:'-' }}</td></tr>
+    <tr class="border-b"><th class="text-left py-1 px-2">Visibility</th><td class="py-1 px-2">{{ profile.get_visibility_display }}</td></tr>
+  </tbody>
+</table>
+{% if not profile.postcode and not profile.postcode_refused %}
+  <div id="postcode-card" class="bg-red-100 border border-red-300 text-red-800 p-4 rounded mb-4">
+    <p>Please add your postcode. Many features rely on location and postcode to show customised views and data. Without it these features will not work.</p>
+    <div class="flex items-center mt-2 gap-2">
+      <input id="postcode-input" type="text" class="border rounded px-2 py-1 flex-1" placeholder="Postcode">
+      <button id="postcode-save" type="button" class="bg-blue-600 text-white px-3 py-1 rounded">Save</button>
+    </div>
+    <label class="block mt-2"><input id="postcode-refused" type="checkbox" class="mr-1">I understand and do not wish to provide my postcode.</label>
+  </div>
+{% elif profile.postcode_refused %}
+  <div class="bg-gray-100 border border-gray-300 text-gray-700 p-4 rounded mb-4">
+    <p>You have chosen not to provide a postcode. Some location-based features will not be available.</p>
+  </div>
+{% endif %}
+<form method="post" class="mt-6 space-y-4">
+  {% csrf_token %}
+  <input type="hidden" name="change_details" value="1">
+  <div>
+    <label class="block font-medium">First name</label>
+    <input type="text" name="first_name" value="{{ user.first_name }}" class="border rounded px-2 py-1 w-full">
+  </div>
+  <div>
+    <label class="block font-medium">Last name</label>
+    <input type="text" name="last_name" value="{{ user.last_name }}" class="border rounded px-2 py-1 w-full">
+  </div>
+  <div>
+    <label class="block font-medium">Email</label>
+    <input type="email" name="email" value="{{ user.email }}" class="border rounded px-2 py-1 w-full">
+  </div>
+  <div>
+    <label class="block font-medium">New password</label>
+    <input type="password" name="password1" class="border rounded px-2 py-1 w-full">
+    <input type="password" name="password2" class="border rounded px-2 py-1 w-full mt-1">
+  </div>
+  <button type="submit" class="bg-blue-600 text-white px-4 py-1 rounded">Request change</button>
+</form>
+<form method="post" class="mt-6">
+  {% csrf_token %}
+  <label class="block font-medium">Profile visibility</label>
+  <select name="visibility" class="border rounded p-1">
+    {% for val, label in visibility_choices %}
+      <option value="{{ val }}" {% if profile.visibility == val %}selected{% endif %}>{{ label }}</option>
+    {% endfor %}
+  </select>
+  <button type="submit" class="bg-blue-600 text-white px-3 py-1 rounded ml-2">Save</button>
+</form>
+<h2 class="text-xl font-bold mt-8">Followers</h2>
+<table class="min-w-full border">
+  <thead class="bg-gray-50">
+    <tr><th class="text-left px-2 py-1">Username</th><th class="px-2 py-1">Since</th></tr>
+  </thead>
+  <tbody>
+    {% for f in followers %}
+    <tr class="border-t"><td class="px-2 py-1">{{ f.follower.username }}</td><td class="px-2 py-1">{{ f.created_at|date:"Y-m-d" }}</td></tr>
+    {% empty %}
+    <tr><td colspan="2" class="px-2 py-1">No followers yet.</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+<script>
+// Helper used for AJAX requests to include the CSRF token
+function getCookie(name){
+  const m=document.cookie.match('(^|;)\\s*'+name+'\\s*=\\s*([^;]+)');
+  return m?m.pop():'';
+}
+// Allow users to either save a postcode or record refusal.
+var saveBtn=document.getElementById('postcode-save');
+if(saveBtn){
+  saveBtn.onclick=function(){
+    var refused=document.getElementById('postcode-refused').checked;
+    var pc=document.getElementById('postcode-input').value;
+    var body=refused?'refused=1':'postcode='+encodeURIComponent(pc);
+    fetch('{% url "update_postcode" %}',{
+      method:'POST',
+      headers:{'X-CSRFToken':getCookie('csrftoken'),'Content-Type':'application/x-www-form-urlencoded'},
+      body:body
+    }).then(r=>r.json()).then(()=>{location.reload();});
+  };
+}
+</script>
+{% endblock %}
