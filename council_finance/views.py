@@ -7,6 +7,7 @@ from django.contrib.auth.decorators import login_required
 from .forms import SignUpForm
 from django.contrib.auth import login
 from .models import Council, UserProfile
+from django.utils.crypto import get_random_string
 import hashlib
 from django.shortcuts import render, get_object_or_404
 from django.db.models import Q, Sum, DecimalField
@@ -192,7 +193,11 @@ def update_postcode(request):
     if not postcode:
         return JsonResponse({"error": "Postcode required"}, status=400)
 
-    profile = request.user.profile
+    # Ensure the user has a profile; create one if missing.
+    profile, _ = UserProfile.objects.get_or_create(
+        user=request.user,
+        defaults={"confirmation_token": get_random_string(32)},
+    )
     profile.postcode = postcode
     profile.save()
     return JsonResponse({"postcode": profile.postcode})
@@ -202,7 +207,12 @@ def update_postcode(request):
 def resend_confirmation(request):
     """Send another confirmation email to the logged-in user."""
 
-    send_confirmation_email(request.user.profile, request)
+    # Gracefully handle users who were created before profiles existed.
+    profile, _ = UserProfile.objects.get_or_create(
+        user=request.user,
+        defaults={"confirmation_token": get_random_string(32)},
+    )
+    send_confirmation_email(profile, request)
     messages.info(request, "Confirmation email sent.")
     return redirect("profile")
 

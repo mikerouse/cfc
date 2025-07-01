@@ -20,7 +20,12 @@
                 <a href="{% url 'following' %}" class="hover:underline">Following</a>
                 <a href="{% url 'submit' %}" class="hover:underline">Submit</a>
                 {% if user.is_authenticated %}
-                <a href="{% url 'my_profile' %}" class="hover:underline">My Profile</a>
+                {# Use the real account profile page rather than the placeholder #}
+                <a href="{% url 'profile' %}" class="hover:underline">My Profile</a>
+                {% if user.is_staff or user.is_superuser %}
+                {# Provide quick access to the Django admin for staff users #}
+                <a href="{% url 'admin:index' %}" class="hover:underline">Admin</a>
+                {% endif %}
                 {% else %}
                 <a href="{% url 'login' %}" class="hover:underline">Login/Register</a>
                 {% endif %}
