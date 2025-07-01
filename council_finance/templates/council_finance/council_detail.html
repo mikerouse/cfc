@@ -1,17 +1,13 @@
-<!DOCTYPE html>
-<html>
-<head>
-    <title>{{ council.name }}</title>
-</head>
-<body>
-    <h1>{{ council.name }}</h1>
-    <p>Slug: {{ council.slug }}</p>
-    {% if council.website %}
-    <p>Website: <a href="{{ council.website }}">{{ council.website }}</a></p>
-    {% endif %}
-    {% if council.council_type %}
-    <p>Type: {{ council.council_type }}</p>
-    {% endif %}
-    <p><a href="{% url 'council_list' %}">Back to all councils</a></p>
-</body>
-</html>
+{% extends "base.html" %}
+{% block title %}{{ council.name }} - Council Finance Counters{% endblock %}
+{% block content %}
+<h1 class="text-2xl font-bold mb-4">{{ council.name }}</h1>
+<p>Slug: {{ council.slug }}</p>
+{% if council.website %}
+<p>Website: <a href="{{ council.website }}" class="text-blue-700 hover:underline">{{ council.website }}</a></p>
+{% endif %}
+{% if council.council_type %}
+<p>Type: {{ council.council_type }}</p>
+{% endif %}
+<p class="mt-4"><a href="{% url 'council_list' %}" class="text-blue-700 hover:underline">Back to all councils</a></p>
+{% endblock %}

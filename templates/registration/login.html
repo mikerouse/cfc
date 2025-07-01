@@ -1,26 +1,13 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="utf-8">
-    <title>Log in - Council Finance Counters</title>
-    <style>
-        /* Simple styles to match the minimal project aesthetic */
-        body { font-family: sans-serif; max-width: 600px; margin: auto; padding: 2em; }
-        h1 { font-size: 1.5em; }
-        form { display: flex; flex-direction: column; gap: 1em; }
-        label { font-weight: bold; }
-        input[type="submit"] { width: fit-content; padding: 0.5em 1em; }
-    </style>
-</head>
-<body>
-    <h1>Please sign in</h1>
-    {% if form.errors %}
-        <p style="color:red;">Invalid username or password.</p>
-    {% endif %}
-    <form method="post">
-        {% csrf_token %}
-        {{ form.as_p }}
-        <input type="submit" value="Log in">
-    </form>
-</body>
-</html>
+{% extends "base.html" %}
+{% block title %}Log in - Council Finance Counters{% endblock %}
+{% block content %}
+<h1 class="text-2xl font-bold mb-4">Please sign in</h1>
+{% if form.errors %}
+    <p class="text-red-600">Invalid username or password.</p>
+{% endif %}
+<form method="post" class="space-y-4">
+    {% csrf_token %}
+    {{ form.as_p }}
+    <input type="submit" value="Log in" class="bg-blue-600 text-white px-4 py-1 rounded" />
+</form>
+{% endblock %}

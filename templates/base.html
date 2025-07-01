@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>{% block title %}Council Finance Counters{% endblock %}</title>
+    <!-- Use Tailwind via CDN for quick styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="flex flex-col min-h-screen">
+    <!-- Site header with brand, navigation and search -->
+    <header class="bg-gray-800 text-white">
+        <div class="max-w-7xl mx-auto flex flex-wrap items-center justify-between p-4">
+            <a href="{% url 'home' %}" class="text-xl font-bold">Council Finance Counters</a>
+            <nav class="flex flex-wrap gap-4 items-center">
+                <a href="{% url 'home' %}" class="hover:underline">Home</a>
+                <a href="{% url 'leaderboards' %}" class="hover:underline">Leaderboards</a>
+                {% if user.is_authenticated %}
+                <a href="{% url 'my_lists' %}" class="hover:underline">My Lists</a>
+                {% endif %}
+                <a href="{% url 'following' %}" class="hover:underline">Following</a>
+                <a href="{% url 'submit' %}" class="hover:underline">Submit</a>
+                {% if user.is_authenticated %}
+                <a href="{% url 'my_profile' %}" class="hover:underline">My Profile</a>
+                {% else %}
+                <a href="{% url 'login' %}" class="hover:underline">Login/Register</a>
+                {% endif %}
+            </nav>
+            <!-- Search form to look up councils -->
+            <form method="get" action="{% url 'home' %}" class="mt-2 sm:mt-0">
+                <input type="text" name="q" placeholder="find your council" class="rounded px-2 py-1 text-black"/>
+            </form>
+        </div>
+    </header>
+
+    <main class="flex-1 max-w-7xl mx-auto p-4">
+        {% block content %}{% endblock %}
+    </main>
+
+    <!-- Site footer with secondary navigation -->
+    <footer class="bg-gray-100 text-sm mt-8">
+        <div class="max-w-7xl mx-auto p-4 space-y-2">
+            <nav class="flex gap-4">
+                <a href="{% url 'about' %}" class="hover:underline">About</a>
+                <a href="{% url 'terms_of_use' %}" class="hover:underline">Terms of Use</a>
+                <a href="{% url 'privacy_cookies' %}" class="hover:underline">Privacy & Cookies</a>
+                <a href="{% url 'corrections' %}" class="hover:underline">Corrections</a>
+            </nav>
+            <p class="text-gray-500">Copyright (c) 2025 Bluetorch Consulting Ltd. This is an open data project to support transparency.</p>
+        </div>
+    </footer>
+</body>
+</html>

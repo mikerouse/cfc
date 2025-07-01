@@ -1,20 +1,16 @@
-<!DOCTYPE html>
-<html>
-<head>
-    <title>Councils</title>
-</head>
-<body>
-    <h1>Councils</h1>
-    <form method="get">
-        <input type="text" name="q" value="{{ query }}" placeholder="Search by name or slug">
-        <button type="submit">Search</button>
-    </form>
-    <ul>
-    {% for council in councils %}
-        <li><a href="{% url 'council_detail' council.slug %}">{{ council.name }}</a></li>
-    {% empty %}
-        <li>No councils found.</li>
-    {% endfor %}
-    </ul>
-</body>
-</html>
+{% extends "base.html" %}
+{% block title %}Councils - Council Finance Counters{% endblock %}
+{% block content %}
+<h1 class="text-2xl font-bold mb-4">Councils</h1>
+<form method="get" class="my-4 flex gap-2">
+    <input type="text" name="q" value="{{ query }}" placeholder="Search by name or slug" class="border rounded px-2 py-1" />
+    <button type="submit" class="bg-blue-600 text-white px-4 py-1 rounded">Search</button>
+</form>
+<ul class="list-disc pl-5">
+{% for council in councils %}
+    <li><a href="{% url 'council_detail' council.slug %}" class="text-blue-700 hover:underline">{{ council.name }}</a></li>
+{% empty %}
+    <li>No councils found.</li>
+{% endfor %}
+</ul>
+{% endblock %}

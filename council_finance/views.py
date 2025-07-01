@@ -83,6 +83,63 @@ def council_detail(request, slug):
         {"council": council},
     )
 
+# Additional views for common site pages
+
+def leaderboards(request):
+    """Placeholder leaderboards page."""
+    return render(request, "council_finance/leaderboards.html")
+
+
+def my_lists(request):
+    """Display lists for authenticated users."""
+    if not request.user.is_authenticated:
+        # Redirect anonymous users to the login page
+        from django.shortcuts import redirect
+        return redirect('login')
+    return render(request, "council_finance/my_lists.html")
+
+
+def following(request):
+    """Show councils the user follows."""
+    return render(request, "council_finance/following.html")
+
+
+def submit(request):
+    """Placeholder submission page."""
+    return render(request, "council_finance/submit.html")
+
+
+def my_profile(request):
+    """Simple profile or redirect to login."""
+    if not request.user.is_authenticated:
+        from django.shortcuts import redirect
+        return redirect('login')
+    return render(request, "council_finance/my_profile.html")
+
+
+def about(request):
+    """About page that can be populated from the admin later."""
+    return render(request, "council_finance/about.html")
+
+
+def terms_of_use(request):
+    """Terms of use page."""
+    return render(request, "council_finance/terms_of_use.html")
+
+
+def privacy_cookies(request):
+    """Show cookie usage and brief privacy policy."""
+    return render(request, "council_finance/privacy_cookies.html")
+
+
+def corrections(request):
+    """Allow visitors to submit correction requests."""
+    submitted = False
+    if request.method == "POST":
+        # Later we might store the message in the database
+        submitted = True
+    return render(request, "council_finance/corrections.html", {"submitted": submitted})
+ =======
 
 @login_required
 def profile_view(request):
