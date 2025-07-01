@@ -7,6 +7,8 @@ from .council import (
     ModerationLog,
 )
 from .user_profile import UserProfile
+from .user_follow import UserFollow
+from .pending_profile_change import PendingProfileChange
 
 __all__ = [
     'Council',
@@ -16,4 +18,6 @@ __all__ = [
     'WhistleblowerReport',
     'ModerationLog',
     'UserProfile',
+    'UserFollow',
+    'PendingProfileChange',
 ]
