@@ -6,6 +6,7 @@ from .council import (
     WhistleblowerReport,
     ModerationLog,
 )
+from .user_profile import UserProfile
 
 __all__ = [
     'Council',
@@ -14,4 +15,5 @@ __all__ = [
     'DebtAdjustment',
     'WhistleblowerReport',
     'ModerationLog',
+    'UserProfile',
 ]
