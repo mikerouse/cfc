@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>My profile</title>
+    <style>
+        body { font-family: sans-serif; max-width: 600px; margin: auto; padding: 2em; }
+        img.avatar { border-radius: 50%; }
+    </style>
+</head>
+<body>
+    <h1>Your profile</h1>
+    {% if gravatar_url %}
+        <img class="avatar" src="{{ gravatar_url }}" alt="Gravatar" width="80" height="80">
+    {% endif %}
+    <p><strong>Name:</strong> {{ user.get_full_name|default:user.username }}</p>
+    <p><strong>Email:</strong> {{ user.email }}</p>
+    {% if not profile.email_confirmed %}
+        <p id="email-warning" style="color:red;">
+            Your email is not confirmed.
+            <a href="{% url 'resend_confirmation' %}">Resend confirmation email</a>
+        </p>
+    {% endif %}
+    {% if profile %}
+        <p><strong>Post code:</strong> {{ profile.postcode|default:'-' }}</p>
+        {% if not profile.postcode %}
+            <p id="postcode-warning" style="color:red;">Please add your postcode.</p>
+            <input id="postcode-input" type="text" placeholder="Postcode">
+            <button id="postcode-save">Save</button>
+            <script>
+            // Helper to pull the CSRF token from the cookie
+            function getCookie(name){
+                const m = document.cookie.match('(^|;)\\s*'+name+'\\s*=\\s*([^;]+)');
+                return m ? m.pop() : '';
+            }
+            document.getElementById('postcode-save').onclick = function(){
+                const pc = document.getElementById('postcode-input').value;
+                fetch('{% url "update_postcode" %}', {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRFToken': getCookie('csrftoken'),
+                        'Content-Type': 'application/x-www-form-urlencoded'
+                    },
+                    body: 'postcode=' + encodeURIComponent(pc)
+                }).then(resp => resp.json()).then(data => {
+                    if(data.postcode){
+                        document.getElementById('postcode-warning').textContent = 'Postcode saved';
+                    }
+                });
+            };
+            </script>
+        {% endif %}
+        <h2>Favourite councils</h2>
+        <ul>
+        {% for council in profile.favourites.all %}
+            <li><a href="{% url 'council_detail' council.slug %}">{{ council.name }}</a></li>
+        {% empty %}
+            <li>You have no favourites yet.</li>
+        {% endfor %}
+        </ul>
+    {% endif %}
+</body>
+</html>

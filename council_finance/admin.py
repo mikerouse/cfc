@@ -11,6 +11,7 @@ from .models.council import (
     WhistleblowerReport,
     ModerationLog,
 )
+from .models.user_profile import UserProfile
 
 # Register core models in the Django admin.
 # Using admin.site.register is sufficient for simple use cases.
@@ -20,3 +21,4 @@ admin.site.register(FigureSubmission)
 admin.site.register(DebtAdjustment)
 admin.site.register(WhistleblowerReport)
 admin.site.register(ModerationLog)
+admin.site.register(UserProfile)
