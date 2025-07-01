@@ -139,7 +139,6 @@ def corrections(request):
         # Later we might store the message in the database
         submitted = True
     return render(request, "council_finance/corrections.html", {"submitted": submitted})
- =======
 
 @login_required
 def profile_view(request):
