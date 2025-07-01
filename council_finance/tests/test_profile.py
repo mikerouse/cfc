@@ -37,7 +37,6 @@ class ProfileViewTest(TestCase):
         response = self.client.get(reverse("profile"))
         self.assertContains(response, "email-warning")
 
-
 class SignUpTest(TestCase):
     def test_signup_requires_postcode(self):
         response = self.client.post(reverse("signup"), {
@@ -97,4 +96,3 @@ class EmailConfirmationTest(TestCase):
         self.client.login(username="dave", password="secret")
         self.client.get(reverse("resend_confirmation"))
         self.assertEqual(len(mail.outbox), 1)
-
