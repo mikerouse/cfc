@@ -110,6 +110,7 @@ class CounterAgentTest(TestCase):
         result = agent.run(year=2023)
         self.assertGreater(result['debt'], 0)
 ```
+When developing this app, write unit tests (and other test types) to ensure robust testing is in place. Some tests should be exposed to the admin users in the backend such as things like tests to check the integrity of data, which can be run routinely. 
 
 ---
 
@@ -118,6 +119,7 @@ class CounterAgentTest(TestCase):
 - Use `.env` files for API keys and database URLs.
 - `config/settings.py` is loaded dynamically and supports overrides via environment.
 - Store config overrides or user-specified parameters via a `settings` model or flatfile.
+- Update requirements.txt with any requirements as needed.
 
 ---
 
