@@ -38,3 +38,35 @@ class CouncilImportForm(forms.Form):
         help_text="Upload a JSON export containing councils and figures."
     )
 
+
+# Available internal fields that council figures can map to. This keeps
+# the mapping logic explicit and future-proof.
+INTERNAL_FIELDS = [
+    "population",
+    "elected_members",
+    "total_debt",
+    "band_d_properties",
+    "current_liabilities",
+    "long_term_liabilities",
+    "counter_start_date",
+    "households",
+]
+
+
+class CouncilImportMappingForm(forms.Form):
+    """Allow admins to map JSON fields to internal figure names."""
+
+    def __init__(self, *args, available_fields=None, **kwargs):
+        # ``available_fields`` is a list of field names present in the uploaded
+        # JSON file. We dynamically create a ChoiceField for each so the admin
+        # can specify how it maps to our internal field names.
+        super().__init__(*args, **kwargs)
+        if available_fields:
+            choices = [(f, f) for f in INTERNAL_FIELDS]
+            for field in available_fields:
+                self.fields[field] = forms.ChoiceField(
+                    label=f"Map '{field}' to",
+                    choices=[("", "-- ignore --")] + choices,
+                    required=False,
+                )
+

@@ -4,6 +4,7 @@
 from django.contrib import admin
 from django.urls import path
 from django.shortcuts import render, redirect
+from django.http import JsonResponse
 from django.contrib import messages
 import json
 
@@ -19,7 +20,7 @@ from .models.user_profile import UserProfile
 from .models.user_follow import UserFollow
 from .models.pending_profile_change import PendingProfileChange
 from .models.notification import Notification
-from .forms import CouncilImportForm
+from .forms import CouncilImportForm, CouncilImportMappingForm, INTERNAL_FIELDS
 
 class CouncilAdmin(admin.ModelAdmin):
     """Custom admin with a JSON import helper."""
@@ -29,7 +30,7 @@ class CouncilAdmin(admin.ModelAdmin):
     change_list_template = "admin/council_finance/council/change_list.html"
 
     def get_urls(self):
-        # Add an extra URL pointing to our import view
+        # Add extra URLs pointing to the import flow and progress endpoint.
         urls = super().get_urls()
         custom = [
             path(
@@ -37,12 +38,18 @@ class CouncilAdmin(admin.ModelAdmin):
                 self.admin_site.admin_view(self.import_json),
                 name="council_finance_council_import",
             ),
+            path(
+                "import-json/progress/",
+                self.admin_site.admin_view(self.import_progress),
+                name="council_finance_council_import_progress",
+            ),
         ]
         return custom + urls
 
     def import_json(self, request):
-        """Handle upload and creation of council data."""
-        if request.method == "POST":
+        """Multi-step JSON import with optional field mapping."""
+        # Step 1: handle the initial file upload and present the mapping form.
+        if request.method == "POST" and request.POST.get("step") == "upload":
             form = CouncilImportForm(request.POST, request.FILES)
             if form.is_valid():
                 try:
@@ -50,35 +57,76 @@ class CouncilAdmin(admin.ModelAdmin):
                 except json.JSONDecodeError:
                     form.add_error("json_file", "Invalid JSON file")
                 else:
-                    # Loop through each council record mirroring ImporterAgent
-                    for council_data in data.get("councils", []):
-                        council, _ = Council.objects.get_or_create(
-                            slug=council_data["slug"],
-                            defaults={
-                                "name": council_data.get("name", ""),
-                                "website": council_data.get("website", ""),
-                                "council_type": council_data.get("council_type", ""),
-                            },
-                        )
-                        for field, year_map in council_data.get("values", {}).items():
-                            for year_label, value in year_map.items():
-                                fy, _ = FinancialYear.objects.get_or_create(label=year_label)
-                                FigureSubmission.objects.update_or_create(
-                                    council=council,
-                                    year=fy,
-                                    field_name=field,
-                                    defaults={"value": value},
-                                )
-                    messages.success(request, "Council data imported successfully.")
-                    return redirect("admin:council_finance_council_changelist")
-        else:
-            form = CouncilImportForm()
+                    # Store parsed data in the session for later processing.
+                    request.session["import_data"] = data
+                    fields = [f["name"] for f in data.get("fields", [])]
+                    map_form = CouncilImportMappingForm(available_fields=fields)
+                    context = {**self.admin_site.each_context(request), "map_form": map_form}
+                    return render(request, "admin/council_finance/council/import_map.html", context)
+        # Step 2: mapping submitted - start the import and show progress page.
+        elif request.method == "POST" and request.POST.get("step") == "map":
+            data = request.session.get("import_data", {})
+            fields = [f["name"] for f in data.get("fields", [])]
+            map_form = CouncilImportMappingForm(request.POST, available_fields=fields)
+            if map_form.is_valid():
+                request.session["import_mapping"] = {
+                    k: v for k, v in map_form.cleaned_data.items() if v
+                }
+                request.session["import_index"] = 0
+                total = len(data.get("councils", []))
+                context = {**self.admin_site.each_context(request), "total": total}
+                return render(
+                    request,
+                    "admin/council_finance/council/import_progress.html",
+                    context,
+                )
 
-        context = {
-            **self.admin_site.each_context(request),
-            "form": form,
-        }
-        return render(request, "admin/council_finance/council/import_json.html", context)
+        # Default GET renders the upload form.
+        form = CouncilImportForm()
+        context = {**self.admin_site.each_context(request), "form": form}
+        return render(request, "admin/council_finance/council/import_upload.html", context)
+
+    def import_progress(self, request):
+        """Process a single council and return JSON progress."""
+        data = request.session.get("import_data", {})
+        mapping = request.session.get("import_mapping", {})
+        index = request.session.get("import_index", 0)
+
+        councils = data.get("councils", [])
+        total = len(councils)
+        if index >= total:
+            # Cleanup session once completed
+            request.session.pop("import_data", None)
+            request.session.pop("import_mapping", None)
+            request.session.pop("import_index", None)
+            return JsonResponse({"complete": True})
+
+        council_data = councils[index]
+        council, _ = Council.objects.get_or_create(
+            slug=council_data["slug"],
+            defaults={
+                "name": council_data.get("name", ""),
+                "website": council_data.get("website", ""),
+                "council_type": council_data.get("council_type", ""),
+            },
+        )
+
+        for field, year_map in council_data.get("values", {}).items():
+            mapped = mapping.get(field) or field
+            if mapped not in INTERNAL_FIELDS:
+                # Skip anything not recognised by our system
+                continue
+            for year_label, value in year_map.items():
+                fy, _ = FinancialYear.objects.get_or_create(label=year_label)
+                FigureSubmission.objects.update_or_create(
+                    council=council,
+                    year=fy,
+                    field_name=mapped,
+                    defaults={"value": value},
+                )
+
+        request.session["import_index"] = index + 1
+        return JsonResponse({"complete": False, "processed": index + 1, "total": total})
 
 # Register core models in the Django admin.
 # Using admin.site.register is sufficient for simple use cases.

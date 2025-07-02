@@ -40,5 +40,7 @@ You can then access the admin at `http://localhost:8000/admin/` using the creden
 
 Staff members can upload a JSON export from the legacy plugin directly in the
 Django admin. Navigate to **Councils** in the admin and use the “Import JSON”
-button at the top-right of the change list. The file `councils-migration.json`
+button at the top-right of the change list. After uploading the file you will be
+prompted to map the plugin’s fields onto the new system. Large imports proceed
+asynchronously with a progress readout. The file `councils-migration.json`
 provides an example of the expected format.

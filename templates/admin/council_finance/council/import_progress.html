@@ -1,0 +1,20 @@
+{% extends "admin/base_site.html" %}
+{% block content %}
+<h1 class="mb-4 text-lg font-bold">Importing Councils</h1>
+<p id="progress">0/{{ total }}</p>
+<script>
+function poll(){
+  fetch("{% url 'admin:council_finance_council_import_progress' %}")
+    .then(r => r.json())
+    .then(data => {
+      if(data.complete){
+        window.location.href = "{% url 'admin:council_finance_council_changelist' %}";
+      } else {
+        document.getElementById('progress').innerText = data.processed + '/' + data.total;
+        setTimeout(poll, 1000);
+      }
+    });
+}
+poll();
+</script>
+{% endblock %}
