@@ -12,6 +12,7 @@ import hashlib
 from brevo_python.rest import ApiException
 
 from .emails import send_confirmation_email, send_email
+from .notifications import create_notification
 from .forms import SignUpForm
 from .models import (
     Council,
@@ -205,8 +206,29 @@ def profile_view(request):
         "gravatar_url": gravatar_url,
         "followers": followers,
         "visibility_choices": UserProfile.VISIBILITY_CHOICES,
+        "tab": "profile",
     }
     return render(request, "registration/profile.html", context)
+
+
+@login_required
+def notifications_page(request):
+    """Display all notifications for the current user."""
+    notifications = request.user.notifications.order_by("-created")
+    return render(
+        request,
+        "registration/notifications.html",
+        {"notifications": notifications, "tab": "notifications"},
+    )
+
+
+@login_required
+def dismiss_notification(request, notification_id):
+    """Mark a notification as read then redirect back."""
+    note = get_object_or_404(request.user.notifications, id=notification_id)
+    note.read = True
+    note.save()
+    return redirect(request.META.get("HTTP_REFERER", "notifications"))
 
 
 def signup_view(request):
@@ -295,6 +317,8 @@ def confirm_email(request, token):
     profile.email_confirmed = True
     profile.confirmation_token = ""
     profile.save()
+    # Log the confirmation event so the user has a record of it.
+    create_notification(profile.user, "Your email address has been confirmed.")
     messages.success(request, "Email confirmed. Thank you!")
     return redirect("profile")
 
@@ -313,6 +337,7 @@ def confirm_profile_change(request, token):
     if change.new_password:
         user.password = change.new_password
     user.save()
+    create_notification(user, "Your profile changes have been applied.")
     change.delete()
     messages.success(request, "Profile updated.")
     return redirect("profile")

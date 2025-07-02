@@ -12,11 +12,13 @@ source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
-2. Apply database migrations:
+2. Apply database migrations whenever pulling new code:
 
 ```bash
 python manage.py migrate
 ```
+The notification system introduced in July 2025 adds a new table, so be sure to
+run migrations after updating.
 
 3. **Create the first admin account** so you can log in to the Django admin. Run:
 

@@ -19,6 +19,8 @@ urlpatterns = [
     path('accounts/resend-confirmation/', views.resend_confirmation, name='resend_confirmation'),
     path('accounts/profile/postcode/', views.update_postcode, name='update_postcode'),
     path('accounts/profile/change/<str:token>/', views.confirm_profile_change, name='confirm_profile_change'),
+    path('accounts/notifications/', views.notifications_page, name='notifications'),
+    path('accounts/notifications/dismiss/<int:notification_id>/', views.dismiss_notification, name='dismiss_notification'),
     # Show information about the logged in user.
     path('accounts/profile/', views.profile_view, name='profile'),
     path('councils/', views.council_list, name='council_list'),

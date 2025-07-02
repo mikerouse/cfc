@@ -14,6 +14,7 @@ from .models.council import (
 from .models.user_profile import UserProfile
 from .models.user_follow import UserFollow
 from .models.pending_profile_change import PendingProfileChange
+from .models.notification import Notification
 
 # Register core models in the Django admin.
 # Using admin.site.register is sufficient for simple use cases.
@@ -26,3 +27,4 @@ admin.site.register(ModerationLog)
 admin.site.register(UserProfile)
 admin.site.register(UserFollow)
 admin.site.register(PendingProfileChange)
+admin.site.register(Notification)
