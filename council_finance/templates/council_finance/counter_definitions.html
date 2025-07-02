@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block title %}Counter Definitions - Council Finance Counters{% endblock %}
+{% block content %}
+<h1 class="text-2xl font-bold mb-4">Counter Definitions</h1>
+<form method="post">
+    {% csrf_token %}
+    {{ formset.management_form }}
+    <table class="min-w-full divide-y divide-gray-200 mb-4">
+        <thead>
+            <tr>
+                <th class="px-2 py-1 text-left">Name</th>
+                <th class="px-2 py-1 text-left">Slug</th>
+                <th class="px-2 py-1 text-left">Formula</th>
+                <th class="px-2 py-1 text-left">Explanation</th>
+                <th class="px-2 py-1 text-left">Duration (ms)</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for form in formset %}
+            <tr class="border-t">
+                <td class="px-2 py-1">{{ form.name }}</td>
+                <td class="px-2 py-1">{{ form.slug }}</td>
+                <td class="px-2 py-1">{{ form.formula }}</td>
+                <td class="px-2 py-1">{{ form.explanation }}</td>
+                <td class="px-2 py-1">{{ form.duration }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    <button class="bg-blue-600 text-white px-4 py-1 rounded" type="submit">Save</button>
+</form>
+{% endblock %}
+

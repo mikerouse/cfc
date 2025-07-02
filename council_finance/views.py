@@ -1,5 +1,6 @@
 from django.shortcuts import render, get_object_or_404, redirect
 from django.http import JsonResponse, HttpResponseBadRequest, Http404
+from django import forms
 from django.db.models import Q, Sum, DecimalField
 from django.db.models.functions import Cast
 from django.contrib import messages
@@ -13,7 +14,7 @@ from brevo_python.rest import ApiException
 
 from .emails import send_confirmation_email, send_email
 from .notifications import create_notification
-from .forms import SignUpForm, CouncilListForm
+from .forms import SignUpForm, CouncilListForm, CounterDefinitionForm
 from .models import (
     Council,
     FinancialYear,
@@ -22,6 +23,8 @@ from .models import (
     UserFollow,
     PendingProfileChange,
     CouncilList,
+    CounterDefinition,
+    CouncilCounter,
 )
 
 
@@ -106,11 +109,27 @@ def council_detail(request, slug):
         .order_by("year__label", "field_name")
     )
 
-    return render(
-        request,
-        "council_finance/council_detail.html",
-        {"council": council, "figures": figures},
-    )
+    latest_year = FinancialYear.objects.order_by("-label").first()
+    counter_values = {}
+    enabled = []
+    if latest_year:
+        from council_finance.agents.counter_agent import CounterAgent
+
+        agent = CounterAgent()
+        counter_values = agent.run(council_slug=slug, year_label=latest_year.label)
+        enabled = (
+            CouncilCounter.objects.filter(council=council, enabled=True)
+            .select_related("counter")
+        )
+
+    context = {
+        "council": council,
+        "figures": figures,
+        "counters": enabled,
+        "counter_values": counter_values,
+    }
+
+    return render(request, "council_finance/council_detail.html", context)
 
 # Additional views for common site pages
 
@@ -203,6 +222,33 @@ def corrections(request):
         # Later we might store the message in the database
         submitted = True
     return render(request, "council_finance/corrections.html", {"submitted": submitted})
+
+
+@login_required
+def counter_definitions_view(request):
+    """Allow staff to edit counter definitions outside of the admin."""
+
+    if not request.user.is_staff:
+        raise Http404()
+
+    CounterFormSet = forms.modelformset_factory(
+        CounterDefinition,
+        form=CounterDefinitionForm,
+        extra=0,
+    )
+
+    queryset = CounterDefinition.objects.all()
+    if request.method == "POST":
+        formset = CounterFormSet(request.POST, queryset=queryset)
+        if formset.is_valid():
+            formset.save()
+            messages.success(request, "Counters updated.")
+            return redirect("counter_definitions")
+    else:
+        formset = CounterFormSet(queryset=queryset)
+
+    context = {"formset": formset}
+    return render(request, "council_finance/counter_definitions.html", context)
 
 @login_required
 def profile_view(request):
@@ -396,3 +442,4 @@ def confirm_profile_change(request, token):
     change.delete()
     messages.success(request, "Profile updated.")
     return redirect("profile")
+

@@ -51,7 +51,13 @@
                 </div>
                 {% if user.is_staff or user.is_superuser %}
                 {# Provide quick access to the Django admin for staff users #}
-                <a href="{% url 'admin:index' %}" class="hover:underline">Admin</a>
+                <div class="relative group">
+                    <a href="{% url 'admin:index' %}" class="hover:underline">Admin</a>
+                    <div class="absolute hidden group-hover:block bg-gray-800 text-white text-sm mt-1 rounded shadow-lg">
+                        <a href="{% url 'admin:index' %}" class="block px-2 py-1 hover:underline">Django Admin</a>
+                        <a href="{% url 'counter_definitions' %}" class="block px-2 py-1 hover:underline">Counters</a>
+                    </div>
+                </div>
                 {% endif %}
                 {% else %}
                 <a href="{% url 'login' %}" class="hover:underline">Login/Register</a>

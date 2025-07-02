@@ -1,17 +1,31 @@
 from .base import AgentBase
-from council_finance.models import Council, FinancialYear, FigureSubmission
+from council_finance.models import (
+    Council,
+    FinancialYear,
+    FigureSubmission,
+    CounterDefinition,
+)
 
 class CounterAgent(AgentBase):
     """Simple counter that retrieves a figure for a council/year."""
     name = 'CounterAgent'
 
-    def run(self, council_slug, field_name, year_label, **kwargs):
+    def run(self, council_slug, year_label, **kwargs):
+        """Return all counter values for a council/year."""
         council = Council.objects.get(slug=council_slug)
         year = FinancialYear.objects.get(label=year_label)
-        try:
-            figure = FigureSubmission.objects.get(
-                council=council, year=year, field_name=field_name
-            )
-            print(f"{council.name} {field_name} {year_label}: {figure.value}")
-        except FigureSubmission.DoesNotExist:
-            print("No data found")
+        counters = CounterDefinition.objects.all()
+        results = {}
+        for counter in counters:
+            fields = [f.strip() for f in counter.formula.split("+") if f.strip()]
+            total = 0
+            for field in fields:
+                try:
+                    figure = FigureSubmission.objects.get(
+                        council=council, year=year, field_name=field
+                    )
+                    total += float(figure.value)
+                except (FigureSubmission.DoesNotExist, ValueError):
+                    continue
+            results[counter.slug] = total
+        return results

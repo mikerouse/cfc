@@ -48,3 +48,13 @@ provides an example of the expected format.
 Council types are editable via a dedicated model in the admin. Use the
 **Council Types** section to add new entries which then appear as options in the
 drop-down on each council form.
+
+## Animated Counters
+
+From July 2025 counters can be configured from the Django admin. Create a
+`Counter Definition` with a slug, formula and explanation text. Counters sum the
+specified figure fields using the `CounterAgent`. Each council can enable or
+disable individual counters in the **Councils** admin. Staff can also update all
+definitions on `/staff/counters/` via the link under the **Admin** menu in the
+site header.
+

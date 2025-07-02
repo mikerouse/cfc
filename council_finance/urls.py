@@ -36,4 +36,5 @@ urlpatterns = [
     path('terms/', views.terms_of_use, name='terms_of_use'),
     path('privacy/', views.privacy_cookies, name='privacy_cookies'),
     path('corrections/', views.corrections, name='corrections'),
+    path('staff/counters/', views.counter_definitions_view, name='counter_definitions'),
 ]
