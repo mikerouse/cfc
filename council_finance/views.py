@@ -13,7 +13,13 @@ from brevo_python.rest import ApiException
 
 from .emails import send_confirmation_email, send_email
 from .notifications import create_notification
-from .forms import SignUpForm, CouncilListForm
+# Import the constant containing valid field names for counter formulas.
+from .forms import (
+    SignUpForm,
+    CouncilListForm,
+    CounterDefinitionForm,
+    INTERNAL_FIELDS,
+)
 from .models import (
     Council,
     FinancialYear,
@@ -22,6 +28,8 @@ from .models import (
     UserFollow,
     PendingProfileChange,
     CouncilList,
+    CounterDefinition,
+    CouncilCounter,
 )
 
 
@@ -106,11 +114,35 @@ def council_detail(request, slug):
         .order_by("year__label", "field_name")
     )
 
-    return render(
-        request,
-        "council_finance/council_detail.html",
-        {"council": council, "figures": figures},
-    )
+    latest_year = FinancialYear.objects.order_by("-label").first()
+    counters = []
+    if latest_year:
+        from council_finance.agents.counter_agent import CounterAgent
+
+        agent = CounterAgent()
+        # Compute all counter values for this council/year using the agent
+        values = agent.run(council_slug=slug, year_label=latest_year.label)
+        # Fetch enabled counters and attach the calculated value to each entry
+        for cc in (
+            CouncilCounter.objects.filter(council=council, enabled=True)
+            .select_related("counter")
+        ):
+            result = values.get(cc.counter.slug, {"value": 0, "formatted": "0"})
+            counters.append(
+                {
+                    "counter": cc.counter,
+                    "value": result["value"],
+                    "formatted": result["formatted"],
+                }
+            )
+
+    context = {
+        "council": council,
+        "figures": figures,
+        "counters": counters,
+    }
+
+    return render(request, "council_finance/council_detail.html", context)
 
 # Additional views for common site pages
 
@@ -203,6 +235,48 @@ def corrections(request):
         # Later we might store the message in the database
         submitted = True
     return render(request, "council_finance/corrections.html", {"submitted": submitted})
+
+
+@login_required
+def counter_definition_list(request):
+    """Display a list of existing counters for quick management."""
+
+    if not request.user.is_staff:
+        raise Http404()
+
+    counters = CounterDefinition.objects.all()
+    return render(
+        request,
+        "council_finance/counter_definition_list.html",
+        {"counters": counters},
+    )
+
+
+@login_required
+def counter_definition_form(request, slug=None):
+    """Create or edit a single counter definition."""
+
+    if not request.user.is_staff:
+        raise Http404()
+
+    counter = get_object_or_404(CounterDefinition, slug=slug) if slug else None
+    form = CounterDefinitionForm(request.POST or None, instance=counter)
+
+    if request.method == "POST" and form.is_valid():
+        form.save()
+        messages.success(request, "Counter saved.")
+        return redirect("counter_definitions")
+
+    context = {
+        "form": form,
+        # ``INTERNAL_FIELDS`` populates the drag & drop formula helper.
+        "available_fields": INTERNAL_FIELDS,
+    }
+    return render(
+        request,
+        "council_finance/counter_definition_form.html",
+        context,
+    )
 
 @login_required
 def profile_view(request):
@@ -396,3 +470,4 @@ def confirm_profile_change(request, token):
     change.delete()
     messages.success(request, "Profile updated.")
     return redirect("profile")
+

@@ -9,6 +9,37 @@
 {% if council.council_type %}
 <p>Type: {{ council.council_type.name }}</p>
 {% endif %}
+{% if counters %}
+<div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 my-6">
+    {% for item in counters %}
+    <div class="bg-green-50 p-4 rounded shadow text-center">
+        <p class="text-sm text-gray-600">{{ item.counter.name }}</p>
+        <p class="text-2xl font-bold" data-duration="{{ item.counter.duration }}" data-value="{{ item.value }}" data-formatted="{{ item.formatted }}">0</p>
+        <p class="text-xs mt-1">{{ item.counter.explanation }}</p>
+    </div>
+    {% endfor %}
+</div>
+<script>
+document.querySelectorAll('[data-duration]').forEach(el => {
+    const end = parseFloat(el.dataset.value || '0');
+    const duration = parseInt(el.dataset.duration || '0');
+    const display = el.dataset.formatted || end.toLocaleString();
+    const start = 0;
+    const increment = end / (duration / 30);
+    let current = start;
+    const step = () => {
+        current += increment;
+        if (current >= end) {
+            el.textContent = display;
+        } else {
+            el.textContent = Math.round(current).toLocaleString();
+            requestAnimationFrame(step);
+        }
+    };
+    step();
+});
+</script>
+{% endif %}
 {% if figures %}
 <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 my-6">
     {% for fig in figures %}
@@ -21,3 +52,4 @@
 {% endif %}
 <p class="mt-4"><a href="{% url 'council_list' %}" class="text-blue-700 hover:underline">Back to all councils</a></p>
 {% endblock %}
+

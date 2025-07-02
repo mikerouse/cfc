@@ -12,6 +12,7 @@ from .user_follow import UserFollow
 from .pending_profile_change import PendingProfileChange
 from .notification import Notification
 from .council_list import CouncilList
+from .counter import CounterDefinition, CouncilCounter
 
 __all__ = [
     'Council',
@@ -26,4 +27,6 @@ __all__ = [
     'PendingProfileChange',
     'Notification',
     'CouncilList',
+    'CounterDefinition',
+    'CouncilCounter',
 ]

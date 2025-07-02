@@ -5,6 +5,7 @@ from django.utils.crypto import get_random_string
 
 from .models import UserProfile
 from .models import CouncilList
+from .models import CounterDefinition
 
 
 class SignUpForm(UserCreationForm):
@@ -78,5 +79,29 @@ class CouncilListForm(forms.ModelForm):
     class Meta:
         model = CouncilList
         fields = ["name"]
+
+
+class CounterDefinitionForm(forms.ModelForm):
+    """Edit counter definitions from the staff page."""
+
+    class Meta:
+        model = CounterDefinition
+        fields = [
+            "name",
+            "slug",
+            "formula",
+            "explanation",
+            "duration",
+            "precision",
+            "show_currency",
+            "friendly_format",
+        ]
+        widgets = {
+            "explanation": forms.Textarea(attrs={"rows": 2}),
+            "duration": forms.NumberInput(attrs={"min": 0}),
+            "precision": forms.NumberInput(attrs={"min": 0}),
+            "show_currency": forms.CheckboxInput(),
+            "friendly_format": forms.CheckboxInput(),
+        }
 
 

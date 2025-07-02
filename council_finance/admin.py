@@ -21,7 +21,13 @@ from .models.user_profile import UserProfile
 from .models.user_follow import UserFollow
 from .models.pending_profile_change import PendingProfileChange
 from .models.notification import Notification
-from .forms import CouncilImportForm, CouncilImportMappingForm, INTERNAL_FIELDS
+from .forms import (
+    CouncilImportForm,
+    CouncilImportMappingForm,
+    INTERNAL_FIELDS,
+    CounterDefinitionForm,
+)
+from .models.counter import CounterDefinition, CouncilCounter
 
 class CouncilAdmin(admin.ModelAdmin):
     """Custom admin with a JSON import helper."""
@@ -29,6 +35,12 @@ class CouncilAdmin(admin.ModelAdmin):
     # Use a custom change list template so we can expose a link to the
     # import view directly from the council list page.
     change_list_template = "admin/council_finance/council/change_list.html"
+    # Allow admins to manage which counters show on each council via an inline.
+    class CouncilCounterInline(admin.TabularInline):
+        model = CouncilCounter
+        extra = 0
+
+    inlines = [CouncilCounterInline]
 
     def get_urls(self):
         # Add extra URLs pointing to the import flow and progress endpoint.
@@ -49,7 +61,6 @@ class CouncilAdmin(admin.ModelAdmin):
 
     def import_json(self, request):
         """Multi-step JSON import with optional field mapping."""
-        # Step 1: handle the initial file upload and present the mapping form.
         if request.method == "POST" and request.POST.get("step") == "upload":
             form = CouncilImportForm(request.POST, request.FILES)
             if form.is_valid():
@@ -58,31 +69,22 @@ class CouncilAdmin(admin.ModelAdmin):
                 except json.JSONDecodeError:
                     form.add_error("json_file", "Invalid JSON file")
                 else:
-                    # Store parsed data in the session for later processing.
                     request.session["import_data"] = data
                     fields = [f["name"] for f in data.get("fields", [])]
                     map_form = CouncilImportMappingForm(available_fields=fields)
                     context = {**self.admin_site.each_context(request), "map_form": map_form}
                     return render(request, "admin/council_finance/council/import_map.html", context)
-        # Step 2: mapping submitted - start the import and show progress page.
         elif request.method == "POST" and request.POST.get("step") == "map":
             data = request.session.get("import_data", {})
             fields = [f["name"] for f in data.get("fields", [])]
             map_form = CouncilImportMappingForm(request.POST, available_fields=fields)
             if map_form.is_valid():
-                request.session["import_mapping"] = {
-                    k: v for k, v in map_form.cleaned_data.items() if v
-                }
+                request.session["import_mapping"] = {k: v for k, v in map_form.cleaned_data.items() if v}
                 request.session["import_index"] = 0
                 total = len(data.get("councils", []))
                 context = {**self.admin_site.each_context(request), "total": total}
-                return render(
-                    request,
-                    "admin/council_finance/council/import_progress.html",
-                    context,
-                )
+                return render(request, "admin/council_finance/council/import_progress.html", context)
 
-        # Default GET renders the upload form.
         form = CouncilImportForm()
         context = {**self.admin_site.each_context(request), "form": form}
         return render(request, "admin/council_finance/council/import_upload.html", context)
@@ -96,7 +98,6 @@ class CouncilAdmin(admin.ModelAdmin):
         councils = data.get("councils", [])
         total = len(councils)
         if index >= total:
-            # Cleanup session once completed
             request.session.pop("import_data", None)
             request.session.pop("import_mapping", None)
             request.session.pop("import_index", None)
@@ -106,8 +107,6 @@ class CouncilAdmin(admin.ModelAdmin):
         council_type_name = council_data.get("council_type", "")
         council_type = None
         if council_type_name:
-            # Ensure we have a matching CouncilType instance so the dropdown
-            # on the admin form stays in sync with imported data.
             council_type, _ = CouncilType.objects.get_or_create(name=council_type_name)
 
         council, _ = Council.objects.get_or_create(
@@ -122,7 +121,6 @@ class CouncilAdmin(admin.ModelAdmin):
         for field, year_map in council_data.get("values", {}).items():
             mapped = mapping.get(field) or field
             if mapped not in INTERNAL_FIELDS:
-                # Skip anything not recognised by our system
                 continue
             for year_label, value in year_map.items():
                 fy, _ = FinancialYear.objects.get_or_create(label=year_label)
@@ -135,6 +133,21 @@ class CouncilAdmin(admin.ModelAdmin):
 
         request.session["import_index"] = index + 1
         return JsonResponse({"complete": False, "processed": index + 1, "total": total})
+
+
+class CounterDefinitionAdmin(admin.ModelAdmin):
+    """Admin for managing counter definitions."""
+
+    form = CounterDefinitionForm
+    list_display = (
+        "name",
+        "formula",
+        "duration",
+        "precision",
+        "show_currency",
+        "friendly_format",
+    )
+    prepopulated_fields = {"slug": ("name",)}
 
 # Register core models in the Django admin.
 # Using admin.site.register is sufficient for simple use cases.
@@ -150,3 +163,5 @@ admin.site.register(UserProfile)
 admin.site.register(UserFollow)
 admin.site.register(PendingProfileChange)
 admin.site.register(Notification)
+admin.site.register(CounterDefinition, CounterDefinitionAdmin)
+admin.site.register(CouncilCounter)

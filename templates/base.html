@@ -6,11 +6,13 @@
     <title>{% block title %}Council Finance Counters{% endblock %}</title>
     <!-- Use Tailwind via CDN for quick styling -->
     <script src="https://cdn.tailwindcss.com"></script>
+    {# Load math.js for client-side expression parsing used by the counter builder #}
+    <script src="https://cdn.jsdelivr.net/npm/mathjs@11.11.1/lib/browser/math.js"></script>
 </head>
 <body class="flex flex-col min-h-screen">
     <!-- Site header with brand, navigation and search -->
     <header class="bg-gray-800 text-white">
-        <div class="max-w-7xl mx-auto flex flex-wrap items-center justify-between p-4">
+        <div class="max-w-7xl mx-auto flex flex-wrap items-center justify-between p-5">
             <a href="{% url 'home' %}" class="text-xl font-bold">Council Finance Counters</a>
             <nav class="flex flex-wrap gap-4 items-center">
                 <a href="{% url 'home' %}" class="hover:underline">Home</a>
@@ -21,9 +23,20 @@
                 <a href="{% url 'following' %}" class="hover:underline">Following</a>
                 <a href="{% url 'submit' %}" class="hover:underline">Submit</a>
                 {% if user.is_authenticated %}
-                {# Use the real account profile page rather than the placeholder #}
                 <a href="{% url 'profile' %}" class="hover:underline">My Profile</a>
-                {% unread_count as unread_count %}
+                {% else %}
+                <a href="{% url 'login' %}" class="hover:underline">Login/Register</a>
+                {% endif %}
+            </nav>
+            <!-- Search form to look up councils -->
+            <div class="relative mt-2 sm:mt-0">
+                <form method="get" action="{% url 'home' %}">
+                    <input id="live-search-input" type="text" name="q" placeholder="find your council" class="rounded px-2 py-1 text-black w-48" autocomplete="off" />
+                </form>
+                <div id="live-search-results" class="absolute bg-white text-black border rounded w-48 mt-1 hidden z-50"></div>
+            </div>
+            {% if user.is_authenticated%}
+            {% unread_count as unread_count %}
                 <div class="relative" id="notif-wrapper">
                     <button id="notif-toggle" class="ml-2" aria-label="Notifications">
                         <!-- Simple bell icon -->
@@ -49,22 +62,18 @@
                         </div>
                     </div>
                 </div>
-                {% if user.is_staff or user.is_superuser %}
-                {# Provide quick access to the Django admin for staff users #}
-                <a href="{% url 'admin:index' %}" class="hover:underline">Admin</a>
-                {% endif %}
-                {% else %}
-                <a href="{% url 'login' %}" class="hover:underline">Login/Register</a>
-                {% endif %}
-            </nav>
-            <!-- Search form to look up councils -->
-            <div class="relative mt-2 sm:mt-0">
-                <form method="get" action="{% url 'home' %}">
-                    <input id="live-search-input" type="text" name="q" placeholder="find your council" class="rounded px-2 py-1 text-black w-48" autocomplete="off" />
-                </form>
-                <div id="live-search-results" class="absolute bg-white text-black border rounded w-48 mt-1 hidden z-50"></div>
-            </div>
+            {% endif %}
         </div>
+        {% if user.is_staff or user.is_superuser %}
+        {# Secondary navigation bar for admin-only links #}
+        <div class="bg-gray-700 p-3">
+            <nav class="max-w-7xl mx-auto flex gap-4 p-2">
+                <span class="text-white">Admin Links:</span>
+                <a href="{% url 'admin:index' %}" class="hover:underline">Django Admin</a>
+                <a href="{% url 'counter_definitions' %}" class="hover:underline">Counters</a>
+            </nav>
+        </div>
+        {% endif %}
     </header>
     <script>
     const toggle = document.getElementById('notif-toggle');
@@ -79,6 +88,7 @@
             }
         });
     }
+
 
     // Live search behaviour for the main header search box.
     const searchInput = document.getElementById('live-search-input');
