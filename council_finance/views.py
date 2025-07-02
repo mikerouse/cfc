@@ -254,13 +254,18 @@ def counter_definition_list(request):
 
 @login_required
 def counter_definition_form(request, slug=None):
-    """Create or edit a single counter definition."""
+    """Create or edit a single counter definition, with live preview for selected council."""
 
     if not request.user.is_staff:
         raise Http404()
 
+    from .models import Council
     counter = get_object_or_404(CounterDefinition, slug=slug) if slug else None
     form = CounterDefinitionForm(request.POST or None, instance=counter)
+
+    # For preview dropdown: all councils, or just one if only one exists
+    councils = Council.objects.all().order_by('name')
+    preview_council_slug = request.GET.get('preview_council') or (councils[0].slug if councils else None)
 
     if request.method == "POST" and form.is_valid():
         form.save()
@@ -269,14 +274,75 @@ def counter_definition_form(request, slug=None):
 
     context = {
         "form": form,
-        # ``INTERNAL_FIELDS`` populates the drag & drop formula helper.
         "available_fields": INTERNAL_FIELDS,
+        "councils": councils,
+        "preview_council_slug": preview_council_slug,
     }
     return render(
         request,
         "council_finance/counter_definition_form.html",
         context,
     )
+
+# AJAX endpoint for previewing counter value for a council and formula
+from django.views.decorators.http import require_GET
+@login_required
+@require_GET
+def preview_counter_value(request):
+    from .agents.counter_agent import CounterAgent
+    from .models import Council, FinancialYear
+    council_slug = request.GET.get('council')
+    formula = request.GET.get('formula')
+    year = FinancialYear.objects.order_by('-label').first()
+    if not (council_slug and formula and year):
+        return JsonResponse({'error': 'Missing data'}, status=400)
+    agent = CounterAgent()
+    # Build a fake CounterDefinition for formatting
+    from .models import CounterDefinition
+    try:
+        council = Council.objects.get(slug=council_slug)
+        # Preload all figures for this council/year
+        figure_map = {
+            f.field_name: float(f.value)
+            for f in FigureSubmission.objects.filter(council=council, year=year)
+        }
+        import ast, operator
+        allowed_ops = {
+            ast.Add: operator.add,
+            ast.Sub: operator.sub,
+            ast.Mult: operator.mul,
+            ast.Div: operator.truediv,
+        }
+        def _eval(node):
+            if isinstance(node, ast.Expression):
+                return _eval(node.body)
+            if isinstance(node, ast.Num):
+                return node.n
+            if isinstance(node, ast.BinOp):
+                return allowed_ops[type(node.op)](_eval(node.left), _eval(node.right))
+            if isinstance(node, ast.UnaryOp) and isinstance(node.op, ast.USub):
+                return -_eval(node.operand)
+            if isinstance(node, ast.Name):
+                return figure_map.get(node.id, 0)
+            raise ValueError("Unsupported expression element")
+        tree = ast.parse(formula, mode="eval")
+        value = float(_eval(tree))
+        # Use formatting from the form or default
+        precision = int(request.GET.get('precision', 0))
+        show_currency = request.GET.get('show_currency', 'true') == 'true'
+        friendly_format = request.GET.get('friendly_format', 'false') == 'true'
+        # Use CounterDefinition's format_value logic
+        class Dummy:
+            pass
+        dummy = Dummy()
+        dummy.precision = precision
+        dummy.show_currency = show_currency
+        dummy.friendly_format = friendly_format
+        from .models.counter import CounterDefinition as CD
+        formatted = CD.format_value(dummy, value)
+        return JsonResponse({'value': value, 'formatted': formatted})
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=400)
 
 @login_required
 def profile_view(request):

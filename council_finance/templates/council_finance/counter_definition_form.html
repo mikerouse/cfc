@@ -15,10 +15,17 @@
 <form method="post">
     {% csrf_token %}
     {{ form.as_p }}
-    <div class="mt-2 p-2 bg-gray-50 rounded" id="preview-card">
-        <p class="text-sm text-gray-600">Preview</p>
-        <p class="text-lg font-bold" id="preview-value">0</p>
+<div class="mt-2 p-2 bg-gray-50 rounded" id="preview-card">
+    <div class="flex items-center gap-2 mb-2">
+        <p class="text-sm text-gray-600 mb-0">Preview for</p>
+        <select id="preview-council" class="border rounded px-2 py-1">
+            {% for council in councils %}
+                <option value="{{ council.slug }}" {% if council.slug == preview_council_slug %}selected{% endif %}>{{ council.name }}</option>
+            {% endfor %}
+        </select>
     </div>
+    <p class="text-lg font-bold" id="preview-value">0</p>
+</div>
     <div class="mt-4">
         <button class="bg-blue-600 text-white px-4 py-1 rounded" type="submit">Save</button>
         <a href="{% url 'counter_definitions' %}" class="ml-2 underline">Cancel</a>
@@ -29,11 +36,47 @@
 const AVAILABLE_FIELDS = JSON.parse(document.getElementById('available-fields').textContent);
 let activeInput = null;
 const formulaInput = document.getElementById('id_formula');
+
 const previewEl = document.getElementById('preview-value');
+const previewCouncil = document.getElementById('preview-council');
+function getPreviewParams() {
+    return {
+        council: previewCouncil.value,
+        formula: formulaInput.value,
+        precision: document.getElementById('id_precision').value,
+        show_currency: document.getElementById('id_show_currency').checked,
+        friendly_format: document.getElementById('id_friendly_format').checked,
+    };
+}
+async function updatePreview() {
+    const params = getPreviewParams();
+    const url = new URL("{% url 'preview_counter_value' %}", window.location.origin);
+    Object.entries(params).forEach(([k, v]) => url.searchParams.append(k, v));
+    previewEl.textContent = '...';
+    try {
+        const resp = await fetch(url, {headers: {'X-Requested-With': 'XMLHttpRequest'}});
+        const data = await resp.json();
+        if (data.formatted !== undefined) {
+            previewEl.textContent = data.formatted;
+        } else {
+            previewEl.textContent = data.error || 'Invalid';
+        }
+    } catch (e) {
+        previewEl.textContent = 'Error';
+    }
+}
 if (formulaInput) {
     formulaInput.addEventListener('focus', () => activeInput = formulaInput);
-    formulaInput.addEventListener('input', update);
+    formulaInput.addEventListener('input', updatePreview);
 }
+if (previewCouncil) {
+    previewCouncil.addEventListener('change', updatePreview);
+}
+['id_precision', 'id_show_currency', 'id_friendly_format'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.addEventListener('change', updatePreview);
+});
+setTimeout(updatePreview, 100);
 
 document.querySelectorAll('[data-insert]').forEach(el => {
     el.addEventListener('click', () => {
