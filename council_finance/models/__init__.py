@@ -6,6 +6,7 @@ from .council import (
     WhistleblowerReport,
     ModerationLog,
 )
+from .council_type import CouncilType
 from .user_profile import UserProfile
 from .user_follow import UserFollow
 from .pending_profile_change import PendingProfileChange
@@ -18,6 +19,7 @@ __all__ = [
     'DebtAdjustment',
     'WhistleblowerReport',
     'ModerationLog',
+    'CouncilType',
     'UserProfile',
     'UserFollow',
     'PendingProfileChange',

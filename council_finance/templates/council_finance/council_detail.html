@@ -7,7 +7,7 @@
 <p>Website: <a href="{{ council.website }}" class="text-blue-700 hover:underline">{{ council.website }}</a></p>
 {% endif %}
 {% if council.council_type %}
-<p>Type: {{ council.council_type }}</p>
+<p>Type: {{ council.council_type.name }}</p>
 {% endif %}
 <p class="mt-4"><a href="{% url 'council_list' %}" class="text-blue-700 hover:underline">Back to all councils</a></p>
 {% endblock %}

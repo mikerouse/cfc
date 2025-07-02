@@ -1,0 +1,10 @@
+{% extends "admin/base_site.html" %}
+{# Simple upload form for council data. Extends the default admin base. #}
+{% block content %}
+<h1 class="mb-4 text-lg font-bold">Import Council JSON</h1>
+<form method="post" enctype="multipart/form-data">
+    {% csrf_token %}
+    {{ form.as_p }}
+    <input type="submit" value="Import" class="default">
+</form>
+{% endblock %}
