@@ -44,3 +44,7 @@ button at the top-right of the change list. After uploading the file you will be
 prompted to map the plugin’s fields onto the new system. Large imports proceed
 asynchronously with a progress readout. The file `councils-migration.json`
 provides an example of the expected format.
+
+Council types are editable via a dedicated model in the admin. Use the
+**Council Types** section to add new entries which then appear as options in the
+drop-down on each council form.

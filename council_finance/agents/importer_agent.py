@@ -1,7 +1,12 @@
 import json
 from pathlib import Path
 from .base import AgentBase
-from council_finance.models import Council, FinancialYear, FigureSubmission
+from council_finance.models import (
+    Council,
+    CouncilType,
+    FinancialYear,
+    FigureSubmission,
+)
 
 class ImporterAgent(AgentBase):
     """Loads council data from a JSON file."""
@@ -12,10 +17,18 @@ class ImporterAgent(AgentBase):
         with path.open() as fh:
             data = json.load(fh)
         for council_data in data.get('councils', []):
+            type_name = council_data.get('council_type', '')
+            council_type = None
+            if type_name:
+                # Create types on the fly so the dataset can introduce new
+                # categories without manual setup.
+                council_type, _ = CouncilType.objects.get_or_create(name=type_name)
+
             council, _ = Council.objects.get_or_create(
                 slug=council_data['slug'],
                 defaults={
                     'name': council_data.get('name', ''),
+                    'council_type': council_type,
                 },
             )
             for field, year_map in council_data.get('values', {}).items():

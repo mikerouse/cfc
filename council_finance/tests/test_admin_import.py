@@ -19,7 +19,12 @@ class AdminImportTest(TestCase):
         data = {
             "fields": [{"name": "total_debt"}],
             "councils": [
-                {"slug": "test", "name": "Test", "values": {"total_debt": {"2024": "1"}}}
+                {
+                    "slug": "test",
+                    "name": "Test",
+                    "council_type": "Unitary",
+                    "values": {"total_debt": {"2024": "1"}},
+                }
             ],
         }
         file = SimpleUploadedFile(
@@ -44,6 +49,7 @@ class AdminImportTest(TestCase):
         progress = self.client.get(progress_url).json()
         self.assertTrue(progress["complete"])  # finished
 
-        self.assertTrue(Council.objects.filter(slug="test").exists())
+        council = Council.objects.get(slug="test")
+        self.assertEqual(council.council_type.name, "Unitary")
 
 

@@ -16,6 +16,7 @@ from .models.council import (
     WhistleblowerReport,
     ModerationLog,
 )
+from .models.council_type import CouncilType
 from .models.user_profile import UserProfile
 from .models.user_follow import UserFollow
 from .models.pending_profile_change import PendingProfileChange
@@ -102,12 +103,19 @@ class CouncilAdmin(admin.ModelAdmin):
             return JsonResponse({"complete": True})
 
         council_data = councils[index]
+        council_type_name = council_data.get("council_type", "")
+        council_type = None
+        if council_type_name:
+            # Ensure we have a matching CouncilType instance so the dropdown
+            # on the admin form stays in sync with imported data.
+            council_type, _ = CouncilType.objects.get_or_create(name=council_type_name)
+
         council, _ = Council.objects.get_or_create(
             slug=council_data["slug"],
             defaults={
                 "name": council_data.get("name", ""),
                 "website": council_data.get("website", ""),
-                "council_type": council_data.get("council_type", ""),
+                "council_type": council_type,
             },
         )
 
@@ -137,6 +145,7 @@ admin.site.register(FigureSubmission)
 admin.site.register(DebtAdjustment)
 admin.site.register(WhistleblowerReport)
 admin.site.register(ModerationLog)
+admin.site.register(CouncilType)
 admin.site.register(UserProfile)
 admin.site.register(UserFollow)
 admin.site.register(PendingProfileChange)
