@@ -58,9 +58,12 @@
                 {% endif %}
             </nav>
             <!-- Search form to look up councils -->
-            <form method="get" action="{% url 'home' %}" class="mt-2 sm:mt-0">
-                <input type="text" name="q" placeholder="find your council" class="rounded px-2 py-1 text-black"/>
-            </form>
+            <div class="relative mt-2 sm:mt-0">
+                <form method="get" action="{% url 'home' %}">
+                    <input id="live-search-input" type="text" name="q" placeholder="find your council" class="rounded px-2 py-1 text-black w-48" autocomplete="off" />
+                </form>
+                <div id="live-search-results" class="absolute bg-white text-black border rounded w-48 mt-1 hidden z-50"></div>
+            </div>
         </div>
     </header>
     <script>
@@ -73,6 +76,45 @@
         document.addEventListener('click', (e) => {
             if (!toggle.contains(e.target) && !menu.contains(e.target)) {
                 menu.classList.add('hidden');
+            }
+        });
+    }
+
+    // Live search behaviour for the main header search box.
+    const searchInput = document.getElementById('live-search-input');
+    const searchResults = document.getElementById('live-search-results');
+    if (searchInput && searchResults) {
+        searchInput.addEventListener('input', () => {
+            const q = searchInput.value.trim();
+            if (q.length < 2) {
+                searchResults.innerHTML = '';
+                searchResults.classList.add('hidden');
+                return;
+            }
+            fetch(`/api/councils/search/?q=${encodeURIComponent(q)}`)
+                .then(r => r.json())
+                .then(items => {
+                    searchResults.innerHTML = '';
+                    if (!items.length) {
+                        searchResults.classList.add('hidden');
+                        return;
+                    }
+                    items.forEach(item => {
+                        const a = document.createElement('a');
+                        a.href = `/councils/${item.slug}/`;
+                        a.textContent = item.name;
+                        a.className = 'block px-2 py-1 hover:bg-gray-200';
+                        searchResults.appendChild(a);
+                    });
+                    searchResults.classList.remove('hidden');
+                })
+                .catch(() => {
+                    searchResults.classList.add('hidden');
+                });
+        });
+        document.addEventListener('click', (e) => {
+            if (!searchResults.contains(e.target) && e.target !== searchInput) {
+                searchResults.classList.add('hidden');
             }
         });
     }

@@ -4,6 +4,7 @@ from django.contrib.auth import get_user_model
 from django.utils.crypto import get_random_string
 
 from .models import UserProfile
+from .models import CouncilList
 
 
 class SignUpForm(UserCreationForm):
@@ -69,4 +70,13 @@ class CouncilImportMappingForm(forms.Form):
                     choices=[("", "-- ignore --")] + choices,
                     required=False,
                 )
+
+
+class CouncilListForm(forms.ModelForm):
+    """Create a simple list of councils."""
+
+    class Meta:
+        model = CouncilList
+        fields = ["name"]
+
 
