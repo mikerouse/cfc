@@ -124,11 +124,16 @@ class CouncilAdmin(admin.ModelAdmin):
                 continue
             for year_label, value in year_map.items():
                 fy, _ = FinancialYear.objects.get_or_create(label=year_label)
+                cleaned = str(value).strip() if value is not None else ""
+                needs_pop = cleaned == ""
                 FigureSubmission.objects.update_or_create(
                     council=council,
                     year=fy,
                     field_name=mapped,
-                    defaults={"value": value},
+                    defaults={
+                        "value": cleaned,
+                        "needs_populating": needs_pop,
+                    },
                 )
 
         request.session["import_index"] = index + 1

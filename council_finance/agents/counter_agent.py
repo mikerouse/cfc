@@ -18,15 +18,19 @@ class CounterAgent(AgentBase):
         year = FinancialYear.objects.get(label=year_label)
         counters = CounterDefinition.objects.all()
 
-        # Preload all figures for this council/year so repeated lookups are cheap
-        # Convert stored figure values to floats. Invalid entries are treated as
-        # zero so a single bad record doesn't break counter calculations.
+        # Preload all figures for this council/year. Any record flagged as
+        # needing population is recorded so formulas referencing it can raise a
+        # helpful error instead of silently using zero.
         figure_map = {}
+        missing = set()
         for f in FigureSubmission.objects.filter(council=council, year=year):
+            if f.needs_populating or f.value in (None, ""):
+                missing.add(f.field_name)
+                continue
             try:
                 figure_map[f.field_name] = float(f.value)
             except (TypeError, ValueError):
-                figure_map[f.field_name] = 0.0
+                missing.add(f.field_name)
 
         def eval_formula(formula: str) -> float:
             """Safely evaluate a formula using the loaded figure values."""
@@ -48,7 +52,16 @@ class CounterAgent(AgentBase):
                 if isinstance(node, ast.UnaryOp) and isinstance(node.op, ast.USub):
                     return -_eval(node.operand)
                 if isinstance(node, ast.Name):
-                    # Look up the figure value, defaulting to 0 if missing
+                    # If the value is missing, surface a helpful error so the
+                    # user knows which figure needs to be populated.
+                    if node.id in missing:
+                        raise ValueError(
+                            (
+                                "Counter failed - no %s figure is held for %s in %s. "
+                                "Please populate the figure from the council's official sources and try again."
+                            )
+                            % (node.id.replace('_', ' '), council.name, year.label)
+                        )
                     return figure_map.get(node.id, 0)
                 raise ValueError("Unsupported expression element")
 
@@ -59,8 +72,12 @@ class CounterAgent(AgentBase):
         for counter in counters:
             try:
                 total = eval_formula(counter.formula)
+            except ValueError as e:
+                results[counter.slug] = {"error": str(e)}
+                continue
             except Exception:
-                total = 0
+                results[counter.slug] = {"error": "calculation failed"}
+                continue
 
             results[counter.slug] = {
                 "value": total,

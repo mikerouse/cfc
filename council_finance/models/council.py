@@ -35,6 +35,13 @@ class FigureSubmission(models.Model):
     year = models.ForeignKey(FinancialYear, on_delete=models.CASCADE)
     field_name = models.CharField(max_length=100)
     value = models.CharField(max_length=255)
+    # Track when the figure value is missing so staff can easily find gaps
+    # in the data and populate them later. A blank or null ``value`` will
+    # automatically set this flag via imports and migrations.
+    needs_populating = models.BooleanField(
+        default=False,
+        help_text="True if the source dataset did not provide this value",
+    )
 
     class Meta:
         unique_together = ('council', 'year', 'field_name')

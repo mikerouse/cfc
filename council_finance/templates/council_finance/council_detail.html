@@ -14,7 +14,11 @@
     {% for item in counters %}
     <div class="bg-green-50 p-4 rounded shadow text-center">
         <p class="text-sm text-gray-600">{{ item.counter.name }}</p>
+        {% if item.error %}
+        <p class="text-red-700 text-sm">{{ item.error }}</p>
+        {% else %}
         <p class="text-2xl font-bold" data-duration="{{ item.counter.duration }}" data-value="{{ item.value }}" data-formatted="{{ item.formatted }}">0</p>
+        {% endif %}
         <p class="text-xs mt-1">{{ item.counter.explanation }}</p>
     </div>
     {% endfor %}
@@ -22,7 +26,11 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/countup.js/2.6.2/countUp.umd.js"></script>
 <script>
 // Animate all counter elements using CountUp for smoother number transitions.
+// Only animate counters that have a numeric value.
 document.querySelectorAll('[data-duration]').forEach(el => {
+    if (!el.dataset.value) {
+        return;
+    }
     const end = parseFloat(el.dataset.value || '0');
     const duration = parseInt(el.dataset.duration || '0') / 1000; // ms -> seconds
     const display = el.dataset.formatted || end.toLocaleString();

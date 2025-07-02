@@ -34,14 +34,17 @@ class ImporterAgent(AgentBase):
             for field, year_map in council_data.get('values', {}).items():
                 for year_label, value in year_map.items():
                     fy, _ = FinancialYear.objects.get_or_create(label=year_label)
-                    # Convert blank or missing values to zero so later
-                    # calculations don't fail when casting to float.
-                    cleaned = str(value).strip()
-                    if not cleaned:
-                        cleaned = "0"
+                    # Blank entries mean we do not have the figure for that
+                    # council/year. Preserve the blank and mark the record so
+                    # staff can find and populate it later.
+                    cleaned = str(value).strip() if value is not None else ""
+                    needs_populating = cleaned == ""
                     FigureSubmission.objects.update_or_create(
                         council=council,
                         year=fy,
                         field_name=field,
-                        defaults={'value': cleaned},
+                        defaults={
+                            'value': cleaned,
+                            'needs_populating': needs_populating,
+                        },
                     )
