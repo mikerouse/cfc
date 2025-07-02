@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% block title %}Counters - Council Finance Counters{% endblock %}
+{% block content %}
+<h1 class="text-2xl font-bold mb-4">Counter Definitions</h1>
+<p class="mb-4">Existing counters shown below. Click a name to edit or use <strong>Add counter</strong> to create a new one.</p>
+<div class="mb-4 text-right">
+    <a href="{% url 'counter_add' %}" class="bg-blue-600 text-white px-4 py-1 rounded">Add counter</a>
+</div>
+<table class="min-w-full bg-white border">
+    <thead>
+        <tr>
+            <th class="border px-2 py-1 text-left">Name</th>
+            <th class="border px-2 py-1">Slug</th>
+            <th class="border px-2 py-1">Duration</th>
+            <th class="border px-2 py-1">Actions</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for counter in counters %}
+        <tr class="odd:bg-gray-50">
+            <td class="border px-2 py-1"><a href="{% url 'counter_edit' counter.slug %}" class="text-blue-600 underline">{{ counter.name }}</a></td>
+            <td class="border px-2 py-1 text-center">{{ counter.slug }}</td>
+            <td class="border px-2 py-1 text-center">{{ counter.duration }}</td>
+            <td class="border px-2 py-1 text-center"><a href="{% url 'counter_edit' counter.slug %}" class="text-blue-600 underline">Edit</a></td>
+        </tr>
+        {% empty %}
+        <tr>
+            <td class="border px-2 py-1 text-center" colspan="4">No counters defined yet.</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endblock %}
+

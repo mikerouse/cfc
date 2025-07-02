@@ -1,0 +1,80 @@
+{% extends "base.html" %}
+{% block title %}Edit Counter - Council Finance Counters{% endblock %}
+{% block content %}
+<h1 class="text-2xl font-bold mb-4">{{ form.instance.pk|yesno:'Edit Counter,Add Counter' }}</h1>
+<p class="mb-2">Click or drag fields into the formula box to build your counter.</p>
+<div class="flex flex-wrap gap-2 mb-4">
+    {% for field in available_fields %}
+    <span class="px-2 py-1 bg-gray-200 rounded cursor-pointer" draggable="true" data-insert="{{ field }}">{{ field }}</span>
+    {% endfor %}
+    <span class="px-2 py-1 bg-gray-200 rounded cursor-pointer" data-insert="+">+</span>
+    <span class="px-2 py-1 bg-gray-200 rounded cursor-pointer" data-insert="-">-</span>
+    <span class="px-2 py-1 bg-gray-200 rounded cursor-pointer" data-insert="*">*</span>
+    <span class="px-2 py-1 bg-gray-200 rounded cursor-pointer" data-insert="/">/</span>
+</div>
+<form method="post">
+    {% csrf_token %}
+    {{ form.as_p }}
+    <div class="mt-2 p-2 bg-gray-50 rounded" id="preview-card">
+        <p class="text-sm text-gray-600">Preview</p>
+        <p class="text-lg font-bold" id="preview-value">0</p>
+    </div>
+    <div class="mt-4">
+        <button class="bg-blue-600 text-white px-4 py-1 rounded" type="submit">Save</button>
+        <a href="{% url 'counter_definitions' %}" class="ml-2 underline">Cancel</a>
+    </div>
+</form>
+{{ available_fields|json_script:"available-fields" }}
+<script>
+const AVAILABLE_FIELDS = JSON.parse(document.getElementById('available-fields').textContent);
+let activeInput = null;
+const formulaInput = document.getElementById('id_formula');
+const previewEl = document.getElementById('preview-value');
+if (formulaInput) {
+    formulaInput.addEventListener('focus', () => activeInput = formulaInput);
+    formulaInput.addEventListener('input', update);
+}
+
+document.querySelectorAll('[data-insert]').forEach(el => {
+    el.addEventListener('click', () => {
+        if (activeInput) {
+            activeInput.value += el.dataset.insert;
+            activeInput.dispatchEvent(new Event('input'));
+            activeInput.focus();
+        }
+    });
+    el.addEventListener('dragstart', e => {
+        e.dataTransfer.setData('text/plain', el.dataset.insert);
+    });
+});
+
+const SAMPLE_VALUES = {};
+AVAILABLE_FIELDS.forEach(f => SAMPLE_VALUES[f] = 1000000);
+function formatValue(v) {
+    const prec = parseInt(document.getElementById('id_precision').value || '0');
+    const sc = document.getElementById('id_show_currency').checked;
+    const ff = document.getElementById('id_friendly_format').checked;
+    let out;
+    if (ff) {
+        const abs = Math.abs(v);
+        if (abs >= 1_000_000_000) { out = (v / 1_000_000_000).toFixed(1) + 'b'; }
+        else if (abs >= 1_000_000) { out = (v / 1_000_000).toFixed(1) + 'm'; }
+        else if (abs >= 1_000) { out = (v / 1_000).toFixed(1) + 'k'; }
+        else { out = v.toFixed(prec); }
+    } else {
+        out = v.toLocaleString(undefined, {minimumFractionDigits: prec, maximumFractionDigits: prec});
+    }
+    return sc ? '£' + out : out;
+}
+function update() {
+    try {
+        const val = math.evaluate(formulaInput.value || '0', SAMPLE_VALUES);
+        previewEl.textContent = formatValue(val);
+    } catch (err) {
+        previewEl.textContent = 'Invalid';
+    }
+}
+update();
+</script>
+{% endblock %}
+

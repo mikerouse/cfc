@@ -1,6 +1,5 @@
 from django.shortcuts import render, get_object_or_404, redirect
 from django.http import JsonResponse, HttpResponseBadRequest, Http404
-from django import forms
 from django.db.models import Q, Sum, DecimalField
 from django.db.models.functions import Cast
 from django.contrib import messages
@@ -239,37 +238,45 @@ def corrections(request):
 
 
 @login_required
-def counter_definitions_view(request):
-    """Allow staff to edit counter definitions outside of the admin."""
+def counter_definition_list(request):
+    """Display a list of existing counters for quick management."""
 
     if not request.user.is_staff:
         raise Http404()
 
-    CounterFormSet = forms.modelformset_factory(
-        CounterDefinition,
-        form=CounterDefinitionForm,
-        # Allow staff to create a new counter definition inline
-        extra=1,
+    counters = CounterDefinition.objects.all()
+    return render(
+        request,
+        "council_finance/counter_definition_list.html",
+        {"counters": counters},
     )
 
-    queryset = CounterDefinition.objects.all()
-    if request.method == "POST":
-        formset = CounterFormSet(request.POST, queryset=queryset)
-        if formset.is_valid():
-            formset.save()
-            messages.success(request, "Counters updated.")
-            return redirect("counter_definitions")
-    else:
-        formset = CounterFormSet(queryset=queryset)
+
+@login_required
+def counter_definition_form(request, slug=None):
+    """Create or edit a single counter definition."""
+
+    if not request.user.is_staff:
+        raise Http404()
+
+    counter = get_object_or_404(CounterDefinition, slug=slug) if slug else None
+    form = CounterDefinitionForm(request.POST or None, instance=counter)
+
+    if request.method == "POST" and form.is_valid():
+        form.save()
+        messages.success(request, "Counter saved.")
+        return redirect("counter_definitions")
 
     context = {
-        "formset": formset,
-        # Provide a list of available fields for the formula builder
-        # ``INTERNAL_FIELDS`` lists the figure fields a formula can reference.
-        # Providing them here populates the drag & drop UI on the staff page.
+        "form": form,
+        # ``INTERNAL_FIELDS`` populates the drag & drop formula helper.
         "available_fields": INTERNAL_FIELDS,
     }
-    return render(request, "council_finance/counter_definitions.html", context)
+    return render(
+        request,
+        "council_finance/counter_definition_form.html",
+        context,
+    )
 
 @login_required
 def profile_view(request):

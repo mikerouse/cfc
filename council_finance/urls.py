@@ -36,5 +36,8 @@ urlpatterns = [
     path('terms/', views.terms_of_use, name='terms_of_use'),
     path('privacy/', views.privacy_cookies, name='privacy_cookies'),
     path('corrections/', views.corrections, name='corrections'),
-    path('staff/counters/', views.counter_definitions_view, name='counter_definitions'),
+    # Staff-only views for managing counters
+    path('staff/counters/', views.counter_definition_list, name='counter_definitions'),
+    path('staff/counters/add/', views.counter_definition_form, name='counter_add'),
+    path('staff/counters/<slug:slug>/', views.counter_definition_form, name='counter_edit'),
 ]
