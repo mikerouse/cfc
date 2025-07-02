@@ -35,3 +35,10 @@ python manage.py runserver
 ```
 
 You can then access the admin at `http://localhost:8000/admin/` using the credentials created above.
+
+## Importing legacy council data
+
+Staff members can upload a JSON export from the legacy plugin directly in the
+Django admin. Navigate to **Councils** in the admin and use the “Import JSON”
+button at the top-right of the change list. The file `councils-migration.json`
+provides an example of the expected format.

@@ -24,6 +24,10 @@ from .forms import CouncilImportForm
 class CouncilAdmin(admin.ModelAdmin):
     """Custom admin with a JSON import helper."""
 
+    # Use a custom change list template so we can expose a link to the
+    # import view directly from the council list page.
+    change_list_template = "admin/council_finance/council/change_list.html"
+
     def get_urls(self):
         # Add an extra URL pointing to our import view
         urls = super().get_urls()
