@@ -51,9 +51,9 @@
                 </div>
                 {% if user.is_staff or user.is_superuser %}
                 {# Provide quick access to the Django admin for staff users #}
-                <div class="relative group">
+                <div class="relative inline-block" id="admin-wrapper">
                     <a href="{% url 'admin:index' %}" class="hover:underline">Admin</a>
-                    <div class="absolute hidden group-hover:block bg-gray-800 text-white text-sm mt-1 rounded shadow-lg">
+                    <div id="admin-menu" class="hidden absolute left-0 top-full bg-gray-800 text-white text-sm mt-1 rounded shadow-lg">
                         <a href="{% url 'admin:index' %}" class="block px-2 py-1 hover:underline">Django Admin</a>
                         <a href="{% url 'counter_definitions' %}" class="block px-2 py-1 hover:underline">Counters</a>
                     </div>
@@ -83,6 +83,21 @@
             if (!toggle.contains(e.target) && !menu.contains(e.target)) {
                 menu.classList.add('hidden');
             }
+        });
+    }
+
+    // Ensure the admin dropdown stays visible when moving from the link
+    // to the submenu. We simply toggle a hidden class on mouseenter/leave
+    // of the wrapper so the menu persists as long as the pointer remains
+    // within the area.
+    const adminWrapper = document.getElementById('admin-wrapper');
+    if (adminWrapper) {
+        const adminMenu = document.getElementById('admin-menu');
+        adminWrapper.addEventListener('mouseenter', () => {
+            adminMenu.classList.remove('hidden');
+        });
+        adminWrapper.addEventListener('mouseleave', () => {
+            adminMenu.classList.add('hidden');
         });
     }
 

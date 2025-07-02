@@ -14,7 +14,13 @@ from brevo_python.rest import ApiException
 
 from .emails import send_confirmation_email, send_email
 from .notifications import create_notification
-from .forms import SignUpForm, CouncilListForm, CounterDefinitionForm
+# Import the constant containing valid field names for counter formulas.
+from .forms import (
+    SignUpForm,
+    CouncilListForm,
+    CounterDefinitionForm,
+    INTERNAL_FIELDS,
+)
 from .models import (
     Council,
     FinancialYear,
@@ -259,7 +265,9 @@ def counter_definitions_view(request):
     context = {
         "formset": formset,
         # Provide a list of available fields for the formula builder
-        "available_fields": forms.INTERNAL_FIELDS,
+        # ``INTERNAL_FIELDS`` lists the figure fields a formula can reference.
+        # Providing them here populates the drag & drop UI on the staff page.
+        "available_fields": INTERNAL_FIELDS,
     }
     return render(request, "council_finance/counter_definitions.html", context)
 
