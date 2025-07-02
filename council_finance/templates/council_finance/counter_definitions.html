@@ -17,7 +17,7 @@
     {{ formset.management_form }}
     <div class="space-y-4">
         {% for form in formset %}
-        <div class="border p-4 rounded">
+        <div class="border p-4 rounded counter-form" data-prefix="{{ form.prefix }}">
             {{ form.id }}
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
                 {{ form.name.label_tag }} {{ form.name }}
@@ -28,6 +28,10 @@
                 {{ form.precision.label_tag }} {{ form.precision }}
                 {{ form.show_currency.label_tag }} {{ form.show_currency }}
                 {{ form.friendly_format.label_tag }} {{ form.friendly_format }}
+            </div>
+            <div class="mt-2 p-2 bg-gray-50 rounded preview-card">
+                <p class="text-sm text-gray-600">Preview</p>
+                <p class="text-lg font-bold preview-value">0</p>
             </div>
         </div>
         {% endfor %}
@@ -90,6 +94,62 @@ document.querySelectorAll('[data-insert]').forEach(el => {
         e.dataTransfer.setData('text/plain', el.dataset.insert);
     });
 });
+
+// Build an object with sample numbers used for the preview calculation.
+const SAMPLE_VALUES = {};
+AVAILABLE_FIELDS.forEach(f => {
+    SAMPLE_VALUES[f] = 1000000; // one million as an easy to read default
+});
+
+// Update the preview card for each form whenever relevant fields change.
+function attachPreview(container) {
+    const prefix = container.dataset.prefix;
+    const formula = container.querySelector(`input[name="${prefix}-formula"]`);
+    const precision = container.querySelector(`input[name="${prefix}-precision"]`);
+    const showCurrency = container.querySelector(`input[name="${prefix}-show_currency"]`);
+    const friendly = container.querySelector(`input[name="${prefix}-friendly_format"]`);
+    const preview = container.querySelector('.preview-value');
+
+    const inputs = [formula, precision, showCurrency, friendly];
+    inputs.forEach(i => i && i.addEventListener('input', update));
+    inputs.forEach(i => i && i.addEventListener('change', update));
+
+    // Format a value according to the settings mirroring CounterDefinition.format_value
+    function formatValue(v) {
+        const prec = parseInt(precision.value || '0');
+        const sc = showCurrency.checked;
+        const ff = friendly.checked;
+        let out;
+        if (ff) {
+            const abs = Math.abs(v);
+            if (abs >= 1_000_000_000) {
+                out = (v / 1_000_000_000).toFixed(1) + 'b';
+            } else if (abs >= 1_000_000) {
+                out = (v / 1_000_000).toFixed(1) + 'm';
+            } else if (abs >= 1_000) {
+                out = (v / 1_000).toFixed(1) + 'k';
+            } else {
+                out = v.toFixed(prec);
+            }
+        } else {
+            out = v.toLocaleString(undefined, {minimumFractionDigits: prec, maximumFractionDigits: prec});
+        }
+        return sc ? '£' + out : out;
+    }
+
+    function update() {
+        try {
+            const val = math.evaluate(formula.value || '0', SAMPLE_VALUES);
+            preview.textContent = formatValue(val);
+        } catch (err) {
+            preview.textContent = 'Invalid';
+        }
+    }
+
+    update();
+}
+
+document.querySelectorAll('.counter-form').forEach(attachPreview);
 </script>
 {% endblock %}
 
