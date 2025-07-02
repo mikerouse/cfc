@@ -26,3 +26,15 @@ class SignUpForm(UserCreationForm):
         if commit:
             profile.save()
         return user
+
+
+# Simple upload form used by the Django admin to accept a JSON file.
+# The file is expected to match the structure exported by the
+# WordPress plugin (see `councils-migration.json`).
+class CouncilImportForm(forms.Form):
+    # Django handles temporary storage of uploaded files automatically.
+    # We only need the file object which will be read directly in the view.
+    json_file = forms.FileField(
+        help_text="Upload a JSON export containing councils and figures."
+    )
+
