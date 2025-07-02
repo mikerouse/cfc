@@ -19,10 +19,14 @@ class CounterAgent(AgentBase):
         counters = CounterDefinition.objects.all()
 
         # Preload all figures for this council/year so repeated lookups are cheap
-        figure_map = {
-            f.field_name: float(f.value)
-            for f in FigureSubmission.objects.filter(council=council, year=year)
-        }
+        # Convert stored figure values to floats. Invalid entries are treated as
+        # zero so a single bad record doesn't break counter calculations.
+        figure_map = {}
+        for f in FigureSubmission.objects.filter(council=council, year=year):
+            try:
+                figure_map[f.field_name] = float(f.value)
+            except (TypeError, ValueError):
+                figure_map[f.field_name] = 0.0
 
         def eval_formula(formula: str) -> float:
             """Safely evaluate a formula using the loaded figure values."""

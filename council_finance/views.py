@@ -312,10 +312,14 @@ def preview_counter_value(request):
     from .models import CounterDefinition
     try:
         council = Council.objects.get(slug=council_slug)
-        figure_map = {
-            f.field_name: float(f.value)
-            for f in FigureSubmission.objects.filter(council=council, year=year)
-        }
+        # Build a map of figure values, converting invalid numbers to 0 so
+        # preview requests can't fail due to bad data.
+        figure_map = {}
+        for f in FigureSubmission.objects.filter(council=council, year=year):
+            try:
+                figure_map[f.field_name] = float(f.value)
+            except (TypeError, ValueError):
+                figure_map[f.field_name] = 0.0
         import ast, operator
         allowed_ops = {
             ast.Add: operator.add,

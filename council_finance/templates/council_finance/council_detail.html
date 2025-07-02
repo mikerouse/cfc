@@ -19,24 +19,22 @@
     </div>
     {% endfor %}
 </div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/countup.js/2.6.2/countUp.umd.js"></script>
 <script>
+// Animate all counter elements using CountUp for smoother number transitions.
 document.querySelectorAll('[data-duration]').forEach(el => {
     const end = parseFloat(el.dataset.value || '0');
-    const duration = parseInt(el.dataset.duration || '0');
+    const duration = parseInt(el.dataset.duration || '0') / 1000; // ms -> seconds
     const display = el.dataset.formatted || end.toLocaleString();
-    const start = 0;
-    const increment = end / (duration / 30);
-    let current = start;
-    const step = () => {
-        current += increment;
-        if (current >= end) {
+    const counter = new window.CountUp(el, end, {duration});
+    if (!counter.error) {
+        counter.start(() => {
+            // Ensure the final formatted string matches server-side formatting.
             el.textContent = display;
-        } else {
-            el.textContent = Math.round(current).toLocaleString();
-            requestAnimationFrame(step);
-        }
-    };
-    step();
+        });
+    } else {
+        el.textContent = display;
+    }
 });
 </script>
 {% endif %}
