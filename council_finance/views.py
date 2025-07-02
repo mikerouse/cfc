@@ -267,7 +267,10 @@ def counter_definition_form(request, slug=None):
     councils = Council.objects.all().order_by('name')
     years = FinancialYear.objects.order_by('-label')
     preview_council_slug = request.GET.get('preview_council') or (councils[0].slug if councils else None)
-    preview_year_label = request.GET.get('preview_year') or (years[0].label if years else None)
+    # Only use a valid year label for preview_year_label
+    valid_year_labels = [y.label for y in years]
+    requested_year = request.GET.get('preview_year')
+    preview_year_label = requested_year if requested_year in valid_year_labels else (years[0].label if years else None)
 
     if request.method == "POST" and form.is_valid():
         form.save()
