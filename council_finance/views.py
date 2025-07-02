@@ -263,9 +263,11 @@ def counter_definition_form(request, slug=None):
     counter = get_object_or_404(CounterDefinition, slug=slug) if slug else None
     form = CounterDefinitionForm(request.POST or None, instance=counter)
 
-    # For preview dropdown: all councils, or just one if only one exists
+    # For preview dropdown: all councils and all years
     councils = Council.objects.all().order_by('name')
+    years = FinancialYear.objects.order_by('-label')
     preview_council_slug = request.GET.get('preview_council') or (councils[0].slug if councils else None)
+    preview_year_label = request.GET.get('preview_year') or (years[0].label if years else None)
 
     if request.method == "POST" and form.is_valid():
         form.save()
@@ -276,7 +278,9 @@ def counter_definition_form(request, slug=None):
         "form": form,
         "available_fields": INTERNAL_FIELDS,
         "councils": councils,
+        "years": years,
         "preview_council_slug": preview_council_slug,
+        "preview_year_label": preview_year_label,
     }
     return render(
         request,
@@ -293,15 +297,18 @@ def preview_counter_value(request):
     from .models import Council, FinancialYear
     council_slug = request.GET.get('council')
     formula = request.GET.get('formula')
-    year = FinancialYear.objects.order_by('-label').first()
+    year_label = request.GET.get('year')
+    year = None
+    if year_label:
+        year = FinancialYear.objects.filter(label=year_label).first()
+    if not year:
+        year = FinancialYear.objects.order_by('-label').first()
     if not (council_slug and formula and year):
         return JsonResponse({'error': 'Missing data'}, status=400)
     agent = CounterAgent()
-    # Build a fake CounterDefinition for formatting
     from .models import CounterDefinition
     try:
         council = Council.objects.get(slug=council_slug)
-        # Preload all figures for this council/year
         figure_map = {
             f.field_name: float(f.value)
             for f in FigureSubmission.objects.filter(council=council, year=year)
@@ -327,11 +334,9 @@ def preview_counter_value(request):
             raise ValueError("Unsupported expression element")
         tree = ast.parse(formula, mode="eval")
         value = float(_eval(tree))
-        # Use formatting from the form or default
         precision = int(request.GET.get('precision', 0))
         show_currency = request.GET.get('show_currency', 'true') == 'true'
         friendly_format = request.GET.get('friendly_format', 'false') == 'true'
-        # Use CounterDefinition's format_value logic
         class Dummy:
             pass
         dummy = Dummy()

@@ -23,6 +23,12 @@
                 <option value="{{ council.slug }}" {% if council.slug == preview_council_slug %}selected{% endif %}>{{ council.name }}</option>
             {% endfor %}
         </select>
+        <span class="text-sm text-gray-600">Year</span>
+        <select id="preview-year" class="border rounded px-2 py-1">
+            {% for year in years %}
+                <option value="{{ year.label }}" {% if year.label == preview_year_label %}selected{% endif %}>{{ year.label }}</option>
+            {% endfor %}
+        </select>
     </div>
     <p class="text-lg font-bold" id="preview-value">0</p>
 </div>
@@ -39,9 +45,11 @@ const formulaInput = document.getElementById('id_formula');
 
 const previewEl = document.getElementById('preview-value');
 const previewCouncil = document.getElementById('preview-council');
+const previewYear = document.getElementById('preview-year');
 function getPreviewParams() {
     return {
         council: previewCouncil.value,
+        year: previewYear.value,
         formula: formulaInput.value,
         precision: document.getElementById('id_precision').value,
         show_currency: document.getElementById('id_show_currency').checked,
@@ -71,6 +79,9 @@ if (formulaInput) {
 }
 if (previewCouncil) {
     previewCouncil.addEventListener('change', updatePreview);
+}
+if (previewYear) {
+    previewYear.addEventListener('change', updatePreview);
 }
 ['id_precision', 'id_show_currency', 'id_friendly_format'].forEach(id => {
     const el = document.getElementById(id);
