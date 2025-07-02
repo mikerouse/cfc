@@ -1,11 +1,11 @@
 from django.db import migrations
 
 
-def clean_blank_values(apps, schema_editor):
-    """Replace blank or null FigureSubmission values with '0'."""
-    FigureSubmission = apps.get_model('council_finance', 'FigureSubmission')
-    FigureSubmission.objects.filter(value__isnull=True).update(value='0')
-    FigureSubmission.objects.filter(value='').update(value='0')
+def normalise_blank_values(apps, schema_editor):
+    """Ensure blank values are stored consistently as empty strings."""
+    FigureSubmission = apps.get_model("council_finance", "FigureSubmission")
+    FigureSubmission.objects.filter(value__isnull=True).update(value="")
+    FigureSubmission.objects.filter(value="").update(value="")
 
 
 class Migration(migrations.Migration):
@@ -15,5 +15,5 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        migrations.RunPython(clean_blank_values, migrations.RunPython.noop),
+        migrations.RunPython(normalise_blank_values, migrations.RunPython.noop),
     ]

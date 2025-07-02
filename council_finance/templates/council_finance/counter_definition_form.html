@@ -12,9 +12,69 @@
     <span class="px-2 py-1 bg-gray-200 rounded cursor-pointer" data-insert="*">*</span>
     <span class="px-2 py-1 bg-gray-200 rounded cursor-pointer" data-insert="/">/</span>
 </div>
-<form method="post">
+<form method="post" class="space-y-4">
     {% csrf_token %}
-    {{ form.as_p }}
+    {{ form.non_field_errors }}
+    <table class="min-w-full border border-gray-300">
+        <tbody>
+            <tr class="odd:bg-gray-50">
+                <th class="text-left p-2 border w-40">{{ form.name.label_tag }}</th>
+                <td class="p-2 border">
+                    {{ form.name }}
+                    {{ form.name.errors }}
+                </td>
+            </tr>
+            <tr class="odd:bg-gray-50">
+                <th class="text-left p-2 border">{{ form.slug.label_tag }}</th>
+                <td class="p-2 border">
+                    {{ form.slug }}
+                    {{ form.slug.errors }}
+                </td>
+            </tr>
+            <tr class="odd:bg-gray-50">
+                <th class="text-left p-2 border">{{ form.formula.label_tag }}</th>
+                <td class="p-2 border">
+                    {{ form.formula }}
+                    {{ form.formula.errors }}
+                </td>
+            </tr>
+            <tr class="odd:bg-gray-50">
+                <th class="text-left p-2 border">{{ form.explanation.label_tag }}</th>
+                <td class="p-2 border">
+                    {{ form.explanation }}
+                    {{ form.explanation.errors }}
+                </td>
+            </tr>
+            <tr class="odd:bg-gray-50">
+                <th class="text-left p-2 border">{{ form.duration.label_tag }}</th>
+                <td class="p-2 border">
+                    {{ form.duration }}
+                    {{ form.duration.errors }}
+                </td>
+            </tr>
+            <tr class="odd:bg-gray-50">
+                <th class="text-left p-2 border">{{ form.precision.label_tag }}</th>
+                <td class="p-2 border">
+                    {{ form.precision }}
+                    {{ form.precision.errors }}
+                </td>
+            </tr>
+            <tr class="odd:bg-gray-50">
+                <th class="text-left p-2 border">{{ form.show_currency.label_tag }}</th>
+                <td class="p-2 border flex items-center">
+                    {{ form.show_currency }} {{ form.show_currency.help_text }}
+                    {{ form.show_currency.errors }}
+                </td>
+            </tr>
+            <tr class="odd:bg-gray-50">
+                <th class="text-left p-2 border">{{ form.friendly_format.label_tag }}</th>
+                <td class="p-2 border flex items-center">
+                    {{ form.friendly_format }} {{ form.friendly_format.help_text }}
+                    {{ form.friendly_format.errors }}
+                </td>
+            </tr>
+        </tbody>
+    </table>
 <div class="mt-2 p-2 bg-gray-50 rounded" id="preview-card">
     <div class="flex items-center gap-2 mb-2">
         <p class="text-sm text-gray-600 mb-0">Preview for</p>
