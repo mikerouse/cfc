@@ -1,4 +1,5 @@
 from django import template
+from django.db.utils import OperationalError
 
 register = template.Library()
 
@@ -6,7 +7,12 @@ register = template.Library()
 def unread_count(context):
     user = context['user']
     if user.is_authenticated:
-        return user.notifications.filter(read=False).count()
+        try:
+            # Gracefully handle cases where migrations haven't been run yet.
+            return user.notifications.filter(read=False).count()
+        except OperationalError:
+            # Notification table missing - return zero so the site still works.
+            return 0
     return 0
 
 
@@ -15,5 +21,9 @@ def recent_notifications(context, limit=5):
     """Return the latest notifications for the current user."""
     user = context['user']
     if user.is_authenticated:
-        return user.notifications.order_by('-created')[:limit]
+        try:
+            return user.notifications.order_by('-created')[:limit]
+        except OperationalError:
+            # Table missing - return empty list to avoid runtime errors
+            return []
     return []
