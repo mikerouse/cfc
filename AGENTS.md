@@ -1,14 +1,26 @@
 # AGENTS.md
 
+## What is the app?
+
+The purpose of this app is to provide visitors with transparency data relating to UK local government entities, and in particular local councils (district, county, unitary, metropolitian borough, non-metropolitan borough, combined authority). In the future the app should be expandable to include different types of public bodies such as NHS trusts, quangos and/or UK government agencies. 
+
+The app's approach is to use visually striking ways to give focus to financial figures found within each authority's balance sheet, cash flow statements and comprehensive income and expenditure statements as published each financial year. Each council publishes their data slightly differently, and even within the PDFs they may use differing terminology. This app aims to smooth out the language and provide consistency across the bodies in respect of their financial figures.
+
+The emphasis is on 'visually striking' ways to show the data using counters and other interesting and novel devices like comparing spend across councils. Cross-comparison is a key feature. There will be a comparison basket, allowing up-to six councils to be compared (initially), and there will be user-centric tools allowing users to track and collate councils, as well as provide contributions and comments. Counters will be animated, and the style wll be fresh, minimalist and professional, with a look and feel similar to GOV.UK websites so that it is easy to use, easy to navigate and provides a refreshing experience for the user.
+
+## Coding standards and expectations
+
+- Write comments around your code to explain what you are doing and more importantly why you are doing it
+- Decorate code blocks with comments to explain what they do, how they interact, what they depend upon and any other requirements
+- Adhere to requirements such as spacing and indentations
+- Prioritise code that can be interrogated by humans more easily than code that is efficient but dense
+- Emphasise maintainability, extensibility and portability
+
 ## Migrating from WordPress Plugin to Django Agent Architecture
 
 This document guides the migration of the `council-finance-counters` WordPress plugin into a modern, scalable **Django-based agent system**.
 
-The purpose of this app is to provide visitors with transparency data relating to UK local government entities. This includes and is particularly focused on figures found within each authority's balance sheet, cash flow statements and comprehensive income and expenditure statements as published each financial year. The emphasis is on 'visually striking' ways to show the data using counters and other interesting and novel devices like comparing spend across councils. There will be a comparison basket, allowing up-to six councils to be compared (initially), and there will be user-centric tools allowing users to track and collate councils, as well as provide contributions and comments. Counters will be animated, and the style wll be fresh, minimalist and professional, with a look and feel similar to GOV.UK websites. 
-
 Each “agent” in Django represents a discrete unit of business logic previously managed by PHP classes. This allows for cleaner architecture, easier testing, and more powerful orchestration.
-
----
 
 ## 🔗 Original Plugin Structure Reference
 
@@ -20,7 +32,6 @@ Most core logic is located in the `includes/` directory of the plugin:
 - `class-openai-helper.php`, `class-ai-extractor.php`: AI support agents.
 - `class-moderation-log.php`, `class-whistleblower-*`: moderation & reporting logic.
 
----
 
 ## 📦 Django Agent System Overview
 
@@ -60,8 +71,6 @@ council_finance/
     └── dev.sh              # local dev bootstrap
 ```
 
----
-
 ## 🚀 Steps for Migration
 
 1. **Data Models**  
@@ -90,8 +99,7 @@ council_finance/
    - Settings pages
    - Data dashboards
    - Moderation tools
-
----
+   - Data cleansing and import tools
 
 ## 🧪 Testing
 
@@ -121,8 +129,6 @@ When developing this app, write unit tests (and other test types) to ensure robu
 - Store config overrides or user-specified parameters via a `settings` model or flatfile.
 - Update requirements.txt with any requirements as needed.
 
----
-
 ## 🔄 Scheduling
 
 Use cron or Django-Q/Celery for periodic agents (e.g. daily imports):
@@ -130,17 +136,12 @@ Use cron or Django-Q/Celery for periodic agents (e.g. daily imports):
 ```cron
 0 3 * * * /path/to/venv/bin/python manage.py runagent ImporterAgent
 ```
+## Styling
 
----
-
-## 🧼 Legacy Cleanup Plan
-
-Once all business logic has been migrated:
-- Retire `class-*` files from `includes/`
-- Export useful sample data (e.g. `samples/*.csv`)
-- Retain PHP repo as read-only reference
-
----
+- Use Tailwind CSS for styles
+- Clean, accessible UI
+- Design based on principles set out in https://frontend.design-system.service.gov.uk/
+- However, this is NOT an official UK government website and so the design should not replicate entirely GOV.UK websites, simply use them for inspiration
 
 ## ✅ Summary
 
