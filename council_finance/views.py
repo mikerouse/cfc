@@ -110,23 +110,24 @@ def council_detail(request, slug):
     )
 
     latest_year = FinancialYear.objects.order_by("-label").first()
-    counter_values = {}
-    enabled = []
+    counters = []
     if latest_year:
         from council_finance.agents.counter_agent import CounterAgent
 
         agent = CounterAgent()
-        counter_values = agent.run(council_slug=slug, year_label=latest_year.label)
-        enabled = (
+        # Compute all counter values for this council/year using the agent
+        values = agent.run(council_slug=slug, year_label=latest_year.label)
+        # Fetch enabled counters and attach the calculated value to each entry
+        for cc in (
             CouncilCounter.objects.filter(council=council, enabled=True)
             .select_related("counter")
-        )
+        ):
+            counters.append({"counter": cc.counter, "value": values.get(cc.counter.slug, 0)})
 
     context = {
         "council": council,
         "figures": figures,
-        "counters": enabled,
-        "counter_values": counter_values,
+        "counters": counters,
     }
 
     return render(request, "council_finance/council_detail.html", context)

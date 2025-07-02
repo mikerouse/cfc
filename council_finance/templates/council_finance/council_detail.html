@@ -14,7 +14,7 @@
     {% for item in counters %}
     <div class="bg-green-50 p-4 rounded shadow text-center">
         <p class="text-sm text-gray-600">{{ item.counter.name }}</p>
-        <p class="text-2xl font-bold" data-duration="{{ item.counter.duration }}" data-value="{{ counter_values[item.counter.slug]|default:0 }}">0</p>
+        <p class="text-2xl font-bold" data-duration="{{ item.counter.duration }}" data-value="{{ item.value }}">0</p>
         <p class="text-xs mt-1">{{ item.counter.explanation }}</p>
     </div>
     {% endfor %}
