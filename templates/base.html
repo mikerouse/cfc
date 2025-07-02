@@ -37,7 +37,7 @@
             </div>
             {% if user.is_authenticated%}
             {% unread_count as unread_count %}
-                <div class="relative" id="notif-wrapper">
+                <div class="relative pt-2" id="notif-wrapper">
                     <button id="notif-toggle" class="ml-2" aria-label="Notifications">
                         <!-- Simple bell icon -->
                         <svg class="w-6 h-6 fill-current" viewBox="0 0 24 24">
@@ -67,8 +67,8 @@
         {% if user.is_staff or user.is_superuser %}
         {# Secondary navigation bar for admin-only links #}
         <div class="bg-gray-700 p-3">
-            <nav class="max-w-7xl mx-auto flex gap-4 p-2">
-                <span class="text-white">Admin Links:</span>
+            <nav class="max-w-7xl mx-auto flex gap-4 p-2 pl-5">
+                <span class="text-gray-300">Admin</span>
                 <a href="{% url 'admin:index' %}" class="hover:underline">Django Admin</a>
                 <a href="{% url 'counter_definitions' %}" class="hover:underline">Counters</a>
             </nav>
