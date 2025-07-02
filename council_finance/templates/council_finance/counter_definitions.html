@@ -2,32 +2,61 @@
 {% block title %}Counter Definitions - Council Finance Counters{% endblock %}
 {% block content %}
 <h1 class="text-2xl font-bold mb-4">Counter Definitions</h1>
+<p class="mb-2">Click or drag fields into the formula boxes to build your counters.</p>
+<div class="flex flex-wrap gap-2 mb-4">
+    {% for field in available_fields %}
+    <span class="px-2 py-1 bg-gray-200 rounded cursor-pointer draggable-field" draggable="true" data-insert="{{ field }}">{{ field }}</span>
+    {% endfor %}
+    <span class="px-2 py-1 bg-gray-200 rounded cursor-pointer op" data-insert="+">+</span>
+    <span class="px-2 py-1 bg-gray-200 rounded cursor-pointer op" data-insert="-">-</span>
+    <span class="px-2 py-1 bg-gray-200 rounded cursor-pointer op" data-insert="*">*</span>
+    <span class="px-2 py-1 bg-gray-200 rounded cursor-pointer op" data-insert="/">/</span>
+</div>
 <form method="post">
     {% csrf_token %}
     {{ formset.management_form }}
-    <table class="min-w-full divide-y divide-gray-200 mb-4">
-        <thead>
-            <tr>
-                <th class="px-2 py-1 text-left">Name</th>
-                <th class="px-2 py-1 text-left">Slug</th>
-                <th class="px-2 py-1 text-left">Formula</th>
-                <th class="px-2 py-1 text-left">Explanation</th>
-                <th class="px-2 py-1 text-left">Duration (ms)</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for form in formset %}
-            <tr class="border-t">
-                <td class="px-2 py-1">{{ form.name }}</td>
-                <td class="px-2 py-1">{{ form.slug }}</td>
-                <td class="px-2 py-1">{{ form.formula }}</td>
-                <td class="px-2 py-1">{{ form.explanation }}</td>
-                <td class="px-2 py-1">{{ form.duration }}</td>
-            </tr>
-            {% endfor %}
-        </tbody>
-    </table>
-    <button class="bg-blue-600 text-white px-4 py-1 rounded" type="submit">Save</button>
+    <div class="space-y-4">
+        {% for form in formset %}
+        <div class="border p-4 rounded">
+            {{ form.id }}
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                {{ form.name.label_tag }} {{ form.name }}
+                {{ form.slug.label_tag }} {{ form.slug }}
+                {{ form.formula.label_tag }} {{ form.formula }}
+                {{ form.explanation.label_tag }} {{ form.explanation }}
+                {{ form.duration.label_tag }} {{ form.duration }}
+                {{ form.precision.label_tag }} {{ form.precision }}
+                {{ form.show_currency.label_tag }} {{ form.show_currency }}
+                {{ form.friendly_format.label_tag }} {{ form.friendly_format }}
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    <button class="mt-4 bg-blue-600 text-white px-4 py-1 rounded" type="submit">Save</button>
 </form>
+<script>
+let activeInput = null;
+document.querySelectorAll('input[name$="-formula"]').forEach(inp => {
+    inp.classList.add('formula-input');
+    inp.addEventListener('focus', () => activeInput = inp);
+    inp.addEventListener('drop', e => {
+        e.preventDefault();
+        const val = e.dataTransfer.getData('text/plain');
+        inp.value += val;
+    });
+    inp.addEventListener('dragover', e => e.preventDefault());
+});
+document.querySelectorAll('[data-insert]').forEach(el => {
+    el.addEventListener('click', () => {
+        if (activeInput) {
+            activeInput.value += el.dataset.insert;
+            activeInput.focus();
+        }
+    });
+    el.addEventListener('dragstart', e => {
+        e.dataTransfer.setData('text/plain', el.dataset.insert);
+    });
+});
+</script>
 {% endblock %}
 

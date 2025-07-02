@@ -139,7 +139,14 @@ class CounterDefinitionAdmin(admin.ModelAdmin):
     """Admin for managing counter definitions."""
 
     form = CounterDefinitionForm
-    list_display = ("name", "formula", "duration")
+    list_display = (
+        "name",
+        "formula",
+        "duration",
+        "precision",
+        "show_currency",
+        "friendly_format",
+    )
     prepopulated_fields = {"slug": ("name",)}
 
 # Register core models in the Django admin.

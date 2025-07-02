@@ -86,10 +86,22 @@ class CounterDefinitionForm(forms.ModelForm):
 
     class Meta:
         model = CounterDefinition
-        fields = ["name", "slug", "formula", "explanation", "duration"]
+        fields = [
+            "name",
+            "slug",
+            "formula",
+            "explanation",
+            "duration",
+            "precision",
+            "show_currency",
+            "friendly_format",
+        ]
         widgets = {
             "explanation": forms.Textarea(attrs={"rows": 2}),
             "duration": forms.NumberInput(attrs={"min": 0}),
+            "precision": forms.NumberInput(attrs={"min": 0}),
+            "show_currency": forms.CheckboxInput(),
+            "friendly_format": forms.CheckboxInput(),
         }
 
 

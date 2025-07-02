@@ -122,7 +122,14 @@ def council_detail(request, slug):
             CouncilCounter.objects.filter(council=council, enabled=True)
             .select_related("counter")
         ):
-            counters.append({"counter": cc.counter, "value": values.get(cc.counter.slug, 0)})
+            result = values.get(cc.counter.slug, {"value": 0, "formatted": "0"})
+            counters.append(
+                {
+                    "counter": cc.counter,
+                    "value": result["value"],
+                    "formatted": result["formatted"],
+                }
+            )
 
     context = {
         "council": council,
@@ -235,7 +242,8 @@ def counter_definitions_view(request):
     CounterFormSet = forms.modelformset_factory(
         CounterDefinition,
         form=CounterDefinitionForm,
-        extra=0,
+        # Allow staff to create a new counter definition inline
+        extra=1,
     )
 
     queryset = CounterDefinition.objects.all()
@@ -248,7 +256,11 @@ def counter_definitions_view(request):
     else:
         formset = CounterFormSet(queryset=queryset)
 
-    context = {"formset": formset}
+    context = {
+        "formset": formset,
+        # Provide a list of available fields for the formula builder
+        "available_fields": forms.INTERNAL_FIELDS,
+    }
     return render(request, "council_finance/counter_definitions.html", context)
 
 @login_required
