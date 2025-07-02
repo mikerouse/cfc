@@ -5,6 +5,7 @@ from . import views
 
 urlpatterns = [
     path('', views.home, name='home'),
+    path('api/councils/search/', views.search_councils, name='search_councils'),
     path('admin/', admin.site.urls),
     path('plugins/', include('core.urls')),
     # Authentication endpoints

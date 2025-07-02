@@ -2,5 +2,56 @@
 {% block title %}My Lists - Council Finance Counters{% endblock %}
 {% block content %}
 <h1 class="text-2xl font-bold mb-4">My Lists</h1>
-<p>You can manage your council lists here. Placeholder content.</p>
+<h2 class="text-xl font-semibold mt-4">Favourite Councils</h2>
+{% if favourites %}
+<ul class="list-disc pl-5 space-y-1">
+    {% for council in favourites %}
+    <li>
+        <a href="{% url 'council_detail' council.slug %}" class="text-blue-700 hover:underline">{{ council.name }}</a>
+        <form method="post" class="inline">
+            {% csrf_token %}
+            <input type="hidden" name="council" value="{{ council.slug }}" />
+            <button name="remove_fav" class="text-red-600 text-sm ml-2">remove</button>
+        </form>
+        {% if lists %}
+        <form method="post" class="inline">
+            {% csrf_token %}
+            <input type="hidden" name="council" value="{{ council.slug }}" />
+            <select name="list" class="border text-sm">
+                {% for l in lists %}
+                <option value="{{ l.id }}">{{ l.name }}</option>
+                {% endfor %}
+            </select>
+            <button name="add_to_list" class="text-sm ml-1">add</button>
+        </form>
+        {% endif %}
+    </li>
+    {% endfor %}
+</ul>
+{% else %}
+<p>No favourites yet.</p>
+{% endif %}
+
+<h2 class="text-xl font-semibold mt-6">Your Lists</h2>
+<form method="post" class="mb-4">
+    {% csrf_token %}
+    {{ form.name }}
+    <button name="new_list" class="ml-2">Create list</button>
+</form>
+{% for l in lists %}
+<div class="mb-4">
+    <h3 class="font-semibold">{{ l.name }}</h3>
+    {% if l.councils.all %}
+    <ul class="list-disc pl-5">
+        {% for c in l.councils.all %}
+        <li><a href="{% url 'council_detail' c.slug %}" class="text-blue-700 hover:underline">{{ c.name }}</a></li>
+        {% endfor %}
+    </ul>
+    {% else %}
+    <p class="text-sm">No councils yet.</p>
+    {% endif %}
+</div>
+{% empty %}
+<p class="text-sm">You have no saved lists.</p>
+{% endfor %}
 {% endblock %}

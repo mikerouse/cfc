@@ -13,7 +13,7 @@ from brevo_python.rest import ApiException
 
 from .emails import send_confirmation_email, send_email
 from .notifications import create_notification
-from .forms import SignUpForm
+from .forms import SignUpForm, CouncilListForm
 from .models import (
     Council,
     FinancialYear,
@@ -21,7 +21,20 @@ from .models import (
     UserProfile,
     UserFollow,
     PendingProfileChange,
+    CouncilList,
 )
+
+
+def search_councils(request):
+    """Return councils matching a query for live search."""
+    query = request.GET.get("q", "").strip()
+    if len(query) < 2:
+        return JsonResponse([], safe=False)
+    results = (
+        Council.objects.filter(Q(name__icontains=query) | Q(slug__icontains=query))
+        .values("name", "slug")[:10]
+    )
+    return JsonResponse(list(results), safe=False)
 
 
 def home(request):
@@ -85,11 +98,18 @@ def council_detail(request, slug):
     # Fetch the council or return a 404 if the slug is unknown
     council = get_object_or_404(Council, slug=slug)
 
-    # Pass the object straight through to the template for display
+    # Pull all financial figures for this council so the template can
+    # present them in an engaging way.
+    figures = (
+        FigureSubmission.objects.filter(council=council)
+        .select_related("year")
+        .order_by("year__label", "field_name")
+    )
+
     return render(
         request,
         "council_finance/council_detail.html",
-        {"council": council},
+        {"council": council, "figures": figures},
     )
 
 # Additional views for common site pages
@@ -100,12 +120,47 @@ def leaderboards(request):
 
 
 def my_lists(request):
-    """Display lists for authenticated users."""
+    """Allow users to manage their favourite councils and custom lists."""
     if not request.user.is_authenticated:
-        # Redirect anonymous users to the login page
-        from django.shortcuts import redirect
-        return redirect('login')
-    return render(request, "council_finance/my_lists.html")
+        return redirect("login")
+
+    profile = request.user.profile
+    favourites = profile.favourites.all()
+    lists = request.user.council_lists.all()
+    form = CouncilListForm()
+
+    if request.method == "POST":
+        if "new_list" in request.POST:
+            form = CouncilListForm(request.POST)
+            if form.is_valid():
+                new_list = form.save(commit=False)
+                new_list.user = request.user
+                new_list.save()
+                messages.success(request, "List created")
+                return redirect("my_lists")
+        elif "remove_fav" in request.POST:
+            slug = request.POST.get("council")
+            try:
+                council = Council.objects.get(slug=slug)
+                profile.favourites.remove(council)
+                messages.info(request, "Favourite removed")
+            except Council.DoesNotExist:
+                messages.error(request, "Council not found")
+            return redirect("my_lists")
+        elif "add_to_list" in request.POST:
+            slug = request.POST.get("council")
+            list_id = request.POST.get("list")
+            try:
+                council = Council.objects.get(slug=slug)
+                target = request.user.council_lists.get(id=list_id)
+                target.councils.add(council)
+                messages.success(request, "Added to list")
+            except (Council.DoesNotExist, CouncilList.DoesNotExist):
+                messages.error(request, "Invalid request")
+            return redirect("my_lists")
+
+    context = {"favourites": favourites, "lists": lists, "form": form}
+    return render(request, "council_finance/my_lists.html", context)
 
 
 def following(request):
