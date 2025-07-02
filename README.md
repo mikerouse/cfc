@@ -57,7 +57,8 @@ specified figure fields using the `CounterAgent`. Each council can enable or
 disable individual counters in the **Councils** admin. Staff can also update all
 definitions on `/staff/counters/` via the link under the **Admin** menu in the
 site header. The staff screen provides a small formula builder&mdash;click or
-drag available fields into a formula input and choose operators. Counters also
-define precision, currency display and whether large values should appear as
-friendly text like `£1m`.
+drag available fields into a formula input and choose operators. Formulas are
+validated client-side using **math.js** so mistakes are surfaced immediately.
+Counters also define precision, currency display and whether large values should
+appear as friendly text like `£1m`.
 

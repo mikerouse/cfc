@@ -34,23 +34,56 @@
     </div>
     <button class="mt-4 bg-blue-600 text-white px-4 py-1 rounded" type="submit">Save</button>
 </form>
+{# Pass the list of allowed fields into JavaScript so we can validate formulas #}
+{{ available_fields|json_script:"available-fields" }}
 <script>
+// Store the array of valid field names for reference when checking expressions
+const AVAILABLE_FIELDS = JSON.parse(document.getElementById('available-fields').textContent);
+
 let activeInput = null;
+// Enhance each formula input so users can drag fields in and validate content
 document.querySelectorAll('input[name$="-formula"]').forEach(inp => {
+    // Insert a span after the input to show validation errors
+    const error = document.createElement('span');
+    error.className = 'text-sm text-red-600 hidden';
+    inp.after(error);
+
     inp.classList.add('formula-input');
-    inp.addEventListener('focus', () => activeInput = inp);
+    inp.addEventListener('focus', () => (activeInput = inp));
     inp.addEventListener('drop', e => {
         e.preventDefault();
         const val = e.dataTransfer.getData('text/plain');
         inp.value += val;
+        validate();
     });
     inp.addEventListener('dragover', e => e.preventDefault());
+    inp.addEventListener('input', validate);
+
+    // Validate the expression using math.js to catch simple mistakes
+    function validate() {
+        try {
+            const expr = math.parse(inp.value || '0');
+            // Walk the syntax tree and ensure only known fields are referenced
+            expr.traverse(node => {
+                if (node.isSymbolNode && !AVAILABLE_FIELDS.includes(node.name)) {
+                    throw new Error('Unknown field: ' + node.name);
+                }
+            });
+            error.classList.add('hidden');
+        } catch (err) {
+            error.textContent = 'Invalid formula';
+            error.classList.remove('hidden');
+        }
+    }
 });
+
+// Allow clicking or dragging fields/operators into whichever input is active
 document.querySelectorAll('[data-insert]').forEach(el => {
     el.addEventListener('click', () => {
         if (activeInput) {
             activeInput.value += el.dataset.insert;
             activeInput.focus();
+            activeInput.dispatchEvent(new Event('input'));
         }
     });
     el.addEventListener('dragstart', e => {
