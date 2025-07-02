@@ -9,6 +9,7 @@ from .council import (
 from .user_profile import UserProfile
 from .user_follow import UserFollow
 from .pending_profile_change import PendingProfileChange
+from .notification import Notification
 
 __all__ = [
     'Council',
@@ -20,4 +21,5 @@ __all__ = [
     'UserProfile',
     'UserFollow',
     'PendingProfileChange',
+    'Notification',
 ]

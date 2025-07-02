@@ -3,6 +3,12 @@
 {% block title %}My Profile - Council Finance Counters{% endblock %}
 {% block content %}
 <h1 class="text-2xl font-bold mb-4">My Profile</h1>
+<div class="mb-4 border-b">
+  <nav class="flex gap-4">
+    <a href="{% url 'profile' %}" class="py-2 px-4 border-b-2 {% if not tab %}border-blue-600 font-semibold{% else %}border-transparent{% endif %}">Profile</a>
+    <a href="{% url 'notifications' %}" class="py-2 px-4 border-b-2 {% if tab == 'notifications' %}border-blue-600 font-semibold{% else %}border-transparent{% endif %}">Notifications</a>
+  </nav>
+</div>
 {% if gravatar_url %}
   <img class="rounded-full w-20 h-20" src="{{ gravatar_url }}" alt="Gravatar">
   <p class="text-sm mt-1">Profile photo loaded from <a class="text-blue-600 underline" href="https://gravatar.com">Gravatar</a>. Update it there if you wish.</p>

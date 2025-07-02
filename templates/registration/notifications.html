@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block title %}Notifications - Council Finance Counters{% endblock %}
+{% block content %}
+<div class="mb-4 border-b">
+  <nav class="flex gap-4">
+    <a href="{% url 'profile' %}" class="py-2 px-4 border-b-2 {% if not tab %}border-blue-600 font-semibold{% else %}border-transparent{% endif %}">Profile</a>
+    <a href="{% url 'notifications' %}" class="py-2 px-4 border-b-2 {% if tab == 'notifications' %}border-blue-600 font-semibold{% else %}border-transparent{% endif %}">Notifications</a>
+  </nav>
+</div>
+<table class="min-w-full divide-y divide-gray-200">
+  <thead>
+    <tr>
+      <th class="px-4 py-2 text-left">Message</th>
+      <th class="px-4 py-2 text-left">Date</th>
+      <th class="px-4 py-2"></th>
+    </tr>
+  </thead>
+  <tbody>
+  {% for note in notifications %}
+    <tr class="border-b {% if not note.read %}bg-gray-50{% endif %}">
+      <td class="px-4 py-2">{{ note.message }}</td>
+      <td class="px-4 py-2 text-sm text-gray-600">{{ note.created|date:"Y-m-d H:i" }}</td>
+      <td class="px-4 py-2 text-right">
+        {% if not note.read %}
+        <a href="{% url 'dismiss_notification' note.id %}" class="text-blue-600 underline">Mark read</a>
+        {% else %}
+        <span class="text-gray-400">Read</span>
+        {% endif %}
+      </td>
+    </tr>
+  {% empty %}
+    <tr><td class="px-4 py-2" colspan="3">No notifications.</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% endblock %}

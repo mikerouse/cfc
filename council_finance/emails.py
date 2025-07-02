@@ -23,7 +23,9 @@ def send_email(subject: str, message: str, recipient: str) -> None:
         to=[{"email": recipient}],
         subject=subject,
         text_content=message,
-        sender={"email": os.getenv("DEFAULT_FROM_EMAIL", "noreply@example.com")},
+        # Always use our designated sender address for system emails so
+        # messages appear consistent and pass DMARC checks.
+        sender={"email": os.getenv("DEFAULT_FROM_EMAIL", "counters@mikerouse.co.uk")},
     )
 
     try:

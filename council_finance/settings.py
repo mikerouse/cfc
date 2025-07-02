@@ -76,3 +76,5 @@ LOGIN_REDIRECT_URL = '/accounts/profile/'
 
 # Use an in-memory email backend during development and tests.
 EMAIL_BACKEND = 'django.core.mail.backends.locmem.EmailBackend'
+# Address used for all outgoing system emails
+DEFAULT_FROM_EMAIL = 'counters@mikerouse.co.uk'

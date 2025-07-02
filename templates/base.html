@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+{% load notifications %}
 <head>
     <meta charset="utf-8">
     <title>{% block title %}Council Finance Counters{% endblock %}</title>
@@ -22,6 +23,32 @@
                 {% if user.is_authenticated %}
                 {# Use the real account profile page rather than the placeholder #}
                 <a href="{% url 'profile' %}" class="hover:underline">My Profile</a>
+                {% unread_count as unread_count %}
+                <div class="relative" id="notif-wrapper">
+                    <button id="notif-toggle" class="ml-2" aria-label="Notifications">
+                        <!-- Simple bell icon -->
+                        <svg class="w-6 h-6 fill-current" viewBox="0 0 24 24">
+                            <path d="M12 2a6 6 0 0 0-6 6v3.586l-.707.707A1 1 0 0 0 6 14h12a1 1 0 0 0 .707-1.707L18 11.586V8a6 6 0 0 0-6-6zM5 15a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2H5zm7 7a3 3 0 0 0 3-3H9a3 3 0 0 0 3 3z"/>
+                        </svg>
+                        {% if unread_count %}
+                        <span class="absolute top-0 right-0 block h-2 w-2 rounded-full bg-red-600"></span>
+                        {% endif %}
+                    </button>
+                    <div id="notif-menu" class="hidden absolute right-0 mt-2 w-72 bg-white text-black border rounded shadow-lg z-50">
+                        {% recent_notifications 5 as notes %}
+                        {% for note in notes %}
+                        <div class="p-2 border-b {% if not note.read %}bg-gray-100{% endif %}">
+                            <p class="text-sm">{{ note.message }}</p>
+                            <p class="text-xs text-gray-500">{{ note.created|date:'SHORT_DATETIME_FORMAT' }}</p>
+                        </div>
+                        {% empty %}
+                        <p class="p-2 text-sm">No notifications.</p>
+                        {% endfor %}
+                        <div class="text-right p-2">
+                            <a href="{% url 'notifications' %}" class="text-blue-600 underline">View all</a>
+                        </div>
+                    </div>
+                </div>
                 {% if user.is_staff or user.is_superuser %}
                 {# Provide quick access to the Django admin for staff users #}
                 <a href="{% url 'admin:index' %}" class="hover:underline">Admin</a>
@@ -36,6 +63,20 @@
             </form>
         </div>
     </header>
+    <script>
+    const toggle = document.getElementById('notif-toggle');
+    if (toggle) {
+        const menu = document.getElementById('notif-menu');
+        toggle.addEventListener('click', () => {
+            menu.classList.toggle('hidden');
+        });
+        document.addEventListener('click', (e) => {
+            if (!toggle.contains(e.target) && !menu.contains(e.target)) {
+                menu.classList.add('hidden');
+            }
+        });
+    }
+    </script>
 
     <main class="flex-1 max-w-7xl mx-auto p-4">
         {% block content %}{% endblock %}
