@@ -55,8 +55,8 @@ From July 2025 counters can be configured from the Django admin. Create a
 `Counter Definition` with a slug, formula and explanation text. Counters sum the
 specified figure fields using the `CounterAgent`. Each council can enable or
 disable individual counters in the **Councils** admin. Staff can also update all
-definitions on `/staff/counters/` via the link under the **Admin** menu in the
-site header. The staff screen provides a small formula builder&mdash;click or
+definitions on `/staff/counters/` via the staff toolbar shown above the
+header. The staff screen provides a small formula builder&mdash;click or
 drag available fields into a formula input and choose operators. Formulas are
 validated client-side using **math.js** so mistakes are surfaced immediately.
 Counters also define precision, currency display and whether large values should

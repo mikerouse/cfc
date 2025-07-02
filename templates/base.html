@@ -51,16 +51,7 @@
                         </div>
                     </div>
                 </div>
-                {% if user.is_staff or user.is_superuser %}
-                {# Provide quick access to the Django admin for staff users #}
-                <div class="relative inline-block" id="admin-wrapper">
-                    <a href="{% url 'admin:index' %}" class="hover:underline">Admin</a>
-                    <div id="admin-menu" class="hidden absolute left-0 top-full bg-gray-800 text-white text-sm mt-1 rounded shadow-lg">
-                        <a href="{% url 'admin:index' %}" class="block px-2 py-1 hover:underline">Django Admin</a>
-                        <a href="{% url 'counter_definitions' %}" class="block px-2 py-1 hover:underline">Counters</a>
-                    </div>
-                </div>
-                {% endif %}
+                {# staff links are now in a secondary bar, so no admin option here #}
                 {% else %}
                 <a href="{% url 'login' %}" class="hover:underline">Login/Register</a>
                 {% endif %}
@@ -73,6 +64,15 @@
                 <div id="live-search-results" class="absolute bg-white text-black border rounded w-48 mt-1 hidden z-50"></div>
             </div>
         </div>
+        {% if user.is_staff or user.is_superuser %}
+        {# Secondary navigation bar for admin-only links #}
+        <div class="bg-gray-700">
+            <nav class="max-w-7xl mx-auto flex gap-4 p-2">
+                <a href="{% url 'admin:index' %}" class="hover:underline">Django Admin</a>
+                <a href="{% url 'counter_definitions' %}" class="hover:underline">Counters</a>
+            </nav>
+        </div>
+        {% endif %}
     </header>
     <script>
     const toggle = document.getElementById('notif-toggle');
@@ -88,20 +88,6 @@
         });
     }
 
-    // Ensure the admin dropdown stays visible when moving from the link
-    // to the submenu. We simply toggle a hidden class on mouseenter/leave
-    // of the wrapper so the menu persists as long as the pointer remains
-    // within the area.
-    const adminWrapper = document.getElementById('admin-wrapper');
-    if (adminWrapper) {
-        const adminMenu = document.getElementById('admin-menu');
-        adminWrapper.addEventListener('mouseenter', () => {
-            adminMenu.classList.remove('hidden');
-        });
-        adminWrapper.addEventListener('mouseleave', () => {
-            adminMenu.classList.add('hidden');
-        });
-    }
 
     // Live search behaviour for the main header search box.
     const searchInput = document.getElementById('live-search-input');
