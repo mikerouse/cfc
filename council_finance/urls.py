@@ -40,4 +40,5 @@ urlpatterns = [
     path('staff/counters/', views.counter_definition_list, name='counter_definitions'),
     path('staff/counters/add/', views.counter_definition_form, name='counter_add'),
     path('staff/counters/<slug:slug>/', views.counter_definition_form, name='counter_edit'),
+    path('staff/counters/preview/', views.preview_counter_value, name='preview_counter_value'),
 ]
