@@ -24,9 +24,9 @@ from .models.notification import Notification
 from .forms import (
     CouncilImportForm,
     CouncilImportMappingForm,
-    INTERNAL_FIELDS,
     CounterDefinitionForm,
 )
+from .models import DataField
 from .models.counter import CounterDefinition, CouncilCounter
 
 class CouncilAdmin(admin.ModelAdmin):
@@ -120,7 +120,9 @@ class CouncilAdmin(admin.ModelAdmin):
 
         for field, year_map in council_data.get("values", {}).items():
             mapped = mapping.get(field) or field
-            if mapped not in INTERNAL_FIELDS:
+            try:
+                df = DataField.objects.get(slug=mapped)
+            except DataField.DoesNotExist:
                 continue
             for year_label, value in year_map.items():
                 fy, _ = FinancialYear.objects.get_or_create(label=year_label)
@@ -129,7 +131,7 @@ class CouncilAdmin(admin.ModelAdmin):
                 FigureSubmission.objects.update_or_create(
                     council=council,
                     year=fy,
-                    field_name=mapped,
+                    field=df,
                     defaults={
                         "value": cleaned,
                         "needs_populating": needs_pop,
@@ -164,6 +166,7 @@ admin.site.register(DebtAdjustment)
 admin.site.register(WhistleblowerReport)
 admin.site.register(ModerationLog)
 admin.site.register(CouncilType)
+admin.site.register(DataField)
 admin.site.register(UserProfile)
 admin.site.register(UserFollow)
 admin.site.register(PendingProfileChange)

@@ -5,6 +5,7 @@ from django.core.files.uploadedfile import SimpleUploadedFile
 import json
 
 from council_finance.models import Council
+from council_finance.models import DataField
 
 
 class AdminImportTest(TestCase):
@@ -15,6 +16,8 @@ class AdminImportTest(TestCase):
 
     def test_import_flow_creates_council(self):
         self.client.login(username="admin", password="pass")
+
+        DataField.objects.get_or_create(slug="total_debt", defaults={"name": "Total Debt"})
 
         data = {
             "fields": [{"name": "total_debt"}],

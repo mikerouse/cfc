@@ -18,8 +18,9 @@ from .forms import (
     SignUpForm,
     CouncilListForm,
     CounterDefinitionForm,
-    INTERNAL_FIELDS,
+    DataFieldForm,
 )
+from .models import DataField
 from .models import (
     Council,
     FinancialYear,
@@ -61,9 +62,10 @@ def home(request):
     latest_year = FinancialYear.objects.order_by("-label").first()
 
     if latest_year:
+        field = DataField.objects.filter(slug="total_debt").first()
         total_debt = (
             FigureSubmission.objects.filter(
-                field_name="total_debt", year=latest_year
+                field=field, year=latest_year
             ).aggregate(
                 total=Sum(Cast("value", DecimalField(max_digits=20, decimal_places=2)))
             )["total"]
@@ -110,8 +112,8 @@ def council_detail(request, slug):
     # present them in an engaging way.
     figures = (
         FigureSubmission.objects.filter(council=council)
-        .select_related("year")
-        .order_by("year__label", "field_name")
+        .select_related("year", "field")
+        .order_by("year__label", "field__slug")
     )
 
     latest_year = FinancialYear.objects.order_by("-label").first()
@@ -170,8 +172,9 @@ def my_lists(request):
     # Map of council_id -> display string used in templates
     pop_display = {}
     if latest_year:
+        pop_field = DataField.objects.filter(slug="population").first()
         for fs in FigureSubmission.objects.filter(
-            field_name="population", year=latest_year
+            field=pop_field, year=latest_year
         ):
             try:
                 val = float(fs.value)
@@ -197,9 +200,8 @@ def my_lists(request):
     # Choices for the dynamic metric column. We exclude population because it
     # already has a dedicated column.
     metric_choices = [
-        (f, f.replace("_", " ").title())
-        for f in INTERNAL_FIELDS
-        if f != "population"
+        (f.slug, f.slug.replace("_", " ").title())
+        for f in DataField.objects.exclude(slug="population")
     ]
     default_metric = "total_debt"
 
@@ -342,7 +344,7 @@ def counter_definition_form(request, slug=None):
 
     context = {
         "form": form,
-        "available_fields": INTERNAL_FIELDS,
+        "available_fields": [f.slug for f in DataField.objects.all()],
         "councils": councils,
         "years": years,
         "preview_council_slug": preview_council_slug,
@@ -380,13 +382,14 @@ def preview_counter_value(request):
         figure_map = {}
         missing = set()
         for f in FigureSubmission.objects.filter(council=council, year=year):
+            slug = f.field.slug
             if f.needs_populating or f.value in (None, ""):
-                missing.add(f.field_name)
+                missing.add(slug)
                 continue
             try:
-                figure_map[f.field_name] = float(f.value)
+                figure_map[slug] = float(f.value)
             except (TypeError, ValueError):
-                missing.add(f.field_name)
+                missing.add(slug)
         import ast, operator
         allowed_ops = {
             ast.Add: operator.add,
@@ -728,8 +731,9 @@ def list_metric(request, list_id):
     values = {}
     total = 0.0
     if year:
+        field_obj = DataField.objects.filter(slug=field).first()
         qs = FigureSubmission.objects.filter(
-            council__in=lst.councils.all(), year=year, field_name=field
+            council__in=lst.councils.all(), year=year, field=field_obj
         )
         for fs in qs:
             values[str(fs.council_id)] = fs.value
@@ -740,3 +744,24 @@ def list_metric(request, list_id):
 
     return JsonResponse({"values": values, "total": total})
 
+
+@login_required
+def field_list(request):
+    """List all data fields for staff management."""
+    if not request.user.is_staff:
+        raise Http404()
+    fields = DataField.objects.all()
+    return render(request, "council_finance/field_list.html", {"fields": fields})
+
+@login_required
+def field_form(request, slug=None):
+    """Create or edit a data field."""
+    if not request.user.is_staff:
+        raise Http404()
+    field = get_object_or_404(DataField, slug=slug) if slug else None
+    form = DataFieldForm(request.POST or None, instance=field)
+    if request.method == "POST" and form.is_valid():
+        form.save()
+        messages.success(request, "Field saved.")
+        return redirect("field_list")
+    return render(request, "council_finance/field_form.html", {"form": form})
