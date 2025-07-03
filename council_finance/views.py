@@ -158,9 +158,21 @@ def my_lists(request):
         return redirect("login")
 
     profile = request.user.profile
+    # Prefetch councils so template access doesn't hit the DB repeatedly
+    lists = request.user.council_lists.prefetch_related("councils")
     favourites = profile.favourites.all()
-    lists = request.user.council_lists.all()
     form = CouncilListForm()
+
+    # Latest year used when pulling population figures for display
+    latest_year = FinancialYear.objects.order_by("-label").first()
+    population_map = {}
+    if latest_year:
+        population_map = {
+            fs.council_id: fs.value
+            for fs in FigureSubmission.objects.filter(
+                field_name="population", year=latest_year
+            )
+        }
 
     if request.method == "POST":
         if "new_list" in request.POST:
@@ -192,7 +204,15 @@ def my_lists(request):
                 messages.error(request, "Invalid request")
             return redirect("my_lists")
 
-    context = {"favourites": favourites, "lists": lists, "form": form}
+    # Provide population figures and list metadata to the template
+    list_meta = list(lists.values("id", "name"))
+    context = {
+        "favourites": favourites,
+        "lists": lists,
+        "form": form,
+        "populations": population_map,
+        "list_meta": list_meta,
+    }
     return render(request, "council_finance/my_lists.html", context)
 
 
@@ -563,4 +583,81 @@ def confirm_profile_change(request, token):
     change.delete()
     messages.success(request, "Profile updated.")
     return redirect("profile")
+
+
+@login_required
+def add_favourite(request):
+    """AJAX endpoint to add a council to favourites."""
+    if request.method != "POST":
+        return HttpResponseBadRequest("POST required")
+    slug = request.POST.get("council")
+    try:
+        council = Council.objects.get(slug=slug)
+        request.user.profile.favourites.add(council)
+        return JsonResponse({"status": "ok"})
+    except Council.DoesNotExist:
+        return JsonResponse({"error": "not found"}, status=400)
+
+
+@login_required
+def remove_favourite(request):
+    """AJAX endpoint to remove a council from favourites."""
+    if request.method != "POST":
+        return HttpResponseBadRequest("POST required")
+    slug = request.POST.get("council")
+    try:
+        council = Council.objects.get(slug=slug)
+        request.user.profile.favourites.remove(council)
+        return JsonResponse({"status": "ok"})
+    except Council.DoesNotExist:
+        return JsonResponse({"error": "not found"}, status=400)
+
+
+@login_required
+def add_to_list(request, list_id):
+    """AJAX endpoint to add a council to a user list."""
+    if request.method != "POST":
+        return HttpResponseBadRequest("POST required")
+    slug = request.POST.get("council")
+    try:
+        council = Council.objects.get(slug=slug)
+        target = request.user.council_lists.get(id=list_id)
+        target.councils.add(council)
+        return JsonResponse({"status": "ok"})
+    except (Council.DoesNotExist, CouncilList.DoesNotExist):
+        return JsonResponse({"error": "invalid"}, status=400)
+
+
+@login_required
+def remove_from_list(request, list_id):
+    """AJAX endpoint to remove a council from a user list."""
+    if request.method != "POST":
+        return HttpResponseBadRequest("POST required")
+    slug = request.POST.get("council")
+    try:
+        council = Council.objects.get(slug=slug)
+        target = request.user.council_lists.get(id=list_id)
+        target.councils.remove(council)
+        return JsonResponse({"status": "ok"})
+    except (Council.DoesNotExist, CouncilList.DoesNotExist):
+        return JsonResponse({"error": "invalid"}, status=400)
+
+
+@login_required
+def move_between_lists(request):
+    """Handle drag-and-drop moves of councils between lists."""
+    if request.method != "POST":
+        return HttpResponseBadRequest("POST required")
+    slug = request.POST.get("council")
+    from_id = request.POST.get("from")
+    to_id = request.POST.get("to")
+    try:
+        council = Council.objects.get(slug=slug)
+        if from_id:
+            request.user.council_lists.get(id=from_id).councils.remove(council)
+        if to_id:
+            request.user.council_lists.get(id=to_id).councils.add(council)
+        return JsonResponse({"status": "ok"})
+    except (Council.DoesNotExist, CouncilList.DoesNotExist):
+        return JsonResponse({"error": "invalid"}, status=400)
 
