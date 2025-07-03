@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block title %}Fields - Council Finance Counters{% endblock %}
+{% block content %}
+<h1 class="text-2xl font-bold mb-4">Fields Manager</h1>
+<p class="mb-4">Existing fields are shown below. Click a name to edit or use <strong>Add field</strong> to create a new one.</p>
+<div class="mb-4 text-right">
+    <a href="{% url 'field_add' %}" class="bg-blue-600 text-white px-4 py-1 rounded">Add field</a>
+</div>
+<table class="min-w-full bg-white border">
+    <thead>
+        <tr>
+            <th class="border px-2 py-1 text-left">Name</th>
+            <th class="border px-2 py-1">Slug</th>
+            <th class="border px-2 py-1">Category</th>
+            <th class="border px-2 py-1">Actions</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for f in fields %}
+        <tr class="odd:bg-gray-50">
+            <td class="border px-2 py-1"><a href="{% url 'field_edit' f.slug %}" class="text-blue-600 underline">{{ f.name }}</a></td>
+            <td class="border px-2 py-1 text-center">{{ f.slug }}</td>
+            <td class="border px-2 py-1 text-center">{{ f.get_category_display }}</td>
+            <td class="border px-2 py-1 text-center">
+                <a href="{% url 'field_edit' f.slug %}" class="text-blue-600 underline">Edit</a>
+                {% if not f.is_protected %}
+                | <a href="{% url 'field_delete' f.slug %}" class="text-red-600 underline">Delete</a>
+                {% endif %}
+            </td>
+        </tr>
+        {% empty %}
+        <tr>
+            <td class="border px-2 py-1 text-center" colspan="4">No fields defined yet.</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endblock %}

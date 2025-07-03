@@ -18,10 +18,12 @@ class CounterPreviewTest(TestCase):
         council = Council.objects.create(name="Test", slug="test")
         year = FinancialYear.objects.create(label="2025")
         # Store an empty string and flag the value as missing.
+        from council_finance.models import DataField
+        field, _ = DataField.objects.get_or_create(slug="total_debt", defaults={"name": "Total Debt"})
         FigureSubmission.objects.create(
             council=council,
             year=year,
-            field_name="total_debt",
+            field=field,
             value="",
             needs_populating=True,
         )

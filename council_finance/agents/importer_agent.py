@@ -6,6 +6,7 @@ from council_finance.models import (
     CouncilType,
     FinancialYear,
     FigureSubmission,
+    DataField,
 )
 
 class ImporterAgent(AgentBase):
@@ -32,6 +33,9 @@ class ImporterAgent(AgentBase):
                 },
             )
             for field, year_map in council_data.get('values', {}).items():
+                df, _ = DataField.objects.get_or_create(
+                    slug=field, defaults={"name": field.replace("_", " ").title()}
+                )
                 for year_label, value in year_map.items():
                     fy, _ = FinancialYear.objects.get_or_create(label=year_label)
                     # Blank entries mean we do not have the figure for that
@@ -42,7 +46,7 @@ class ImporterAgent(AgentBase):
                     FigureSubmission.objects.update_or_create(
                         council=council,
                         year=fy,
-                        field_name=field,
+                        field=df,
                         defaults={
                             'value': cleaned,
                             'needs_populating': needs_populating,

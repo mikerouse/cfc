@@ -76,4 +76,9 @@ urlpatterns = [
         views.counter_definition_form,
         name="counter_edit",
     ),
+    # Staff views for managing fields
+    path("staff/fields/", views.field_list, name="field_list"),
+    path("staff/fields/add/", views.field_form, name="field_add"),
+    path("staff/fields/<slug:slug>/", views.field_form, name="field_edit"),
+    path("staff/fields/<slug:slug>/delete/", views.field_delete, name="field_delete"),
 ]

@@ -5,7 +5,8 @@ from django.utils.crypto import get_random_string
 
 from .models import UserProfile
 from .models import CouncilList
-from .models import CounterDefinition
+from .models import CounterDefinition, DataField
+from .models.field import PROTECTED_SLUGS
 
 
 class SignUpForm(UserCreationForm):
@@ -41,18 +42,6 @@ class CouncilImportForm(forms.Form):
     )
 
 
-# Available internal fields that council figures can map to. This keeps
-# the mapping logic explicit and future-proof.
-INTERNAL_FIELDS = [
-    "population",
-    "elected_members",
-    "total_debt",
-    "band_d_properties",
-    "current_liabilities",
-    "long_term_liabilities",
-    "counter_start_date",
-    "households",
-]
 
 
 class CouncilImportMappingForm(forms.Form):
@@ -64,11 +53,11 @@ class CouncilImportMappingForm(forms.Form):
         # can specify how it maps to our internal field names.
         super().__init__(*args, **kwargs)
         if available_fields:
-            choices = [(f, f) for f in INTERNAL_FIELDS]
+            field_choices = [(f.slug, f.slug) for f in DataField.objects.all()]
             for field in available_fields:
                 self.fields[field] = forms.ChoiceField(
                     label=f"Map '{field}' to",
-                    choices=[("", "-- ignore --")] + choices,
+                    choices=[("", "-- ignore --")] + field_choices,
                     required=False,
                 )
 
@@ -120,3 +109,34 @@ class CounterDefinitionForm(forms.ModelForm):
             field.widget.attrs.setdefault("class", "border rounded p-1 w-full")
 
 
+
+class DataFieldForm(forms.ModelForm):
+    """Form for creating and editing data fields."""
+
+    class Meta:
+        model = DataField
+        fields = [
+            "name",
+            "slug",
+            "category",
+            "explanation",
+            "content_type",
+            "formula",
+            "required",
+        ]
+        widgets = {
+            "explanation": forms.Textarea(attrs={"rows": 2, "class": "border rounded p-1 w-full"}),
+            "formula": forms.TextInput(attrs={"class": "border rounded p-1 w-full"}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Prevent editing the slug of protected fields so staff can't rename
+        # important built-in definitions. The value itself can still change.
+        if self.instance and self.instance.pk and self.instance.slug in PROTECTED_SLUGS:
+            self.fields["slug"].disabled = True
+        for name, field in self.fields.items():
+            if isinstance(field.widget, forms.CheckboxInput):
+                field.widget.attrs.setdefault("class", "mr-2")
+            else:
+                field.widget.attrs.setdefault("class", "border rounded p-1 w-full")
