@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load static %}
 {% block title %}{{ council.name }} - Council Finance Counters{% endblock %}
 {% block content %}
 <h1 class="text-2xl font-bold mb-4">{{ council.name }}</h1>
@@ -28,7 +29,11 @@
     </div>
     {% endfor %}
 </div>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/countup.js/2.6.2/countUp.umd.js"></script>
+{#
+  Load the CountUp library from our static files so the page
+  works even when external CDNs are unreachable.
+#}
+<script src="{% static 'js/countUp.umd.js' %}"></script>
 <script>
 function animateCounters() {
   document.querySelectorAll('.counter-value').forEach(el => {
@@ -36,7 +41,10 @@ function animateCounters() {
     const end = parseFloat(el.dataset.value || '0');
     const dur = parseInt(el.dataset.duration || '0') / 1000;
     const display = el.dataset.formatted || end.toLocaleString();
-    const cu = new window.CountUp(el, end, {duration: dur});
+    // Create an animator instance from the CountUp library. The global
+    // object exposes the constructor as `countUp.CountUp` when using the
+    // UMD build we load above.
+    const cu = new countUp.CountUp(el, end, {duration: dur});
     if (!cu.error) {
       cu.start(() => { el.textContent = display; });
     } else {
