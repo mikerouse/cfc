@@ -76,6 +76,13 @@ class CouncilImportMappingForm(forms.Form):
 class CouncilListForm(forms.ModelForm):
     """Create a simple list of councils."""
 
+    # Provide a short helper text so users know why lists are useful
+    name = forms.CharField(
+        help_text="Use custom lists to group and compare councils",
+        # Tailwind classes provide a border and padding so the input stands out
+        widget=forms.TextInput(attrs={"class": "border rounded p-1 flex-1"}),
+    )
+
     class Meta:
         model = CouncilList
         fields = ["name"]

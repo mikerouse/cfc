@@ -41,9 +41,13 @@
 <p>No favourites yet.</p>
 {% endif %}
 <h2 class="text-xl font-semibold mt-6">Your Lists</h2>
-<form method="post" class="mb-4 flex gap-2">
+<form method="post" class="mb-4 flex gap-2 items-start flex-wrap">
   {% csrf_token %}
-  {{ form.name }}
+  <div class="flex flex-col flex-1">
+    <label for="{{ form.name.id_for_label }}" class="sr-only">List name</label>
+    {{ form.name }}
+    <p class="text-xs text-gray-600">{{ form.name.help_text }}</p>
+  </div>
   <button name="new_list" class="bg-blue-600 text-white px-3 rounded" type="submit">Create list</button>
 </form>
 {% for l in lists %}
