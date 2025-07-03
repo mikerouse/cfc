@@ -2,7 +2,6 @@ from django import forms
 from django.contrib.auth.forms import UserCreationForm
 from django.contrib.auth import get_user_model
 from django.utils.crypto import get_random_string
-
 from .models import UserProfile
 from .models import CouncilList
 from .models import CounterDefinition, DataField
@@ -113,7 +112,6 @@ class CounterDefinitionForm(forms.ModelForm):
 
 class DataFieldForm(forms.ModelForm):
     """Form for creating and editing data fields."""
-
     # Dataset selection only applies when ``content_type`` is ``list``. The
     # queryset is limited to models within this app so admins can't accidentally
     # bind to unrelated tables.
