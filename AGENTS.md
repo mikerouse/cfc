@@ -10,21 +10,30 @@ The emphasis is on 'visually striking' ways to show the data using counters and 
 
 ## Coding standards and expectations
 
-- Write comments around your code to explain what you are doing and more importantly why you are doing it
-- Decorate code blocks with comments to explain what they do, how they interact, what they depend upon and any other requirements
-- Adhere to requirements such as spacing and indentations
-- Prioritise code that can be interrogated by humans more easily than code that is efficient but dense
-- Emphasise maintainability, extensibility and portability
+- Use internal APIs and AJAX or other similar methods to get figures from the system and display them with JavaScript animations.
+- Counters should always be animated using a CountUp method, ensuring each digit is animated, not the whole number or surrounding DIV.
+- Prefer buttons over links, except for the proper names of things.
+- Always provide progress updates and feedback to the user in the UI so they know what's happening and can be assured that actions they have requested have been executed.
+- Write comments around your code to explain what you are doing and more importantly why you are doing it.
+- Decorate code blocks with comments to explain what they do, how they interact, what they depend upon and any other requirements.
+- Adhere to requirements such as spacing and indentations.
+- Prioritise code that can be interrogated by humans more easily than code that is efficient but dense.
+- Emphasise maintainability, extensibility and portability.
+- Search tools should work as live or predictive features - show the results as the user types a couple or few letters, and allow the user to choose the result they want from a drop-down, which can be enriched with shortcut links or buttons depending upon what context the search is used within. 
+
+## OpenAI Integration
+
+- The app will integrate with OpenAI to use models to extract data from provided PDFs
 
 ## Migrating from WordPress Plugin to Django Agent Architecture
 
 This document guides the migration of the `council-finance-counters` WordPress plugin into a modern, scalable **Django-based agent system**.
 
-Each “agent” in Django represents a discrete unit of business logic previously managed by PHP classes. This allows for cleaner architecture, easier testing, and more powerful orchestration.
+Each “agent” in Django represents a discrete unit of business logic previously managed by PHP classes within a WordPress plugin environment. This allows for cleaner architecture, easier testing, and more powerful orchestration. The old system can be referenced at https://github.com/mikerouse/council-debt-counters
 
 ## 🔗 Original Plugin Structure Reference
 
-Most core logic is located in the `includes/` directory of the plugin:
+Most core logic is located in the `includes/` directory of the original WordPress plugin at https://github.com/mikerouse/council-debt-counters:
 - `class-data-loader.php`: handles import of CSVs/data files.
 - `class-counter-manager.php`: computes financial metrics.
 - `class-councils-table.php`, `class-council-post-type.php`: model/data definitions.
@@ -47,8 +56,6 @@ Typical mapping:
 | `class-error-logger.php`      | `LoggerAgent` or integrated Django logs  |
 | `class-openai-helper.php`     | `OpenAIAgent` (content or data synthesis)|
 | `class-whistleblower-*.php`   | `WhistleblowerAgent` (form processor)    |
-
----
 
 ## 🏗️ Django Project Structure
 
@@ -92,6 +99,7 @@ council_finance/
    - **ModerationAgent**: port logs from `class-moderation-log.php`
 
 3. **Views & APIs**
+
    Create Django views to replace WP shortcodes (`class-shortcode-renderer.php`), if needed. Consider using Django REST Framework for external APIs.
 
 4. **Admin UI**
