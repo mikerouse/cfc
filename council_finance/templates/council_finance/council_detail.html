@@ -9,41 +9,76 @@
 {% if council.council_type %}
 <p>Type: {{ council.council_type.name }}</p>
 {% endif %}
+<div class="mt-2">
+  <label for="year-select" class="sr-only">Financial year</label>
+  <select id="year-select" class="border rounded px-2 py-1">
+    {% for y in years %}
+      <option value="{{ y.label }}" {% if y.label == selected_year.label %}selected{% endif %}>{{ y.label }}</option>
+    {% endfor %}
+  </select>
+</div>
 {% if counters %}
 <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 my-6">
     {% for item in counters %}
-    <div class="bg-green-50 p-4 rounded shadow text-center">
+    <div class="bg-green-50 p-4 rounded shadow text-center" data-counter="{{ item.counter.slug }}">
         <p class="text-sm text-gray-600">{{ item.counter.name }}</p>
-        {% if item.error %}
-        <p class="text-red-700 text-sm">{{ item.error }}</p>
-        {% else %}
-        <p class="text-2xl font-bold" data-duration="{{ item.counter.duration }}" data-value="{{ item.value }}" data-formatted="{{ item.formatted }}">0</p>
-        {% endif %}
+        <p class="text-red-700 text-sm counter-error" {% if not item.error %}style="display:none"{% endif %}>{{ item.error }}</p>
+        <p class="text-2xl font-bold counter-value" data-duration="{{ item.counter.duration }}" data-value="{{ item.value }}" data-formatted="{{ item.formatted }}" {% if item.error %}style="display:none"{% endif %}>0</p>
         <p class="text-xs mt-1">{{ item.counter.explanation }}</p>
     </div>
     {% endfor %}
 </div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/countup.js/2.6.2/countUp.umd.js"></script>
 <script>
-// Animate all counter elements using CountUp for smoother number transitions.
-// Only animate counters that have a numeric value.
-document.querySelectorAll('[data-duration]').forEach(el => {
-    if (!el.dataset.value) {
-        return;
-    }
+function animateCounters() {
+  document.querySelectorAll('.counter-value').forEach(el => {
+    if (!el.dataset.value) return;
     const end = parseFloat(el.dataset.value || '0');
-    const duration = parseInt(el.dataset.duration || '0') / 1000; // ms -> seconds
+    const dur = parseInt(el.dataset.duration || '0') / 1000;
     const display = el.dataset.formatted || end.toLocaleString();
-    const counter = new window.CountUp(el, end, {duration});
-    if (!counter.error) {
-        counter.start(() => {
-            // Ensure the final formatted string matches server-side formatting.
-            el.textContent = display;
-        });
+    const cu = new window.CountUp(el, end, {duration: dur});
+    if (!cu.error) {
+      cu.start(() => { el.textContent = display; });
     } else {
-        el.textContent = display;
+      el.textContent = display;
     }
+  });
+}
+
+async function loadCounters(year) {
+  const url = `{% url 'council_counters' council.slug %}?year=${encodeURIComponent(year)}`;
+  try {
+    const resp = await fetch(url, {headers: {'X-Requested-With': 'XMLHttpRequest'}});
+    const data = await resp.json();
+    Object.entries(data.counters).forEach(([slug, info]) => {
+      const container = document.querySelector(`[data-counter="${slug}"]`);
+      if (!container) return;
+      const valEl = container.querySelector('.counter-value');
+      const errEl = container.querySelector('.counter-error');
+      if (info.error) {
+        if (errEl) { errEl.textContent = info.error; errEl.style.display = ''; }
+        if (valEl) { valEl.style.display = 'none'; }
+      } else {
+        if (errEl) { errEl.textContent = ''; errEl.style.display = 'none'; }
+        if (valEl) {
+          valEl.dataset.value = info.value;
+          valEl.dataset.formatted = info.formatted;
+          valEl.dataset.duration = info.duration;
+          valEl.style.display = '';
+        }
+      }
+    });
+    animateCounters();
+  } catch (e) {
+    console.error('Failed to load counters', e);
+  }
+}
+
+document.getElementById('year-select').addEventListener('change', e => {
+  loadCounters(e.target.value);
 });
+
+animateCounters();
 </script>
 {% endif %}
 {% if figures %}
