@@ -203,6 +203,11 @@ def my_lists(request):
     ]
     default_metric = "total_debt"
 
+    # Allow the metric column to show figures from different years.
+    # Present the years newest first so the latest data is selected by default.
+    years = FinancialYear.objects.order_by("-label")
+    default_year = years.first() if years else None
+
     if request.method == "POST":
         if "new_list" in request.POST:
             form = CouncilListForm(request.POST)
@@ -247,6 +252,8 @@ def my_lists(request):
         "pop_totals": pop_totals,
         "metric_choices": metric_choices,
         "default_metric": default_metric,
+        "years": years,
+        "default_year": default_year,
     }
     return render(request, "council_finance/my_lists.html", context)
 
@@ -699,7 +706,7 @@ def move_between_lists(request):
 
 @login_required
 def list_metric(request, list_id):
-    """Return metric values for a list and the latest year."""
+    """Return metric values for a list and a selected year."""
     field = request.GET.get("field")
     if not field:
         return JsonResponse({"error": "field required"}, status=400)
@@ -708,12 +715,21 @@ def list_metric(request, list_id):
     except CouncilList.DoesNotExist:
         return JsonResponse({"error": "not found"}, status=404)
 
-    latest_year = FinancialYear.objects.order_by("-label").first()
+    # Allow callers to specify a financial year. Default to the latest year when
+    # the parameter is missing or invalid.
+    year_id = request.GET.get("year")
+    if year_id:
+        year = FinancialYear.objects.filter(id=year_id).first()
+    else:
+        year = None
+    if not year:
+        year = FinancialYear.objects.order_by("-label").first()
+
     values = {}
     total = 0.0
-    if latest_year:
+    if year:
         qs = FigureSubmission.objects.filter(
-            council__in=lst.councils.all(), year=latest_year, field_name=field
+            council__in=lst.councils.all(), year=year, field_name=field
         )
         for fs in qs:
             values[str(fs.council_id)] = fs.value

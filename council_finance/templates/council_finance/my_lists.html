@@ -53,6 +53,12 @@
 {% for l in lists %}
 <div class="mb-6 border rounded p-2 list-container" data-list="{{ l.id }}" aria-label="Council list {{ l.name }}">
   <h3 class="font-semibold mb-2">{{ l.name }}</h3>
+  <div class="flex justify-end mb-1">
+    <label for="year-select-{{ l.id }}" class="sr-only">Financial year</label>
+    <select id="year-select-{{ l.id }}" class="year-select border text-xs" data-list="{{ l.id }}">
+      {% for y in years %}<option value="{{ y.id }}" {% if y.id == default_year.id %}selected{% endif %}>{{ y.label }}</option>{% endfor %}
+    </select>
+  </div>
   {% if l.councils.all %}
   <table class="min-w-full border text-sm list-table" data-list="{{ l.id }}" data-metric="{{ default_metric }}">
     <thead>
@@ -168,8 +174,8 @@ function sortTable(th){const table=th.closest('table');const key=th.getAttribute
 document.querySelectorAll('th[data-key]').forEach(th=>{th.addEventListener('click',()=>sortTable(th));});
 
 // Load metric values for each list and refresh when the user changes the field
-function loadMetric(table, field){
-  fetch(`/lists/${table.dataset.list}/metric/?field=${field}`)
+function loadMetric(table, field, year){
+  fetch(`/lists/${table.dataset.list}/metric/?field=${field}&year=${year}`)
     .then(r=>r.json())
     .then(data=>{
       table.querySelectorAll('tbody tr').forEach(tr=>{
@@ -181,8 +187,24 @@ function loadMetric(table, field){
       if(totalCell) totalCell.textContent=data.total;
     });
 }
+// Handle changes to the year selector for each list
+document.querySelectorAll('.year-select').forEach(sel=>{
+  const table=document.querySelector(`table[data-list="${sel.dataset.list}"]`);
+  const metricSel=document.querySelector(`.metric-select[data-list="${sel.dataset.list}"]`);
+  const key=`year_${sel.dataset.list}`;
+  const saved=localStorage.getItem(key);
+  if(saved){
+    sel.value=saved;
+  }
+  sel.addEventListener('change',()=>{
+    localStorage.setItem(key, sel.value);
+    loadMetric(table, metricSel.value, sel.value);
+  });
+});
+
 document.querySelectorAll('.metric-select').forEach(sel=>{
   const table=document.querySelector(`table[data-list="${sel.dataset.list}"]`);
+  const yearSel=document.querySelector(`.year-select[data-list="${sel.dataset.list}"]`);
   const key=`metric_${sel.dataset.list}`;
   // Restore previous selection if stored in localStorage
   const saved=localStorage.getItem(key);
@@ -191,9 +213,9 @@ document.querySelectorAll('.metric-select').forEach(sel=>{
   }
   sel.addEventListener('change',()=>{
     localStorage.setItem(key, sel.value);
-    loadMetric(table, sel.value);
+    loadMetric(table, sel.value, yearSel.value);
   });
-  loadMetric(table, sel.value);
+  loadMetric(table, sel.value, yearSel.value);
 });
 </script>
 {% endblock %}
