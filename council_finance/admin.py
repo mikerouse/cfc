@@ -170,7 +170,9 @@ admin.site.register(CouncilType)
 
 
 class DataFieldAdmin(admin.ModelAdmin):
-    list_display = ("name", "slug", "category", "required")
+    # Expose dataset_type in the list display so staff can see which dataset a
+    # list field is bound to at a glance.
+    list_display = ("name", "slug", "category", "content_type", "dataset_type", "required")
     prepopulated_fields = {"slug": ("name",)}
 
     def get_readonly_fields(self, request, obj=None):

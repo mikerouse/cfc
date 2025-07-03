@@ -2,11 +2,11 @@ from django import forms
 from django.contrib.auth.forms import UserCreationForm
 from django.contrib.auth import get_user_model
 from django.utils.crypto import get_random_string
-
 from .models import UserProfile
 from .models import CouncilList
 from .models import CounterDefinition, DataField
 from .models.field import PROTECTED_SLUGS
+from django.contrib.contenttypes.models import ContentType
 
 
 class SignUpForm(UserCreationForm):
@@ -112,6 +112,15 @@ class CounterDefinitionForm(forms.ModelForm):
 
 class DataFieldForm(forms.ModelForm):
     """Form for creating and editing data fields."""
+    # Dataset selection only applies when ``content_type`` is ``list``. The
+    # queryset is limited to models within this app so admins can't accidentally
+    # bind to unrelated tables.
+    dataset_type = forms.ModelChoiceField(
+        queryset=ContentType.objects.filter(app_label="council_finance"),
+        required=False,
+        label="Dataset",
+        help_text="Model used for list options",
+    )
 
     class Meta:
         model = DataField
@@ -121,6 +130,7 @@ class DataFieldForm(forms.ModelForm):
             "category",
             "explanation",
             "content_type",
+            "dataset_type",
             "formula",
             "required",
         ]
@@ -135,8 +145,11 @@ class DataFieldForm(forms.ModelForm):
         # important built-in definitions. The value itself can still change.
         if self.instance and self.instance.pk and self.instance.slug in PROTECTED_SLUGS:
             self.fields["slug"].disabled = True
+        # Style widgets consistently and apply an id to the dataset row so it can
+        # be toggled via JavaScript when the content type changes.
         for name, field in self.fields.items():
             if isinstance(field.widget, forms.CheckboxInput):
                 field.widget.attrs.setdefault("class", "mr-2")
             else:
                 field.widget.attrs.setdefault("class", "border rounded p-1 w-full")
+        self.fields["dataset_type"].widget.attrs["id"] = "id_dataset_type"

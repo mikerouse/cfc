@@ -1,5 +1,6 @@
 from django.db import models
 from django.core.exceptions import ValidationError
+from django.contrib.contenttypes.models import ContentType
 
 
 # Slugs listed here are considered immutable. Staff can update the value
@@ -29,13 +30,28 @@ class DataField(models.Model):
         ("integer", "Integer"),
         ("text", "Text"),
         ("url", "URL"),
+        # New list type references another dataset for selectable options
+        ("list", "List"),
     ]
 
+    # Use BigAutoField to stay compatible with existing migrations which
+    # created this model with a BigAutoField primary key.
+    id = models.BigAutoField(primary_key=True)
     name = models.CharField(max_length=100)
     slug = models.SlugField(unique=True)
     category = models.CharField(max_length=20, choices=FIELD_CATEGORIES, default="general")
     explanation = models.TextField(blank=True)
     content_type = models.CharField(max_length=20, choices=CONTENT_TYPES, default="text")
+    # When ``content_type`` is ``list`` this holds the model that provides
+    # selectable options. We store a ContentType so new datasets can be
+    # referenced without additional migrations.
+    dataset_type = models.ForeignKey(
+        ContentType,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        help_text="Model providing options for list values",
+    )
     formula = models.CharField(max_length=255, blank=True)
     required = models.BooleanField(default=False)
 

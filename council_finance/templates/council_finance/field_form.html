@@ -6,8 +6,9 @@
     {% csrf_token %}
     <table class="min-w-full border border-gray-300">
         <tbody>
+            {# Give each row an id so JS can toggle the dataset field #}
             {% for field in form %}
-            <tr class="odd:bg-gray-50">
+            <tr class="odd:bg-gray-50" id="row-{{ field.name }}">
                 <th class="text-left p-2 border w-40">{{ field.label_tag }}</th>
                 <td class="p-2 border">{{ field }}{{ field.errors }}</td>
             </tr>
@@ -21,4 +22,19 @@
         {% endif %}
     </div>
 </form>
+<script>
+const typeSelect = document.getElementById('id_content_type');
+const datasetRow = document.getElementById('row-dataset_type');
+function toggleDataset() {
+    if (typeSelect.value === 'list') {
+        datasetRow.style.display = '';
+    } else {
+        datasetRow.style.display = 'none';
+    }
+}
+if (typeSelect && datasetRow) {
+    toggleDataset();
+    typeSelect.addEventListener('change', toggleDataset);
+}
+</script>
 {% endblock %}
