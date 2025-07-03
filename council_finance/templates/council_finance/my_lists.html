@@ -57,6 +57,7 @@
   <table class="min-w-full border text-sm list-table" data-list="{{ l.id }}" data-metric="{{ default_metric }}">
     <thead>
       <tr class="bg-gray-100">
+        <th></th>
         <th data-key="name" class="cursor-pointer px-2 py-1 text-left">Name</th>
         <th data-key="pop" class="cursor-pointer px-2 py-1 text-left">Population</th>
         <th class="px-2 py-1">
@@ -70,6 +71,9 @@
     <tbody id="list-{{ l.id }}">
       {% for c in l.councils.all %}
       <tr data-name="{{ c.name }}" data-pop="{{ populations|get_item:c.id|default:'' }}" data-id="{{ c.id }}" data-slug="{{ c.slug }}" class="border-t">
+        <td class="drag-handle px-2 py-1 text-gray-400 cursor-grab active:cursor-grabbing">
+          <i class="fa-solid fa-grip-dots-vertical" aria-hidden="true"></i><span class="sr-only">Move</span>
+        </td>
         <td class="px-2 py-1"><a href="{% url 'council_detail' c.slug %}" class="text-blue-700 hover:underline">{{ c.name }}</a></td>
         <td class="px-2 py-1">{{ populations|get_item:c.id|default:'?' }}</td>
         <td class="px-2 py-1 metric-cell"></td>
@@ -79,6 +83,7 @@
     </tbody>
     <tfoot>
       <tr class="bg-gray-100 font-semibold">
+        <td></td>
         <td class="px-2 py-1">Total</td>
         <td class="px-2 py-1">{{ pop_totals|get_item:l.id|default:'0' }}</td>
         <td class="px-2 py-1 metric-total" data-list="{{ l.id }}"></td>
@@ -136,7 +141,27 @@ document.querySelectorAll('.remove-from-list').forEach(btn=>{
   btn.addEventListener('click',()=>{const listId=btn.dataset.list;const tr=btn.closest('tr');fetch(`/lists/${listId}/remove/`,{method:'POST',headers:{'X-CSRFToken':csrftoken,'Content-Type':'application/x-www-form-urlencoded'},body:`council=${tr.dataset.slug}`}).then(r=>r.json()).then(()=>{tr.remove();flash('Removed');});});});
 
 // Enable drag and drop between lists
-document.querySelectorAll('.list-table tbody').forEach(tb=>{new Sortable(tb,{group:'lists',animation:150,onEnd:e=>{const slug=e.item.dataset.slug;const from=e.from.dataset.list;const to=e.to.dataset.list;if(from==to)return;fetch('{% url "move_between_lists" %}',{method:'POST',headers:{'X-CSRFToken':csrftoken,'Content-Type':'application/x-www-form-urlencoded'},body:`council=${slug}&from=${from}&to=${to}`}).then(()=>{flash('Saved');});}});});
+// Make each table body sortable so councils can be dragged between lists.
+// Only the grip icon (``.drag-handle``) acts as the drag handle so
+// accidental dragging is avoided.
+document.querySelectorAll('.list-table tbody').forEach(tb=>{
+  new Sortable(tb, {
+    group:'lists',
+    handle:'.drag-handle',
+    animation:150,
+    onEnd:e=>{
+      const slug=e.item.dataset.slug;
+      const from=e.from.dataset.list;
+      const to=e.to.dataset.list;
+      if(from==to) return;
+      fetch('{% url "move_between_lists" %}',{
+        method:'POST',
+        headers:{'X-CSRFToken':csrftoken,'Content-Type':'application/x-www-form-urlencoded'},
+        body:`council=${slug}&from=${from}&to=${to}`
+      }).then(()=>{flash('Saved');});
+    }
+  });
+});
 
 // Simple table sorting
 function sortTable(th){const table=th.closest('table');const key=th.getAttribute('data-key');const numeric=key==='pop';const dir=table.getAttribute('data-dir')==='asc'?'desc':'asc';table.setAttribute('data-dir',dir);const rows=Array.from(table.tBodies[0].rows);rows.sort((a,b)=>{let A=a.dataset[key]||'';let B=b.dataset[key]||'';if(numeric){A=parseFloat(A)||0;B=parseFloat(B)||0;return dir==='asc'?A-B:B-A;} return dir==='asc'?A.localeCompare(B):B.localeCompare(A);});rows.forEach(r=>table.tBodies[0].appendChild(r));}
