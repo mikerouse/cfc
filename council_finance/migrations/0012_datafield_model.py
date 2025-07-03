@@ -1,4 +1,4 @@
-from django.db import migrations, models, deletion
+from django.db import migrations, models
 
 
 def migrate_fields(apps):
@@ -37,12 +37,15 @@ class Migration(migrations.Migration):
                 ("required", models.BooleanField(default=False)),
             ],
         ),
+        # Attach a foreign key to the new DataField definition. We use
+        # ``models.deletion.CASCADE`` to maintain parity with the old behaviour
+        # when a field was removed.
         migrations.AddField(
             model_name="figuresubmission",
             name="field",
             field=models.ForeignKey(
                 to="council_finance.datafield",
-                on_delete=deletion.CASCADE,
+                on_delete=models.deletion.CASCADE,
                 null=True,
             ),
             preserve_default=False,
@@ -51,12 +54,14 @@ class Migration(migrations.Migration):
             lambda apps, schema_editor: migrate_fields(apps),
             migrations.RunPython.noop,
         ),
-        migrations.RemoveField(
-            model_name="figuresubmission",
-            name="field_name",
-        ),
+        # Update the unique constraint before removing the old column so SQLite
+        # doesn't complain about missing fields referenced by the index.
         migrations.AlterUniqueTogether(
             name="figuresubmission",
             unique_together={("council", "year", "field")},
+        ),
+        migrations.RemoveField(
+            model_name="figuresubmission",
+            name="field_name",
         ),
     ]
