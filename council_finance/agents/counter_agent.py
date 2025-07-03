@@ -24,13 +24,14 @@ class CounterAgent(AgentBase):
         figure_map = {}
         missing = set()
         for f in FigureSubmission.objects.filter(council=council, year=year):
+            slug = f.field.slug
             if f.needs_populating or f.value in (None, ""):
-                missing.add(f.field_name)
+                missing.add(slug)
                 continue
             try:
-                figure_map[f.field_name] = float(f.value)
+                figure_map[slug] = float(f.value)
             except (TypeError, ValueError):
-                missing.add(f.field_name)
+                missing.add(slug)
 
         def eval_formula(formula: str) -> float:
             """Safely evaluate a formula using the loaded figure values."""

@@ -4,6 +4,7 @@ from django.db import models
 # independently in the admin. We import lazily to avoid circular imports
 # when Django loads models during migrations.
 from .council_type import CouncilType
+from .field import DataField
 
 class Council(models.Model):
     """Basic local authority info."""
@@ -30,10 +31,12 @@ class FinancialYear(models.Model):
         return self.label
 
 class FigureSubmission(models.Model):
-    """Stores individual financial figures for a council in a given year."""
+    """Stores a single value for a given field, council and year."""
+
     council = models.ForeignKey(Council, on_delete=models.CASCADE)
     year = models.ForeignKey(FinancialYear, on_delete=models.CASCADE)
-    field_name = models.CharField(max_length=100)
+    # Reference the DataField definition so we know what this value represents.
+    field = models.ForeignKey(DataField, on_delete=models.CASCADE)
     value = models.CharField(max_length=255)
     # Track when the figure value is missing so staff can easily find gaps
     # in the data and populate them later. A blank or null ``value`` will
@@ -44,7 +47,7 @@ class FigureSubmission(models.Model):
     )
 
     class Meta:
-        unique_together = ('council', 'year', 'field_name')
+        unique_together = ("council", "year", "field")
 
 class DebtAdjustment(models.Model):
     council = models.ForeignKey(Council, on_delete=models.CASCADE)

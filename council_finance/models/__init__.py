@@ -7,6 +7,7 @@ from .council import (
     ModerationLog,
 )
 from .council_type import CouncilType
+from .field import DataField
 from .user_profile import UserProfile
 from .user_follow import UserFollow
 from .pending_profile_change import PendingProfileChange
@@ -22,6 +23,7 @@ __all__ = [
     'WhistleblowerReport',
     'ModerationLog',
     'CouncilType',
+    'DataField',
     'UserProfile',
     'UserFollow',
     'PendingProfileChange',
