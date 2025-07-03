@@ -51,26 +51,40 @@
   <button name="new_list" class="bg-blue-600 text-white px-3 rounded" type="submit">Create list</button>
 </form>
 {% for l in lists %}
-<div class="mb-6 border rounded p-2" aria-label="Council list {{ l.name }}">
+<div class="mb-6 border rounded p-2 list-container" data-list="{{ l.id }}" aria-label="Council list {{ l.name }}">
   <h3 class="font-semibold mb-2">{{ l.name }}</h3>
   {% if l.councils.all %}
-  <table class="min-w-full border text-sm list-table" data-list="{{ l.id }}">
+  <table class="min-w-full border text-sm list-table" data-list="{{ l.id }}" data-metric="{{ default_metric }}">
     <thead>
       <tr class="bg-gray-100">
         <th data-key="name" class="cursor-pointer px-2 py-1 text-left">Name</th>
         <th data-key="pop" class="cursor-pointer px-2 py-1 text-left">Population</th>
+        <th class="px-2 py-1">
+          <select class="metric-select border text-xs" data-list="{{ l.id }}">
+            {% for val,label in metric_choices %}<option value="{{ val }}" {% if val == default_metric %}selected{% endif %}>{{ label }}</option>{% endfor %}
+          </select>
+        </th>
         <th class="px-2 py-1">Remove</th>
       </tr>
     </thead>
     <tbody id="list-{{ l.id }}">
       {% for c in l.councils.all %}
-      <tr data-name="{{ c.name }}" data-pop="{{ populations|get_item:c.id|default:'' }}" data-slug="{{ c.slug }}" class="border-t">
+      <tr data-name="{{ c.name }}" data-pop="{{ populations|get_item:c.id|default:'' }}" data-id="{{ c.id }}" data-slug="{{ c.slug }}" class="border-t">
         <td class="px-2 py-1"><a href="{% url 'council_detail' c.slug %}" class="text-blue-700 hover:underline">{{ c.name }}</a></td>
         <td class="px-2 py-1">{{ populations|get_item:c.id|default:'?' }}</td>
+        <td class="px-2 py-1 metric-cell"></td>
         <td class="px-2 py-1 text-right"><button class="remove-from-list text-red-600" data-list="{{ l.id }}" aria-label="Remove">x</button></td>
       </tr>
       {% endfor %}
     </tbody>
+    <tfoot>
+      <tr class="bg-gray-100 font-semibold">
+        <td class="px-2 py-1">Total</td>
+        <td class="px-2 py-1">{{ pop_totals|get_item:l.id|default:'0' }}</td>
+        <td class="px-2 py-1 metric-total" data-list="{{ l.id }}"></td>
+        <td></td>
+      </tr>
+    </tfoot>
   </table>
   {% else %}
   <p class="text-sm">No councils yet.</p>
@@ -127,5 +141,25 @@ document.querySelectorAll('.list-table tbody').forEach(tb=>{new Sortable(tb,{gro
 // Simple table sorting
 function sortTable(th){const table=th.closest('table');const key=th.getAttribute('data-key');const numeric=key==='pop';const dir=table.getAttribute('data-dir')==='asc'?'desc':'asc';table.setAttribute('data-dir',dir);const rows=Array.from(table.tBodies[0].rows);rows.sort((a,b)=>{let A=a.dataset[key]||'';let B=b.dataset[key]||'';if(numeric){A=parseFloat(A)||0;B=parseFloat(B)||0;return dir==='asc'?A-B:B-A;} return dir==='asc'?A.localeCompare(B):B.localeCompare(A);});rows.forEach(r=>table.tBodies[0].appendChild(r));}
 document.querySelectorAll('th[data-key]').forEach(th=>{th.addEventListener('click',()=>sortTable(th));});
+
+// Load metric values for each list and refresh when the user changes the field
+function loadMetric(table, field){
+  fetch(`/lists/${table.dataset.list}/metric/?field=${field}`)
+    .then(r=>r.json())
+    .then(data=>{
+      table.querySelectorAll('tbody tr').forEach(tr=>{
+        const cell=tr.querySelector('.metric-cell');
+        const val=data.values[tr.dataset.id]||'';
+        if(cell) cell.textContent=val;
+      });
+      const totalCell=table.querySelector('.metric-total');
+      if(totalCell) totalCell.textContent=data.total;
+    });
+}
+document.querySelectorAll('.metric-select').forEach(sel=>{
+  const table=document.querySelector(`table[data-list="${sel.dataset.list}"]`);
+  sel.addEventListener('change',()=>loadMetric(table, sel.value));
+  loadMetric(table, sel.value);
+});
 </script>
 {% endblock %}

@@ -174,6 +174,27 @@ def my_lists(request):
             )
         }
 
+    # Pre-calculate population totals for each list so the template can
+    # display a summary row without additional queries.
+    pop_totals = {}
+    for lst in lists:
+        total = 0
+        for c in lst.councils.all():
+            try:
+                total += float(population_map.get(c.id, 0))
+            except (TypeError, ValueError):
+                continue
+        pop_totals[lst.id] = total
+
+    # Choices for the dynamic metric column. We exclude population because it
+    # already has a dedicated column.
+    metric_choices = [
+        (f, f.replace("_", " ").title())
+        for f in INTERNAL_FIELDS
+        if f != "population"
+    ]
+    default_metric = "total_debt"
+
     if request.method == "POST":
         if "new_list" in request.POST:
             form = CouncilListForm(request.POST)
@@ -212,6 +233,9 @@ def my_lists(request):
         "form": form,
         "populations": population_map,
         "list_meta": list_meta,
+        "pop_totals": pop_totals,
+        "metric_choices": metric_choices,
+        "default_metric": default_metric,
     }
     return render(request, "council_finance/my_lists.html", context)
 
@@ -660,4 +684,32 @@ def move_between_lists(request):
         return JsonResponse({"status": "ok"})
     except (Council.DoesNotExist, CouncilList.DoesNotExist):
         return JsonResponse({"error": "invalid"}, status=400)
+
+
+@login_required
+def list_metric(request, list_id):
+    """Return metric values for a list and the latest year."""
+    field = request.GET.get("field")
+    if not field:
+        return JsonResponse({"error": "field required"}, status=400)
+    try:
+        lst = request.user.council_lists.prefetch_related("councils").get(id=list_id)
+    except CouncilList.DoesNotExist:
+        return JsonResponse({"error": "not found"}, status=404)
+
+    latest_year = FinancialYear.objects.order_by("-label").first()
+    values = {}
+    total = 0.0
+    if latest_year:
+        qs = FigureSubmission.objects.filter(
+            council__in=lst.councils.all(), year=latest_year, field_name=field
+        )
+        for fs in qs:
+            values[str(fs.council_id)] = fs.value
+            try:
+                total += float(fs.value)
+            except (TypeError, ValueError):
+                continue
+
+    return JsonResponse({"values": values, "total": total})
 

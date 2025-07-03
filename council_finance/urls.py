@@ -51,6 +51,7 @@ urlpatterns = [
     path("lists/<int:list_id>/add/", views.add_to_list, name="add_to_list_api"),
     path("lists/<int:list_id>/remove/", views.remove_from_list, name="remove_from_list_api"),
     path("lists/move/", views.move_between_lists, name="move_between_lists"),
+    path("lists/<int:list_id>/metric/", views.list_metric, name="list_metric"),
     path("following/", views.following, name="following"),
     path("submit/", views.submit, name="submit"),
     path("profile/", views.my_profile, name="my_profile"),
