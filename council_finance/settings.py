@@ -16,6 +16,7 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'core',
     'council_finance',
+    'heroicons',
 ]
 
 # Dynamically discover plugins
@@ -70,6 +71,24 @@ USE_I18N = True
 USE_TZ = True
 
 STATIC_URL = '/static/'
+
+# Collect static files from our own directory plus icon packages
+STATICFILES_DIRS = [BASE_DIR / 'static']
+try:
+    import heroicons
+    from pathlib import Path
+    STATICFILES_DIRS.append(Path(heroicons.__file__).resolve().parent / 'static')
+except Exception:
+    pass
+
+try:
+    import importlib.util
+    spec = importlib.util.find_spec('fontawesome-free')
+    if spec and spec.submodule_search_locations:
+        fa_static = Path(spec.submodule_search_locations[0]) / 'static'
+        STATICFILES_DIRS.append(fa_static)
+except Exception:
+    pass
 
 # After a successful login send users to their profile page.
 LOGIN_REDIRECT_URL = '/accounts/profile/'

@@ -1,57 +1,235 @@
 {% extends "base.html" %}
+{% load extras %}
 {% block title %}My Lists - Council Finance Counters{% endblock %}
 {% block content %}
 <h1 class="text-2xl font-bold mb-4">My Lists</h1>
+<div id="msg" class="text-green-700 mb-4 hidden" role="status"></div>
+<div class="mb-6 relative">
+  <label for="list-search" class="block font-semibold">Search councils</label>
+  <input id="list-search" type="text" class="border rounded p-1 w-full" placeholder="Start typing..." autocomplete="off" />
+  <div id="list-search-results" class="absolute bg-white text-black border rounded w-full hidden z-50"></div>
+</div>
 <h2 class="text-xl font-semibold mt-4">Favourite Councils</h2>
 {% if favourites %}
-<ul class="list-disc pl-5 space-y-1">
+<table id="fav-table" class="min-w-full border mt-2 text-sm">
+  <thead>
+    <tr class="bg-gray-100">
+      <th data-key="name" class="cursor-pointer px-2 py-1 text-left">Name</th>
+      <th data-key="pop" class="cursor-pointer px-2 py-1 text-left">Population</th>
+      <th class="px-2 py-1">Actions</th>
+    </tr>
+  </thead>
+  <tbody>
     {% for council in favourites %}
-    <li>
-        <a href="{% url 'council_detail' council.slug %}" class="text-blue-700 hover:underline">{{ council.name }}</a>
-        <form method="post" class="inline">
-            {% csrf_token %}
-            <input type="hidden" name="council" value="{{ council.slug }}" />
-            <button name="remove_fav" class="text-red-600 text-sm ml-2">remove</button>
-        </form>
+    <tr data-name="{{ council.name }}" data-pop="{{ pop_values|get_item:council.id|default:'' }}" data-slug="{{ council.slug }}" class="border-t">
+      <td class="px-2 py-1"><a href="{% url 'council_detail' council.slug %}" class="text-blue-700 hover:underline">{{ council.name }}</a></td>
+      <td class="px-2 py-1">{{ populations|get_item:council.id|default:'Needs populating' }}</td>
+      <td class="px-2 py-1 text-right">
+        <button class="remove-fav text-red-600" aria-label="Remove from favourites">x</button>
         {% if lists %}
-        <form method="post" class="inline">
-            {% csrf_token %}
-            <input type="hidden" name="council" value="{{ council.slug }}" />
-            <select name="list" class="border text-sm">
-                {% for l in lists %}
-                <option value="{{ l.id }}">{{ l.name }}</option>
-                {% endfor %}
-            </select>
-            <button name="add_to_list" class="text-sm ml-1">add</button>
-        </form>
+        <select class="list-select border text-sm ml-2">
+          {% for l in lists %}<option value="{{ l.id }}">{{ l.name }}</option>{% endfor %}
+        </select>
+        <button class="add-to-list ml-1 bg-blue-600 text-white px-2 rounded text-xs">Add</button>
         {% endif %}
-    </li>
+      </td>
+    </tr>
     {% endfor %}
-</ul>
+  </tbody>
+</table>
 {% else %}
 <p>No favourites yet.</p>
 {% endif %}
-
 <h2 class="text-xl font-semibold mt-6">Your Lists</h2>
-<form method="post" class="mb-4">
-    {% csrf_token %}
+<form method="post" class="mb-4 flex gap-2 items-start flex-wrap">
+  {% csrf_token %}
+  <div class="flex flex-col flex-1">
+    <label for="{{ form.name.id_for_label }}" class="sr-only">List name</label>
     {{ form.name }}
-    <button name="new_list" class="ml-2">Create list</button>
+    <p class="text-xs text-gray-600">{{ form.name.help_text }}</p>
+  </div>
+  <button name="new_list" class="bg-blue-600 text-white px-3 rounded" type="submit">Create list</button>
 </form>
 {% for l in lists %}
-<div class="mb-4">
-    <h3 class="font-semibold">{{ l.name }}</h3>
-    {% if l.councils.all %}
-    <ul class="list-disc pl-5">
-        {% for c in l.councils.all %}
-        <li><a href="{% url 'council_detail' c.slug %}" class="text-blue-700 hover:underline">{{ c.name }}</a></li>
-        {% endfor %}
-    </ul>
-    {% else %}
-    <p class="text-sm">No councils yet.</p>
-    {% endif %}
+<div class="mb-6 border rounded p-2 list-container" data-list="{{ l.id }}" aria-label="Council list {{ l.name }}">
+  <h3 class="font-semibold mb-2">{{ l.name }}</h3>
+  <div class="flex justify-end mb-1">
+    <label for="year-select-{{ l.id }}" class="sr-only">Financial year</label>
+    <select id="year-select-{{ l.id }}" class="year-select border text-xs" data-list="{{ l.id }}">
+      {% for y in years %}<option value="{{ y.id }}" {% if y.id == default_year.id %}selected{% endif %}>{{ y.label }}</option>{% endfor %}
+    </select>
+  </div>
+  {% if l.councils.all %}
+  <table class="min-w-full border text-sm list-table" data-list="{{ l.id }}" data-metric="{{ default_metric }}">
+    <thead>
+      <tr class="bg-gray-100">
+        <th></th>
+        <th data-key="name" class="cursor-pointer px-2 py-1 text-left">Name</th>
+        <th data-key="pop" class="cursor-pointer px-2 py-1 text-left">Population</th>
+        <th class="px-2 py-1">
+          <select class="metric-select border text-xs" data-list="{{ l.id }}">
+            {% for val,label in metric_choices %}<option value="{{ val }}" {% if val == default_metric %}selected{% endif %}>{{ label }}</option>{% endfor %}
+          </select>
+        </th>
+        <th class="px-2 py-1">Remove</th>
+      </tr>
+    </thead>
+    <tbody id="list-{{ l.id }}" data-list="{{ l.id }}">
+      {% for c in l.councils.all %}
+      <tr data-name="{{ c.name }}" data-pop="{{ pop_values|get_item:c.id|default:'' }}" data-id="{{ c.id }}" data-slug="{{ c.slug }}" class="border-t">
+        <td class="drag-handle px-2 py-1 text-gray-400 cursor-grab active:cursor-grabbing">
+          <i class="fa-solid fa-grip-dots-vertical" aria-hidden="true"></i><span class="sr-only">Move</span>
+        </td>
+        <td class="px-2 py-1"><a href="{% url 'council_detail' c.slug %}" class="text-blue-700 hover:underline">{{ c.name }}</a></td>
+        <td class="px-2 py-1">{{ populations|get_item:c.id|default:'Needs populating' }}</td>
+        <td class="px-2 py-1 metric-cell"></td>
+        <td class="px-2 py-1 text-right"><button class="remove-from-list text-red-600" data-list="{{ l.id }}" aria-label="Remove">x</button></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+    <tfoot>
+      <tr class="bg-gray-100 font-semibold">
+        <td></td>
+        <td class="px-2 py-1">Total</td>
+        <td class="px-2 py-1">{{ pop_totals|get_item:l.id|default:'0' }}</td>
+        <td class="px-2 py-1 metric-total" data-list="{{ l.id }}"></td>
+        <td></td>
+      </tr>
+    </tfoot>
+  </table>
+  {% else %}
+  <p class="text-sm">No councils yet.</p>
+  {% endif %}
 </div>
 {% empty %}
 <p class="text-sm">You have no saved lists.</p>
 {% endfor %}
+{{ list_meta|json_script:"lists-data" }}
+<script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
+<script>
+function getCookie(name){const m=document.cookie.match('(^|;)\\s*'+name+'\\s*=\\s*([^;]+)');return m?m.pop():'';}
+const csrftoken=getCookie('csrftoken');
+const msg=document.getElementById('msg');
+function flash(text){msg.textContent=text;msg.classList.remove('hidden');setTimeout(()=>msg.classList.add('hidden'),2000);}
+
+// Live search with add buttons
+const listsData=JSON.parse(document.getElementById('lists-data').textContent);
+const sInput=document.getElementById('list-search');
+const sResults=document.getElementById('list-search-results');
+if(sInput){
+  sInput.addEventListener('input',()=>{
+    const q=sInput.value.trim();
+    if(q.length<2){sResults.classList.add('hidden');sResults.innerHTML='';return;}
+    fetch(`/api/councils/search/?q=${encodeURIComponent(q)}`)
+      .then(r=>r.json())
+      .then(items=>{sResults.innerHTML='';if(!items.length){sResults.classList.add('hidden');return;}
+        items.forEach(it=>{const row=document.createElement('div');row.className='p-2 border-b flex items-center justify-between';
+          const name=document.createElement('a');name.href=`/councils/${it.slug}/`;name.textContent=it.name;name.className='text-blue-700 hover:underline flex-1';row.appendChild(name);
+          const fav=document.createElement('button');fav.textContent='Favourite';fav.className='add-fav bg-blue-600 text-white px-2 py-1 rounded text-xs ml-2';fav.dataset.slug=it.slug;row.appendChild(fav);
+          if(listsData.length){const sel=document.createElement('select');sel.className='border text-xs ml-2';listsData.forEach(l=>{const o=document.createElement('option');o.value=l.id;o.textContent=l.name;sel.appendChild(o);});const btn=document.createElement('button');btn.textContent='Add';btn.className='add-list bg-green-600 text-white px-2 py-1 rounded text-xs ml-1';btn.dataset.slug=it.slug;row.appendChild(sel);row.appendChild(btn);} sResults.appendChild(row);});
+        sResults.classList.remove('hidden');});});
+  document.addEventListener('click',e=>{if(!sResults.contains(e.target)&&e.target!==sInput){sResults.classList.add('hidden');}});
+  sResults.addEventListener('click',e=>{
+    if(e.target.classList.contains('add-fav')){const slug=e.target.dataset.slug;fetch('{% url "add_favourite" %}',{method:'POST',headers:{'X-CSRFToken':csrftoken,'Content-Type':'application/x-www-form-urlencoded'},body:`council=${slug}`}).then(r=>r.json()).then(()=>{flash('Added to favourites');});}
+    if(e.target.classList.contains('add-list')){const slug=e.target.dataset.slug;const sel=e.target.previousElementSibling;fetch(`/lists/${sel.value}/add/`,{method:'POST',headers:{'X-CSRFToken':csrftoken,'Content-Type':'application/x-www-form-urlencoded'},body:`council=${slug}`}).then(r=>r.json()).then(()=>{flash('Added to list');});}
+  });
+}
+
+// Favourites table actions
+const favTable=document.getElementById('fav-table');
+if(favTable){favTable.addEventListener('click',e=>{
+  if(e.target.classList.contains('remove-fav')){const tr=e.target.closest('tr');fetch('{% url "remove_favourite" %}',{method:'POST',headers:{'X-CSRFToken':csrftoken,'Content-Type':'application/x-www-form-urlencoded'},body:`council=${tr.dataset.slug}`}).then(r=>r.json()).then(()=>{tr.remove();flash('Removed');});}
+  if(e.target.classList.contains('add-to-list')){const tr=e.target.closest('tr');const sel=tr.querySelector('select.list-select');fetch(`/lists/${sel.value}/add/`,{method:'POST',headers:{'X-CSRFToken':csrftoken,'Content-Type':'application/x-www-form-urlencoded'},body:`council=${tr.dataset.slug}`}).then(r=>r.json()).then(()=>{flash('Added to list');});}
+});}
+
+// Remove from list buttons
+document.querySelectorAll('.remove-from-list').forEach(btn=>{
+  btn.addEventListener('click',()=>{const listId=btn.dataset.list;const tr=btn.closest('tr');fetch(`/lists/${listId}/remove/`,{method:'POST',headers:{'X-CSRFToken':csrftoken,'Content-Type':'application/x-www-form-urlencoded'},body:`council=${tr.dataset.slug}`}).then(r=>r.json()).then(()=>{tr.remove();flash('Removed');});});});
+
+// Enable drag and drop between lists
+// Make each table body sortable so councils can be dragged between lists.
+// Only the grip icon (``.drag-handle``) acts as the drag handle so
+// accidental dragging is avoided.
+document.querySelectorAll('.list-table tbody').forEach(tb=>{
+  new Sortable(tb, {
+    group:'lists',
+    handle:'.drag-handle',
+    animation:150,
+    onEnd:e=>{
+      const slug=e.item.dataset.slug;
+      const from=e.from.dataset.list;
+      const to=e.to.dataset.list;
+      if(from==to) return;
+      fetch('{% url "move_between_lists" %}',{
+        method:'POST',
+        headers:{'X-CSRFToken':csrftoken,'Content-Type':'application/x-www-form-urlencoded'},
+        body:`council=${slug}&from=${from}&to=${to}`
+      }).then(()=>{flash('Move saved');});
+    }
+  });
+});
+
+// Simple table sorting
+function sortTable(th){const table=th.closest('table');const key=th.getAttribute('data-key');const numeric=key==='pop';const dir=table.getAttribute('data-dir')==='asc'?'desc':'asc';table.setAttribute('data-dir',dir);const rows=Array.from(table.tBodies[0].rows);rows.sort((a,b)=>{let A=a.dataset[key]||'';let B=b.dataset[key]||'';if(numeric){A=parseFloat(A)||0;B=parseFloat(B)||0;return dir==='asc'?A-B:B-A;} return dir==='asc'?A.localeCompare(B):B.localeCompare(A);});rows.forEach(r=>table.tBodies[0].appendChild(r));}
+document.querySelectorAll('th[data-key]').forEach(th=>{th.addEventListener('click',()=>sortTable(th));});
+
+// Load metric values for each list and refresh when the user changes the field
+function loadMetric(table, field, year){
+  fetch(`/lists/${table.dataset.list}/metric/?field=${field}&year=${year}`)
+    .then(r=>r.json())
+    .then(data=>{
+      // Formatter outputs pounds with commas and no decimals
+      const fmt=new Intl.NumberFormat('en-GB', {
+        style:'currency', currency:'GBP', minimumFractionDigits:0, maximumFractionDigits:0
+      });
+      table.querySelectorAll('tbody tr').forEach(tr=>{
+        const cell=tr.querySelector('.metric-cell');
+        const raw=data.values[tr.dataset.id];
+        if(cell){
+          if(raw!==undefined && raw!==null && raw!==""){
+            const num=parseFloat(raw);
+            cell.textContent=isNaN(num)?"" : fmt.format(num);
+          }else{
+            cell.textContent="";
+          }
+        }
+      });
+      const totalCell=table.querySelector('.metric-total');
+      if(totalCell){
+        const num=parseFloat(data.total);
+        totalCell.textContent=isNaN(num)?"" : fmt.format(num);
+      }
+    });
+}
+// Handle changes to the year selector for each list
+document.querySelectorAll('.year-select').forEach(sel=>{
+  const table=document.querySelector(`table[data-list="${sel.dataset.list}"]`);
+  const metricSel=document.querySelector(`.metric-select[data-list="${sel.dataset.list}"]`);
+  const key=`year_${sel.dataset.list}`;
+  const saved=localStorage.getItem(key);
+  if(saved){
+    sel.value=saved;
+  }
+  sel.addEventListener('change',()=>{
+    localStorage.setItem(key, sel.value);
+    loadMetric(table, metricSel.value, sel.value);
+  });
+});
+
+document.querySelectorAll('.metric-select').forEach(sel=>{
+  const table=document.querySelector(`table[data-list="${sel.dataset.list}"]`);
+  const yearSel=document.querySelector(`.year-select[data-list="${sel.dataset.list}"]`);
+  const key=`metric_${sel.dataset.list}`;
+  // Restore previous selection if stored in localStorage
+  const saved=localStorage.getItem(key);
+  if(saved){
+    sel.value=saved;
+  }
+  sel.addEventListener('change',()=>{
+    localStorage.setItem(key, sel.value);
+    loadMetric(table, sel.value, yearSel.value);
+  });
+  loadMetric(table, sel.value, yearSel.value);
+});
+</script>
 {% endblock %}

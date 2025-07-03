@@ -46,6 +46,12 @@ urlpatterns = [
     # Common menu pages
     path("leaderboards/", views.leaderboards, name="leaderboards"),
     path("lists/", views.my_lists, name="my_lists"),
+    path("lists/favourites/add/", views.add_favourite, name="add_favourite"),
+    path("lists/favourites/remove/", views.remove_favourite, name="remove_favourite"),
+    path("lists/<int:list_id>/add/", views.add_to_list, name="add_to_list_api"),
+    path("lists/<int:list_id>/remove/", views.remove_from_list, name="remove_from_list_api"),
+    path("lists/move/", views.move_between_lists, name="move_between_lists"),
+    path("lists/<int:list_id>/metric/", views.list_metric, name="list_metric"),
     path("following/", views.following, name="following"),
     path("submit/", views.submit, name="submit"),
     path("profile/", views.my_profile, name="my_profile"),

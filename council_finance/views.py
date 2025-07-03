@@ -158,9 +158,55 @@ def my_lists(request):
         return redirect("login")
 
     profile = request.user.profile
+    # Prefetch councils so template access doesn't hit the DB repeatedly
+    lists = request.user.council_lists.prefetch_related("councils")
     favourites = profile.favourites.all()
-    lists = request.user.council_lists.all()
     form = CouncilListForm()
+
+    # Latest year used when pulling population figures for display
+    latest_year = FinancialYear.objects.order_by("-label").first()
+    # Map of council_id -> numeric population value so we can sum totals
+    pop_values = {}
+    # Map of council_id -> display string used in templates
+    pop_display = {}
+    if latest_year:
+        for fs in FigureSubmission.objects.filter(
+            field_name="population", year=latest_year
+        ):
+            try:
+                val = float(fs.value)
+            except (TypeError, ValueError):
+                val = 0
+            pop_values[fs.council_id] = val
+            # When we have a meaningful value show it, otherwise instruct that
+            # the figure still needs to be populated.
+            pop_display[fs.council_id] = int(val) if val else "Needs populating"
+
+    # Pre-calculate population totals for each list so the template can
+    # display a summary row without additional queries.
+    pop_totals = {}
+    for lst in lists:
+        total = 0
+        for c in lst.councils.all():
+            try:
+                total += float(pop_values.get(c.id, 0))
+            except (TypeError, ValueError):
+                continue
+        pop_totals[lst.id] = total
+
+    # Choices for the dynamic metric column. We exclude population because it
+    # already has a dedicated column.
+    metric_choices = [
+        (f, f.replace("_", " ").title())
+        for f in INTERNAL_FIELDS
+        if f != "population"
+    ]
+    default_metric = "total_debt"
+
+    # Allow the metric column to show figures from different years.
+    # Present the years newest first so the latest data is selected by default.
+    years = FinancialYear.objects.order_by("-label")
+    default_year = years.first() if years else None
 
     if request.method == "POST":
         if "new_list" in request.POST:
@@ -192,7 +238,23 @@ def my_lists(request):
                 messages.error(request, "Invalid request")
             return redirect("my_lists")
 
-    context = {"favourites": favourites, "lists": lists, "form": form}
+    # Provide population figures and list metadata to the template
+    list_meta = list(lists.values("id", "name"))
+    context = {
+        "favourites": favourites,
+        "lists": lists,
+        "form": form,
+        # Display values shown in the table
+        "populations": pop_display,
+        # Numeric values for sorting and totals
+        "pop_values": pop_values,
+        "list_meta": list_meta,
+        "pop_totals": pop_totals,
+        "metric_choices": metric_choices,
+        "default_metric": default_metric,
+        "years": years,
+        "default_year": default_year,
+    }
     return render(request, "council_finance/my_lists.html", context)
 
 
@@ -563,4 +625,118 @@ def confirm_profile_change(request, token):
     change.delete()
     messages.success(request, "Profile updated.")
     return redirect("profile")
+
+
+@login_required
+def add_favourite(request):
+    """AJAX endpoint to add a council to favourites."""
+    if request.method != "POST":
+        return HttpResponseBadRequest("POST required")
+    slug = request.POST.get("council")
+    try:
+        council = Council.objects.get(slug=slug)
+        request.user.profile.favourites.add(council)
+        return JsonResponse({"status": "ok"})
+    except Council.DoesNotExist:
+        return JsonResponse({"error": "not found"}, status=400)
+
+
+@login_required
+def remove_favourite(request):
+    """AJAX endpoint to remove a council from favourites."""
+    if request.method != "POST":
+        return HttpResponseBadRequest("POST required")
+    slug = request.POST.get("council")
+    try:
+        council = Council.objects.get(slug=slug)
+        request.user.profile.favourites.remove(council)
+        return JsonResponse({"status": "ok"})
+    except Council.DoesNotExist:
+        return JsonResponse({"error": "not found"}, status=400)
+
+
+@login_required
+def add_to_list(request, list_id):
+    """AJAX endpoint to add a council to a user list."""
+    if request.method != "POST":
+        return HttpResponseBadRequest("POST required")
+    slug = request.POST.get("council")
+    try:
+        council = Council.objects.get(slug=slug)
+        target = request.user.council_lists.get(id=list_id)
+        target.councils.add(council)
+        return JsonResponse({"status": "ok"})
+    except (Council.DoesNotExist, CouncilList.DoesNotExist):
+        return JsonResponse({"error": "invalid"}, status=400)
+
+
+@login_required
+def remove_from_list(request, list_id):
+    """AJAX endpoint to remove a council from a user list."""
+    if request.method != "POST":
+        return HttpResponseBadRequest("POST required")
+    slug = request.POST.get("council")
+    try:
+        council = Council.objects.get(slug=slug)
+        target = request.user.council_lists.get(id=list_id)
+        target.councils.remove(council)
+        return JsonResponse({"status": "ok"})
+    except (Council.DoesNotExist, CouncilList.DoesNotExist):
+        return JsonResponse({"error": "invalid"}, status=400)
+
+
+@login_required
+def move_between_lists(request):
+    """Handle drag-and-drop moves of councils between lists."""
+    if request.method != "POST":
+        return HttpResponseBadRequest("POST required")
+    slug = request.POST.get("council")
+    from_id = request.POST.get("from")
+    to_id = request.POST.get("to")
+    try:
+        council = Council.objects.get(slug=slug)
+        if from_id:
+            request.user.council_lists.get(id=from_id).councils.remove(council)
+        if to_id:
+            request.user.council_lists.get(id=to_id).councils.add(council)
+        return JsonResponse({"status": "ok"})
+    except (Council.DoesNotExist, CouncilList.DoesNotExist):
+        return JsonResponse({"error": "invalid"}, status=400)
+
+
+@login_required
+def list_metric(request, list_id):
+    """Return metric values for a list and a selected year."""
+    field = request.GET.get("field")
+    if not field:
+        return JsonResponse({"error": "field required"}, status=400)
+    try:
+        lst = request.user.council_lists.prefetch_related("councils").get(id=list_id)
+    except CouncilList.DoesNotExist:
+        return JsonResponse({"error": "not found"}, status=404)
+
+    # Allow callers to specify a financial year. Default to the latest year when
+    # the parameter is missing or invalid.
+    year_id = request.GET.get("year")
+    if year_id:
+        year = FinancialYear.objects.filter(id=year_id).first()
+    else:
+        year = None
+    if not year:
+        year = FinancialYear.objects.order_by("-label").first()
+
+    values = {}
+    total = 0.0
+    if year:
+        qs = FigureSubmission.objects.filter(
+            council__in=lst.councils.all(), year=year, field_name=field
+        )
+        for fs in qs:
+            values[str(fs.council_id)] = fs.value
+            try:
+                total += float(fs.value)
+            except (TypeError, ValueError):
+                continue
+
+    return JsonResponse({"values": values, "total": total})
 

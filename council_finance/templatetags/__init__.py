@@ -1,0 +1,1 @@
+# Register template tags package
