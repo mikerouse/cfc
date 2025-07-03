@@ -73,6 +73,13 @@
                     {{ form.friendly_format.errors }}
                 </td>
             </tr>
+            <tr class="odd:bg-gray-50">
+                <th class="text-left p-2 border">{{ form.default_for_detail.label_tag }}</th>
+                <td class="p-2 border flex items-center">
+                    {{ form.default_for_detail }} {{ form.default_for_detail.help_text }}
+                    {{ form.default_for_detail.errors }}
+                </td>
+            </tr>
         </tbody>
     </table>
 <div class="mt-2 p-2 bg-gray-50 rounded" id="preview-card">

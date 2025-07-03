@@ -12,6 +12,7 @@
             <th class="border px-2 py-1 text-left">Name</th>
             <th class="border px-2 py-1">Slug</th>
             <th class="border px-2 py-1">Duration</th>
+            <th class="border px-2 py-1">Default?</th>
             <th class="border px-2 py-1">Actions</th>
         </tr>
     </thead>
@@ -21,11 +22,12 @@
             <td class="border px-2 py-1"><a href="{% url 'counter_edit' counter.slug %}" class="text-blue-600 underline">{{ counter.name }}</a></td>
             <td class="border px-2 py-1 text-center">{{ counter.slug }}</td>
             <td class="border px-2 py-1 text-center">{{ counter.duration }}</td>
+            <td class="border px-2 py-1 text-center">{% if counter.default_for_detail %}Yes{% else %}No{% endif %}</td>
             <td class="border px-2 py-1 text-center"><a href="{% url 'counter_edit' counter.slug %}" class="text-blue-600 underline">Edit</a></td>
         </tr>
         {% empty %}
         <tr>
-            <td class="border px-2 py-1 text-center" colspan="4">No counters defined yet.</td>
+            <td class="border px-2 py-1 text-center" colspan="5">No counters defined yet.</td>
         </tr>
         {% endfor %}
     </tbody>

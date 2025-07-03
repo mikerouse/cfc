@@ -2,7 +2,7 @@
 {% load static %}
 {% block title %}{{ council.name }} - Council Finance Counters{% endblock %}
 {% block content %}
-<h1 class="text-2xl font-bold mb-4">{{ council.name }}</h1>
+<h1 class="text-3xl sm:text-4xl font-extrabold mb-4 text-center">{{ council.name }}</h1>
 <p>Slug: {{ council.slug }}</p>
 {% if council.website %}
 <p>Website: <a href="{{ council.website }}" class="text-blue-700 hover:underline">{{ council.website }}</a></p>
@@ -10,16 +10,31 @@
 {% if council.council_type %}
 <p>Type: {{ council.council_type.name }}</p>
 {% endif %}
-<div class="mt-2">
-  <label for="year-select" class="sr-only">Financial year</label>
-  <select id="year-select" class="border rounded px-2 py-1">
-    {% for y in years %}
-      <option value="{{ y.label }}" {% if y.label == selected_year.label %}selected{% endif %}>{{ y.display }}</option>
+<div class="mt-2 flex flex-col sm:flex-row items-center gap-4">
+  <div>
+    <label for="year-select" class="sr-only">Financial year</label>
+    <select id="year-select" class="border rounded px-2 py-1 bg-gray-100">
+      {% for y in years %}
+        <option value="{{ y.label }}" {% if y.label == selected_year.label %}selected{% endif %}>{{ y.display }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <div class="flex items-center gap-2">
+    <label for="column-slider" class="text-sm">Columns</label>
+    <input id="column-slider" type="range" min="1" max="3" step="1" class="w-40">
+  </div>
+  <button id="drawer-toggle" class="bg-blue-600 text-white px-3 py-1 rounded">Choose counters</button>
+</div>
+<div id="counter-drawer" class="overflow-hidden max-h-0 transition-all">
+  <form class="p-2 space-y-2 bg-gray-50 rounded" onsubmit="return false;">
+    {% for item in counters %}
+    <label class="block"><input type="checkbox" data-slug="{{ item.counter.slug }}" class="mr-2">{{ item.counter.name }}</label>
     {% endfor %}
-  </select>
+    <button id="drawer-apply" class="mt-2 bg-blue-600 text-white px-2 py-1 rounded">Apply</button>
+  </form>
 </div>
 {% if counters %}
-<div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 my-6">
+<div id="counters-grid" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 my-6">
     {% for item in counters %}
     <div class="bg-green-50 p-4 rounded shadow text-center" data-counter="{{ item.counter.slug }}">
         <p class="text-sm text-gray-600">{{ item.counter.name }}</p>
@@ -29,6 +44,7 @@
     </div>
     {% endfor %}
 </div>
+{{ default_counter_slugs|json_script:"default-slugs" }}
 {#
   Load the CountUp library from our static files so the page
   works even when external CDNs are unreachable.
@@ -84,6 +100,66 @@ async function loadCounters(year) {
 
 document.getElementById('year-select').addEventListener('change', e => {
   loadCounters(e.target.value);
+});
+
+const councilSlug = '{{ council.slug }}';
+const grid = document.getElementById('counters-grid');
+const slider = document.getElementById('column-slider');
+const drawer = document.getElementById('counter-drawer');
+const toggleBtn = document.getElementById('drawer-toggle');
+const applyBtn = document.getElementById('drawer-apply');
+
+function defaultCols() {
+  if (window.innerWidth < 640) return 1;
+  if (window.innerWidth < 768) return 2;
+  return 3;
+}
+
+function setCols(n) {
+  grid.style.gridTemplateColumns = `repeat(${n}, minmax(0,1fr))`;
+}
+
+const storedCols = localStorage.getItem(`cols_${councilSlug}`);
+const cols = storedCols ? parseInt(storedCols, 10) : defaultCols();
+slider.value = cols;
+setCols(cols);
+
+slider.addEventListener('input', e => {
+  const val = parseInt(e.target.value, 10);
+  setCols(val);
+  localStorage.setItem(`cols_${councilSlug}`, val);
+});
+
+const defaultSlugs = JSON.parse(document.getElementById('default-slugs').textContent);
+
+function applyPrefs(slugs) {
+  document.querySelectorAll('#counter-drawer input[type=checkbox]').forEach(cb => {
+    cb.checked = slugs.includes(cb.dataset.slug);
+  });
+  document.querySelectorAll('#counters-grid [data-counter]').forEach(div => {
+    div.style.display = slugs.includes(div.dataset.counter) ? '' : 'none';
+  });
+}
+
+let savedSlugs;
+try {
+  savedSlugs = JSON.parse(localStorage.getItem(`counters_${councilSlug}`));
+} catch (err) { savedSlugs = null; }
+applyPrefs(savedSlugs || defaultSlugs);
+
+applyBtn.addEventListener('click', () => {
+  const selected = Array.from(document.querySelectorAll('#counter-drawer input[type=checkbox]:checked')).map(cb => cb.dataset.slug);
+  localStorage.setItem(`counters_${councilSlug}`, JSON.stringify(selected));
+  applyPrefs(selected);
+  drawer.style.maxHeight = null;
+});
+
+toggleBtn.addEventListener('click', () => {
+  if (drawer.style.maxHeight) {
+    drawer.style.maxHeight = null;
+  } else {
+    drawer.style.maxHeight = drawer.scrollHeight + 'px';
+  }
 });
 
 animateCounters();

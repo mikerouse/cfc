@@ -30,6 +30,10 @@ class CounterDefinition(models.Model):
         default=False,
         help_text="Use short forms e.g. £1m",
     )
+    default_for_detail = models.BooleanField(
+        default=False,
+        help_text="Show by default on the council detail page",
+    )
 
     def format_value(self, value: float) -> str:
         """Return the value formatted according to the settings."""

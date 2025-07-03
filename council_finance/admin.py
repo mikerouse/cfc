@@ -155,6 +155,7 @@ class CounterDefinitionAdmin(admin.ModelAdmin):
         "precision",
         "show_currency",
         "friendly_format",
+        "default_for_detail",
     )
     prepopulated_fields = {"slug": ("name",)}
 
