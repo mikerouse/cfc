@@ -165,14 +165,22 @@ def my_lists(request):
 
     # Latest year used when pulling population figures for display
     latest_year = FinancialYear.objects.order_by("-label").first()
-    population_map = {}
+    # Map of council_id -> numeric population value so we can sum totals
+    pop_values = {}
+    # Map of council_id -> display string used in templates
+    pop_display = {}
     if latest_year:
-        population_map = {
-            fs.council_id: fs.value
-            for fs in FigureSubmission.objects.filter(
-                field_name="population", year=latest_year
-            )
-        }
+        for fs in FigureSubmission.objects.filter(
+            field_name="population", year=latest_year
+        ):
+            try:
+                val = float(fs.value)
+            except (TypeError, ValueError):
+                val = 0
+            pop_values[fs.council_id] = val
+            # When we have a meaningful value show it, otherwise instruct that
+            # the figure still needs to be populated.
+            pop_display[fs.council_id] = int(val) if val else "Needs populating"
 
     # Pre-calculate population totals for each list so the template can
     # display a summary row without additional queries.
@@ -181,7 +189,7 @@ def my_lists(request):
         total = 0
         for c in lst.councils.all():
             try:
-                total += float(population_map.get(c.id, 0))
+                total += float(pop_values.get(c.id, 0))
             except (TypeError, ValueError):
                 continue
         pop_totals[lst.id] = total
@@ -231,7 +239,10 @@ def my_lists(request):
         "favourites": favourites,
         "lists": lists,
         "form": form,
-        "populations": population_map,
+        # Display values shown in the table
+        "populations": pop_display,
+        # Numeric values for sorting and totals
+        "pop_values": pop_values,
         "list_meta": list_meta,
         "pop_totals": pop_totals,
         "metric_choices": metric_choices,
