@@ -29,6 +29,7 @@ from .forms import (
 from .models import DataField
 from .models.field import PROTECTED_SLUGS
 from .models.counter import CounterDefinition, CouncilCounter
+from .models.setting import SiteSetting
 
 class CouncilAdmin(admin.ModelAdmin):
     """Custom admin with a JSON import helper."""
@@ -193,3 +194,4 @@ admin.site.register(PendingProfileChange)
 admin.site.register(Notification)
 admin.site.register(CounterDefinition, CounterDefinitionAdmin)
 admin.site.register(CouncilCounter)
+admin.site.register(SiteSetting)

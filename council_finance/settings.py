@@ -97,3 +97,8 @@ LOGIN_REDIRECT_URL = '/accounts/profile/'
 EMAIL_BACKEND = 'django.core.mail.backends.locmem.EmailBackend'
 # Address used for all outgoing system emails
 DEFAULT_FROM_EMAIL = 'counters@mikerouse.co.uk'
+
+# Default financial year label used across the site until updated via
+# the SiteSetting admin. This ensures new pages load figures for the
+# most recently finalised accounts.
+DEFAULT_FINANCIAL_YEAR = '2023/24'

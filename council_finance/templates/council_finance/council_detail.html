@@ -14,7 +14,7 @@
   <label for="year-select" class="sr-only">Financial year</label>
   <select id="year-select" class="border rounded px-2 py-1">
     {% for y in years %}
-      <option value="{{ y.label }}" {% if y.label == selected_year.label %}selected{% endif %}>{{ y.label }}</option>
+      <option value="{{ y.label }}" {% if y.label == selected_year.label %}selected{% endif %}>{{ y.display }}</option>
     {% endfor %}
   </select>
 </div>

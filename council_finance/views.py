@@ -22,6 +22,8 @@ from .forms import (
     CounterDefinitionForm,
     DataFieldForm,
 )
+from django.conf import settings
+
 from .models import DataField
 from .models import (
     Council,
@@ -33,7 +35,21 @@ from .models import (
     CouncilList,
     CounterDefinition,
     CouncilCounter,
+    SiteSetting,
 )
+
+from datetime import date
+
+
+def current_financial_year_label() -> str:
+    """Return label like ``2025/26`` for the current UK financial year."""
+    today = date.today()
+    if today.month < 4:
+        start = today.year - 1
+    else:
+        start = today.year
+    end = start + 1
+    return f"{start}/{str(end)[-2:]}"
 
 
 def search_councils(request):
@@ -114,8 +130,18 @@ def council_detail(request, slug):
         .order_by("year__label", "field__slug")
     )
 
-    years = FinancialYear.objects.order_by("-label")
-    selected_year = years.first()
+    years = list(
+        FinancialYear.objects.order_by("-label").exclude(label__iexact="general")
+    )
+    default_label = SiteSetting.get(
+        "default_financial_year", settings.DEFAULT_FINANCIAL_YEAR
+    )
+    selected_year = next((y for y in years if y.label == default_label), years[0] if years else None)
+    # Annotate display labels so the template can show the current year as
+    # "Current Year to Date" without storing a separate field in the DB.
+    current_label = current_financial_year_label()
+    for y in years:
+        y.display = "Current Year to Date" if y.label == current_label else y.label
     counters = []
     if selected_year:
         from council_finance.agents.counter_agent import CounterAgent
