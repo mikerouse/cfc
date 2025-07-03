@@ -127,12 +127,13 @@ def council_detail(request, slug):
             CouncilCounter.objects.filter(council=council, enabled=True)
             .select_related("counter")
         ):
-            result = values.get(cc.counter.slug, {"value": 0, "formatted": "0"})
+            result = values.get(cc.counter.slug, {})
             counters.append(
                 {
                     "counter": cc.counter,
-                    "value": result["value"],
-                    "formatted": result["formatted"],
+                    "value": result.get("value"),
+                    "formatted": result.get("formatted"),
+                    "error": result.get("error"),
                 }
             )
 
@@ -312,10 +313,18 @@ def preview_counter_value(request):
     from .models import CounterDefinition
     try:
         council = Council.objects.get(slug=council_slug)
-        figure_map = {
-            f.field_name: float(f.value)
-            for f in FigureSubmission.objects.filter(council=council, year=year)
-        }
+        # Build a map of values while tracking any missing figures so we can
+        # surface a clear error message instead of casting blank strings.
+        figure_map = {}
+        missing = set()
+        for f in FigureSubmission.objects.filter(council=council, year=year):
+            if f.needs_populating or f.value in (None, ""):
+                missing.add(f.field_name)
+                continue
+            try:
+                figure_map[f.field_name] = float(f.value)
+            except (TypeError, ValueError):
+                missing.add(f.field_name)
         import ast, operator
         allowed_ops = {
             ast.Add: operator.add,
@@ -333,6 +342,14 @@ def preview_counter_value(request):
             if isinstance(node, ast.UnaryOp) and isinstance(node.op, ast.USub):
                 return -_eval(node.operand)
             if isinstance(node, ast.Name):
+                if node.id in missing:
+                    raise ValueError(
+                        (
+                            "Counter failed - no %s figure is held for %s in %s. "
+                            "Please populate the figure from the council's official sources and try again."
+                        )
+                        % (node.id.replace('_', ' '), council.name, year.label)
+                    )
                 return figure_map.get(node.id, 0)
             raise ValueError("Unsupported expression element")
         tree = ast.parse(formula, mode="eval")
@@ -349,8 +366,10 @@ def preview_counter_value(request):
         from .models.counter import CounterDefinition as CD
         formatted = CD.format_value(dummy, value)
         return JsonResponse({'value': value, 'formatted': formatted})
-    except Exception as e:
+    except ValueError as e:
         return JsonResponse({'error': str(e)}, status=400)
+    except Exception:
+        return JsonResponse({'error': 'calculation failed'}, status=400)
 
 @login_required
 def profile_view(request):

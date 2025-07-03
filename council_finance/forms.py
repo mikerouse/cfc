@@ -97,11 +97,19 @@ class CounterDefinitionForm(forms.ModelForm):
             "friendly_format",
         ]
         widgets = {
-            "explanation": forms.Textarea(attrs={"rows": 2}),
-            "duration": forms.NumberInput(attrs={"min": 0}),
-            "precision": forms.NumberInput(attrs={"min": 0}),
-            "show_currency": forms.CheckboxInput(),
-            "friendly_format": forms.CheckboxInput(),
+            "explanation": forms.Textarea(attrs={"rows": 2, "class": "border rounded p-1 w-full"}),
+            "duration": forms.NumberInput(attrs={"min": 0, "class": "border rounded p-1 w-full"}),
+            "precision": forms.NumberInput(attrs={"min": 0, "class": "border rounded p-1 w-full"}),
+            "show_currency": forms.CheckboxInput(attrs={"class": "mr-2"}),
+            "friendly_format": forms.CheckboxInput(attrs={"class": "mr-2"}),
         }
+
+    def __init__(self, *args, **kwargs):
+        """Add Tailwind classes to text inputs for consistency."""
+        super().__init__(*args, **kwargs)
+        for name, field in self.fields.items():
+            if name in ["show_currency", "friendly_format"]:
+                continue
+            field.widget.attrs.setdefault("class", "border rounded p-1 w-full")
 
 
