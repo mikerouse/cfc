@@ -765,3 +765,17 @@ def field_form(request, slug=None):
         messages.success(request, "Field saved.")
         return redirect("field_list")
     return render(request, "council_finance/field_form.html", {"form": form})
+
+
+@login_required
+def field_delete(request, slug):
+    """Delete a data field unless it's protected."""
+    if not request.user.is_staff:
+        raise Http404()
+    field = get_object_or_404(DataField, slug=slug)
+    if field.is_protected:
+        messages.error(request, "This field cannot be deleted.")
+    else:
+        field.delete()
+        messages.success(request, "Field deleted.")
+    return redirect("field_list")

@@ -16,6 +16,9 @@
     </table>
     <div class="text-right">
         <button type="submit" class="bg-blue-600 text-white px-4 py-1 rounded">Save</button>
+        {% if form.instance.pk and not form.instance.is_protected %}
+        <a href="{% url 'field_delete' form.instance.slug %}" class="ml-2 text-red-600 underline">Delete</a>
+        {% endif %}
     </div>
 </form>
 {% endblock %}

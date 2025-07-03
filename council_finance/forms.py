@@ -6,6 +6,7 @@ from django.utils.crypto import get_random_string
 from .models import UserProfile
 from .models import CouncilList
 from .models import CounterDefinition, DataField
+from .models.field import PROTECTED_SLUGS
 
 
 class SignUpForm(UserCreationForm):
@@ -130,6 +131,10 @@ class DataFieldForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        # Prevent editing the slug of protected fields so staff can't rename
+        # important built-in definitions. The value itself can still change.
+        if self.instance and self.instance.pk and self.instance.slug in PROTECTED_SLUGS:
+            self.fields["slug"].disabled = True
         for name, field in self.fields.items():
             if isinstance(field.widget, forms.CheckboxInput):
                 field.widget.attrs.setdefault("class", "mr-2")

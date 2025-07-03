@@ -1,5 +1,14 @@
 from django.db import migrations, models
 
+# List of built-in slugs that must always exist in the system. These are
+# created during the migration so new installations start with them.
+PROTECTED_SLUGS = {
+    "council_type": "Council Type",
+    "council_name": "Council Name",
+    "population": "Population",
+    "households": "Residential Households",
+}
+
 
 def migrate_fields(apps):
     """Create DataField objects for existing field names and map submissions."""
@@ -16,6 +25,13 @@ def migrate_fields(apps):
             )
         fs.field = cache[slug]
         fs.save(update_fields=["field"])
+
+
+def create_core_fields(apps, schema_editor):
+    """Ensure protected fields exist for new installations."""
+    DataField = apps.get_model("council_finance", "DataField")
+    for slug, name in PROTECTED_SLUGS.items():
+        DataField.objects.get_or_create(slug=slug, defaults={"name": name})
 
 class Migration(migrations.Migration):
 
@@ -50,6 +66,7 @@ class Migration(migrations.Migration):
             ),
             preserve_default=False,
         ),
+        migrations.RunPython(create_core_fields, migrations.RunPython.noop),
         migrations.RunPython(
             lambda apps, schema_editor: migrate_fields(apps),
             migrations.RunPython.noop,

@@ -21,7 +21,12 @@
             <td class="border px-2 py-1"><a href="{% url 'field_edit' f.slug %}" class="text-blue-600 underline">{{ f.name }}</a></td>
             <td class="border px-2 py-1 text-center">{{ f.slug }}</td>
             <td class="border px-2 py-1 text-center">{{ f.get_category_display }}</td>
-            <td class="border px-2 py-1 text-center"><a href="{% url 'field_edit' f.slug %}" class="text-blue-600 underline">Edit</a></td>
+            <td class="border px-2 py-1 text-center">
+                <a href="{% url 'field_edit' f.slug %}" class="text-blue-600 underline">Edit</a>
+                {% if not f.is_protected %}
+                | <a href="{% url 'field_delete' f.slug %}" class="text-red-600 underline">Delete</a>
+                {% endif %}
+            </td>
         </tr>
         {% empty %}
         <tr>

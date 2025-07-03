@@ -27,6 +27,7 @@ from .forms import (
     CounterDefinitionForm,
 )
 from .models import DataField
+from .models.field import PROTECTED_SLUGS
 from .models.counter import CounterDefinition, CouncilCounter
 
 class CouncilAdmin(admin.ModelAdmin):
@@ -166,7 +167,24 @@ admin.site.register(DebtAdjustment)
 admin.site.register(WhistleblowerReport)
 admin.site.register(ModerationLog)
 admin.site.register(CouncilType)
-admin.site.register(DataField)
+
+
+class DataFieldAdmin(admin.ModelAdmin):
+    list_display = ("name", "slug", "category", "required")
+    prepopulated_fields = {"slug": ("name",)}
+
+    def get_readonly_fields(self, request, obj=None):
+        if obj and obj.slug in PROTECTED_SLUGS:
+            return ("slug",)
+        return super().get_readonly_fields(request, obj)
+
+    def has_delete_permission(self, request, obj=None):
+        if obj and obj.slug in PROTECTED_SLUGS:
+            return False
+        return super().has_delete_permission(request, obj)
+
+
+admin.site.register(DataField, DataFieldAdmin)
 admin.site.register(UserProfile)
 admin.site.register(UserFollow)
 admin.site.register(PendingProfileChange)
