@@ -178,13 +178,27 @@ function loadMetric(table, field, year){
   fetch(`/lists/${table.dataset.list}/metric/?field=${field}&year=${year}`)
     .then(r=>r.json())
     .then(data=>{
+      // Formatter outputs pounds with commas and no decimals
+      const fmt=new Intl.NumberFormat('en-GB', {
+        style:'currency', currency:'GBP', minimumFractionDigits:0, maximumFractionDigits:0
+      });
       table.querySelectorAll('tbody tr').forEach(tr=>{
         const cell=tr.querySelector('.metric-cell');
-        const val=data.values[tr.dataset.id]||'';
-        if(cell) cell.textContent=val;
+        const raw=data.values[tr.dataset.id];
+        if(cell){
+          if(raw!==undefined && raw!==null && raw!==""){
+            const num=parseFloat(raw);
+            cell.textContent=isNaN(num)?"" : fmt.format(num);
+          }else{
+            cell.textContent="";
+          }
+        }
       });
       const totalCell=table.querySelector('.metric-total');
-      if(totalCell) totalCell.textContent=data.total;
+      if(totalCell){
+        const num=parseFloat(data.total);
+        totalCell.textContent=isNaN(num)?"" : fmt.format(num);
+      }
     });
 }
 // Handle changes to the year selector for each list
