@@ -22,7 +22,7 @@
             <td class="border px-2 py-1"><a href="{% url 'counter_edit' counter.slug %}" class="text-blue-600 underline">{{ counter.name }}</a></td>
             <td class="border px-2 py-1 text-center">{{ counter.slug }}</td>
             <td class="border px-2 py-1 text-center">{{ counter.duration }}</td>
-            <td class="border px-2 py-1 text-center">{% if counter.default_for_detail %}Yes{% else %}No{% endif %}</td>
+            <td class="border px-2 py-1 text-center">{% if counter.show_by_default %}Yes{% else %}No{% endif %}</td>
             <td class="border px-2 py-1 text-center"><a href="{% url 'counter_edit' counter.slug %}" class="text-blue-600 underline">Edit</a></td>
         </tr>
         {% empty %}
