@@ -176,8 +176,8 @@ def council_detail(request, slug):
                     "error": result.get("error"),
                 }
             )
-            if cc.counter.default_for_detail:
-                default_slugs.append(cc.counter.slug)
+            if counter.show_by_default:
+                default_slugs.append(counter.slug)
 
     context = {
         "council": council,
