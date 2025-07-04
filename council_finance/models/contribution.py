@@ -31,3 +31,26 @@ class Contribution(models.Model):
 
     def __str__(self) -> str:
         return f"Contribution by {self.user} for {self.council}"
+
+    @property
+    def old_value(self) -> str:
+        """Fetch the current value before this contribution is applied."""
+        if self.field.slug == "website":
+            return self.council.website or ""
+        if self.field.slug == "council_type":
+            return self.council.council_type_id or ""
+        from .council import FigureSubmission
+
+        fs = FigureSubmission.objects.filter(
+            council=self.council, field=self.field, year=self.year
+        ).first()
+        return fs.value if fs else ""
+
+    @property
+    def display_old_value(self) -> str:
+        """Old value rendered using the field helper."""
+        return self.field.display_value(self.old_value)
+
+    @property
+    def display_new_value(self) -> str:
+        return self.field.display_value(self.value)

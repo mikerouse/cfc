@@ -11,9 +11,12 @@
                 <tr>
                     <th class="px-2 py-1 text-left">Council</th>
                     <th class="px-2 py-1 text-left">Field</th>
-                    <th class="px-2 py-1 text-left">Value</th>
+                    <th class="px-2 py-1 text-left">Change</th>
                     <th class="px-2 py-1 text-left">Submitted By</th>
                     <th class="px-2 py-1 text-left">Date</th>
+                    {% if user.is_authenticated and user.profile.tier.level >= 3 %}
+                    <th class="px-2 py-1 text-left">Actions</th>
+                    {% endif %}
                 </tr>
             </thead>
             <tbody>
@@ -21,9 +24,16 @@
                 <tr class="border-b">
                     <td class="px-2 py-1">{{ c.council.name }}</td>
                     <td class="px-2 py-1">{{ c.field.name }}</td>
-                    <td class="px-2 py-1">{{ c.value }}</td>
+                    <td class="px-2 py-1">{{ c.display_old_value }} <span class="mx-1">&rarr;</span> {{ c.display_new_value }}</td>
                     <td class="px-2 py-1">{{ c.user.username }}</td>
                     <td class="px-2 py-1">{{ c.created|date:"Y-m-d" }}</td>
+                    {% if user.is_authenticated and user.profile.tier.level >= 3 %}
+                    <td class="px-2 py-1 space-x-2">
+                        <a href="{% url 'review_contribution' c.id 'approve' %}" class="text-green-600"><i class="fas fa-check"></i></a>
+                        <a href="{% url 'review_contribution' c.id 'edit' %}" class="text-blue-600"><i class="fas fa-edit"></i></a>
+                        <a href="{% url 'review_contribution' c.id 'reject' %}" class="text-red-600"><i class="fas fa-times"></i></a>
+                    </td>
+                    {% endif %}
                 </tr>
             {% endfor %}
             </tbody>
@@ -41,7 +51,7 @@
                     <tr>
                         <th class="px-2 py-1 text-left">Council</th>
                         <th class="px-2 py-1 text-left">Field</th>
-                        <th class="px-2 py-1 text-left">Value</th>
+                        <th class="px-2 py-1 text-left">Change</th>
                         <th class="px-2 py-1 text-left">Status</th>
                         <th class="px-2 py-1 text-left">Date</th>
                     </tr>
@@ -51,7 +61,7 @@
                     <tr class="border-b">
                         <td class="px-2 py-1">{{ c.council.name }}</td>
                         <td class="px-2 py-1">{{ c.field.name }}</td>
-                        <td class="px-2 py-1">{{ c.value }}</td>
+                        <td class="px-2 py-1">{{ c.display_old_value }} <span class="mx-1">&rarr;</span> {{ c.display_new_value }}</td>
                         <td class="px-2 py-1">{{ c.status }}</td>
                         <td class="px-2 py-1">{{ c.created|date:"Y-m-d" }}</td>
                     </tr>

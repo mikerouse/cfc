@@ -60,6 +60,7 @@ urlpatterns = [
     path("following/", views.following, name="following"),
     path("contribute/", views.contribute, name="contribute"),
     path("contribute/submit/", views.submit_contribution, name="submit_contribution"),
+    path("contribute/<int:pk>/<str:action>/", views.review_contribution, name="review_contribution"),
     path("submit/", views.contribute),
     path("profile/", views.my_profile, name="my_profile"),
     path("about/", views.about, name="about"),

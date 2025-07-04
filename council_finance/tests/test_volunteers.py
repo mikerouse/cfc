@@ -70,23 +70,45 @@ class EditTabTests(TestCase):
 
 class ContributeQueueTests(TestCase):
     def setUp(self):
-        self.tier3, _ = TrustTier.objects.get_or_create(level=3, name="Approved Counter")
         self.user = get_user_model().objects.create_user(
             username="quser", email="q@example.com", password="pw"
         )
-        # Promote our test user so they can see the contribution queue
-        self.user.profile.tier = self.tier3
-        self.user.profile.save()
         self.council = Council.objects.create(name="Queue", slug="queue")
-        self.field = DataField.objects.create(name="Website", slug="website")
+        self.field = DataField.objects.filter(slug="website").first()
+        if not self.field:
+            self.field = DataField.objects.create(name="Website", slug="website")
+        from council_finance.models.council_type import CouncilType
+        from django.contrib.contenttypes.models import ContentType
+        self.ct_field = DataField.objects.filter(slug="council_type").first()
+        if not self.ct_field:
+            self.ct_field = DataField.objects.create(
+                name="Type",
+                slug="council_type",
+                content_type="list",
+                dataset_type=ContentType.objects.get_for_model(CouncilType),
+            )
+        self.ct, _ = CouncilType.objects.get_or_create(name="County")
         Contribution.objects.create(
             user=self.user,
             council=self.council,
             field=self.field,
             value="http://q.com",
         )
+        Contribution.objects.create(
+            user=self.user,
+            council=self.council,
+            field=self.ct_field,
+            value=str(self.ct.id),
+        )
 
     def test_queue_table_renders(self):
-        self.client.login(username="quser", password="pw")
         resp = self.client.get(reverse("contribute"))
         self.assertContains(resp, "Queue")
+
+    def test_queue_displays_human_value(self):
+        resp = self.client.get(reverse("contribute"))
+        self.assertContains(resp, "http://q.com")
+
+    def test_list_value_rendered(self):
+        resp = self.client.get(reverse("contribute"))
+        self.assertContains(resp, "County")

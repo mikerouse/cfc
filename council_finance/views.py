@@ -39,6 +39,7 @@ from .models import (
     SiteSetting,
     TrustTier,
     Contribution,
+    DataChangeLog,
 )
 
 from datetime import date
@@ -319,36 +320,18 @@ def following(request):
     return render(request, "council_finance/following.html")
 
 
-@login_required
 def contribute(request):
     """Show contribution dashboard with various queues."""
-
-    # Pull all pending contributions for display in the moderation queue.
-    queue = Contribution.objects.filter(status="pending").select_related(
-        "council",
-        "field",
-        "user",
+    queue = Contribution.objects.filter(status="pending").select_related("council", "field", "user")
+    my_contribs = (
+        Contribution.objects.filter(user=request.user).select_related("council", "field")
+        if request.user.is_authenticated
+        else []
     )
-
-    # Grab any contributions the logged in user has made so they can see
-    # the status of their own submissions.
-    my_contribs = Contribution.objects.filter(user=request.user).select_related(
-        "council",
-        "field",
-    )
-
-    # Volunteers below tier 3 shouldn't be able to view the global queue.
-    # They can still see their own contributions though.
-    if request.user.profile.tier.level < 3:
-        queue = []
-
     return render(
         request,
         "council_finance/contribute.html",
-        {
-            "queue": queue,
-            "my_contribs": my_contribs,
-        },
+        {"queue": queue, "my_contribs": my_contribs},
     )
 
 
@@ -856,6 +839,60 @@ def submit_contribution(request):
     else:
         msg = "Contribution queued for approval"
     return JsonResponse({"status": status, "message": msg})
+
+
+@login_required
+def review_contribution(request, pk, action):
+    """Approve, reject or edit a pending contribution."""
+    contrib = get_object_or_404(Contribution, pk=pk)
+
+    if request.user.profile.tier.level < 3:
+        return HttpResponseBadRequest("permission denied")
+
+    if action == "approve":
+        _apply_contribution(contrib, request.user)
+        contrib.status = "approved"
+        contrib.save()
+    elif action == "reject":
+        contrib.status = "rejected"
+        contrib.save()
+    elif action == "edit" and request.method == "POST":
+        contrib.value = request.POST.get("value", contrib.value)
+        contrib.save()
+        return redirect("contribute")
+    return redirect("contribute")
+
+
+def _apply_contribution(contribution, user):
+    """Persist an approved contribution and log the change."""
+    field = contribution.field
+    council = contribution.council
+
+    old_value = contribution.old_value
+
+    if field.slug == "website":
+        council.website = contribution.value
+        council.save()
+    elif field.slug == "council_type":
+        council.council_type_id = contribution.value or None
+        council.save()
+    else:
+        FigureSubmission.objects.update_or_create(
+            council=council,
+            field=field,
+            year=contribution.year,
+            defaults={"value": contribution.value, "needs_populating": False},
+        )
+
+    DataChangeLog.objects.create(
+        contribution=contribution,
+        council=council,
+        field=field,
+        year=contribution.year,
+        old_value=old_value,
+        new_value=contribution.value,
+        approved_by=user,
+    )
 
 
 @login_required

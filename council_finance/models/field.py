@@ -76,3 +76,20 @@ class DataField(models.Model):
 
     def __str__(self) -> str:
         return self.name
+
+    def display_value(self, value: str) -> str:
+        """Return a human readable representation for a stored value.
+
+        List type fields store the primary key of the related model.
+        This helper fetches the object name so tables show something
+        meaningful instead of an ID. Other field types simply return
+        the value unchanged.
+        """
+        if self.content_type == "list" and self.dataset_type:
+            model = self.dataset_type.model_class()
+            try:
+                obj = model.objects.get(pk=value)
+                return str(obj)
+            except (ValueError, model.DoesNotExist):
+                return value
+        return value
