@@ -4,12 +4,66 @@
 <h1 class="text-2xl font-bold mb-4">Contribute Data</h1>
 <div class="space-y-6">
     <section>
-        <h2 class="text-xl font-semibold">Contribution Queue</h2>
-        <p>Placeholder list of all pending contributions.</p>
+        <h2 class="text-xl font-semibold mb-2">Contribution Queue</h2>
+        {% if queue %}
+        <table class="min-w-full border divide-y">
+            <thead class="bg-gray-100">
+                <tr>
+                    <th class="px-2 py-1 text-left">Council</th>
+                    <th class="px-2 py-1 text-left">Field</th>
+                    <th class="px-2 py-1 text-left">Value</th>
+                    <th class="px-2 py-1 text-left">Submitted By</th>
+                    <th class="px-2 py-1 text-left">Date</th>
+                </tr>
+            </thead>
+            <tbody>
+            {% for c in queue %}
+                <tr class="border-b">
+                    <td class="px-2 py-1">{{ c.council.name }}</td>
+                    <td class="px-2 py-1">{{ c.field.name }}</td>
+                    <td class="px-2 py-1">{{ c.value }}</td>
+                    <td class="px-2 py-1">{{ c.user.username }}</td>
+                    <td class="px-2 py-1">{{ c.created|date:"Y-m-d" }}</td>
+                </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <p>No pending contributions.</p>
+        {% endif %}
     </section>
     <section>
-        <h2 class="text-xl font-semibold">My Contributions</h2>
-        <p>Placeholder table of your submissions.</p>
+        <h2 class="text-xl font-semibold mb-2">My Contributions</h2>
+        {% if user.is_authenticated %}
+            {% if my_contribs %}
+            <table class="min-w-full border divide-y">
+                <thead class="bg-gray-100">
+                    <tr>
+                        <th class="px-2 py-1 text-left">Council</th>
+                        <th class="px-2 py-1 text-left">Field</th>
+                        <th class="px-2 py-1 text-left">Value</th>
+                        <th class="px-2 py-1 text-left">Status</th>
+                        <th class="px-2 py-1 text-left">Date</th>
+                    </tr>
+                </thead>
+                <tbody>
+                {% for c in my_contribs %}
+                    <tr class="border-b">
+                        <td class="px-2 py-1">{{ c.council.name }}</td>
+                        <td class="px-2 py-1">{{ c.field.name }}</td>
+                        <td class="px-2 py-1">{{ c.value }}</td>
+                        <td class="px-2 py-1">{{ c.status }}</td>
+                        <td class="px-2 py-1">{{ c.created|date:"Y-m-d" }}</td>
+                    </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+            <p>You haven't submitted any contributions yet.</p>
+            {% endif %}
+        {% else %}
+            <p><a href="{% url 'login' %}" class="underline">Log in</a> to see your contributions.</p>
+        {% endif %}
     </section>
     <section>
         <h2 class="text-xl font-semibold">Contributions by Friends</h2>

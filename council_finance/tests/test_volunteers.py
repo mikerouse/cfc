@@ -57,3 +57,31 @@ class ContributionApprovalTests(TestCase):
         )
         self.assertEqual(response.json()["status"], "approved")
         self.assertEqual(Contribution.objects.last().status, "approved")
+
+
+class EditTabTests(TestCase):
+    def setUp(self):
+        self.council = Council.objects.create(name="EditTown", slug="edittown")
+
+    def test_edit_message_shown(self):
+        resp = self.client.get(reverse("council_detail", args=["edittown"]), {"tab": "edit"})
+        self.assertContains(resp, "contribute to our dataset")
+
+
+class ContributeQueueTests(TestCase):
+    def setUp(self):
+        self.user = get_user_model().objects.create_user(
+            username="quser", email="q@example.com", password="pw"
+        )
+        self.council = Council.objects.create(name="Queue", slug="queue")
+        self.field = DataField.objects.create(name="Website", slug="website")
+        Contribution.objects.create(
+            user=self.user,
+            council=self.council,
+            field=self.field,
+            value="http://q.com",
+        )
+
+    def test_queue_table_renders(self):
+        resp = self.client.get(reverse("contribute"))
+        self.assertContains(resp, "Queue")

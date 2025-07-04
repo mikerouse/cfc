@@ -124,6 +124,8 @@ def council_detail(request, slug):
     """Show details for a single council."""
     # Fetch the council or return a 404 if the slug is unknown
     council = get_object_or_404(Council, slug=slug)
+    tab = request.GET.get("tab") or "view"
+    focus = request.GET.get("focus", "")
 
     # Pull all financial figures for this council so the template can
     # present them in an engaging way.
@@ -189,7 +191,13 @@ def council_detail(request, slug):
         "years": years,
         "selected_year": selected_year,
         "default_counter_slugs": default_slugs,
+        "tab": tab,
+        "focus": focus,
     }
+    if tab == "edit":
+        from .models import CouncilType
+
+        context["council_types"] = CouncilType.objects.all()
 
     return render(request, "council_finance/council_detail.html", context)
 
@@ -313,7 +321,17 @@ def following(request):
 
 def contribute(request):
     """Show contribution dashboard with various queues."""
-    return render(request, "council_finance/contribute.html")
+    queue = Contribution.objects.filter(status="pending").select_related("council", "field", "user")
+    my_contribs = (
+        Contribution.objects.filter(user=request.user).select_related("council", "field")
+        if request.user.is_authenticated
+        else []
+    )
+    return render(
+        request,
+        "council_finance/contribute.html",
+        {"queue": queue, "my_contribs": my_contribs},
+    )
 
 
 def my_profile(request):
