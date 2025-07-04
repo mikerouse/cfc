@@ -6,12 +6,14 @@
     <title>{% block title %}Council Finance Counters{% endblock %}</title>
     <!-- Use Tailwind via CDN for quick styling -->
     <script src="https://cdn.tailwindcss.com"></script>
+    {# Load the selected Google Font so the UI uses the user's preference. #}
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family={{ font_family|urlencode }}:wght@400;700&display=swap">
     <!-- Font Awesome provides vector icons used across the site -->
     <link rel="stylesheet" href="{% static 'fontawesome_free/css/all.min.css' %}" />
     {# Load math.js for client-side expression parsing used by the counter builder #}
     <script src="https://cdn.jsdelivr.net/npm/mathjs@11.11.1/lib/browser/math.js"></script>
 </head>
-<body class="flex flex-col min-h-screen">
+<body class="flex flex-col min-h-screen" style="font-family: '{{ font_family }}', sans-serif;">
     <!-- Site header with brand, navigation and search -->
     <header class="bg-gray-800 text-white">
         <div class="max-w-7xl mx-auto flex flex-wrap items-center justify-between p-5">
