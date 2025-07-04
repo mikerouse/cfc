@@ -136,7 +136,21 @@ function animateCounters() {
     // Create an animator instance from the CountUp library. The global
     // object exposes the constructor as `countUp.CountUp` when using the
     // UMD build we load above.
-    const cu = new countUp.CountUp(el, end, {duration: dur});
+    // Determine how the number should be formatted during the animation.
+    // We honour user overrides for precision and thousands separators so
+    // that the animated value looks similar to the final formatted result.
+    const showCurrency = el.dataset.showCurrency === 'true' || el.dataset.showCurrency === 'True';
+    const precision = overridePrecision !== null ? parseInt(overridePrecision, 10)
+      : parseInt(el.dataset.precision || '0', 10);
+    const thousands = overrideThousands !== null ? overrideThousands === 'true'
+      : showCurrency;
+
+    const cu = new countUp.CountUp(el, end, {
+      duration: dur,
+      decimalPlaces: precision,
+      separator: thousands ? ',' : '',
+      prefix: showCurrency ? '£' : ''
+    });
     if (!cu.error) {
       cu.start(() => { el.textContent = display; });
     } else {
