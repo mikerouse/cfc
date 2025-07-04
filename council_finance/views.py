@@ -8,11 +8,13 @@ from django.contrib.auth.hashers import make_password
 from django.contrib.auth import login
 from django.utils.crypto import get_random_string
 import hashlib
+
 # Brevo's Python SDK exposes ApiException from the `rest` module
 from brevo_python.rest import ApiException
 
 from .emails import send_confirmation_email, send_email
 from .notifications import create_notification
+
 # Import the constant containing valid field names for counter formulas.
 from .forms import (
     SignUpForm,
@@ -20,6 +22,8 @@ from .forms import (
     CounterDefinitionForm,
     DataFieldForm,
 )
+from django.conf import settings
+
 from .models import DataField
 from .models import (
     Council,
@@ -31,7 +35,21 @@ from .models import (
     CouncilList,
     CounterDefinition,
     CouncilCounter,
+    SiteSetting,
 )
+
+from datetime import date
+
+
+def current_financial_year_label() -> str:
+    """Return label like ``2025/26`` for the current UK financial year."""
+    today = date.today()
+    if today.month < 4:
+        start = today.year - 1
+    else:
+        start = today.year
+    end = start + 1
+    return f"{start}/{str(end)[-2:]}"
 
 
 def search_councils(request):
@@ -39,10 +57,9 @@ def search_councils(request):
     query = request.GET.get("q", "").strip()
     if len(query) < 2:
         return JsonResponse([], safe=False)
-    results = (
-        Council.objects.filter(Q(name__icontains=query) | Q(slug__icontains=query))
-        .values("name", "slug")[:10]
-    )
+    results = Council.objects.filter(
+        Q(name__icontains=query) | Q(slug__icontains=query)
+    ).values("name", "slug")[:10]
     return JsonResponse(list(results), safe=False)
 
 
@@ -64,9 +81,7 @@ def home(request):
     if latest_year:
         field = DataField.objects.filter(slug="total_debt").first()
         total_debt = (
-            FigureSubmission.objects.filter(
-                field=field, year=latest_year
-            ).aggregate(
+            FigureSubmission.objects.filter(field=field, year=latest_year).aggregate(
                 total=Sum(Cast("value", DecimalField(max_digits=20, decimal_places=2)))
             )["total"]
             or 0
@@ -83,19 +98,18 @@ def home(request):
 
     return render(request, "council_finance/home.html", context)
 
+
 def council_list(request):
     """Display a list of councils with optional search by name or slug."""
     # Grab search term from query parameters if provided
-    query = request.GET.get('q', '')
+    query = request.GET.get("q", "")
 
     # Base queryset of all councils
     councils = Council.objects.all()
 
     # Apply a simple case-insensitive name or slug filter when a query is present
     if query:
-        councils = councils.filter(
-            Q(name__icontains=query) | Q(slug__icontains=query)
-        )
+        councils = councils.filter(Q(name__icontains=query) | Q(slug__icontains=query))
     context = {
         "councils": councils,
         "query": query,
@@ -116,23 +130,46 @@ def council_detail(request, slug):
         .order_by("year__label", "field__slug")
     )
 
-    latest_year = FinancialYear.objects.order_by("-label").first()
+    years = list(
+        FinancialYear.objects.order_by("-label").exclude(label__iexact="general")
+    )
+    default_label = SiteSetting.get(
+        "default_financial_year", settings.DEFAULT_FINANCIAL_YEAR
+    )
+    selected_year = next(
+        (y for y in years if y.label == default_label), years[0] if years else None
+    )
+    # Annotate display labels so the template can show the current year as
+    # "Current Year to Date" without storing a separate field in the DB.
+    current_label = current_financial_year_label()
+    for y in years:
+        y.display = "Current Year to Date" if y.label == current_label else y.label
     counters = []
-    if latest_year:
+    if selected_year:
         from council_finance.agents.counter_agent import CounterAgent
 
         agent = CounterAgent()
         # Compute all counter values for this council/year using the agent
-        values = agent.run(council_slug=slug, year_label=latest_year.label)
-        # Fetch enabled counters and attach the calculated value to each entry
-        for cc in (
-            CouncilCounter.objects.filter(council=council, enabled=True)
-            .select_related("counter")
-        ):
-            result = values.get(cc.counter.slug, {})
+        values = agent.run(council_slug=slug, year_label=selected_year.label)
+
+        # Build a lookup of overrides so we know which counters are enabled or
+        # disabled specifically for this council.
+        override_map = {
+            cc.counter_id: cc.enabled
+            for cc in CouncilCounter.objects.filter(council=council)
+        }
+
+        # Loop over every defined counter and decide whether it should be
+        # displayed. If the council has an explicit override we honour that,
+        # otherwise we fall back to the counter's show_by_default flag.
+        for counter in CounterDefinition.objects.all():
+            enabled = override_map.get(counter.id, counter.show_by_default)
+            if not enabled:
+                continue
+            result = values.get(counter.slug, {})
             counters.append(
                 {
-                    "counter": cc.counter,
+                    "counter": counter,
                     "value": result.get("value"),
                     "formatted": result.get("formatted"),
                     "error": result.get("error"),
@@ -143,11 +180,15 @@ def council_detail(request, slug):
         "council": council,
         "figures": figures,
         "counters": counters,
+        "years": years,
+        "selected_year": selected_year,
     }
 
     return render(request, "council_finance/council_detail.html", context)
 
+
 # Additional views for common site pages
+
 
 def leaderboards(request):
     """Placeholder leaderboards page."""
@@ -173,9 +214,7 @@ def my_lists(request):
     pop_display = {}
     if latest_year:
         pop_field = DataField.objects.filter(slug="population").first()
-        for fs in FigureSubmission.objects.filter(
-            field=pop_field, year=latest_year
-        ):
+        for fs in FigureSubmission.objects.filter(field=pop_field, year=latest_year):
             try:
                 val = float(fs.value)
             except (TypeError, ValueError):
@@ -274,7 +313,8 @@ def my_profile(request):
     """Simple profile or redirect to login."""
     if not request.user.is_authenticated:
         from django.shortcuts import redirect
-        return redirect('login')
+
+        return redirect("login")
     return render(request, "council_finance/my_profile.html")
 
 
@@ -325,17 +365,24 @@ def counter_definition_form(request, slug=None):
         raise Http404()
 
     from .models import Council
+
     counter = get_object_or_404(CounterDefinition, slug=slug) if slug else None
     form = CounterDefinitionForm(request.POST or None, instance=counter)
 
     # For preview dropdown: all councils and all years
-    councils = Council.objects.all().order_by('name')
-    years = FinancialYear.objects.order_by('-label')
-    preview_council_slug = request.GET.get('preview_council') or (councils[0].slug if councils else None)
+    councils = Council.objects.all().order_by("name")
+    years = FinancialYear.objects.order_by("-label")
+    preview_council_slug = request.GET.get("preview_council") or (
+        councils[0].slug if councils else None
+    )
     # Only use a valid year label for preview_year_label
     valid_year_labels = [y.label for y in years]
-    requested_year = request.GET.get('preview_year')
-    preview_year_label = requested_year if requested_year in valid_year_labels else (years[0].label if years else None)
+    requested_year = request.GET.get("preview_year")
+    preview_year_label = (
+        requested_year
+        if requested_year in valid_year_labels
+        else (years[0].label if years else None)
+    )
 
     if request.method == "POST" and form.is_valid():
         form.save()
@@ -356,25 +403,30 @@ def counter_definition_form(request, slug=None):
         context,
     )
 
+
 # AJAX endpoint for previewing counter value for a council and formula
 from django.views.decorators.http import require_GET
+
+
 @login_required
 @require_GET
 def preview_counter_value(request):
     from .agents.counter_agent import CounterAgent
     from .models import Council, FinancialYear
-    council_slug = request.GET.get('council')
-    formula = request.GET.get('formula')
-    year_label = request.GET.get('year')
+
+    council_slug = request.GET.get("council")
+    formula = request.GET.get("formula")
+    year_label = request.GET.get("year")
     year = None
     if year_label:
         year = FinancialYear.objects.filter(label=year_label).first()
     if not year:
-        year = FinancialYear.objects.order_by('-label').first()
+        year = FinancialYear.objects.order_by("-label").first()
     if not (council_slug and formula and year):
-        return JsonResponse({'error': 'Missing data'}, status=400)
+        return JsonResponse({"error": "Missing data"}, status=400)
     agent = CounterAgent()
     from .models import CounterDefinition
+
     try:
         council = Council.objects.get(slug=council_slug)
         # Build a map of values while tracking any missing figures so we can
@@ -391,12 +443,14 @@ def preview_counter_value(request):
             except (TypeError, ValueError):
                 missing.add(slug)
         import ast, operator
+
         allowed_ops = {
             ast.Add: operator.add,
             ast.Sub: operator.sub,
             ast.Mult: operator.mul,
             ast.Div: operator.truediv,
         }
+
         def _eval(node):
             if isinstance(node, ast.Expression):
                 return _eval(node.body)
@@ -413,28 +467,33 @@ def preview_counter_value(request):
                             "Counter failed - no %s figure is held for %s in %s. "
                             "Please populate the figure from the council's official sources and try again."
                         )
-                        % (node.id.replace('_', ' '), council.name, year.label)
+                        % (node.id.replace("_", " "), council.name, year.label)
                     )
                 return figure_map.get(node.id, 0)
             raise ValueError("Unsupported expression element")
+
         tree = ast.parse(formula, mode="eval")
         value = float(_eval(tree))
-        precision = int(request.GET.get('precision', 0))
-        show_currency = request.GET.get('show_currency', 'true') == 'true'
-        friendly_format = request.GET.get('friendly_format', 'false') == 'true'
+        precision = int(request.GET.get("precision", 0))
+        show_currency = request.GET.get("show_currency", "true") == "true"
+        friendly_format = request.GET.get("friendly_format", "false") == "true"
+
         class Dummy:
             pass
+
         dummy = Dummy()
         dummy.precision = precision
         dummy.show_currency = show_currency
         dummy.friendly_format = friendly_format
         from .models.counter import CounterDefinition as CD
+
         formatted = CD.format_value(dummy, value)
-        return JsonResponse({'value': value, 'formatted': formatted})
+        return JsonResponse({"value": value, "formatted": formatted})
     except ValueError as e:
-        return JsonResponse({'error': str(e)}, status=400)
+        return JsonResponse({"error": str(e)}, status=400)
     except Exception:
-        return JsonResponse({'error': 'calculation failed'}, status=400)
+        return JsonResponse({"error": "calculation failed"}, status=400)
+
 
 @login_required
 def profile_view(request):
@@ -463,9 +522,11 @@ def profile_view(request):
                 new_first_name=request.POST.get("first_name", ""),
                 new_last_name=request.POST.get("last_name", ""),
                 new_email=request.POST.get("email", ""),
-                new_password=make_password(request.POST.get("password1", ""))
-                if request.POST.get("password1")
-                else "",
+                new_password=(
+                    make_password(request.POST.get("password1", ""))
+                    if request.POST.get("password1")
+                    else ""
+                ),
             )
             confirm_link = request.build_absolute_uri(
                 reverse("confirm_profile_change", args=[token])
@@ -561,7 +622,9 @@ def update_postcode(request):
         profile.postcode = postcode
         profile.postcode_refused = False
     profile.save()
-    return JsonResponse({"postcode": profile.postcode, "refused": profile.postcode_refused})
+    return JsonResponse(
+        {"postcode": profile.postcode, "refused": profile.postcode_refused}
+    )
 
 
 @login_required
@@ -578,14 +641,16 @@ def resend_confirmation(request):
         messages.info(request, "Confirmation email sent.")
     except ApiException as e:
         import logging
+
         logger = logging.getLogger(__name__)
         logger.error(f"Brevo API error: {e}")
         error_msg = "There was a problem sending the confirmation email. Please try again later."
-        if hasattr(e, 'body') and isinstance(e.body, str):
+        if hasattr(e, "body") and isinstance(e.body, str):
             import json
+
             try:
                 body = json.loads(e.body)
-                if 'message' in body:
+                if "message" in body:
                     error_msg = f"Email not sent: {body['message']}"
             except Exception:
                 pass
@@ -745,6 +810,48 @@ def list_metric(request, list_id):
     return JsonResponse({"values": values, "total": total})
 
 
+def council_counters(request, slug):
+    """Return counter values for a council and year as JSON."""
+    # Allow callers to specify a financial year label. Default to latest year
+    # when the parameter is missing or invalid so the UI always has data.
+    year_label = request.GET.get("year")
+    if year_label:
+        year = FinancialYear.objects.filter(label=year_label).first()
+    else:
+        year = None
+    if not year:
+        year = FinancialYear.objects.order_by("-label").first()
+
+    council = get_object_or_404(Council, slug=slug)
+
+    data = {}
+    if year:
+        from council_finance.agents.counter_agent import CounterAgent
+
+        agent = CounterAgent()
+        values = agent.run(council_slug=slug, year_label=year.label)
+
+        override_map = {
+            cc.counter_id: cc.enabled
+            for cc in CouncilCounter.objects.filter(council=council)
+        }
+
+        for counter in CounterDefinition.objects.all():
+            enabled = override_map.get(counter.id, counter.show_by_default)
+            if not enabled:
+                continue
+            result = values.get(counter.slug, {})
+            data[counter.slug] = {
+                "name": counter.name,
+                "duration": counter.duration,
+                "value": result.get("value"),
+                "formatted": result.get("formatted"),
+                "error": result.get("error"),
+            }
+
+    return JsonResponse({"counters": data})
+
+
 @login_required
 def field_list(request):
     """List all data fields for staff management."""
@@ -752,6 +859,7 @@ def field_list(request):
         raise Http404()
     fields = DataField.objects.all()
     return render(request, "council_finance/field_list.html", {"fields": fields})
+
 
 @login_required
 def field_form(request, slug=None):
