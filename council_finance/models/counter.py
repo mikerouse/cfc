@@ -30,9 +30,12 @@ class CounterDefinition(models.Model):
         default=False,
         help_text="Use short forms e.g. £1m",
     )
-    default_for_detail = models.BooleanField(
-        default=False,
-        help_text="Show by default on the council detail page",
+    # Control whether this counter should appear on council pages when no
+    # explicit CouncilCounter override exists. Admins can opt out per council
+    # using the inline model or opt in globally here.
+    show_by_default = models.BooleanField(
+        default=True,
+        help_text="Show on council pages unless disabled for a specific council",
     )
 
     def format_value(self, value: float) -> str:
@@ -57,7 +60,11 @@ class CounterDefinition(models.Model):
             else:
                 value_str = f"{value:.{self.precision}f}"
         else:
-            value_str = f"{value:,.{self.precision}f}" if self.show_currency else f"{value:.{self.precision}f}"
+            value_str = (
+                f"{value:,.{self.precision}f}"
+                if self.show_currency
+                else f"{value:.{self.precision}f}"
+            )
 
         if self.show_currency:
             return f"£{value_str}"

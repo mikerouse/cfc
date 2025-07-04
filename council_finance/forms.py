@@ -42,8 +42,6 @@ class CouncilImportForm(forms.Form):
     )
 
 
-
-
 class CouncilImportMappingForm(forms.Form):
     """Allow admins to map JSON fields to internal figure names."""
 
@@ -94,9 +92,15 @@ class CounterDefinitionForm(forms.ModelForm):
             "default_for_detail",
         ]
         widgets = {
-            "explanation": forms.Textarea(attrs={"rows": 2, "class": "border rounded p-1 w-full"}),
-            "duration": forms.NumberInput(attrs={"min": 0, "class": "border rounded p-1 w-full"}),
-            "precision": forms.NumberInput(attrs={"min": 0, "class": "border rounded p-1 w-full"}),
+            "explanation": forms.Textarea(
+                attrs={"rows": 2, "class": "border rounded p-1 w-full"}
+            ),
+            "duration": forms.NumberInput(
+                attrs={"min": 0, "class": "border rounded p-1 w-full"}
+            ),
+            "precision": forms.NumberInput(
+                attrs={"min": 0, "class": "border rounded p-1 w-full"}
+            ),
             "show_currency": forms.CheckboxInput(attrs={"class": "mr-2"}),
             "friendly_format": forms.CheckboxInput(attrs={"class": "mr-2"}),
             "default_for_detail": forms.CheckboxInput(attrs={"class": "mr-2"}),
@@ -111,9 +115,9 @@ class CounterDefinitionForm(forms.ModelForm):
             field.widget.attrs.setdefault("class", "border rounded p-1 w-full")
 
 
-
 class DataFieldForm(forms.ModelForm):
     """Form for creating and editing data fields."""
+
     # Dataset selection only applies when ``content_type`` is ``list``. The
     # queryset is limited to models within this app so admins can't accidentally
     # bind to unrelated tables.
@@ -137,7 +141,9 @@ class DataFieldForm(forms.ModelForm):
             "required",
         ]
         widgets = {
-            "explanation": forms.Textarea(attrs={"rows": 2, "class": "border rounded p-1 w-full"}),
+            "explanation": forms.Textarea(
+                attrs={"rows": 2, "class": "border rounded p-1 w-full"}
+            ),
             "formula": forms.TextInput(attrs={"class": "border rounded p-1 w-full"}),
         }
 
