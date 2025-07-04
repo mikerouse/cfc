@@ -34,7 +34,12 @@ class SignUpForm(UserCreationForm):
 
 
 class ProfileExtraForm(forms.ModelForm):
-    """Collect optional volunteer information on the profile page."""
+    """Collect optional volunteer information on the profile page.
+
+    The form is intentionally lightweight. Additional fields can be
+    added later without altering the signup process because they are
+    saved via the user's profile page instead of during registration.
+    """
 
     class Meta:
         model = UserProfile

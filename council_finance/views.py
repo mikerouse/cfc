@@ -788,7 +788,12 @@ def move_between_lists(request):
 
 @login_required
 def submit_contribution(request):
-    """Accept a contribution for a specific field."""
+    """Accept a contribution for a specific field.
+
+    The endpoint is triggered via AJAX from the council detail page.
+    Tier 3 users and above can bypass moderation; everyone else will
+    see their submission placed into a queue for review.
+    """
     if request.method != "POST":
         return HttpResponseBadRequest("POST required")
 

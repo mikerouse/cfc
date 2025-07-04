@@ -5,7 +5,12 @@ from .council import Council, FinancialYear
 from .field import DataField
 
 class Contribution(models.Model):
-    """Volunteer submitted data awaiting approval."""
+    """Volunteer submitted data awaiting approval.
+
+    Each contribution links a user to a particular council and data
+    field. Depending on the submitter's trust tier the contribution
+    may be auto-approved or require moderation.
+    """
 
     STATUS_CHOICES = [
         ("pending", "Pending"),

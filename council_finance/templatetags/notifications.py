@@ -37,5 +37,6 @@ def profile_progress(context):
         try:
             return user.profile.completion_percent()
         except OperationalError:
+            # Profile table might not exist during migrations
             return 0
     return 0

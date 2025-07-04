@@ -220,6 +220,7 @@ admin.site.register(UserProfile)
 admin.site.register(UserFollow)
 admin.site.register(PendingProfileChange)
 admin.site.register(Notification)
+# Manage volunteer trust levels and their submissions
 admin.site.register(TrustTier)
 admin.site.register(Contribution)
 admin.site.register(CounterDefinition, CounterDefinitionAdmin)
