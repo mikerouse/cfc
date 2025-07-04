@@ -27,3 +27,16 @@ def recent_notifications(context, limit=5):
             # Table missing - return empty list to avoid runtime errors
             return []
     return []
+
+
+@register.simple_tag(takes_context=True)
+def profile_progress(context):
+    """Return completion percentage for the logged in user's profile."""
+    user = context["user"]
+    if user.is_authenticated and hasattr(user, "profile"):
+        try:
+            return user.profile.completion_percent()
+        except OperationalError:
+            # Profile table might not exist during migrations
+            return 0
+    return 0

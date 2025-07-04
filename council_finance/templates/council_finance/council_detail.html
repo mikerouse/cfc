@@ -5,25 +5,64 @@
 <h1 class="text-3xl sm:text-4xl font-extrabold mb-4 text-center p-5">
   {{ council.name }}
 </h1>
+<div class="mb-4 border-b text-center">
+  <nav class="inline-flex gap-4">
+    <a href="{% url 'council_detail' council.slug %}" class="py-2 px-4 border-b-2 {% if tab != 'edit' %}border-blue-600 font-semibold{% else %}border-transparent{% endif %}">View</a>
+    <a href="{% url 'council_detail' council.slug %}?tab=edit" class="py-2 px-4 border-b-2 {% if tab == 'edit' %}border-blue-600 font-semibold{% else %}border-transparent{% endif %}">Edit</a>
+  </nav>
+</div>
+{% if tab == 'edit' %}
+<p class="bg-yellow-100 border border-yellow-300 text-yellow-800 p-4 rounded mb-4">
+  You can contribute to our dataset by providing information about councils. Most information comes from the council's balance sheet, cash flow statement, outturn data, spending disclosures, and their comprehensive income and expenditure statement.
+  <a href="#" class="underline">Click here to watch our video guide on how to find these documents.</a>
+</p>
+{% endif %}
 <div class="text-center space-y-1 mb-4">
-  {# Show the council's website if we have one, otherwise prompt for it. #}
-  {% if council.website %}
+  {# Show the council's website or an input when editing #}
+  {% if tab == 'edit' %}
+    <form id="field-website" method="post" action="{% url 'submit_contribution' %}" class="mb-2 {% if focus == 'website' %}bg-yellow-50 border border-yellow-300 p-2 rounded{% endif %}">
+      {% csrf_token %}
+      <input type="hidden" name="council" value="{{ council.slug }}">
+      <input type="hidden" name="field" value="website">
+      <label class="block font-medium">Website address</label>
+      <input type="url" name="value" value="{{ council.website }}" class="border rounded p-1 w-full">
+      <button type="submit" class="mt-1 bg-blue-600 text-white px-2 py-1 rounded">Submit</button>
+    </form>
+  {% else %}
+    {% if council.website %}
     <p>
       Website:
       <a href="{{ council.website }}" class="text-blue-700 hover:underline">{{ council.website }}</a>
     </p>
-  {% else %}
+    {% else %}
     <p>
-      <a href="#" class="text-blue-700 hover:underline">Website address needed</a>
+      <a href="{% url 'council_detail' council.slug %}?tab=edit&focus=website" class="text-blue-700 hover:underline">Website address needed</a>
     </p>
+    {% endif %}
   {% endif %}
-  {# Display the council type or a placeholder link if missing. #}
-  {% if council.council_type %}
-    <p>Type: {{ council.council_type.name }}</p>
+  {# Display the council type or edit drop-down #}
+  {% if tab == 'edit' %}
+    <form id="field-council_type" method="post" action="{% url 'submit_contribution' %}" class="mb-2 {% if focus == 'council_type' %}bg-yellow-50 border border-yellow-300 p-2 rounded{% endif %}">
+      {% csrf_token %}
+      <input type="hidden" name="council" value="{{ council.slug }}">
+      <input type="hidden" name="field" value="council_type">
+      <label class="block font-medium">Council type</label>
+      <select name="value" class="border rounded p-1 w-full">
+        <option value="">---------</option>
+        {% for ct in council_types %}
+        <option value="{{ ct.id }}" {% if council.council_type_id == ct.id %}selected{% endif %}>{{ ct.name }}</option>
+        {% endfor %}
+      </select>
+      <button type="submit" class="mt-1 bg-blue-600 text-white px-2 py-1 rounded">Submit</button>
+    </form>
   {% else %}
+    {% if council.council_type %}
+    <p>Type: {{ council.council_type.name }}</p>
+    {% else %}
     <p>
-      <a href="#" class="text-blue-700 hover:underline">Set council type</a>
+      <a href="{% url 'council_detail' council.slug %}?tab=edit&focus=council_type" class="text-blue-700 hover:underline">Set council type</a>
     </p>
+    {% endif %}
   {% endif %}
 </div>
 <div class="mt-2 flex flex-col sm:flex-row items-center gap-4 justify-between">

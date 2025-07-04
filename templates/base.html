@@ -23,7 +23,7 @@
                 <a href="{% url 'my_lists' %}" class="hover:underline">My Lists</a>
                 {% endif %}
                 <a href="{% url 'following' %}" class="hover:underline">Following</a>
-                <a href="{% url 'submit' %}" class="hover:underline">Submit</a>
+                <a href="{% url 'contribute' %}" class="hover:underline">Contribute</a>
                 {% if user.is_authenticated %}
                 <a href="{% url 'profile' %}" class="hover:underline">My Profile</a>
                 {% else %}
@@ -50,6 +50,13 @@
                         {% endif %}
                     </button>
                     <div id="notif-menu" class="hidden absolute right-0 mt-2 w-72 bg-white text-black border rounded shadow-lg z-50">
+                        {% profile_progress as progress %}
+                        <div class="p-2 border-b">
+                            <p class="text-sm mb-1">Profile completion: {{ progress }}%</p>
+                            <div class="w-full bg-gray-200 rounded h-2">
+                                <div class="bg-green-500 h-2 rounded" style="width: {{ progress }}%;"></div>
+                            </div>
+                        </div>
                         {% recent_notifications 5 as notes %}
                         {% for note in notes %}
                         <div class="p-2 border-b {% if not note.read %}bg-gray-100{% endif %}">
