@@ -3,7 +3,7 @@ from django.contrib.auth.forms import UserCreationForm
 from django.contrib.auth import get_user_model
 from django.utils.crypto import get_random_string
 from .models import UserProfile
-from .models import CouncilList
+from .models import CouncilList, Council
 from .models import CounterDefinition, DataField
 from .models.field import PROTECTED_SLUGS
 from django.contrib.contenttypes.models import ContentType
@@ -24,11 +24,37 @@ class SignUpForm(UserCreationForm):
         # Ensure the profile exists (signal may have created it already)
         profile, _ = UserProfile.objects.get_or_create(user=user)
         profile.postcode = postcode
+        # Extra volunteer details are gathered later on the profile page
+        # so signup only stores the essential postcode.
         if not profile.confirmation_token:
             profile.confirmation_token = get_random_string(32)
         if commit:
             profile.save()
         return user
+
+
+class ProfileExtraForm(forms.ModelForm):
+    """Collect optional volunteer information on the profile page.
+
+    The form is intentionally lightweight. Additional fields can be
+    added later without altering the signup process because they are
+    saved via the user's profile page instead of during registration.
+    """
+
+    class Meta:
+        model = UserProfile
+        fields = [
+            "political_affiliation",
+            "works_for_council",
+            "employer_council",
+            "official_email",
+        ]
+        widgets = {
+            "political_affiliation": forms.TextInput(attrs={"class": "border rounded p-1 w-full"}),
+            "works_for_council": forms.CheckboxInput(attrs={"class": "mr-1"}),
+            "employer_council": forms.Select(attrs={"class": "border rounded p-1 w-full"}),
+            "official_email": forms.EmailInput(attrs={"class": "border rounded p-1 w-full"}),
+        }
 
 
 # Simple upload form used by the Django admin to accept a JSON file.

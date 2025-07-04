@@ -21,6 +21,7 @@ from .forms import (
     CouncilListForm,
     CounterDefinitionForm,
     DataFieldForm,
+    ProfileExtraForm,
 )
 from django.conf import settings
 
@@ -36,6 +37,8 @@ from .models import (
     CounterDefinition,
     CouncilCounter,
     SiteSetting,
+    TrustTier,
+    Contribution,
 )
 
 from datetime import date
@@ -121,6 +124,8 @@ def council_detail(request, slug):
     """Show details for a single council."""
     # Fetch the council or return a 404 if the slug is unknown
     council = get_object_or_404(Council, slug=slug)
+    tab = request.GET.get("tab") or "view"
+    focus = request.GET.get("focus", "")
 
     # Pull all financial figures for this council so the template can
     # present them in an engaging way.
@@ -186,7 +191,13 @@ def council_detail(request, slug):
         "years": years,
         "selected_year": selected_year,
         "default_counter_slugs": default_slugs,
+        "tab": tab,
+        "focus": focus,
     }
+    if tab == "edit":
+        from .models import CouncilType
+
+        context["council_types"] = CouncilType.objects.all()
 
     return render(request, "council_finance/council_detail.html", context)
 
@@ -308,9 +319,37 @@ def following(request):
     return render(request, "council_finance/following.html")
 
 
-def submit(request):
-    """Placeholder submission page."""
-    return render(request, "council_finance/submit.html")
+@login_required
+def contribute(request):
+    """Show contribution dashboard with various queues."""
+
+    # Pull all pending contributions for display in the moderation queue.
+    queue = Contribution.objects.filter(status="pending").select_related(
+        "council",
+        "field",
+        "user",
+    )
+
+    # Grab any contributions the logged in user has made so they can see
+    # the status of their own submissions.
+    my_contribs = Contribution.objects.filter(user=request.user).select_related(
+        "council",
+        "field",
+    )
+
+    # Volunteers below tier 3 shouldn't be able to view the global queue.
+    # They can still see their own contributions though.
+    if request.user.profile.tier.level < 3:
+        queue = []
+
+    return render(
+        request,
+        "council_finance/contribute.html",
+        {
+            "queue": queue,
+            "my_contribs": my_contribs,
+        },
+    )
 
 
 def my_profile(request):
@@ -541,6 +580,12 @@ def profile_view(request):
                 user.email,
             )
             messages.info(request, "Check your email to confirm profile changes.")
+        elif "update_extra" in request.POST:
+            # Additional volunteer info is edited via a separate form
+            form = ProfileExtraForm(request.POST, instance=profile)
+            if form.is_valid():
+                form.save()
+                messages.success(request, "Profile details saved.")
 
     # List of accounts following the current user
     followers = UserFollow.objects.filter(target=user).select_related("follower")
@@ -558,6 +603,7 @@ def profile_view(request):
         "gravatar_url": gravatar_url,
         "followers": followers,
         "visibility_choices": UserProfile.VISIBILITY_CHOICES,
+        "councils": Council.objects.all(),
         "tab": "profile",
     }
     return render(request, "registration/profile.html", context)
@@ -774,6 +820,42 @@ def move_between_lists(request):
         return JsonResponse({"status": "ok"})
     except (Council.DoesNotExist, CouncilList.DoesNotExist):
         return JsonResponse({"error": "invalid"}, status=400)
+
+
+@login_required
+def submit_contribution(request):
+    """Accept a contribution for a specific field.
+
+    The endpoint is triggered via AJAX from the council detail page.
+    Tier 3 users and above can bypass moderation; everyone else will
+    see their submission placed into a queue for review.
+    """
+    if request.method != "POST":
+        return HttpResponseBadRequest("POST required")
+
+    council = get_object_or_404(Council, slug=request.POST.get("council"))
+    field = get_object_or_404(DataField, slug=request.POST.get("field"))
+    year_id = request.POST.get("year")
+    year = FinancialYear.objects.filter(id=year_id).first() if year_id else None
+    value = request.POST.get("value", "").strip()
+
+    profile = request.user.profile
+    # Submissions from tier 3+ skip moderation
+    status = "approved" if profile.tier.level >= 3 else "pending"
+
+    Contribution.objects.create(
+        user=request.user,
+        council=council,
+        field=field,
+        year=year,
+        value=value,
+        status=status,
+    )
+    if status == "approved":
+        msg = "Contribution accepted"
+    else:
+        msg = "Contribution queued for approval"
+    return JsonResponse({"status": status, "message": msg})
 
 
 @login_required

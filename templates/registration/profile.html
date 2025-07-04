@@ -1,5 +1,6 @@
 {# Profile page for logged in users using the common base template #}
 {% extends "base.html" %}
+{% load notifications %}
 {% block title %}My Profile - Council Finance Counters{% endblock %}
 {% block content %}
 <h1 class="text-2xl font-bold mb-4">My Profile</h1>
@@ -8,6 +9,13 @@
     <a href="{% url 'profile' %}" class="py-2 px-4 border-b-2 {% if not tab %}border-blue-600 font-semibold{% else %}border-transparent{% endif %}">Profile</a>
     <a href="{% url 'notifications' %}" class="py-2 px-4 border-b-2 {% if tab == 'notifications' %}border-blue-600 font-semibold{% else %}border-transparent{% endif %}">Notifications</a>
   </nav>
+</div>
+{% profile_progress as progress %}
+<div class="mb-4">
+  <p class="text-sm">Profile completion: {{ progress }}%</p>
+  <div class="w-full bg-gray-200 rounded h-2">
+    <div class="bg-green-500 h-2 rounded" style="width: {{ progress }}%;"></div>
+  </div>
 </div>
 {% if gravatar_url %}
   <img class="rounded-full w-20 h-20" src="{{ gravatar_url }}" alt="Gravatar">
@@ -73,6 +81,31 @@
     {% endfor %}
   </select>
   <button type="submit" class="bg-blue-600 text-white px-3 py-1 rounded ml-2">Save</button>
+</form>
+<form method="post" class="mt-6 space-y-2">
+  {% csrf_token %}
+  <input type="hidden" name="update_extra" value="1">
+  <div>
+    <label class="block font-medium">Political affiliation</label>
+    <input type="text" name="political_affiliation" value="{{ profile.political_affiliation }}" class="border rounded px-2 py-1 w-full">
+  </div>
+  <div>
+    <label class="block font-medium"><input type="checkbox" name="works_for_council" value="1" {% if profile.works_for_council %}checked{% endif %} class="mr-1">I work for a council</label>
+  </div>
+  <div>
+    <label class="block font-medium">Which council?</label>
+    <select name="employer_council" class="border rounded p-1 w-full">
+      <option value="">---------</option>
+      {% for c in councils %}
+      <option value="{{ c.id }}" {% if profile.employer_council_id == c.id %}selected{% endif %}>{{ c.name }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <div>
+    <label class="block font-medium">Official .gov.uk email</label>
+    <input type="email" name="official_email" value="{{ profile.official_email }}" class="border rounded px-2 py-1 w-full">
+  </div>
+  <button type="submit" class="bg-blue-600 text-white px-3 py-1 rounded">Save volunteer info</button>
 </form>
 <h2 class="text-xl font-bold mt-8">Followers</h2>
 <table class="min-w-full border">
