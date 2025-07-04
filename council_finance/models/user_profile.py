@@ -59,3 +59,17 @@ class UserProfile(models.Model):
 
     def __str__(self) -> str:
         return f"Profile for {self.user.username}"
+
+    def completion_percent(self) -> int:
+        """Simple metric indicating how much optional data is filled in."""
+        fields_total = 4
+        completed = 0
+        if self.postcode or self.postcode_refused:
+            completed += 1
+        if self.political_affiliation:
+            completed += 1
+        if self.employer_council:
+            completed += 1
+        if self.official_email_confirmed:
+            completed += 1
+        return int((completed / fields_total) * 100)

@@ -13,25 +13,6 @@ class SignUpForm(UserCreationForm):
     """Extend the built-in user creation form with a required postcode."""
 
     postcode = forms.CharField(max_length=20, help_text="Required")
-    political_affiliation = forms.CharField(
-        max_length=100,
-        required=False,
-        help_text="Optional political party affiliation",
-    )
-    works_for_council = forms.BooleanField(
-        required=False,
-        label="I work for a council",
-    )
-    employer_council = forms.ModelChoiceField(
-        queryset=Council.objects.all(),
-        required=False,
-        label="Which council?",
-    )
-    official_email = forms.EmailField(
-        required=False,
-        label="Official .gov.uk email",
-        help_text="Staff can provide a .gov.uk email to verify employment",
-    )
 
     class Meta(UserCreationForm.Meta):
         model = get_user_model()
@@ -43,19 +24,32 @@ class SignUpForm(UserCreationForm):
         # Ensure the profile exists (signal may have created it already)
         profile, _ = UserProfile.objects.get_or_create(user=user)
         profile.postcode = postcode
-        profile.political_affiliation = self.cleaned_data.get("political_affiliation", "")
-        works_for_council = self.cleaned_data.get("works_for_council")
-        profile.works_for_council = works_for_council
-        profile.employer_council = self.cleaned_data.get("employer_council")
-        official_email = self.cleaned_data.get("official_email")
-        if official_email:
-            profile.official_email = official_email
-            profile.official_email_token = get_random_string(32)
+        # Extra volunteer details are gathered later on the profile page
+        # so signup only stores the essential postcode.
         if not profile.confirmation_token:
             profile.confirmation_token = get_random_string(32)
         if commit:
             profile.save()
         return user
+
+
+class ProfileExtraForm(forms.ModelForm):
+    """Collect optional volunteer information on the profile page."""
+
+    class Meta:
+        model = UserProfile
+        fields = [
+            "political_affiliation",
+            "works_for_council",
+            "employer_council",
+            "official_email",
+        ]
+        widgets = {
+            "political_affiliation": forms.TextInput(attrs={"class": "border rounded p-1 w-full"}),
+            "works_for_council": forms.CheckboxInput(attrs={"class": "mr-1"}),
+            "employer_council": forms.Select(attrs={"class": "border rounded p-1 w-full"}),
+            "official_email": forms.EmailInput(attrs={"class": "border rounded p-1 w-full"}),
+        }
 
 
 # Simple upload form used by the Django admin to accept a JSON file.

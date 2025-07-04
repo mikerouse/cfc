@@ -21,6 +21,7 @@ from .forms import (
     CouncilListForm,
     CounterDefinitionForm,
     DataFieldForm,
+    ProfileExtraForm,
 )
 from django.conf import settings
 
@@ -543,6 +544,12 @@ def profile_view(request):
                 user.email,
             )
             messages.info(request, "Check your email to confirm profile changes.")
+        elif "update_extra" in request.POST:
+            # Additional volunteer info is edited via a separate form
+            form = ProfileExtraForm(request.POST, instance=profile)
+            if form.is_valid():
+                form.save()
+                messages.success(request, "Profile details saved.")
 
     # List of accounts following the current user
     followers = UserFollow.objects.filter(target=user).select_related("follower")
@@ -560,6 +567,7 @@ def profile_view(request):
         "gravatar_url": gravatar_url,
         "followers": followers,
         "visibility_choices": UserProfile.VISIBILITY_CHOICES,
+        "councils": Council.objects.all(),
         "tab": "profile",
     }
     return render(request, "registration/profile.html", context)
