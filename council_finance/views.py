@@ -336,12 +336,54 @@ def contribute(request):
 
 
 def my_profile(request):
-    """Simple profile or redirect to login."""
+    """Simpler social style profile page with editable options."""
     if not request.user.is_authenticated:
         from django.shortcuts import redirect
 
         return redirect("login")
-    return render(request, "council_finance/my_profile.html")
+
+    user = request.user
+    profile, _ = UserProfile.objects.get_or_create(
+        user=user, defaults={"confirmation_token": get_random_string(32)}
+    )
+
+    form = ProfileExtraForm(request.POST or None, instance=profile)
+
+    if request.method == "POST":
+        if form.is_valid():
+            form.save()
+            messages.success(request, "Profile details saved.")
+        # Allow superusers to change their active tier for testing.
+        if user.is_superuser and "tier" in request.POST:
+            tier = TrustTier.objects.filter(id=request.POST.get("tier")).first()
+            if tier:
+                profile.tier = tier
+                profile.save()
+        # Save the preferred font choice when provided.
+        if "preferred_font" in request.POST:
+            profile.preferred_font = request.POST.get("preferred_font") or "Cairo"
+            profile.save()
+
+    email = (user.email or "").strip().lower()
+    email_hash = hashlib.md5(email.encode("utf-8")).hexdigest() if email else ""
+    gravatar_url = (
+        f"https://www.gravatar.com/avatar/{email_hash}?d=identicon" if email_hash else None
+    )
+
+    tiers = TrustTier.objects.all()
+    # A short list of Google fonts to choose from. These names must match the
+    # Google Fonts API as they are inserted directly into the request URL in
+    # the base template.
+    fonts = ["Cairo", "Roboto", "Lato", "Open Sans"]
+
+    context = {
+        "form": form,
+        "profile": profile,
+        "gravatar_url": gravatar_url,
+        "tiers": tiers,
+        "fonts": fonts,
+    }
+    return render(request, "council_finance/my_profile.html", context)
 
 
 def about(request):

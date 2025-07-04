@@ -6,9 +6,10 @@
     <section>
         <h2 class="text-xl font-semibold mb-2">Contribution Queue</h2>
         {% if queue %}
-        <table class="min-w-full border divide-y">
+        <table class="min-w-full border divide-y divide-gray-200">
             <thead class="bg-gray-100">
                 <tr>
+                    <th class="px-3 py-2 text-left">ID</th>
                     <th class="px-2 py-1 text-left">Council</th>
                     <th class="px-2 py-1 text-left">Field</th>
                     <th class="px-2 py-1 text-left">Change</th>
@@ -22,11 +23,15 @@
             <tbody>
             {% for c in queue %}
                 <tr class="border-b">
-                    <td class="px-2 py-1">{{ c.council.name }}</td>
+                    <td class="px-3 py-2 text-sm">{{ c.id }}</td>
+                    <td class="px-2 py-1 flex items-center">
+                        <span class="w-5 h-5 rounded-full bg-gray-300 mr-2"></span>
+                        <a href="{% url 'council_detail' c.council.slug %}" class="text-blue-700 hover:underline">{{ c.council.name }}</a>
+                    </td>
                     <td class="px-2 py-1">{{ c.field.name }}</td>
                     <td class="px-2 py-1">{{ c.display_old_value }} <span class="mx-1">&rarr;</span> {{ c.display_new_value }}</td>
                     <td class="px-2 py-1">{{ c.user.username }}</td>
-                    <td class="px-2 py-1">{{ c.created|date:"Y-m-d" }}</td>
+                    <td class="px-2 py-1">{{ c.created|date:"Y-m-d H:i" }}</td>
                     {% if user.is_authenticated and user.profile.tier.level >= 3 %}
                     <td class="px-2 py-1 space-x-2">
                         <a href="{% url 'review_contribution' c.id 'approve' %}" class="text-green-600"><i class="fas fa-check"></i></a>
@@ -46,9 +51,10 @@
         <h2 class="text-xl font-semibold mb-2">My Contributions</h2>
         {% if user.is_authenticated %}
             {% if my_contribs %}
-            <table class="min-w-full border divide-y">
+            <table class="min-w-full border divide-y divide-gray-200">
                 <thead class="bg-gray-100">
                     <tr>
+                        <th class="px-3 py-2 text-left">ID</th>
                         <th class="px-2 py-1 text-left">Council</th>
                         <th class="px-2 py-1 text-left">Field</th>
                         <th class="px-2 py-1 text-left">Change</th>
@@ -59,11 +65,15 @@
                 <tbody>
                 {% for c in my_contribs %}
                     <tr class="border-b">
-                        <td class="px-2 py-1">{{ c.council.name }}</td>
+                        <td class="px-3 py-2 text-sm">{{ c.id }}</td>
+                        <td class="px-2 py-1 flex items-center">
+                            <span class="w-5 h-5 rounded-full bg-gray-300 mr-2"></span>
+                            <a href="{% url 'council_detail' c.council.slug %}" class="text-blue-700 hover:underline">{{ c.council.name }}</a>
+                        </td>
                         <td class="px-2 py-1">{{ c.field.name }}</td>
                         <td class="px-2 py-1">{{ c.display_old_value }} <span class="mx-1">&rarr;</span> {{ c.display_new_value }}</td>
                         <td class="px-2 py-1">{{ c.status }}</td>
-                        <td class="px-2 py-1">{{ c.created|date:"Y-m-d" }}</td>
+                        <td class="px-2 py-1">{{ c.created|date:"Y-m-d H:i" }}</td>
                     </tr>
                 {% endfor %}
                 </tbody>
