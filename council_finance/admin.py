@@ -31,12 +31,14 @@ from .models.field import PROTECTED_SLUGS
 from .models.counter import CounterDefinition, CouncilCounter
 from .models.setting import SiteSetting
 
+
 class CouncilAdmin(admin.ModelAdmin):
     """Custom admin with a JSON import helper."""
 
     # Use a custom change list template so we can expose a link to the
     # import view directly from the council list page.
     change_list_template = "admin/council_finance/council/change_list.html"
+
     # Allow admins to manage which counters show on each council via an inline.
     class CouncilCounterInline(admin.TabularInline):
         model = CouncilCounter
@@ -74,22 +76,37 @@ class CouncilAdmin(admin.ModelAdmin):
                     request.session["import_data"] = data
                     fields = [f["name"] for f in data.get("fields", [])]
                     map_form = CouncilImportMappingForm(available_fields=fields)
-                    context = {**self.admin_site.each_context(request), "map_form": map_form}
-                    return render(request, "admin/council_finance/council/import_map.html", context)
+                    context = {
+                        **self.admin_site.each_context(request),
+                        "map_form": map_form,
+                    }
+                    return render(
+                        request,
+                        "admin/council_finance/council/import_map.html",
+                        context,
+                    )
         elif request.method == "POST" and request.POST.get("step") == "map":
             data = request.session.get("import_data", {})
             fields = [f["name"] for f in data.get("fields", [])]
             map_form = CouncilImportMappingForm(request.POST, available_fields=fields)
             if map_form.is_valid():
-                request.session["import_mapping"] = {k: v for k, v in map_form.cleaned_data.items() if v}
+                request.session["import_mapping"] = {
+                    k: v for k, v in map_form.cleaned_data.items() if v
+                }
                 request.session["import_index"] = 0
                 total = len(data.get("councils", []))
                 context = {**self.admin_site.each_context(request), "total": total}
-                return render(request, "admin/council_finance/council/import_progress.html", context)
+                return render(
+                    request,
+                    "admin/council_finance/council/import_progress.html",
+                    context,
+                )
 
         form = CouncilImportForm()
         context = {**self.admin_site.each_context(request), "form": form}
-        return render(request, "admin/council_finance/council/import_upload.html", context)
+        return render(
+            request, "admin/council_finance/council/import_upload.html", context
+        )
 
     def import_progress(self, request):
         """Process a single council and return JSON progress."""
@@ -155,8 +172,10 @@ class CounterDefinitionAdmin(admin.ModelAdmin):
         "precision",
         "show_currency",
         "friendly_format",
+        "show_by_default",
     )
     prepopulated_fields = {"slug": ("name",)}
+
 
 # Register core models in the Django admin.
 # Using admin.site.register is sufficient for simple use cases.
@@ -173,7 +192,14 @@ admin.site.register(CouncilType)
 class DataFieldAdmin(admin.ModelAdmin):
     # Expose dataset_type in the list display so staff can see which dataset a
     # list field is bound to at a glance.
-    list_display = ("name", "slug", "category", "content_type", "dataset_type", "required")
+    list_display = (
+        "name",
+        "slug",
+        "category",
+        "content_type",
+        "dataset_type",
+        "required",
+    )
     prepopulated_fields = {"slug": ("name",)}
 
     def get_readonly_fields(self, request, obj=None):

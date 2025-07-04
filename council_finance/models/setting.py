@@ -1,7 +1,12 @@
 from django.db import models
 
+
 class SiteSetting(models.Model):
     """Key/value store for configurable site options."""
+
+    # Explicit primary key matches earlier migrations and avoids Django from
+    # detecting spurious changes when ``DEFAULT_AUTO_FIELD`` differs.
+    id = models.BigAutoField(primary_key=True)
     key = models.CharField(max_length=100, unique=True)
     value = models.CharField(max_length=200, blank=True)
 
