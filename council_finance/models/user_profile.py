@@ -2,6 +2,7 @@ from django.conf import settings
 from django.db import models
 
 from .council import Council
+from .trust_tier import TrustTier
 
 
 class UserProfile(models.Model):
@@ -34,6 +35,27 @@ class UserProfile(models.Model):
     visibility = models.CharField(
         max_length=20, choices=VISIBILITY_CHOICES, default="friends"
     )
+    # Trust tier controlling moderation rights. Defaults to tier 1.
+    tier = models.ForeignKey(
+        TrustTier,
+        on_delete=models.PROTECT,
+        default=1,
+        related_name="users",
+    )
+    # Optional political party affiliation.
+    political_affiliation = models.CharField(max_length=100, blank=True)
+    # Council employment info used for automatic tier bump.
+    works_for_council = models.BooleanField(default=False)
+    employer_council = models.ForeignKey(
+        Council,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="employees",
+    )
+    official_email = models.EmailField(blank=True)
+    official_email_confirmed = models.BooleanField(default=False)
+    official_email_token = models.CharField(max_length=64, blank=True)
 
     def __str__(self) -> str:
         return f"Profile for {self.user.username}"

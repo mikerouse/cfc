@@ -23,7 +23,7 @@
                 <a href="{% url 'my_lists' %}" class="hover:underline">My Lists</a>
                 {% endif %}
                 <a href="{% url 'following' %}" class="hover:underline">Following</a>
-                <a href="{% url 'submit' %}" class="hover:underline">Submit</a>
+                <a href="{% url 'contribute' %}" class="hover:underline">Contribute</a>
                 {% if user.is_authenticated %}
                 <a href="{% url 'profile' %}" class="hover:underline">My Profile</a>
                 {% else %}

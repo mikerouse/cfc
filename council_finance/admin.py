@@ -19,6 +19,8 @@ from .models.council import (
 from .models.council_type import CouncilType
 from .models.user_profile import UserProfile
 from .models.user_follow import UserFollow
+from .models.trust_tier import TrustTier
+from .models.contribution import Contribution
 from .models.pending_profile_change import PendingProfileChange
 from .models.notification import Notification
 from .forms import (
@@ -218,6 +220,8 @@ admin.site.register(UserProfile)
 admin.site.register(UserFollow)
 admin.site.register(PendingProfileChange)
 admin.site.register(Notification)
+admin.site.register(TrustTier)
+admin.site.register(Contribution)
 admin.site.register(CounterDefinition, CounterDefinitionAdmin)
 admin.site.register(CouncilCounter)
 admin.site.register(SiteSetting)

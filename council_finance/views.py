@@ -36,6 +36,8 @@ from .models import (
     CounterDefinition,
     CouncilCounter,
     SiteSetting,
+    TrustTier,
+    Contribution,
 )
 
 from datetime import date
@@ -308,9 +310,9 @@ def following(request):
     return render(request, "council_finance/following.html")
 
 
-def submit(request):
-    """Placeholder submission page."""
-    return render(request, "council_finance/submit.html")
+def contribute(request):
+    """Show contribution dashboard with various queues."""
+    return render(request, "council_finance/contribute.html")
 
 
 def my_profile(request):
@@ -774,6 +776,37 @@ def move_between_lists(request):
         return JsonResponse({"status": "ok"})
     except (Council.DoesNotExist, CouncilList.DoesNotExist):
         return JsonResponse({"error": "invalid"}, status=400)
+
+
+@login_required
+def submit_contribution(request):
+    """Accept a contribution for a specific field."""
+    if request.method != "POST":
+        return HttpResponseBadRequest("POST required")
+
+    council = get_object_or_404(Council, slug=request.POST.get("council"))
+    field = get_object_or_404(DataField, slug=request.POST.get("field"))
+    year_id = request.POST.get("year")
+    year = FinancialYear.objects.filter(id=year_id).first() if year_id else None
+    value = request.POST.get("value", "").strip()
+
+    profile = request.user.profile
+    # Submissions from tier 3+ skip moderation
+    status = "approved" if profile.tier.level >= 3 else "pending"
+
+    Contribution.objects.create(
+        user=request.user,
+        council=council,
+        field=field,
+        year=year,
+        value=value,
+        status=status,
+    )
+    if status == "approved":
+        msg = "Contribution accepted"
+    else:
+        msg = "Contribution queued for approval"
+    return JsonResponse({"status": status, "message": msg})
 
 
 @login_required

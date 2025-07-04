@@ -9,6 +9,8 @@ from .council import (
 from .council_type import CouncilType
 from .field import DataField
 from .user_profile import UserProfile
+from .trust_tier import TrustTier
+from .contribution import Contribution
 from .user_follow import UserFollow
 from .pending_profile_change import PendingProfileChange
 from .notification import Notification
@@ -29,6 +31,8 @@ __all__ = [
     'UserFollow',
     'PendingProfileChange',
     'Notification',
+    'TrustTier',
+    'Contribution',
     'CouncilList',
     'CounterDefinition',
     'CouncilCounter',
