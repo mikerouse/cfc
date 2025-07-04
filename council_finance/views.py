@@ -145,6 +145,7 @@ def council_detail(request, slug):
     for y in years:
         y.display = "Current Year to Date" if y.label == current_label else y.label
     counters = []
+    default_slugs = []
     if selected_year:
         from council_finance.agents.counter_agent import CounterAgent
 
@@ -175,6 +176,8 @@ def council_detail(request, slug):
                     "error": result.get("error"),
                 }
             )
+            if cc.counter.default_for_detail:
+                default_slugs.append(cc.counter.slug)
 
     context = {
         "council": council,
@@ -182,6 +185,7 @@ def council_detail(request, slug):
         "counters": counters,
         "years": years,
         "selected_year": selected_year,
+        "default_counter_slugs": default_slugs,
     }
 
     return render(request, "council_finance/council_detail.html", context)

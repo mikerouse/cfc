@@ -2,37 +2,96 @@
 {% load static %}
 {% block title %}{{ council.name }} - Council Finance Counters{% endblock %}
 {% block content %}
-<h1 class="text-2xl font-bold mb-4">{{ council.name }}</h1>
-<p>Slug: {{ council.slug }}</p>
+<h1 class="text-3xl sm:text-4xl font-extrabold mb-4 text-center p-5">
+  {{ council.name }}
+</h1>
+
 {% if council.website %}
 <p>Website: <a href="{{ council.website }}" class="text-blue-700 hover:underline">{{ council.website }}</a></p>
 {% endif %}
 {% if council.council_type %}
 <p>Type: {{ council.council_type.name }}</p>
 {% endif %}
-<div class="mt-2">
-  <label for="year-select" class="sr-only">Financial year</label>
-  <select id="year-select" class="border rounded px-2 py-1">
-    {% for y in years %}
-      <option value="{{ y.label }}" {% if y.label == selected_year.label %}selected{% endif %}>{{ y.display }}</option>
-    {% endfor %}
-  </select>
+<div class="mt-2 flex flex-col sm:flex-row items-center gap-4 justify-between">
+  <div class="flex-1 flex items-center">
+    <label for="year-select" class="sr-only">Financial year</label>
+    <select id="year-select" class="border rounded px-2 py-1 bg-gray-100">
+      {% for y in years %}
+        <option value="{{ y.label }}" {% if y.label == selected_year.label %}selected{% endif %}>{{ y.display }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <div class="flex-1 flex justify-end">
+    <button id="drawer-toggle" class="bg-gray-50 text-gray-500 px-3 p-2">
+      <i class="fas fa-cog"></i>
+      Customise Counters &amp; Display
+    </button>
+  </div>
+</div>
+<div id="counter-drawer" class="overflow-hidden max-h-0 transition-all">
+  <div class="p-4">
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <!-- Left: Counter selection -->
+      <form class="p-4 space-y-2 bg-gray-50 rounded" onsubmit="return false;">
+        <h2 class="text-lg font-bold mb-2">Select Counters</h2>
+        <p class="text-sm text-gray-600 mb-2">Choose which financial counters to display for this council.</p>
+        {% for item in counters %}
+        <label class="block"><input type="checkbox" data-slug="{{ item.counter.slug }}" class="mr-2">{{ item.counter.name }}</label>
+        {% endfor %}
+        <button id="drawer-apply" class="mt-2 bg-blue-600 text-white px-2 py-1 rounded">Apply</button>
+        <button id="drawer-reset" class="mt-2 bg-gray-200 text-gray-700 px-2 py-1 rounded">Reset to Defaults</button>
+      </form>
+      <!-- Right: Display & Sharing Settings -->
+      <div class="p-4 space-y-4 bg-gray-50 rounded">
+        <h2 class="text-lg font-bold mb-2">Display &amp; Sharing Settings</h2>
+        <div class="flex items-center gap-2">
+          <label for="column-slider" class="text-sm">Columns</label>
+          <input id="column-slider" type="range" min="1" max="3" step="1" class="w-40">
+          <span id="column-count" class="text-sm">3</span>
+        </div>
+        <!-- Add more display/sharing settings here as needed -->
+        <div>
+          <!-- TODO: Add section to 'Share this view' which will share the page in the format the the user has created, not the default-->
+          <p class="text-sm text-gray-600">Share this view:</p>
+          <p class="text-sm text-blue-700 hover:underline cursor-pointer" id="share-link">Generate Shareable Link</p>
+          <p class="text-xs text-gray-500">This will create a link that retains your current settings for counters and display options.</p>
+          <input type="text" id="share-url" class="border rounded px-2 py-1 w-full" readonly>
+          <button id="copy-share-link" class="mt-2 bg-gray-200 text-gray-700 px-2 py-1 rounded">Copy Link</button>
+          <script>
+            document.getElementById('share-link').addEventListener('click', () => {
+              const baseUrl = window.location.origin + window.location.pathname;
+              const year = document.getElementById('year-select').value;
+              const selectedCounters = Array.from(document.querySelectorAll('#counters-grid [data-counter]'))
+                .filter(el => el.style.display !== 'none')
+                .map(el => el.dataset.counter);
+              const params = new URLSearchParams({ year, counters: selectedCounters.join(',') });
+              const shareUrl = `${baseUrl}?${params.toString()}`;
+              document.getElementById('share-url').value = shareUrl;
+            });
+            document.getElementById('copy-share-link').addEventListener('click', () => {
+              const shareUrl = document.getElementById('share-url');
+              shareUrl.select();
+              document.execCommand('copy');
+              alert('Shareable link copied to clipboard!');
+            });
+          </script>
+        </div>
+      </div>
+    </div>
+  </div>
 </div>
 {% if counters %}
-<div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 my-6">
+<div id="counters-grid" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 my-6">
     {% for item in counters %}
-    <div class="bg-green-50 p-4 rounded shadow text-center" data-counter="{{ item.counter.slug }}">
+    <div class="bg-gray-50 p-10 rounded shadow text-center" data-counter="{{ item.counter.slug }}">
         <p class="text-sm text-gray-600">{{ item.counter.name }}</p>
         <p class="text-red-700 text-sm counter-error" {% if not item.error %}style="display:none"{% endif %}>{{ item.error }}</p>
-        <p class="text-2xl font-bold counter-value" data-duration="{{ item.counter.duration }}" data-value="{{ item.value }}" data-formatted="{{ item.formatted }}" {% if item.error %}style="display:none"{% endif %}>0</p>
+        <p class="text-4xl font-bold counter-value" data-duration="{{ item.counter.duration }}" data-value="{{ item.value }}" data-formatted="{{ item.formatted }}" {% if item.error %}style="display:none"{% endif %}>0</p>
         <p class="text-xs mt-1">{{ item.counter.explanation }}</p>
     </div>
     {% endfor %}
 </div>
-{#
-  Load the CountUp library from our static files so the page
-  works even when external CDNs are unreachable.
-#}
+{{ default_counter_slugs|json_script:"default-slugs" }}
 <script src="{% static 'js/countUp.umd.js' %}"></script>
 <script>
 function animateCounters() {
@@ -86,9 +145,70 @@ document.getElementById('year-select').addEventListener('change', e => {
   loadCounters(e.target.value);
 });
 
+const councilSlug = '{{ council.slug }}';
+const grid = document.getElementById('counters-grid');
+const slider = document.getElementById('column-slider');
+const drawer = document.getElementById('counter-drawer');
+const toggleBtn = document.getElementById('drawer-toggle');
+const applyBtn = document.getElementById('drawer-apply');
+
+function defaultCols() {
+  if (window.innerWidth < 640) return 1;
+  if (window.innerWidth < 768) return 2;
+  return 3;
+}
+
+function setCols(n) {
+  grid.style.gridTemplateColumns = `repeat(${n}, minmax(0,1fr))`;
+}
+
+const storedCols = localStorage.getItem(`cols_${councilSlug}`);
+const cols = storedCols ? parseInt(storedCols, 10) : defaultCols();
+slider.value = cols;
+setCols(cols);
+
+slider.addEventListener('input', e => {
+  const val = parseInt(e.target.value, 10);
+  setCols(val);
+  localStorage.setItem(`cols_${councilSlug}`, val);
+});
+
+const defaultSlugs = JSON.parse(document.getElementById('default-slugs').textContent);
+
+function applyPrefs(slugs) {
+  document.querySelectorAll('#counter-drawer input[type=checkbox]').forEach(cb => {
+    cb.checked = slugs.includes(cb.dataset.slug);
+  });
+  document.querySelectorAll('#counters-grid [data-counter]').forEach(div => {
+    div.style.display = slugs.includes(div.dataset.counter) ? '' : 'none';
+  });
+}
+
+let savedSlugs;
+try {
+  savedSlugs = JSON.parse(localStorage.getItem(`counters_${councilSlug}`));
+} catch (err) { savedSlugs = null; }
+applyPrefs(savedSlugs || defaultSlugs);
+
+applyBtn.addEventListener('click', () => {
+  const selected = Array.from(document.querySelectorAll('#counter-drawer input[type=checkbox]:checked')).map(cb => cb.dataset.slug);
+  localStorage.setItem(`counters_${councilSlug}`, JSON.stringify(selected));
+  applyPrefs(selected);
+  drawer.style.maxHeight = null;
+});
+
+toggleBtn.addEventListener('click', () => {
+  if (drawer.style.maxHeight) {
+    drawer.style.maxHeight = null;
+  } else {
+    drawer.style.maxHeight = drawer.scrollHeight + 'px';
+  }
+});
+
 animateCounters();
 </script>
 {% endif %}
+<!-- TODO: Add a buttons for JSON and XLS/CSV exports of all data for this council for the selected financial year -->
 {% if figures %}
 <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 my-6">
     {% for fig in figures %}

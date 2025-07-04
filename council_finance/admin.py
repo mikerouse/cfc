@@ -172,7 +172,7 @@ class CounterDefinitionAdmin(admin.ModelAdmin):
         "precision",
         "show_currency",
         "friendly_format",
-        "show_by_default",
+        "default_for_detail",
     )
     prepopulated_fields = {"slug": ("name",)}
 
