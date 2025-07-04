@@ -5,13 +5,27 @@
 <h1 class="text-3xl sm:text-4xl font-extrabold mb-4 text-center p-5">
   {{ council.name }}
 </h1>
-
-{% if council.website %}
-<p>Website: <a href="{{ council.website }}" class="text-blue-700 hover:underline">{{ council.website }}</a></p>
-{% endif %}
-{% if council.council_type %}
-<p>Type: {{ council.council_type.name }}</p>
-{% endif %}
+<div class="text-center space-y-1 mb-4">
+  {# Show the council's website if we have one, otherwise prompt for it. #}
+  {% if council.website %}
+    <p>
+      Website:
+      <a href="{{ council.website }}" class="text-blue-700 hover:underline">{{ council.website }}</a>
+    </p>
+  {% else %}
+    <p>
+      <a href="#" class="text-blue-700 hover:underline">Website address needed</a>
+    </p>
+  {% endif %}
+  {# Display the council type or a placeholder link if missing. #}
+  {% if council.council_type %}
+    <p>Type: {{ council.council_type.name }}</p>
+  {% else %}
+    <p>
+      <a href="#" class="text-blue-700 hover:underline">Set council type</a>
+    </p>
+  {% endif %}
+</div>
 <div class="mt-2 flex flex-col sm:flex-row items-center gap-4 justify-between">
   <div class="flex-1 flex items-center">
     <label for="year-select" class="sr-only">Financial year</label>
