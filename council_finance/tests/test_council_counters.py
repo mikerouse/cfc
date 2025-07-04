@@ -84,3 +84,12 @@ class CouncilCountersTest(TestCase):
         resp = self.client.get(reverse("council_detail", args=["test"]))
         slugs = [item["counter"].slug for item in resp.context["counters"]]
         self.assertIn("detail", slugs)
+
+    def test_endpoint_includes_format_fields(self):
+        url = reverse("council_counters", args=["test"])
+        resp = self.client.get(url, {"year": "2024"})
+        self.assertEqual(resp.status_code, 200)
+        data = resp.json()["counters"]["debt"]
+        self.assertIn("precision", data)
+        self.assertIn("show_currency", data)
+        self.assertIn("friendly_format", data)

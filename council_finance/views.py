@@ -851,6 +851,13 @@ def council_counters(request, slug):
                 "value": result.get("value"),
                 "formatted": result.get("formatted"),
                 "error": result.get("error"),
+                # Expose formatting defaults so the client can override them
+                # when rendering counters in the UI. These mirror fields on
+                # ``CounterDefinition`` and allow the front end to apply custom
+                # user preferences without another round trip to the server.
+                "show_currency": counter.show_currency,
+                "precision": counter.precision,
+                "friendly_format": counter.friendly_format,
             }
 
     return JsonResponse({"counters": data})
