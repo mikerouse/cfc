@@ -70,9 +70,13 @@ class EditTabTests(TestCase):
 
 class ContributeQueueTests(TestCase):
     def setUp(self):
+        self.tier3, _ = TrustTier.objects.get_or_create(level=3, name="Approved Counter")
         self.user = get_user_model().objects.create_user(
             username="quser", email="q@example.com", password="pw"
         )
+        # Promote our test user so they can see the contribution queue
+        self.user.profile.tier = self.tier3
+        self.user.profile.save()
         self.council = Council.objects.create(name="Queue", slug="queue")
         self.field = DataField.objects.create(name="Website", slug="website")
         Contribution.objects.create(
@@ -83,5 +87,6 @@ class ContributeQueueTests(TestCase):
         )
 
     def test_queue_table_renders(self):
+        self.client.login(username="quser", password="pw")
         resp = self.client.get(reverse("contribute"))
         self.assertContains(resp, "Queue")

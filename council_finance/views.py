@@ -319,18 +319,36 @@ def following(request):
     return render(request, "council_finance/following.html")
 
 
+@login_required
 def contribute(request):
     """Show contribution dashboard with various queues."""
-    queue = Contribution.objects.filter(status="pending").select_related("council", "field", "user")
-    my_contribs = (
-        Contribution.objects.filter(user=request.user).select_related("council", "field")
-        if request.user.is_authenticated
-        else []
+
+    # Pull all pending contributions for display in the moderation queue.
+    queue = Contribution.objects.filter(status="pending").select_related(
+        "council",
+        "field",
+        "user",
     )
+
+    # Grab any contributions the logged in user has made so they can see
+    # the status of their own submissions.
+    my_contribs = Contribution.objects.filter(user=request.user).select_related(
+        "council",
+        "field",
+    )
+
+    # Volunteers below tier 3 shouldn't be able to view the global queue.
+    # They can still see their own contributions though.
+    if request.user.profile.tier.level < 3:
+        queue = []
+
     return render(
         request,
         "council_finance/contribute.html",
-        {"queue": queue, "my_contribs": my_contribs},
+        {
+            "queue": queue,
+            "my_contribs": my_contribs,
+        },
     )
 
 
