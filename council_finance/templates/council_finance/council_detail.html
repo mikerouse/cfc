@@ -5,13 +5,27 @@
 <h1 class="text-3xl sm:text-4xl font-extrabold mb-4 text-center p-5">
   {{ council.name }}
 </h1>
-
-{% if council.website %}
-<p>Website: <a href="{{ council.website }}" class="text-blue-700 hover:underline">{{ council.website }}</a></p>
-{% endif %}
-{% if council.council_type %}
-<p>Type: {{ council.council_type.name }}</p>
-{% endif %}
+<div class="text-center space-y-1 mb-4">
+  {# Show the council's website if we have one, otherwise prompt for it. #}
+  {% if council.website %}
+    <p>
+      Website:
+      <a href="{{ council.website }}" class="text-blue-700 hover:underline">{{ council.website }}</a>
+    </p>
+  {% else %}
+    <p>
+      <a href="#" class="text-blue-700 hover:underline">Website address needed</a>
+    </p>
+  {% endif %}
+  {# Display the council type or a placeholder link if missing. #}
+  {% if council.council_type %}
+    <p>Type: {{ council.council_type.name }}</p>
+  {% else %}
+    <p>
+      <a href="#" class="text-blue-700 hover:underline">Set council type</a>
+    </p>
+  {% endif %}
+</div>
 <div class="mt-2 flex flex-col sm:flex-row items-center gap-4 justify-between">
   <div class="flex-1 flex items-center">
     <label for="year-select" class="sr-only">Financial year</label>
@@ -38,8 +52,14 @@
         {% for item in counters %}
         <label class="block"><input type="checkbox" data-slug="{{ item.counter.slug }}" class="mr-2">{{ item.counter.name }}</label>
         {% endfor %}
-        <button id="drawer-apply" class="mt-2 bg-blue-600 text-white px-2 py-1 rounded">Apply</button>
-        <button id="drawer-reset" class="mt-2 bg-gray-200 text-gray-700 px-2 py-1 rounded">Reset to Defaults</button>
+        <button id="drawer-apply" class="mt-2 bg-blue-600 text-white px-2 py-1 rounded">
+          <i class="fas fa-check"></i>
+          Apply
+        </button>
+        <button id="drawer-reset" class="mt-2 bg-gray-200 text-gray-700 px-2 py-1 rounded">
+          <i class="fas fa-undo"></i>
+          Reset to Defaults
+        </button>
       </form>
       <!-- Right: Display & Sharing Settings -->
       <div class="p-4 space-y-4 bg-gray-50 rounded">
@@ -49,6 +69,23 @@
           <input id="column-slider" type="range" min="1" max="3" step="1" class="w-40">
           <span id="column-count" class="text-sm">3</span>
         </div>
+        <div class="space-y-2">
+          <label class="block text-sm">Decimal Precision
+            <select id="precision-select" class="border rounded px-2 py-1 ml-2">
+              <option value="">Default</option>
+              <option value="0">0</option>
+              <option value="1">1</option>
+              <option value="2">2</option>
+              <option value="3">3</option>
+            </select>
+          </label>
+          <label class="block text-sm">
+            <input type="checkbox" id="thousands-check" class="mr-2">Thousands Separator
+          </label>
+          <label class="block text-sm">
+            <input type="checkbox" id="friendly-check" class="mr-2">Friendly Format
+          </label>
+        </div>
         <!-- Add more display/sharing settings here as needed -->
         <div>
           <!-- TODO: Add section to 'Share this view' which will share the page in the format the the user has created, not the default-->
@@ -56,7 +93,10 @@
           <p class="text-sm text-blue-700 hover:underline cursor-pointer" id="share-link">Generate Shareable Link</p>
           <p class="text-xs text-gray-500">This will create a link that retains your current settings for counters and display options.</p>
           <input type="text" id="share-url" class="border rounded px-2 py-1 w-full" readonly>
-          <button id="copy-share-link" class="mt-2 bg-gray-200 text-gray-700 px-2 py-1 rounded">Copy Link</button>
+          <button id="copy-share-link" class="mt-2 bg-gray-200 text-gray-700 px-2 py-1 rounded">
+            <i class="fas fa-copy"></i>
+            Copy Link
+          </button>
           <script>
             document.getElementById('share-link').addEventListener('click', () => {
               const baseUrl = window.location.origin + window.location.pathname;
@@ -86,7 +126,14 @@
     <div class="bg-gray-50 p-10 rounded shadow text-center" data-counter="{{ item.counter.slug }}">
         <p class="text-sm text-gray-600">{{ item.counter.name }}</p>
         <p class="text-red-700 text-sm counter-error" {% if not item.error %}style="display:none"{% endif %}>{{ item.error }}</p>
-        <p class="text-4xl font-bold counter-value" data-duration="{{ item.counter.duration }}" data-value="{{ item.value }}" data-formatted="{{ item.formatted }}" {% if item.error %}style="display:none"{% endif %}>0</p>
+        <p class="text-4xl font-bold counter-value"
+           data-duration="{{ item.counter.duration }}"
+           data-value="{{ item.value }}"
+           data-formatted="{{ item.formatted }}"
+           data-precision="{{ item.counter.precision }}"
+           data-show-currency="{{ item.counter.show_currency }}"
+           data-friendly="{{ item.counter.friendly_format }}"
+           {% if item.error %}style="display:none"{% endif %}>0</p>
         <p class="text-xs mt-1">{{ item.counter.explanation }}</p>
     </div>
     {% endfor %}
@@ -103,7 +150,21 @@ function animateCounters() {
     // Create an animator instance from the CountUp library. The global
     // object exposes the constructor as `countUp.CountUp` when using the
     // UMD build we load above.
-    const cu = new countUp.CountUp(el, end, {duration: dur});
+    // Determine how the number should be formatted during the animation.
+    // We honour user overrides for precision and thousands separators so
+    // that the animated value looks similar to the final formatted result.
+    const showCurrency = el.dataset.showCurrency === 'true' || el.dataset.showCurrency === 'True';
+    const precision = overridePrecision !== null ? parseInt(overridePrecision, 10)
+      : parseInt(el.dataset.precision || '0', 10);
+    const thousands = overrideThousands !== null ? overrideThousands === 'true'
+      : showCurrency;
+
+    const cu = new countUp.CountUp(el, end, {
+      duration: dur,
+      decimalPlaces: precision,
+      separator: thousands ? ',' : '',
+      prefix: showCurrency ? '£' : ''
+    });
     if (!cu.error) {
       cu.start(() => { el.textContent = display; });
     } else {
@@ -131,10 +192,14 @@ async function loadCounters(year) {
           valEl.dataset.value = info.value;
           valEl.dataset.formatted = info.formatted;
           valEl.dataset.duration = info.duration;
+          valEl.dataset.precision = info.precision;
+          valEl.dataset.showCurrency = info.show_currency;
+          valEl.dataset.friendly = info.friendly_format;
           valEl.style.display = '';
         }
       }
     });
+    formatAllCounters();
     animateCounters();
   } catch (e) {
     console.error('Failed to load counters', e);
@@ -151,6 +216,20 @@ const slider = document.getElementById('column-slider');
 const drawer = document.getElementById('counter-drawer');
 const toggleBtn = document.getElementById('drawer-toggle');
 const applyBtn = document.getElementById('drawer-apply');
+const resetBtn = document.getElementById('drawer-reset');
+const precisionSelect = document.getElementById('precision-select');
+const thousandsCheck = document.getElementById('thousands-check');
+const friendlyCheck = document.getElementById('friendly-check');
+
+// Retrieve saved formatting overrides or fall back to null which means
+// "use whatever the counter defines".
+let overridePrecision = localStorage.getItem(`precision_${councilSlug}`);
+let overrideThousands = localStorage.getItem(`thousands_${councilSlug}`);
+let overrideFriendly = localStorage.getItem(`friendly_${councilSlug}`);
+
+if (overridePrecision !== null) precisionSelect.value = overridePrecision;
+if (overrideThousands !== null) thousandsCheck.checked = overrideThousands === 'true';
+if (overrideFriendly !== null) friendlyCheck.checked = overrideFriendly === 'true';
 
 function defaultCols() {
   if (window.innerWidth < 640) return 1;
@@ -160,6 +239,57 @@ function defaultCols() {
 
 function setCols(n) {
   grid.style.gridTemplateColumns = `repeat(${n}, minmax(0,1fr))`;
+}
+
+function formatNumber(value, precision, thousands) {
+  let num = Number(value);
+  if (thousands) {
+    return num.toLocaleString(undefined, {
+      minimumFractionDigits: precision,
+      maximumFractionDigits: precision
+    });
+  }
+  return num.toFixed(precision);
+}
+
+function formatValue(value, counter) {
+  const showCurrency = counter.showCurrency === 'true' || counter.showCurrency === 'True';
+  const basePrecision = parseInt(counter.precision || '0', 10);
+  const baseFriendly = counter.friendly === 'true' || counter.friendly === 'True';
+
+  const precision = overridePrecision !== null ? parseInt(overridePrecision, 10) : basePrecision;
+  const friendly = overrideFriendly !== null ? (overrideFriendly === 'true') : baseFriendly;
+  const thousands = overrideThousands !== null ? (overrideThousands === 'true') : showCurrency;
+
+  let result = '';
+  let val = Number(value);
+  if (friendly) {
+    let suffix = '';
+    let displayVal = val;
+    const absVal = Math.abs(val);
+    if (absVal >= 1e9) { displayVal = val / 1e9; suffix = 'b'; }
+    else if (absVal >= 1e6) { displayVal = val / 1e6; suffix = 'm'; }
+    else if (absVal >= 1e3) { displayVal = val / 1e3; suffix = 'k'; }
+    result = formatNumber(displayVal, precision, thousands) + suffix;
+  } else {
+    result = formatNumber(val, precision, thousands);
+  }
+  if (showCurrency) {
+    result = '£' + result;
+  }
+  return result;
+}
+
+function formatAllCounters() {
+  document.querySelectorAll('.counter-value').forEach(el => {
+    if (!el.dataset.value) return;
+    const counter = {
+      showCurrency: el.dataset.showCurrency,
+      precision: el.dataset.precision,
+      friendly: el.dataset.friendly,
+    };
+    el.dataset.formatted = formatValue(el.dataset.value, counter);
+  });
 }
 
 const storedCols = localStorage.getItem(`cols_${councilSlug}`);
@@ -173,6 +303,26 @@ slider.addEventListener('input', e => {
   localStorage.setItem(`cols_${councilSlug}`, val);
 });
 
+function saveFormatting() {
+  overridePrecision = precisionSelect.value || null;
+  overrideThousands = thousandsCheck.checked ? 'true' : 'false';
+  overrideFriendly = friendlyCheck.checked ? 'true' : 'false';
+  if (overridePrecision !== null && overridePrecision !== '') {
+    localStorage.setItem(`precision_${councilSlug}`, overridePrecision);
+  } else {
+    localStorage.removeItem(`precision_${councilSlug}`);
+    overridePrecision = null;
+  }
+  localStorage.setItem(`thousands_${councilSlug}`, overrideThousands);
+  localStorage.setItem(`friendly_${councilSlug}`, overrideFriendly);
+  formatAllCounters();
+  animateCounters();
+}
+
+precisionSelect.addEventListener('change', saveFormatting);
+thousandsCheck.addEventListener('change', saveFormatting);
+friendlyCheck.addEventListener('change', saveFormatting);
+
 const defaultSlugs = JSON.parse(document.getElementById('default-slugs').textContent);
 
 function applyPrefs(slugs) {
@@ -182,6 +332,8 @@ function applyPrefs(slugs) {
   document.querySelectorAll('#counters-grid [data-counter]').forEach(div => {
     div.style.display = slugs.includes(div.dataset.counter) ? '' : 'none';
   });
+  formatAllCounters();
+  animateCounters();
 }
 
 let savedSlugs;
@@ -197,6 +349,12 @@ applyBtn.addEventListener('click', () => {
   drawer.style.maxHeight = null;
 });
 
+resetBtn.addEventListener('click', () => {
+  localStorage.removeItem(`counters_${councilSlug}`);
+  applyPrefs(defaultSlugs);
+  drawer.style.maxHeight = null;
+});
+
 toggleBtn.addEventListener('click', () => {
   if (drawer.style.maxHeight) {
     drawer.style.maxHeight = null;
@@ -205,7 +363,6 @@ toggleBtn.addEventListener('click', () => {
   }
 });
 
-animateCounters();
 </script>
 {% endif %}
 <!-- TODO: Add a buttons for JSON and XLS/CSV exports of all data for this council for the selected financial year -->
