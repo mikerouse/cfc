@@ -136,7 +136,9 @@ def council_detail(request, slug):
     default_label = SiteSetting.get(
         "default_financial_year", settings.DEFAULT_FINANCIAL_YEAR
     )
-    selected_year = next((y for y in years if y.label == default_label), years[0] if years else None)
+    selected_year = next(
+        (y for y in years if y.label == default_label), years[0] if years else None
+    )
     # Annotate display labels so the template can show the current year as
     # "Current Year to Date" without storing a separate field in the DB.
     current_label = current_financial_year_label()
@@ -149,14 +151,25 @@ def council_detail(request, slug):
         agent = CounterAgent()
         # Compute all counter values for this council/year using the agent
         values = agent.run(council_slug=slug, year_label=selected_year.label)
-        # Fetch enabled counters and attach the calculated value to each entry
-        for cc in CouncilCounter.objects.filter(
-            council=council, enabled=True
-        ).select_related("counter"):
-            result = values.get(cc.counter.slug, {})
+
+        # Build a lookup of overrides so we know which counters are enabled or
+        # disabled specifically for this council.
+        override_map = {
+            cc.counter_id: cc.enabled
+            for cc in CouncilCounter.objects.filter(council=council)
+        }
+
+        # Loop over every defined counter and decide whether it should be
+        # displayed. If the council has an explicit override we honour that,
+        # otherwise we fall back to the counter's show_by_default flag.
+        for counter in CounterDefinition.objects.all():
+            enabled = override_map.get(counter.id, counter.show_by_default)
+            if not enabled:
+                continue
+            result = values.get(counter.slug, {})
             counters.append(
                 {
-                    "counter": cc.counter,
+                    "counter": counter,
                     "value": result.get("value"),
                     "formatted": result.get("formatted"),
                     "error": result.get("error"),
@@ -509,9 +522,11 @@ def profile_view(request):
                 new_first_name=request.POST.get("first_name", ""),
                 new_last_name=request.POST.get("last_name", ""),
                 new_email=request.POST.get("email", ""),
-                new_password=make_password(request.POST.get("password1", ""))
-                if request.POST.get("password1")
-                else "",
+                new_password=(
+                    make_password(request.POST.get("password1", ""))
+                    if request.POST.get("password1")
+                    else ""
+                ),
             )
             confirm_link = request.build_absolute_uri(
                 reverse("confirm_profile_change", args=[token])
@@ -815,13 +830,20 @@ def council_counters(request, slug):
 
         agent = CounterAgent()
         values = agent.run(council_slug=slug, year_label=year.label)
-        for cc in CouncilCounter.objects.filter(
-            council=council, enabled=True
-        ).select_related("counter"):
-            result = values.get(cc.counter.slug, {})
-            data[cc.counter.slug] = {
-                "name": cc.counter.name,
-                "duration": cc.counter.duration,
+
+        override_map = {
+            cc.counter_id: cc.enabled
+            for cc in CouncilCounter.objects.filter(council=council)
+        }
+
+        for counter in CounterDefinition.objects.all():
+            enabled = override_map.get(counter.id, counter.show_by_default)
+            if not enabled:
+                continue
+            result = values.get(counter.slug, {})
+            data[counter.slug] = {
+                "name": counter.name,
+                "duration": counter.duration,
                 "value": result.get("value"),
                 "formatted": result.get("formatted"),
                 "error": result.get("error"),
