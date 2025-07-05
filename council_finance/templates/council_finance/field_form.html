@@ -8,13 +8,28 @@
         <tbody>
             {# Give each row an id so JS can toggle the dataset field #}
             {% for field in form %}
+            {% if field.name != 'formula' %}
             <tr class="odd:bg-gray-50" id="row-{{ field.name }}">
                 <th class="text-left p-2 border w-40">{{ field.label_tag }}</th>
                 <td class="p-2 border">{{ field }}{{ field.errors }}</td>
             </tr>
+            {% endif %}
             {% endfor %}
         </tbody>
     </table>
+    {# Clicking the word "Advanced" reveals extra options like the formula #}
+    <p id="advanced-toggle" class="text-blue-600 underline cursor-pointer mt-2">Advanced</p>
+    {# Advanced options are hidden initially and toggled with JavaScript #}
+    <div id="advanced-section" style="display:none">
+        <table class="min-w-full border border-gray-300 mt-2">
+            <tbody>
+                <tr class="odd:bg-gray-50" id="row-formula">
+                    <th class="text-left p-2 border w-40">{{ form.formula.label_tag }}</th>
+                    <td class="p-2 border">{{ form.formula }}{{ form.formula.errors }}</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
     <div class="text-right">
         <button type="submit" class="bg-blue-600 text-white px-4 py-1 rounded">Save</button>
         {% if form.instance.pk and not form.instance.is_protected %}
@@ -25,6 +40,8 @@
 <script>
 const typeSelect = document.getElementById('id_content_type');
 const datasetRow = document.getElementById('row-dataset_type');
+const advancedToggle = document.getElementById('advanced-toggle');
+const advancedSection = document.getElementById('advanced-section');
 function toggleDataset() {
     if (typeSelect.value === 'list') {
         datasetRow.style.display = '';
@@ -35,6 +52,12 @@ function toggleDataset() {
 if (typeSelect && datasetRow) {
     toggleDataset();
     typeSelect.addEventListener('change', toggleDataset);
+}
+if (advancedToggle && advancedSection) {
+    advancedToggle.addEventListener('click', () => {
+        const show = advancedSection.style.display === 'none';
+        advancedSection.style.display = show ? '' : 'none';
+    });
 }
 </script>
 {% endblock %}

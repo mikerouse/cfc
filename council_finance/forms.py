@@ -188,6 +188,7 @@ class DataFieldForm(forms.ModelForm):
             "content_type",
             "dataset_type",
             "council_types",
+            # ``formula`` is rarely needed and shown under an advanced section
             "formula",
             "required",
         ]
