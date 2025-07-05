@@ -17,6 +17,7 @@ from .models.council import (
     ModerationLog,
 )
 from .models.council_type import CouncilType
+from .models.council_type import CouncilCapability
 from .models.user_profile import UserProfile
 from .models.user_follow import UserFollow
 from .models.trust_tier import TrustTier
@@ -177,8 +178,15 @@ class CounterDefinitionAdmin(admin.ModelAdmin):
         "show_currency",
         "friendly_format",
         "show_by_default",
+        "headline",
+        "display_council_types",
     )
     prepopulated_fields = {"slug": ("name",)}
+
+    def display_council_types(self, obj):
+        """List council types associated with this counter."""
+        return ", ".join(ct.name for ct in obj.council_types.all()) or "All"
+    display_council_types.short_description = "Council types"
 
 
 # Register core models in the Django admin.
@@ -190,7 +198,16 @@ admin.site.register(FigureSubmission)
 admin.site.register(DebtAdjustment)
 admin.site.register(WhistleblowerReport)
 admin.site.register(ModerationLog)
-admin.site.register(CouncilType)
+class CouncilTypeAdmin(admin.ModelAdmin):
+    list_display = ("name", "display_capabilities")
+
+    def display_capabilities(self, obj):
+        """Show capabilities for list view."""
+        return ", ".join(cap.name for cap in obj.capabilities.all()) or "None"
+    display_capabilities.short_description = "Capabilities"
+
+
+admin.site.register(CouncilType, CouncilTypeAdmin)
 
 
 class DataFieldAdmin(admin.ModelAdmin):
@@ -202,6 +219,7 @@ class DataFieldAdmin(admin.ModelAdmin):
         "category",
         "content_type",
         "dataset_type",
+        "display_council_types",
         "required",
     )
     prepopulated_fields = {"slug": ("name",)}
@@ -216,6 +234,11 @@ class DataFieldAdmin(admin.ModelAdmin):
             return False
         return super().has_delete_permission(request, obj)
 
+    def display_council_types(self, obj):
+        """Return a comma separated list of associated council types."""
+        return ", ".join(ct.name for ct in obj.council_types.all()) or "All"
+    display_council_types.short_description = "Council types"
+
 
 admin.site.register(DataField, DataFieldAdmin)
 admin.site.register(UserProfile)
@@ -228,3 +251,4 @@ admin.site.register(Contribution)
 admin.site.register(CounterDefinition, CounterDefinitionAdmin)
 admin.site.register(CouncilCounter)
 admin.site.register(SiteSetting)
+admin.site.register(CouncilCapability)

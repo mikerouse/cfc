@@ -46,6 +46,17 @@ class FigureSubmission(models.Model):
         help_text="True if the source dataset did not provide this value",
     )
 
+    @property
+    def display_value(self) -> str:
+        """Return a human readable version of ``value`` for templates.
+
+        This simply delegates to ``DataField.display_value`` so the logic for
+        list values and other formatting lives in one place. Having a property
+        means templates can show the formatted value without calling a method
+        with arguments, which Django does not allow.
+        """
+        return self.field.display_value(self.value)
+
     class Meta:
         unique_together = ("council", "year", "field")
 

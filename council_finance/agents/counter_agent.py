@@ -5,6 +5,7 @@ from council_finance.models import (
     FigureSubmission,
     CounterDefinition,
 )
+from django.db.models import Q
 import ast
 import operator
 
@@ -17,13 +18,32 @@ class CounterAgent(AgentBase):
         council = Council.objects.get(slug=council_slug)
         year = FinancialYear.objects.get(label=year_label)
         counters = CounterDefinition.objects.all()
+        # Only include counters relevant to this council's type. When a counter
+        # has no types assigned it applies everywhere.
+        if council.council_type_id:
+            counters = counters.filter(
+                Q(council_types__isnull=True) | Q(council_types=council.council_type)
+            )
+        else:
+            counters = counters.filter(council_types__isnull=True)
+        counters = counters.distinct()
 
         # Preload all figures for this council/year. Any record flagged as
         # needing population is recorded so formulas referencing it can raise a
         # helpful error instead of silently using zero.
         figure_map = {}
         missing = set()
-        for f in FigureSubmission.objects.filter(council=council, year=year):
+        figures = FigureSubmission.objects.filter(council=council, year=year)
+        if council.council_type_id:
+            figures = figures.filter(
+                Q(field__council_types__isnull=True)
+                | Q(field__council_types=council.council_type)
+            )
+        else:
+            figures = figures.filter(field__council_types__isnull=True)
+        figures = figures.select_related("field").distinct()
+
+        for f in figures:
             slug = f.field.slug
             if f.needs_populating or f.value in (None, ""):
                 missing.add(slug)

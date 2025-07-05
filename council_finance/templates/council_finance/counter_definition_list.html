@@ -13,6 +13,8 @@
             <th class="border px-2 py-1">Slug</th>
             <th class="border px-2 py-1">Duration</th>
             <th class="border px-2 py-1">Default?</th>
+            <th class="border px-2 py-1">Headline?</th>
+            <th class="border px-2 py-1">Council Types</th>
             <th class="border px-2 py-1">Actions</th>
         </tr>
     </thead>
@@ -23,11 +25,13 @@
             <td class="border px-2 py-1 text-center">{{ counter.slug }}</td>
             <td class="border px-2 py-1 text-center">{{ counter.duration }}</td>
             <td class="border px-2 py-1 text-center">{% if counter.show_by_default %}Yes{% else %}No{% endif %}</td>
+            <td class="border px-2 py-1 text-center">{% if counter.headline %}Yes{% else %}No{% endif %}</td>
+            <td class="border px-2 py-1 text-center">{{ counter.display_council_types }}</td>
             <td class="border px-2 py-1 text-center"><a href="{% url 'counter_edit' counter.slug %}" class="text-blue-600 underline">Edit</a></td>
         </tr>
         {% empty %}
         <tr>
-            <td class="border px-2 py-1 text-center" colspan="5">No counters defined yet.</td>
+            <td class="border px-2 py-1 text-center" colspan="6">No counters defined yet.</td>
         </tr>
         {% endfor %}
     </tbody>

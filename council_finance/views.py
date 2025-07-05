@@ -141,11 +141,19 @@ def council_detail(request, slug):
 
     # Pull all financial figures for this council so the template can
     # present them in an engaging way.
-    figures = (
-        FigureSubmission.objects.filter(council=council)
-        .select_related("year", "field")
-        .order_by("year__label", "field__slug")
+    # Only include figures relevant to this council's type. When a DataField
+    # has no specific types assigned it applies to all councils.
+    figures = FigureSubmission.objects.filter(council=council).select_related(
+        "year", "field"
     )
+    if council.council_type_id:
+        figures = figures.filter(
+            Q(field__council_types__isnull=True)
+            | Q(field__council_types=council.council_type)
+        )
+    else:
+        figures = figures.filter(field__council_types__isnull=True)
+    figures = figures.order_by("year__label", "field__slug").distinct()
 
     years = list(
         FinancialYear.objects.order_by("-label").exclude(label__iexact="general")
@@ -180,21 +188,49 @@ def council_detail(request, slug):
         # Loop over every defined counter and decide whether it should be
         # displayed. If the council has an explicit override we honour that,
         # otherwise we fall back to the counter's show_by_default flag.
-        for counter in CounterDefinition.objects.all():
+        head_list = []
+        other_list = []
+        counters_qs = CounterDefinition.objects.all()
+        if council.council_type_id:
+            counters_qs = counters_qs.filter(
+                Q(council_types__isnull=True) | Q(council_types=council.council_type)
+            )
+        else:
+            counters_qs = counters_qs.filter(council_types__isnull=True)
+        for counter in counters_qs.distinct():
             enabled = override_map.get(counter.id, counter.show_by_default)
             if not enabled:
                 continue
             result = values.get(counter.slug, {})
-            counters.append(
-                {
-                    "counter": counter,
-                    "value": result.get("value"),
-                    "formatted": result.get("formatted"),
-                    "error": result.get("error"),
-                }
-            )
+            item = {
+                "counter": counter,
+                "value": result.get("value"),
+                "formatted": result.get("formatted"),
+                "error": result.get("error"),
+            }
+            if counter.headline:
+                head_list.append(item)
+            else:
+                other_list.append(item)
             if counter.show_by_default:
                 default_slugs.append(counter.slug)
+        counters = head_list + other_list
+
+    # Pull a few non-financial stats to display in a meta zone. These use
+    # existing DataField values so we don't need a separate model.
+    meta_fields = ["population", "elected_members", "waste_report_count"]
+    meta_values = []
+    for slug in meta_fields:
+        field = DataField.objects.filter(slug=slug).first()
+        if not field:
+            continue
+        fs = (
+            FigureSubmission.objects.filter(council=council, field=field)
+            .order_by("-year__label")
+            .first()
+        )
+        if fs:
+            meta_values.append({"field": field, "value": field.display_value(fs.value)})
 
     context = {
         "council": council,
@@ -205,12 +241,13 @@ def council_detail(request, slug):
         "default_counter_slugs": default_slugs,
         "tab": tab,
         "focus": focus,
+        "meta_values": meta_values,
         # Set of field slugs with pending contributions so the template
         # can show a "pending confirmation" notice in place of the form.
         "pending_slugs": set(
-            Contribution.objects.filter(
-                council=council, status="pending"
-            ).values_list("field__slug", flat=True)
+            Contribution.objects.filter(council=council, status="pending").values_list(
+                "field__slug", flat=True
+            )
         ),
     }
     if tab == "edit":
@@ -340,9 +377,13 @@ def following(request):
 
 def contribute(request):
     """Show contribution dashboard with various queues."""
-    queue = Contribution.objects.filter(status="pending").select_related("council", "field", "user")
+    queue = Contribution.objects.filter(status="pending").select_related(
+        "council", "field", "user"
+    )
     my_contribs = (
-        Contribution.objects.filter(user=request.user).select_related("council", "field")
+        Contribution.objects.filter(user=request.user).select_related(
+            "council", "field"
+        )
         if request.user.is_authenticated
         else []
     )
@@ -385,7 +426,9 @@ def my_profile(request):
     email = (user.email or "").strip().lower()
     email_hash = hashlib.md5(email.encode("utf-8")).hexdigest() if email else ""
     gravatar_url = (
-        f"https://www.gravatar.com/avatar/{email_hash}?d=identicon" if email_hash else None
+        f"https://www.gravatar.com/avatar/{email_hash}?d=identicon"
+        if email_hash
+        else None
     )
 
     tiers = TrustTier.objects.all()
@@ -904,10 +947,9 @@ def submit_contribution(request):
     value = request.POST.get("value", "").strip()
 
     # Determine client IP for logging and blocking.
-    ip = (
-        request.META.get("HTTP_X_FORWARDED_FOR", "").split(",")[0].strip()
-        or request.META.get("REMOTE_ADDR")
-    )
+    ip = request.META.get("HTTP_X_FORWARDED_FOR", "").split(",")[
+        0
+    ].strip() or request.META.get("REMOTE_ADDR")
     if BlockedIP.objects.filter(ip_address=ip).exists():
         return JsonResponse({"error": "blocked"}, status=403)
 
@@ -1129,7 +1171,18 @@ def council_counters(request, slug):
             for cc in CouncilCounter.objects.filter(council=council)
         }
 
-        for counter in CounterDefinition.objects.all():
+        ordered = list(CounterDefinition.objects.all())
+        if council.council_type_id:
+            ordered = [
+                c
+                for c in ordered
+                if not c.council_types.exists()
+                or c.council_types.filter(id=council.council_type_id).exists()
+            ]
+        else:
+            ordered = [c for c in ordered if not c.council_types.exists()]
+        ordered.sort(key=lambda c: (not c.headline, c.slug))
+        for counter in ordered:
             enabled = override_map.get(counter.id, counter.show_by_default)
             if not enabled:
                 continue
@@ -1147,6 +1200,7 @@ def council_counters(request, slug):
                 "show_currency": counter.show_currency,
                 "precision": counter.precision,
                 "friendly_format": counter.friendly_format,
+                "headline": counter.headline,
             }
 
     return JsonResponse({"counters": data})
@@ -1211,9 +1265,7 @@ def god_mode(request):
         log_dir = Path(settings.BASE_DIR) / "logs"
         log_dir.mkdir(exist_ok=True)
         handler = logging.FileHandler(log_dir / "god_mode.log")
-        handler.setFormatter(
-            logging.Formatter("%(asctime)s %(levelname)s %(message)s")
-        )
+        handler.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(message)s"))
         logger.addHandler(handler)
         logger.setLevel(logging.INFO)
 
@@ -1243,7 +1295,9 @@ def god_mode(request):
             ids = request.POST.getlist("ids")
             RejectionLog.objects.filter(id__in=ids).delete()
             messages.success(request, "Deleted entries")
-            logger.info("Deleted rejection log entries %s by %s", ids, request.user.username)
+            logger.info(
+                "Deleted rejection log entries %s by %s", ids, request.user.username
+            )
         if "block" in request.POST:
             ip = request.POST.get("block")
             BlockedIP.objects.get_or_create(ip_address=ip)

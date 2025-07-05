@@ -35,8 +35,11 @@
 </div>
 <div class="mb-4 border-b text-center">
   <nav class="inline-flex gap-4">
-    <a href="{% url 'council_detail' council.slug %}" class="py-2 px-4 border-b-2 {% if tab != 'edit' %}border-blue-600 font-semibold{% else %}border-transparent{% endif %}">View</a>
+    <a href="{% url 'council_detail' council.slug %}" class="py-2 px-4 border-b-2 {% if tab != 'edit' and tab != 'legacy' %}border-blue-600 font-semibold{% else %}border-transparent{% endif %}">View</a>
     <a href="{% url 'council_detail' council.slug %}?tab=edit" class="py-2 px-4 border-b-2 {% if tab == 'edit' %}border-blue-600 font-semibold{% else %}border-transparent{% endif %}">Edit</a>
+    {% if user.is_superuser or user.profile.tier.level >= 5 %}
+    <a href="{% url 'council_detail' council.slug %}?tab=legacy" class="py-2 px-4 border-b-2 {% if tab == 'legacy' %}border-blue-600 font-semibold{% else %}border-transparent{% endif %}">Legacy Data</a>
+    {% endif %}
   </nav>
 </div>
 {% if tab == 'edit' %}
@@ -188,10 +191,10 @@
 {% if counters %}
 <div id="counters-grid" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 my-6">
     {% for item in counters %}
-    <div class="bg-gray-50 p-10 rounded shadow text-center" data-counter="{{ item.counter.slug }}">
+    <div class="bg-gray-50 p-10 rounded shadow text-center {% if item.counter.headline %}md:col-span-3{% endif %}" data-counter="{{ item.counter.slug }}" {% if item.counter.headline %}style="grid-column: span 3"{% endif %}>
         <p class="text-sm text-gray-600">{{ item.counter.name }}</p>
         <p class="text-red-700 text-sm counter-error" {% if not item.error %}style="display:none"{% endif %}>{{ item.error }}</p>
-        <p class="text-4xl font-bold counter-value"
+        <p class="{% if item.counter.headline %}text-6xl{% else %}text-4xl{% endif %} font-bold counter-value"
            data-duration="{{ item.counter.duration }}"
            data-value="{{ item.value }}"
            data-formatted="{{ item.formatted }}"
@@ -431,16 +434,32 @@ toggleBtn.addEventListener('click', () => {
 </script>
 {% endif %}
 {% endif %}
-<!-- TODO: Add a buttons for JSON and XLS/CSV exports of all data for this council for the selected financial year -->
-{% if figures %}
-<div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 my-6">
-    {% for fig in figures %}
-    <div class="bg-blue-50 p-4 rounded shadow text-center">
-        <p class="text-sm text-gray-600">{{ fig.year.label }} - {{ fig.field.name|capfirst }}</p>
-        <p class="text-2xl font-bold">{{ fig.value }}</p>
+{% if meta_values and tab != 'legacy' %}
+<div id="meta-zone" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 my-6">
+    {% for m in meta_values %}
+    <div class="bg-green-50 p-6 rounded shadow text-center">
+        <p class="text-sm text-gray-600">{{ m.field.name|capfirst }}</p>
+        <p class="text-2xl font-bold">{{ m.value }}</p>
     </div>
     {% endfor %}
 </div>
+{% endif %}
+<!-- TODO: Add a buttons for JSON and XLS/CSV exports of all data for this council for the selected financial year -->
+{% if tab == 'legacy' and figures %}
+<table class="min-w-full text-sm mt-6">
+    <thead class="bg-gray-100">
+        <tr><th class="px-2 py-1 text-left">Year</th><th class="px-2 py-1 text-left">Field</th><th class="px-2 py-1 text-left">Value</th></tr>
+    </thead>
+    <tbody>
+    {% for fig in figures %}
+        <tr class="border-b">
+            <td class="px-2 py-1">{{ fig.year.label }}</td>
+            <td class="px-2 py-1">{{ fig.field.name|capfirst }}</td>
+            <td class="px-2 py-1">{{ fig.display_value }}</td>
+        </tr>
+    {% endfor %}
+    </tbody>
+</table>
 {% endif %}
 <p class="mt-4"><a href="{% url 'council_list' %}" class="text-blue-700 hover:underline">Back to all councils</a></p>
 {% endblock %}
