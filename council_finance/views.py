@@ -1,5 +1,10 @@
 from django.shortcuts import render, get_object_or_404, redirect
-from django.http import JsonResponse, HttpResponseBadRequest, Http404, HttpResponse
+from django.http import (
+    JsonResponse,
+    HttpResponseBadRequest,
+    Http404,
+    HttpResponse,
+)
 from django.db.models import Q, Sum, DecimalField
 from django.db.models.functions import Cast
 from django.contrib import messages
@@ -7,6 +12,7 @@ from django.contrib.auth.decorators import login_required
 from django.contrib.auth.hashers import make_password
 from django.contrib.auth import login
 from django.utils.crypto import get_random_string
+from django.urls import reverse
 import csv
 import hashlib
 
@@ -930,15 +936,20 @@ def review_contribution(request, pk, action):
         _apply_contribution(contrib, request.user)
         contrib.status = "approved"
         contrib.save()
-        # Award points based on whether the submission was edited.
-        points = 1 if contrib.edited else 2
+        # Always award two points when a contribution is approved.
+        points = 2
         profile = contrib.user.profile
         profile.points += points
         profile.save()
-        create_notification(
-            contrib.user,
-            "Your contribution was accepted",
+        # Build a notification that references the council and field, links to
+        # the council detail page and explains the point reward.
+        link = reverse("council_detail", args=[contrib.council.slug])
+        message = (
+            f"Your contribution to <a href='{link}'>{contrib.council.name}</a> "
+            f"(Field: {contrib.field.name}) was accepted. You also earned {points} "
+            f"points for this. Thank you!"
         )
+        create_notification(contrib.user, message)
     elif action == "reject" and request.method == "POST":
         reason = request.POST.get("reason")
         if not reason:
