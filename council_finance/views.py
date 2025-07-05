@@ -42,6 +42,9 @@ from .models import (
     Contribution,
     DataChangeLog,
     BlockedIP,
+    # RejectionLog is used in the God Mode admin view for moderating
+    # contribution rejections and IP blocks.
+    RejectionLog,
 )
 
 from datetime import date
@@ -911,10 +914,16 @@ def submit_contribution(request):
 
 @login_required
 def review_contribution(request, pk, action):
-    """Approve, reject or edit a pending contribution."""
+    """Approve, reject or edit a pending contribution.
+
+    Superusers are allowed to moderate contributions even if their profile
+    tier is below the normal moderator threshold (level 3).
+    """
     contrib = get_object_or_404(Contribution, pk=pk)
 
-    if request.user.profile.tier.level < 3:
+    # Enforce the tier requirement unless the user is a superuser. This mirrors
+    # the logic used on the contribution page when rendering moderation buttons.
+    if not request.user.is_superuser and request.user.profile.tier.level < 3:
         return HttpResponseBadRequest("permission denied")
 
     if action == "approve" and request.method == "POST":
@@ -1125,8 +1134,11 @@ def field_delete(request, slug):
 
 @login_required
 def god_mode(request):
-    """Tier 5 tool for reviewing the rejection log and blocking IPs."""
-    if request.user.profile.tier.level < 5:
+    """Tier 5 tool for reviewing the rejection log and blocking IPs.
+
+    Superusers are allowed to bypass the tier requirement entirely.
+    """
+    if not request.user.is_superuser and request.user.profile.tier.level < 5:
         raise Http404()
 
     # Configure a logger specifically for this view. The logger writes to
