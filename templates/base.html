@@ -62,7 +62,8 @@
                         {% recent_notifications 5 as notes %}
                         {% for note in notes %}
                         <div class="p-2 border-b {% if not note.read %}bg-gray-100{% endif %}">
-                            <p class="text-sm">{{ note.message }}</p>
+                            {# Notification messages may contain links, so mark as safe #}
+                            <p class="text-sm">{{ note.message|safe }}</p>
                             <p class="text-xs text-gray-500">{{ note.created|date:'SHORT_DATETIME_FORMAT' }}</p>
                         </div>
                         {% empty %}
@@ -155,6 +156,30 @@
         });
     }
     </script>
+
+    {# Display one-off messages generated via Django's messages framework. #}
+    {% if messages %}
+    <div class="max-w-7xl mx-auto p-4 w-full" id="message-area">
+        {% for message in messages %}
+        <div class="message mb-2 p-2 bg-blue-50 border border-blue-300 text-blue-900 rounded flex justify-between items-start">
+            {# Show the message text and provide a dismiss button #}
+            <span>{{ message }}</span>
+            <button type="button" class="close ml-2" aria-label="Dismiss">&times;</button>
+        </div>
+        {% endfor %}
+    </div>
+    <script>
+    // Allow messages to be dismissed with a click and fade automatically
+    // after 8 seconds so the UI isn't cluttered with old notifications.
+    document.addEventListener('DOMContentLoaded', () => {
+        const messages = document.querySelectorAll('#message-area .message');
+        messages.forEach((msg) => {
+            msg.querySelector('.close').addEventListener('click', () => msg.remove());
+            setTimeout(() => msg.remove(), 8000);
+        });
+    });
+    </script>
+    {% endif %}
 
     <main class="flex-1 max-w-7xl mx-auto p-4">
         {% block content %}{% endblock %}

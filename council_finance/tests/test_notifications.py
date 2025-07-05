@@ -30,3 +30,13 @@ class NotificationTests(TestCase):
         note.refresh_from_db()
         self.assertTrue(note.read)
 
+    def test_html_message_rendered(self):
+        """Notifications with HTML should be rendered unescaped in the menu."""
+        Notification.objects.create(
+            user=self.user,
+            message="Test <a href='/foo'>link</a>"
+        )
+        self.client.login(username="notify", password="pass123")
+        resp = self.client.get(reverse("home"))
+        self.assertContains(resp, "<a href='/foo'>link</a>", html=True)
+

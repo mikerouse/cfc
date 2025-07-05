@@ -37,7 +37,7 @@ class Contribution(models.Model):
     @property
     def old_value(self) -> str:
         """Fetch the current value before this contribution is applied."""
-        if self.field.slug == "website":
+        if self.field.slug == "council_website":
             return self.council.website or ""
         if self.field.slug == "council_type":
             return self.council.council_type_id or ""

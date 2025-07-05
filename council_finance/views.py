@@ -205,6 +205,13 @@ def council_detail(request, slug):
         "default_counter_slugs": default_slugs,
         "tab": tab,
         "focus": focus,
+        # Set of field slugs with pending contributions so the template
+        # can show a "pending confirmation" notice in place of the form.
+        "pending_slugs": set(
+            Contribution.objects.filter(
+                council=council, status="pending"
+            ).values_list("field__slug", flat=True)
+        ),
     }
     if tab == "edit":
         from .models import CouncilType
@@ -945,7 +952,16 @@ def submit_contribution(request):
         msg = "Contribution accepted"
     else:
         msg = "Contribution queued for approval"
-    return JsonResponse({"status": status, "message": msg})
+
+    # Create an in-app notification so the user can see a record of their
+    # submission. This helps provide immediate feedback even after redirect.
+    create_notification(request.user, f"{msg} for {council.name}")
+
+    if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+        return JsonResponse({"status": status, "message": msg})
+
+    messages.info(request, msg)
+    return redirect("council_detail", council.slug)
 
 
 @login_required
@@ -1024,7 +1040,7 @@ def _apply_contribution(contribution, user):
 
     old_value = contribution.old_value
 
-    if field.slug == "website":
+    if field.slug == "council_website":
         council.website = contribution.value
         council.save()
     elif field.slug == "council_type":

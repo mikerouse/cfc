@@ -36,13 +36,14 @@ class ContributionApprovalTests(TestCase):
             username="contrib", email="c@example.com", password="pass123"
         )
         self.council = Council.objects.create(name="Test", slug="test")
-        self.field = DataField.objects.create(name="Website", slug="website")
+        self.field, _ = DataField.objects.get_or_create(slug="council_website", defaults={"name": "Website"})
 
     def test_low_tier_pending(self):
         self.client.login(username="contrib", password="pass123")
         response = self.client.post(
             reverse("submit_contribution"),
-            {"council": "test", "field": "website", "value": "http://a.com"},
+            {"council": "test", "field": "council_website", "value": "http://a.com"},
+            HTTP_X_REQUESTED_WITH="XMLHttpRequest",
         )
         self.assertEqual(response.json()["status"], "pending")
         self.assertEqual(Contribution.objects.first().status, "pending")
@@ -53,10 +54,22 @@ class ContributionApprovalTests(TestCase):
         self.client.login(username="contrib", password="pass123")
         response = self.client.post(
             reverse("submit_contribution"),
-            {"council": "test", "field": "website", "value": "http://b.com"},
+            {"council": "test", "field": "council_website", "value": "http://b.com"},
+            HTTP_X_REQUESTED_WITH="XMLHttpRequest",
         )
         self.assertEqual(response.json()["status"], "approved")
         self.assertEqual(Contribution.objects.last().status, "approved")
+
+    def test_standard_post_redirects(self):
+        self.client.login(username="contrib", password="pass123")
+        resp = self.client.post(
+            reverse("submit_contribution"),
+            {"council": "test", "field": "council_website", "value": "http://c.com"},
+            follow=True,
+        )
+        msgs = list(resp.context["messages"])
+        self.assertTrue(any("queued" in str(m) for m in msgs))
+        self.assertContains(resp, "Website pending confirmation")
 
 
 class EditTabTests(TestCase):
@@ -74,9 +87,9 @@ class ContributeQueueTests(TestCase):
             username="quser", email="q@example.com", password="pw"
         )
         self.council = Council.objects.create(name="Queue", slug="queue")
-        self.field = DataField.objects.filter(slug="website").first()
+        self.field = DataField.objects.filter(slug="council_website").first()
         if not self.field:
-            self.field = DataField.objects.create(name="Website", slug="website")
+            self.field = DataField.objects.create(name="Website", slug="council_website")
         from council_finance.models.council_type import CouncilType
         from django.contrib.contenttypes.models import ContentType
         self.ct_field = DataField.objects.filter(slug="council_type").first()
