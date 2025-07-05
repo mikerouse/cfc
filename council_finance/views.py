@@ -42,6 +42,9 @@ from .models import (
     Contribution,
     DataChangeLog,
     BlockedIP,
+    # RejectionLog is used in the God Mode admin view for moderating
+    # contribution rejections and IP blocks.
+    RejectionLog,
 )
 
 from datetime import date
