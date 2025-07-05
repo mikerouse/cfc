@@ -455,7 +455,7 @@ toggleBtn.addEventListener('click', () => {
         <tr class="border-b">
             <td class="px-2 py-1">{{ fig.year.label }}</td>
             <td class="px-2 py-1">{{ fig.field.name|capfirst }}</td>
-            <td class="px-2 py-1">{{ fig.field.display_value(fig.value) }}</td>
+            <td class="px-2 py-1">{{ fig.display_value }}</td>
         </tr>
     {% endfor %}
     </tbody>
