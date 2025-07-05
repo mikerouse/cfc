@@ -90,8 +90,22 @@ class ContributionReviewTests(TestCase):
             {
                 "council": self.council.slug,
                 "field": self.field.slug,
-                "value": "http://foo", 
+                "value": "http://foo",
             },
             REMOTE_ADDR="2.2.2.2",
         )
         self.assertEqual(resp.status_code, 403)
+
+    def test_invalid_field_returns_error(self):
+        """Submitting with a non-existent field should return a 400 JSON error."""
+        self.client.login(username="contrib", password="pw")
+        resp = self.client.post(
+            reverse("submit_contribution"),
+            {
+                "council": self.council.slug,
+                "field": "does-not-exist",
+                "value": "foo",
+            },
+        )
+        self.assertEqual(resp.status_code, 400)
+        self.assertEqual(resp.json()["error"], "invalid_field")

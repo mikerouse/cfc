@@ -888,7 +888,15 @@ def submit_contribution(request):
         return HttpResponseBadRequest("POST required")
 
     council = get_object_or_404(Council, slug=request.POST.get("council"))
-    field = get_object_or_404(DataField, slug=request.POST.get("field"))
+
+    # Gracefully handle an invalid field slug so users don't see a 404 page when
+    # the form posts incorrect data. This can happen if the expected DataField
+    # does not exist in the database.
+    field_slug = request.POST.get("field")
+    try:
+        field = DataField.objects.get(slug=field_slug)
+    except DataField.DoesNotExist:
+        return JsonResponse({"error": "invalid_field"}, status=400)
     year_id = request.POST.get("year")
     year = FinancialYear.objects.filter(id=year_id).first() if year_id else None
     value = request.POST.get("value", "").strip()
