@@ -21,6 +21,7 @@ class RejectionLog(models.Model):
     field = models.ForeignKey(DataField, on_delete=models.CASCADE)
     year = models.ForeignKey(FinancialYear, null=True, blank=True, on_delete=models.SET_NULL)
     value = models.CharField(max_length=255)
+    ip_address = models.GenericIPAddressField(null=True, blank=True)
     reason = models.CharField(max_length=50, choices=REASONS)
     reviewed_by = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True

@@ -10,6 +10,7 @@ from council_finance.models import (
     DataChangeLog,
     Notification,
     RejectionLog,
+    BlockedIP,
 )
 
 class ContributionReviewTests(TestCase):
@@ -67,3 +68,27 @@ class ContributionReviewTests(TestCase):
         self.assertEqual(self.contrib.status, "rejected")
         self.assertEqual(self.user.profile.rejection_count, 1)
         self.assertEqual(RejectionLog.objects.count(), 1)
+
+    def test_reject_log_records_ip(self):
+        self.contrib.ip_address = "1.1.1.1"
+        self.contrib.save()
+        self.client.post(
+            reverse("review_contribution", args=[self.contrib.id, "reject"]),
+            {"reason": "no_sources"},
+        )
+        log = RejectionLog.objects.latest("id")
+        self.assertEqual(log.ip_address, "1.1.1.1")
+
+    def test_blocked_ip_prevents_submission(self):
+        BlockedIP.objects.create(ip_address="2.2.2.2")
+        self.client.login(username="contrib", password="pw")
+        resp = self.client.post(
+            reverse("submit_contribution"),
+            {
+                "council": self.council.slug,
+                "field": self.field.slug,
+                "value": "http://foo", 
+            },
+            REMOTE_ADDR="2.2.2.2",
+        )
+        self.assertEqual(resp.status_code, 403)
