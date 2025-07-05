@@ -43,10 +43,13 @@ class ContributionReviewTests(TestCase):
         self.user.profile.refresh_from_db()
         self.assertEqual(self.contrib.status, "approved")
         self.assertEqual(self.user.profile.points, 2)
-        self.assertTrue(Notification.objects.filter(user=self.user, message__contains="accepted").exists())
+        note = Notification.objects.latest("id")
+        self.assertIn(self.council.name, note.message)
+        self.assertIn(self.field.name, note.message)
+        self.assertIn("2 points", note.message)
         self.assertEqual(DataChangeLog.objects.count(), 1)
 
-    def test_edit_then_approve_one_point(self):
+    def test_edit_then_approve_two_points(self):
         self.client.post(
             reverse("review_contribution", args=[self.contrib.id, "edit"]),
             {"value": "http://new.com"}
@@ -56,7 +59,7 @@ class ContributionReviewTests(TestCase):
             {}
         )
         self.user.profile.refresh_from_db()
-        self.assertEqual(self.user.profile.points, 1)
+        self.assertEqual(self.user.profile.points, 2)
 
     def test_reject_creates_log(self):
         self.client.post(
@@ -87,8 +90,26 @@ class ContributionReviewTests(TestCase):
             {
                 "council": self.council.slug,
                 "field": self.field.slug,
-                "value": "http://foo", 
+                "value": "http://foo",
             },
             REMOTE_ADDR="2.2.2.2",
         )
         self.assertEqual(resp.status_code, 403)
+
+    def test_invalid_field_returns_error(self):
+        """Submitting with a non-existent field should return a 400 JSON error."""
+        self.client.login(username="contrib", password="pw")
+        resp = self.client.post(
+            reverse("submit_contribution"),
+            {
+                "council": self.council.slug,
+                "field": "does-not-exist",
+                "value": "foo",
+            },
+        )
+        self.assertEqual(resp.status_code, 400)
+        self.assertEqual(resp.json()["error"], "invalid_field")
+        log = RejectionLog.objects.latest("id")
+        self.assertEqual(log.reason, "invalid_field")
+        self.assertIsNone(log.field)
+        self.assertIn("does-not-exist", log.value)

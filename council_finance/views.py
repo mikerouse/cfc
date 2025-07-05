@@ -1,5 +1,10 @@
 from django.shortcuts import render, get_object_or_404, redirect
-from django.http import JsonResponse, HttpResponseBadRequest, Http404, HttpResponse
+from django.http import (
+    JsonResponse,
+    HttpResponseBadRequest,
+    Http404,
+    HttpResponse,
+)
 from django.db.models import Q, Sum, DecimalField
 from django.db.models.functions import Cast
 from django.contrib import messages
@@ -7,6 +12,7 @@ from django.contrib.auth.decorators import login_required
 from django.contrib.auth.hashers import make_password
 from django.contrib.auth import login
 from django.utils.crypto import get_random_string
+from django.urls import reverse
 import csv
 import hashlib
 
@@ -42,6 +48,9 @@ from .models import (
     Contribution,
     DataChangeLog,
     BlockedIP,
+    # RejectionLog is used in the God Mode admin view for moderating
+    # contribution rejections and IP blocks.
+    RejectionLog,
 )
 
 from datetime import date
@@ -879,15 +888,45 @@ def submit_contribution(request):
         return HttpResponseBadRequest("POST required")
 
     council = get_object_or_404(Council, slug=request.POST.get("council"))
-    field = get_object_or_404(DataField, slug=request.POST.get("field"))
+
+    # Capture form values before any validation so we can log them in case the
+    # field slug is invalid. This helps troubleshooting mysterious submissions.
+    field_slug = request.POST.get("field")
     year_id = request.POST.get("year")
     year = FinancialYear.objects.filter(id=year_id).first() if year_id else None
     value = request.POST.get("value", "").strip()
 
     # Determine client IP for logging and blocking.
-    ip = request.META.get("HTTP_X_FORWARDED_FOR", "").split(",")[0].strip() or request.META.get("REMOTE_ADDR")
+    ip = (
+        request.META.get("HTTP_X_FORWARDED_FOR", "").split(",")[0].strip()
+        or request.META.get("REMOTE_ADDR")
+    )
     if BlockedIP.objects.filter(ip_address=ip).exists():
         return JsonResponse({"error": "blocked"}, status=403)
+
+    # Gracefully handle an invalid field slug. Instead of returning a 404 we
+    # log the details and send a JSON error so the UI can show a friendly
+    # message.
+    try:
+        field = DataField.objects.get(slug=field_slug)
+    except DataField.DoesNotExist:
+        from .models import RejectionLog
+
+        RejectionLog.objects.create(
+            council=council,
+            field=None,
+            year=year,
+            value=f"{field_slug}: {value}",
+            ip_address=ip,
+            reason="invalid_field",
+        )
+        return JsonResponse(
+            {
+                "error": "invalid_field",
+                "message": "The submitted field was not recognised.",
+            },
+            status=400,
+        )
 
     profile = request.user.profile
     # Submissions from tier 3+ skip moderation
@@ -911,25 +950,36 @@ def submit_contribution(request):
 
 @login_required
 def review_contribution(request, pk, action):
-    """Approve, reject or edit a pending contribution."""
+    """Approve, reject or edit a pending contribution.
+
+    Superusers are allowed to moderate contributions even if their profile
+    tier is below the normal moderator threshold (level 3).
+    """
     contrib = get_object_or_404(Contribution, pk=pk)
 
-    if request.user.profile.tier.level < 3:
+    # Enforce the tier requirement unless the user is a superuser. This mirrors
+    # the logic used on the contribution page when rendering moderation buttons.
+    if not request.user.is_superuser and request.user.profile.tier.level < 3:
         return HttpResponseBadRequest("permission denied")
 
     if action == "approve" and request.method == "POST":
         _apply_contribution(contrib, request.user)
         contrib.status = "approved"
         contrib.save()
-        # Award points based on whether the submission was edited.
-        points = 1 if contrib.edited else 2
+        # Always award two points when a contribution is approved.
+        points = 2
         profile = contrib.user.profile
         profile.points += points
         profile.save()
-        create_notification(
-            contrib.user,
-            "Your contribution was accepted",
+        # Build a notification that references the council and field, links to
+        # the council detail page and explains the point reward.
+        link = reverse("council_detail", args=[contrib.council.slug])
+        message = (
+            f"Your contribution to <a href='{link}'>{contrib.council.name}</a> "
+            f"(Field: {contrib.field.name}) was accepted. You also earned {points} "
+            f"points for this. Thank you!"
         )
+        create_notification(contrib.user, message)
     elif action == "reject" and request.method == "POST":
         reason = request.POST.get("reason")
         if not reason:
@@ -1125,8 +1175,11 @@ def field_delete(request, slug):
 
 @login_required
 def god_mode(request):
-    """Tier 5 tool for reviewing the rejection log and blocking IPs."""
-    if request.user.profile.tier.level < 5:
+    """Tier 5 tool for reviewing the rejection log and blocking IPs.
+
+    Superusers are allowed to bypass the tier requirement entirely.
+    """
+    if not request.user.is_superuser and request.user.profile.tier.level < 5:
         raise Http404()
 
     # Configure a logger specifically for this view. The logger writes to

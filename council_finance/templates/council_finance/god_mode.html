@@ -27,7 +27,13 @@
       <tr class="odd:bg-gray-50">
         <td class="border px-2 py-1 text-center"><input type="checkbox" name="ids" value="{{ log.id }}"></td>
         <td class="border px-2 py-1">{{ log.council.name }}</td>
-        <td class="border px-2 py-1">{{ log.field.name }}</td>
+        <td class="border px-2 py-1">
+          {% if log.field %}
+            {{ log.field.name }}
+          {% else %}
+            <span class="text-red-600">N/A</span>
+          {% endif %}
+        </td>
         <td class="border px-2 py-1 text-center">{{ log.year }}</td>
         <td class="border px-2 py-1">{{ log.value }}</td>
         <td class="border px-2 py-1">{{ log.get_reason_display }}</td>
