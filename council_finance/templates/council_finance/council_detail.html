@@ -2,10 +2,33 @@
 {% load static %}
 {% block title %}{{ council.name }} - Council Finance Counters{% endblock %}
 {% block content %}
-<h1 class="text-3xl sm:text-4xl font-extrabold mb-4 text-center p-5 flex items-center justify-center gap-2">
+<h1 class="text-3xl sm:text-4xl font-extrabold mb-4 text-left pt-5 flex items-left justify-left gap-2">
   <span class="w-8 h-8 bg-gray-300 rounded-full"></span>
   {{ council.name }}
 </h1>
+<div class="council-meta-in-header flex flex-row items-center gap-4 text-gray-500 text-sm mb-2">
+  <div class="council-type-in-header">
+    {% if council.council_type %}
+      <span>{{ council.council_type.name }}</span>
+    {% else %}
+      <span>
+        <a href="{% url 'council_detail' council.slug %}?tab=edit&focus=council_type" class="text-blue-700 hover:underline">Contribute council type</a>
+      </span>
+    {% endif %}
+  </div>
+  <span class="mx-2">|</span>
+  <div class="council-website-in-header">
+    {% if council.website %}
+      <span>
+        <a href="{{ council.website }}" class="text-blue-700 hover:underline">{{ council.website }}</a>
+      </span>
+    {% else %}
+      <span>
+        <a href="{% url 'council_detail' council.slug %}?tab=edit&focus=website" class="text-blue-700 hover:underline">Contribute website address</a>
+      </span>
+    {% endif %}
+  </div>
+</div>
 <div class="mb-4 border-b text-center">
   <nav class="inline-flex gap-4">
     <a href="{% url 'council_detail' council.slug %}" class="py-2 px-4 border-b-2 {% if tab != 'edit' %}border-blue-600 font-semibold{% else %}border-transparent{% endif %}">View</a>
@@ -30,16 +53,7 @@
       <button type="submit" class="mt-1 bg-blue-600 text-white px-2 py-1 rounded">Submit</button>
     </form>
   {% else %}
-    {% if council.website %}
-    <p>
-      Website:
-      <a href="{{ council.website }}" class="text-blue-700 hover:underline">{{ council.website }}</a>
-    </p>
-    {% else %}
-    <p>
-      <a href="{% url 'council_detail' council.slug %}?tab=edit&focus=website" class="text-blue-700 hover:underline">Website address needed</a>
-    </p>
-    {% endif %}
+
   {% endif %}
   {# Display the council type or edit drop-down #}
   {% if tab == 'edit' %}
@@ -57,13 +71,7 @@
       <button type="submit" class="mt-1 bg-blue-600 text-white px-2 py-1 rounded">Submit</button>
     </form>
   {% else %}
-    {% if council.council_type %}
-    <p>Type: {{ council.council_type.name }}</p>
-    {% else %}
-    <p>
-      <a href="{% url 'council_detail' council.slug %}?tab=edit&focus=council_type" class="text-blue-700 hover:underline">Set council type</a>
-    </p>
-    {% endif %}
+   
   {% endif %}
 </div>
 {% if tab != 'edit' %}
