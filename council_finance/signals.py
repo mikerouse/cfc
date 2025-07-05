@@ -14,8 +14,9 @@ def create_user_profile(sender, instance, created, **kwargs):
     """Create a matching profile whenever a new user is made."""
     if created:
         try:
-            # Tier 1 should always exist but guard against missing rows
-            default_tier = TrustTier.objects.get(level=1)
+            # Superusers default to the highest tier for full permissions
+            level = 5 if instance.is_superuser else 1
+            default_tier = TrustTier.objects.get(level=level)
         except TrustTier.DoesNotExist:
             default_tier = None
         UserProfile.objects.create(

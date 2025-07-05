@@ -56,6 +56,10 @@ class UserProfile(models.Model):
     official_email = models.EmailField(blank=True)
     official_email_confirmed = models.BooleanField(default=False)
     official_email_token = models.CharField(max_length=64, blank=True)
+    # Preferred Google Font used across the site. Defaults to Cairo to
+    # provide a clean, modern feel. Users can override this from their
+    # profile page.
+    preferred_font = models.CharField(max_length=100, default="Cairo", blank=True)
 
     def __str__(self) -> str:
         return f"Profile for {self.user.username}"

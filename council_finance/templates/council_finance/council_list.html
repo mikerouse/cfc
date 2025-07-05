@@ -8,7 +8,10 @@
 </form>
 <ul class="list-disc pl-5">
 {% for council in councils %}
-    <li><a href="{% url 'council_detail' council.slug %}" class="text-blue-700 hover:underline">{{ council.name }}</a></li>
+    <li class="flex items-center gap-2">
+        <span class="w-5 h-5 bg-gray-300 rounded-full"></span>
+        <a href="{% url 'council_detail' council.slug %}" class="text-blue-700 hover:underline">{{ council.name }}</a>
+    </li>
 {% empty %}
     <li>No councils found.</li>
 {% endfor %}
