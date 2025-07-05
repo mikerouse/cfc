@@ -36,13 +36,14 @@ class ContributionApprovalTests(TestCase):
             username="contrib", email="c@example.com", password="pass123"
         )
         self.council = Council.objects.create(name="Test", slug="test")
-        self.field = DataField.objects.create(name="Website", slug="council_website")
+        self.field, _ = DataField.objects.get_or_create(slug="council_website", defaults={"name": "Website"})
 
     def test_low_tier_pending(self):
         self.client.login(username="contrib", password="pass123")
         response = self.client.post(
             reverse("submit_contribution"),
             {"council": "test", "field": "council_website", "value": "http://a.com"},
+            HTTP_X_REQUESTED_WITH="XMLHttpRequest",
         )
         self.assertEqual(response.json()["status"], "pending")
         self.assertEqual(Contribution.objects.first().status, "pending")
@@ -54,9 +55,21 @@ class ContributionApprovalTests(TestCase):
         response = self.client.post(
             reverse("submit_contribution"),
             {"council": "test", "field": "council_website", "value": "http://b.com"},
+            HTTP_X_REQUESTED_WITH="XMLHttpRequest",
         )
         self.assertEqual(response.json()["status"], "approved")
         self.assertEqual(Contribution.objects.last().status, "approved")
+
+    def test_standard_post_redirects(self):
+        self.client.login(username="contrib", password="pass123")
+        resp = self.client.post(
+            reverse("submit_contribution"),
+            {"council": "test", "field": "council_website", "value": "http://c.com"},
+            follow=True,
+        )
+        msgs = list(resp.context["messages"])
+        self.assertTrue(any("queued" in str(m) for m in msgs))
+        self.assertContains(resp, "Website pending confirmation")
 
 
 class EditTabTests(TestCase):

@@ -25,7 +25,7 @@ class ContributionReviewTests(TestCase):
             username="contrib", email="c@example.com", password="pw"
         )
         self.council = Council.objects.create(name="Test", slug="test")
-        self.field = DataField.objects.create(name="Website", slug="council_website")
+        self.field, _ = DataField.objects.get_or_create(slug="council_website", defaults={"name": "Website"})
         self.contrib = Contribution.objects.create(
             user=self.user,
             council=self.council,
@@ -93,6 +93,7 @@ class ContributionReviewTests(TestCase):
                 "value": "http://foo",
             },
             REMOTE_ADDR="2.2.2.2",
+            HTTP_X_REQUESTED_WITH="XMLHttpRequest",
         )
         self.assertEqual(resp.status_code, 403)
 
@@ -106,6 +107,7 @@ class ContributionReviewTests(TestCase):
                 "field": "does-not-exist",
                 "value": "foo",
             },
+            HTTP_X_REQUESTED_WITH="XMLHttpRequest",
         )
         self.assertEqual(resp.status_code, 400)
         self.assertEqual(resp.json()["error"], "invalid_field")
