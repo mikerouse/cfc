@@ -34,9 +34,12 @@
                     <td class="px-2 py-1">{{ c.created|date:"Y-m-d H:i" }}</td>
                     {% if user.is_authenticated and user.profile.tier.level >= 3 %}
                     <td class="px-2 py-1 space-x-2">
-                        <a href="{% url 'review_contribution' c.id 'approve' %}" class="text-green-600"><i class="fas fa-check"></i></a>
-                        <a href="{% url 'review_contribution' c.id 'edit' %}" class="text-blue-600"><i class="fas fa-edit"></i></a>
-                        <a href="{% url 'review_contribution' c.id 'reject' %}" class="text-red-600"><i class="fas fa-times"></i></a>
+                        <form method="post" action="{% url 'review_contribution' c.id 'approve' %}" class="inline">
+                            {% csrf_token %}
+                            <button class="text-green-600" aria-label="Approve"><i class="fas fa-check"></i></button>
+                        </form>
+                        <button class="edit-btn text-blue-600" data-url="{% url 'review_contribution' c.id 'edit' %}" data-value="{{ c.value }}" aria-label="Edit"><i class="fas fa-edit"></i></button>
+                        <button class="reject-btn text-red-600" data-url="{% url 'review_contribution' c.id 'reject' %}" aria-label="Reject"><i class="fas fa-times"></i></button>
                     </td>
                     {% endif %}
                 </tr>
@@ -98,4 +101,65 @@
         <p>Placeholder for the best rated submissions.</p>
     </section>
 </div>
+
+<!-- Modal used for editing a contribution -->
+<div id="edit-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+  <form method="post" id="edit-form" class="bg-white p-4 rounded shadow">
+    {% csrf_token %}
+    <label class="block mb-2">New value
+      <input type="text" name="value" id="edit-value" class="border p-2 w-full" />
+    </label>
+    <div class="text-right space-x-2">
+      <button type="submit" class="bg-blue-600 text-white px-4 py-1 rounded">Save</button>
+      <button type="button" id="edit-cancel" class="px-4 py-1 border rounded">Cancel</button>
+    </div>
+  </form>
+</div>
+
+<!-- Modal used when rejecting a contribution -->
+<div id="reject-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+  <form method="post" id="reject-form" class="bg-white p-4 rounded shadow">
+    {% csrf_token %}
+    <label class="block mb-2">Reason
+      <select name="reason" id="reject-reason" class="border p-2 w-full">
+        <option value="data_incorrect">The data wasn't correct</option>
+        <option value="no_sources">We can't find reliable sources</option>
+        <option value="other">Other (specify)</option>
+      </select>
+    </label>
+    <input type="text" name="details" id="reject-details" class="border p-2 w-full mb-2 hidden" placeholder="Details" />
+    <div class="text-right space-x-2">
+      <button type="submit" class="bg-red-600 text-white px-4 py-1 rounded">Reject</button>
+      <button type="button" id="reject-cancel" class="px-4 py-1 border rounded">Cancel</button>
+    </div>
+  </form>
+</div>
+
+<script>
+document.querySelectorAll('.edit-btn').forEach(btn => {
+  btn.addEventListener('click', e => {
+    e.preventDefault();
+    document.getElementById('edit-form').action = btn.dataset.url;
+    document.getElementById('edit-value').value = btn.dataset.value;
+    document.getElementById('edit-modal').classList.remove('hidden');
+  });
+});
+document.getElementById('edit-cancel').addEventListener('click', () => {
+  document.getElementById('edit-modal').classList.add('hidden');
+});
+
+document.querySelectorAll('.reject-btn').forEach(btn => {
+  btn.addEventListener('click', e => {
+    e.preventDefault();
+    document.getElementById('reject-form').action = btn.dataset.url;
+    document.getElementById('reject-modal').classList.remove('hidden');
+  });
+});
+document.getElementById('reject-cancel').addEventListener('click', () => {
+  document.getElementById('reject-modal').classList.add('hidden');
+});
+document.getElementById('reject-reason').addEventListener('change', function() {
+  document.getElementById('reject-details').classList.toggle('hidden', this.value !== 'other');
+});
+</script>
 {% endblock %}

@@ -1,5 +1,5 @@
 from django.shortcuts import render, get_object_or_404, redirect
-from django.http import JsonResponse, HttpResponseBadRequest, Http404
+from django.http import JsonResponse, HttpResponseBadRequest, Http404, HttpResponse
 from django.db.models import Q, Sum, DecimalField
 from django.db.models.functions import Cast
 from django.contrib import messages
@@ -7,6 +7,7 @@ from django.contrib.auth.decorators import login_required
 from django.contrib.auth.hashers import make_password
 from django.contrib.auth import login
 from django.utils.crypto import get_random_string
+import csv
 import hashlib
 
 # Brevo's Python SDK exposes ApiException from the `rest` module
@@ -40,6 +41,7 @@ from .models import (
     TrustTier,
     Contribution,
     DataChangeLog,
+    BlockedIP,
 )
 
 from datetime import date
@@ -882,6 +884,11 @@ def submit_contribution(request):
     year = FinancialYear.objects.filter(id=year_id).first() if year_id else None
     value = request.POST.get("value", "").strip()
 
+    # Determine client IP for logging and blocking.
+    ip = request.META.get("HTTP_X_FORWARDED_FOR", "").split(",")[0].strip() or request.META.get("REMOTE_ADDR")
+    if BlockedIP.objects.filter(ip_address=ip).exists():
+        return JsonResponse({"error": "blocked"}, status=403)
+
     profile = request.user.profile
     # Submissions from tier 3+ skip moderation
     status = "approved" if profile.tier.level >= 3 else "pending"
@@ -893,6 +900,7 @@ def submit_contribution(request):
         year=year,
         value=value,
         status=status,
+        ip_address=ip,
     )
     if status == "approved":
         msg = "Contribution accepted"
@@ -909,16 +917,52 @@ def review_contribution(request, pk, action):
     if request.user.profile.tier.level < 3:
         return HttpResponseBadRequest("permission denied")
 
-    if action == "approve":
+    if action == "approve" and request.method == "POST":
         _apply_contribution(contrib, request.user)
         contrib.status = "approved"
         contrib.save()
-    elif action == "reject":
+        # Award points based on whether the submission was edited.
+        points = 1 if contrib.edited else 2
+        profile = contrib.user.profile
+        profile.points += points
+        profile.save()
+        create_notification(
+            contrib.user,
+            "Your contribution was accepted",
+        )
+    elif action == "reject" and request.method == "POST":
+        reason = request.POST.get("reason")
+        if not reason:
+            return HttpResponseBadRequest("reason required")
         contrib.status = "rejected"
         contrib.save()
+        from .models import RejectionLog
+
+        RejectionLog.objects.create(
+            contribution=contrib,
+            council=contrib.council,
+            field=contrib.field,
+            year=contrib.year,
+            value=contrib.value,
+            ip_address=contrib.ip_address,
+            reason=reason,
+            reviewed_by=request.user,
+        )
+        profile = contrib.user.profile
+        profile.rejection_count += 1
+        profile.save()
+        create_notification(
+            contrib.user,
+            "Your contribution was rejected",
+        )
     elif action == "edit" and request.method == "POST":
         contrib.value = request.POST.get("value", contrib.value)
+        contrib.edited = True
         contrib.save()
+        create_notification(
+            contrib.user,
+            "Your contribution was edited by a moderator",
+        )
         return redirect("contribute")
     return redirect("contribute")
 
@@ -1077,3 +1121,36 @@ def field_delete(request, slug):
         field.delete()
         messages.success(request, "Field deleted.")
     return redirect("field_list")
+
+
+@login_required
+def god_mode(request):
+    """Tier 5 tool for reviewing the rejection log and blocking IPs."""
+    if request.user.profile.tier.level < 5:
+        raise Http404()
+
+    if request.GET.get("export") == "csv":
+        rows = RejectionLog.objects.all().values_list(
+            "id", "council__name", "field__name", "year__label", "value", "reason", "ip_address"
+        )
+        response = HttpResponse(content_type="text/csv")
+        response["Content-Disposition"] = "attachment; filename=rejections.csv"
+        writer = csv.writer(response)
+        writer.writerow(["ID", "Council", "Field", "Year", "Value", "Reason", "IP"])
+        for row in rows:
+            writer.writerow(row)
+        return response
+
+    if request.method == "POST":
+        if "delete" in request.POST:
+            ids = request.POST.getlist("ids")
+            RejectionLog.objects.filter(id__in=ids).delete()
+            messages.success(request, "Deleted entries")
+        if "block" in request.POST:
+            ip = request.POST.get("block")
+            BlockedIP.objects.get_or_create(ip_address=ip)
+            messages.success(request, f"Blocked {ip}")
+        return redirect("god_mode")
+
+    logs = RejectionLog.objects.select_related("council", "field", "reviewed_by")[:200]
+    return render(request, "council_finance/god_mode.html", {"logs": logs})

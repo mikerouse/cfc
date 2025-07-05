@@ -83,6 +83,9 @@
                 <a href="{% url 'admin:index' %}" class="hover:underline">Django Admin</a>
                 <a href="{% url 'counter_definitions' %}" class="hover:underline">Counters</a>
                 <a href="{% url 'field_list' %}" class="hover:underline">Fields Manager</a>
+                {% if user.profile.tier.level >= 5 %}
+                <a href="{% url 'god_mode' %}" class="hover:underline">God Mode</a>
+                {% endif %}
             </nav>
         </div>
         {% endif %}

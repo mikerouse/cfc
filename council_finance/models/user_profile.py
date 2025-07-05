@@ -60,6 +60,9 @@ class UserProfile(models.Model):
     # provide a clean, modern feel. Users can override this from their
     # profile page.
     preferred_font = models.CharField(max_length=100, default="Cairo", blank=True)
+    # Gamification fields tracking contribution performance.
+    points = models.IntegerField(default=0)
+    rejection_count = models.IntegerField(default=0)
 
     def __str__(self) -> str:
         return f"Profile for {self.user.username}"

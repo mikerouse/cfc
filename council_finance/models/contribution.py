@@ -24,6 +24,8 @@ class Contribution(models.Model):
     year = models.ForeignKey(FinancialYear, null=True, blank=True, on_delete=models.SET_NULL)
     value = models.CharField(max_length=255)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="pending")
+    edited = models.BooleanField(default=False)
+    ip_address = models.GenericIPAddressField(null=True, blank=True)
     created = models.DateTimeField(auto_now_add=True)
 
     class Meta:

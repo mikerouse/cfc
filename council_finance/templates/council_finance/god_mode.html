@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% block title %}God Mode - Council Finance Counters{% endblock %}
+{% block content %}
+<h1 class="text-2xl font-bold mb-4">Rejection Log</h1>
+<div class="mb-4 flex justify-between">
+  <form method="get">
+    <button name="export" value="csv" class="bg-blue-600 text-white px-4 py-1 rounded">Export CSV</button>
+  </form>
+</div>
+<form method="post">
+  {% csrf_token %}
+  <table class="min-w-full bg-white border mb-4">
+    <thead>
+      <tr>
+        <th class="border px-2 py-1"><input type="checkbox" id="check-all"/></th>
+        <th class="border px-2 py-1">Council</th>
+        <th class="border px-2 py-1">Field</th>
+        <th class="border px-2 py-1">Year</th>
+        <th class="border px-2 py-1">Value</th>
+        <th class="border px-2 py-1">Reason</th>
+        <th class="border px-2 py-1">IP</th>
+        <th class="border px-2 py-1">Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for log in logs %}
+      <tr class="odd:bg-gray-50">
+        <td class="border px-2 py-1 text-center"><input type="checkbox" name="ids" value="{{ log.id }}"></td>
+        <td class="border px-2 py-1">{{ log.council.name }}</td>
+        <td class="border px-2 py-1">{{ log.field.name }}</td>
+        <td class="border px-2 py-1 text-center">{{ log.year }}</td>
+        <td class="border px-2 py-1">{{ log.value }}</td>
+        <td class="border px-2 py-1">{{ log.get_reason_display }}</td>
+        <td class="border px-2 py-1">{{ log.ip_address }}</td>
+        <td class="border px-2 py-1 text-center">
+          <button name="block" value="{{ log.ip_address }}" class="text-red-600 underline">Block IP</button>
+        </td>
+      </tr>
+      {% empty %}
+      <tr>
+        <td class="border px-2 py-1 text-center" colspan="8">Log empty.</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  <button name="delete" value="1" class="bg-red-600 text-white px-4 py-1 rounded">Delete Selected</button>
+</form>
+<script>
+const checkAll = document.getElementById('check-all');
+if (checkAll) {
+  checkAll.addEventListener('change', () => {
+    document.querySelectorAll('input[name="ids"]').forEach(cb => cb.checked = checkAll.checked);
+  });
+}
+</script>
+{% endblock %}
