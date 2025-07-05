@@ -909,16 +909,51 @@ def review_contribution(request, pk, action):
     if request.user.profile.tier.level < 3:
         return HttpResponseBadRequest("permission denied")
 
-    if action == "approve":
+    if action == "approve" and request.method == "POST":
         _apply_contribution(contrib, request.user)
         contrib.status = "approved"
         contrib.save()
-    elif action == "reject":
+        # Award points based on whether the submission was edited.
+        points = 1 if contrib.edited else 2
+        profile = contrib.user.profile
+        profile.points += points
+        profile.save()
+        create_notification(
+            contrib.user,
+            "Your contribution was accepted",
+        )
+    elif action == "reject" and request.method == "POST":
+        reason = request.POST.get("reason")
+        if not reason:
+            return HttpResponseBadRequest("reason required")
         contrib.status = "rejected"
         contrib.save()
+        from .models import RejectionLog
+
+        RejectionLog.objects.create(
+            contribution=contrib,
+            council=contrib.council,
+            field=contrib.field,
+            year=contrib.year,
+            value=contrib.value,
+            reason=reason,
+            reviewed_by=request.user,
+        )
+        profile = contrib.user.profile
+        profile.rejection_count += 1
+        profile.save()
+        create_notification(
+            contrib.user,
+            "Your contribution was rejected",
+        )
     elif action == "edit" and request.method == "POST":
         contrib.value = request.POST.get("value", contrib.value)
+        contrib.edited = True
         contrib.save()
+        create_notification(
+            contrib.user,
+            "Your contribution was edited by a moderator",
+        )
         return redirect("contribute")
     return redirect("contribute")
 
