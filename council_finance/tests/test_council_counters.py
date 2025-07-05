@@ -93,3 +93,11 @@ class CouncilCountersTest(TestCase):
         self.assertIn("precision", data)
         self.assertIn("show_currency", data)
         self.assertIn("friendly_format", data)
+
+    def test_headline_flag_present(self):
+        self.counter.headline = True
+        self.counter.save()
+        url = reverse("council_counters", args=["test"])
+        resp = self.client.get(url, {"year": "2024"})
+        self.assertEqual(resp.status_code, 200)
+        self.assertTrue(resp.json()["counters"]["debt"]["headline"])

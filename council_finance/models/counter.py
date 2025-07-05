@@ -37,6 +37,12 @@ class CounterDefinition(models.Model):
         default=True,
         help_text="Show on council pages unless disabled for a specific council",
     )
+    # When marked as a headline counter it will be emphasised on the front end
+    # and shown before any other counters.
+    headline = models.BooleanField(
+        default=False,
+        help_text="Highlight this counter as a headline figure",
+    )
 
     def format_value(self, value: float) -> str:
         """Return the value formatted according to the settings."""

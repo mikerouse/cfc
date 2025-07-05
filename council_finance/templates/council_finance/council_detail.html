@@ -188,10 +188,10 @@
 {% if counters %}
 <div id="counters-grid" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 my-6">
     {% for item in counters %}
-    <div class="bg-gray-50 p-10 rounded shadow text-center" data-counter="{{ item.counter.slug }}">
+    <div class="bg-gray-50 p-10 rounded shadow text-center {% if item.counter.headline %}md:col-span-3{% endif %}" data-counter="{{ item.counter.slug }}" {% if item.counter.headline %}style="grid-column: span 3"{% endif %}>
         <p class="text-sm text-gray-600">{{ item.counter.name }}</p>
         <p class="text-red-700 text-sm counter-error" {% if not item.error %}style="display:none"{% endif %}>{{ item.error }}</p>
-        <p class="text-4xl font-bold counter-value"
+        <p class="{% if item.counter.headline %}text-6xl{% else %}text-4xl{% endif %} font-bold counter-value"
            data-duration="{{ item.counter.duration }}"
            data-value="{{ item.value }}"
            data-formatted="{{ item.formatted }}"

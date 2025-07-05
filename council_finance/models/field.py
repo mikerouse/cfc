@@ -55,6 +55,14 @@ class DataField(models.Model):
         on_delete=models.SET_NULL,
         help_text="Model providing options for list values",
     )
+    # Allow a field to be restricted to specific council types. When no types
+    # are selected the field applies to all councils. Using a ManyToManyField
+    # keeps the relationship flexible without additional tables for each link.
+    council_types = models.ManyToManyField(
+        "council_finance.CouncilType",
+        blank=True,
+        help_text="Council types this field applies to",
+    )
     formula = models.CharField(max_length=255, blank=True)
     required = models.BooleanField(default=False)
 
@@ -96,3 +104,8 @@ class DataField(models.Model):
             except (ValueError, model.DoesNotExist):
                 return value
         return value
+
+    def display_council_types(self) -> str:
+        """Return a comma separated list of linked council type names."""
+        names = [ct.name for ct in self.council_types.all()]
+        return ", ".join(names) if names else "All"

@@ -5,6 +5,7 @@ from council_finance.models import (
     FigureSubmission,
     CounterDefinition,
 )
+from django.db.models import Q
 import ast
 import operator
 
@@ -23,7 +24,17 @@ class CounterAgent(AgentBase):
         # helpful error instead of silently using zero.
         figure_map = {}
         missing = set()
-        for f in FigureSubmission.objects.filter(council=council, year=year):
+        figures = FigureSubmission.objects.filter(council=council, year=year)
+        if council.council_type_id:
+            figures = figures.filter(
+                Q(field__council_types__isnull=True)
+                | Q(field__council_types=council.council_type)
+            )
+        else:
+            figures = figures.filter(field__council_types__isnull=True)
+        figures = figures.select_related("field").distinct()
+
+        for f in figures:
             slug = f.field.slug
             if f.needs_populating or f.value in (None, ""):
                 missing.add(slug)

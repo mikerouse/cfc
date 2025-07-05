@@ -116,6 +116,7 @@ class CounterDefinitionForm(forms.ModelForm):
             "show_currency",
             "friendly_format",
             "show_by_default",
+            "headline",
         ]
         widgets = {
             "explanation": forms.Textarea(
@@ -130,13 +131,14 @@ class CounterDefinitionForm(forms.ModelForm):
             "show_currency": forms.CheckboxInput(attrs={"class": "mr-2"}),
             "friendly_format": forms.CheckboxInput(attrs={"class": "mr-2"}),
             "show_by_default": forms.CheckboxInput(attrs={"class": "mr-2"}),
+            "headline": forms.CheckboxInput(attrs={"class": "mr-2"}),
         }
 
     def __init__(self, *args, **kwargs):
         """Add Tailwind classes to text inputs for consistency."""
         super().__init__(*args, **kwargs)
         for name, field in self.fields.items():
-            if name in ["show_currency", "friendly_format", "show_by_default"]:
+            if name in ["show_currency", "friendly_format", "show_by_default", "headline"]:
                 continue
             field.widget.attrs.setdefault("class", "border rounded p-1 w-full")
 
@@ -153,6 +155,14 @@ class DataFieldForm(forms.ModelForm):
         label="Dataset",
         help_text="Model used for list options",
     )
+    # Allow multiple council types to be selected so staff can limit where a
+    # field appears. When no types are chosen the field applies to all councils.
+    council_types = forms.ModelMultipleChoiceField(
+        queryset=None,
+        required=False,
+        widget=forms.SelectMultiple,
+        label="Council types",
+    )
 
     class Meta:
         model = DataField
@@ -163,6 +173,7 @@ class DataFieldForm(forms.ModelForm):
             "explanation",
             "content_type",
             "dataset_type",
+            "council_types",
             "formula",
             "required",
         ]
@@ -179,6 +190,10 @@ class DataFieldForm(forms.ModelForm):
         # important built-in definitions. The value itself can still change.
         if self.instance and self.instance.pk and self.instance.slug in PROTECTED_SLUGS:
             self.fields["slug"].disabled = True
+        # Populate the council type choices dynamically so any new types appear
+        # automatically without code changes.
+        from .models import CouncilType
+        self.fields["council_types"].queryset = CouncilType.objects.all()
         # Style widgets consistently and apply an id to the dataset row so it can
         # be toggled via JavaScript when the content type changes.
         for name, field in self.fields.items():

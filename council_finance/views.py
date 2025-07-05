@@ -141,11 +141,19 @@ def council_detail(request, slug):
 
     # Pull all financial figures for this council so the template can
     # present them in an engaging way.
-    figures = (
-        FigureSubmission.objects.filter(council=council)
-        .select_related("year", "field")
-        .order_by("year__label", "field__slug")
+    # Only include figures relevant to this council's type. When a DataField
+    # has no specific types assigned it applies to all councils.
+    figures = FigureSubmission.objects.filter(council=council).select_related(
+        "year", "field"
     )
+    if council.council_type_id:
+        figures = figures.filter(
+            Q(field__council_types__isnull=True)
+            | Q(field__council_types=council.council_type)
+        )
+    else:
+        figures = figures.filter(field__council_types__isnull=True)
+    figures = figures.order_by("year__label", "field__slug").distinct()
 
     years = list(
         FinancialYear.objects.order_by("-label").exclude(label__iexact="general")
@@ -180,21 +188,26 @@ def council_detail(request, slug):
         # Loop over every defined counter and decide whether it should be
         # displayed. If the council has an explicit override we honour that,
         # otherwise we fall back to the counter's show_by_default flag.
+        head_list = []
+        other_list = []
         for counter in CounterDefinition.objects.all():
             enabled = override_map.get(counter.id, counter.show_by_default)
             if not enabled:
                 continue
             result = values.get(counter.slug, {})
-            counters.append(
-                {
-                    "counter": counter,
-                    "value": result.get("value"),
-                    "formatted": result.get("formatted"),
-                    "error": result.get("error"),
-                }
-            )
+            item = {
+                "counter": counter,
+                "value": result.get("value"),
+                "formatted": result.get("formatted"),
+                "error": result.get("error"),
+            }
+            if counter.headline:
+                head_list.append(item)
+            else:
+                other_list.append(item)
             if counter.show_by_default:
                 default_slugs.append(counter.slug)
+        counters = head_list + other_list
 
     context = {
         "council": council,
@@ -1129,7 +1142,9 @@ def council_counters(request, slug):
             for cc in CouncilCounter.objects.filter(council=council)
         }
 
-        for counter in CounterDefinition.objects.all():
+        ordered = list(CounterDefinition.objects.all())
+        ordered.sort(key=lambda c: (not c.headline, c.slug))
+        for counter in ordered:
             enabled = override_map.get(counter.id, counter.show_by_default)
             if not enabled:
                 continue
@@ -1147,6 +1162,7 @@ def council_counters(request, slug):
                 "show_currency": counter.show_currency,
                 "precision": counter.precision,
                 "friendly_format": counter.friendly_format,
+                "headline": counter.headline,
             }
 
     return JsonResponse({"counters": data})

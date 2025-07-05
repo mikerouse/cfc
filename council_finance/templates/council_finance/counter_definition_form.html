@@ -80,6 +80,13 @@
                     {{ form.show_by_default.errors }}
                 </td>
             </tr>
+            <tr class="odd:bg-gray-50">
+                <th class="text-left p-2 border">{{ form.headline.label_tag }}</th>
+                <td class="p-2 border flex items-center">
+                    {{ form.headline }} {{ form.headline.help_text }}
+                    {{ form.headline.errors }}
+                </td>
+            </tr>
         </tbody>
     </table>
 <div class="mt-2 p-2 bg-gray-50 rounded" id="preview-card">

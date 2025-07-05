@@ -12,6 +12,7 @@
             <th class="border px-2 py-1 text-left">Name</th>
             <th class="border px-2 py-1">Slug</th>
             <th class="border px-2 py-1">Category</th>
+            <th class="border px-2 py-1">Council Types</th>
             <th class="border px-2 py-1">Actions</th>
         </tr>
     </thead>
@@ -21,6 +22,7 @@
             <td class="border px-2 py-1"><a href="{% url 'field_edit' f.slug %}" class="text-blue-600 underline">{{ f.name }}</a></td>
             <td class="border px-2 py-1 text-center">{{ f.slug }}</td>
             <td class="border px-2 py-1 text-center">{{ f.get_category_display }}</td>
+            <td class="border px-2 py-1 text-center">{{ f.display_council_types }}</td>
             <td class="border px-2 py-1 text-center">
                 <a href="{% url 'field_edit' f.slug %}" class="text-blue-600 underline">Edit</a>
                 {% if not f.is_protected %}
@@ -30,7 +32,7 @@
         </tr>
         {% empty %}
         <tr>
-            <td class="border px-2 py-1 text-center" colspan="4">No fields defined yet.</td>
+            <td class="border px-2 py-1 text-center" colspan="5">No fields defined yet.</td>
         </tr>
         {% endfor %}
     </tbody>

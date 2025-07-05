@@ -177,6 +177,7 @@ class CounterDefinitionAdmin(admin.ModelAdmin):
         "show_currency",
         "friendly_format",
         "show_by_default",
+        "headline",
     )
     prepopulated_fields = {"slug": ("name",)}
 
@@ -202,6 +203,7 @@ class DataFieldAdmin(admin.ModelAdmin):
         "category",
         "content_type",
         "dataset_type",
+        "display_council_types",
         "required",
     )
     prepopulated_fields = {"slug": ("name",)}
@@ -215,6 +217,11 @@ class DataFieldAdmin(admin.ModelAdmin):
         if obj and obj.slug in PROTECTED_SLUGS:
             return False
         return super().has_delete_permission(request, obj)
+
+    def display_council_types(self, obj):
+        """Return a comma separated list of associated council types."""
+        return ", ".join(ct.name for ct in obj.council_types.all()) or "All"
+    display_council_types.short_description = "Council types"
 
 
 admin.site.register(DataField, DataFieldAdmin)
