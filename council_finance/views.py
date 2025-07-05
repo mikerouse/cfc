@@ -1129,9 +1129,36 @@ def god_mode(request):
     if request.user.profile.tier.level < 5:
         raise Http404()
 
+    # Configure a logger specifically for this view. The logger writes to
+    # ``logs/god_mode.log`` so admins can see a history of actions performed
+    # through this interface. We only set up the handler once to avoid duplicate
+    # log entries when the view is called multiple times.
+    import logging
+    from pathlib import Path
+    from django.conf import settings
+
+    logger = logging.getLogger("god_mode")
+    if not logger.handlers:
+        log_dir = Path(settings.BASE_DIR) / "logs"
+        log_dir.mkdir(exist_ok=True)
+        handler = logging.FileHandler(log_dir / "god_mode.log")
+        handler.setFormatter(
+            logging.Formatter("%(asctime)s %(levelname)s %(message)s")
+        )
+        logger.addHandler(handler)
+        logger.setLevel(logging.INFO)
+
+    logger.info("%s accessed God Mode via %s", request.user.username, request.method)
+
     if request.GET.get("export") == "csv":
         rows = RejectionLog.objects.all().values_list(
-            "id", "council__name", "field__name", "year__label", "value", "reason", "ip_address"
+            "id",
+            "council__name",
+            "field__name",
+            "year__label",
+            "value",
+            "reason",
+            "ip_address",
         )
         response = HttpResponse(content_type="text/csv")
         response["Content-Disposition"] = "attachment; filename=rejections.csv"
@@ -1139,6 +1166,7 @@ def god_mode(request):
         writer.writerow(["ID", "Council", "Field", "Year", "Value", "Reason", "IP"])
         for row in rows:
             writer.writerow(row)
+        logger.info("CSV export triggered by %s", request.user.username)
         return response
 
     if request.method == "POST":
@@ -1146,10 +1174,12 @@ def god_mode(request):
             ids = request.POST.getlist("ids")
             RejectionLog.objects.filter(id__in=ids).delete()
             messages.success(request, "Deleted entries")
+            logger.info("Deleted rejection log entries %s by %s", ids, request.user.username)
         if "block" in request.POST:
             ip = request.POST.get("block")
             BlockedIP.objects.get_or_create(ip_address=ip)
             messages.success(request, f"Blocked {ip}")
+            logger.info("Blocked IP %s by %s", ip, request.user.username)
         return redirect("god_mode")
 
     logs = RejectionLog.objects.select_related("council", "field", "reviewed_by")[:200]
