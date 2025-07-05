@@ -565,7 +565,7 @@ def preview_counter_value(request):
 
 @login_required
 def profile_view(request):
-    """Display information about the currently logged-in user."""
+    """Display and edit the logged-in user's profile."""
 
     user = request.user
     # Ensure we always have a profile so postcode input always appears.
@@ -574,14 +574,29 @@ def profile_view(request):
         defaults={"confirmation_token": get_random_string(32)},
     )
 
-    # Handle form submissions
+    tab = request.GET.get("tab", "profile")
+
+    # Handle form submissions. Multiple forms POST to this view so we
+    # inspect the submitted fields rather than rely on separate URLs.
     if request.method == "POST":
-        # Update visibility directly
-        if "visibility" in request.POST:
+        if "preferred_font" in request.POST:
+            # Persist the selected font for the current user.
+            profile.preferred_font = request.POST.get("preferred_font") or "Cairo"
+            profile.save()
+            tab = "custom"
+            messages.success(request, "Preferences saved.")
+        elif user.is_superuser and "tier" in request.POST:
+            # Allow superusers to switch tier for testing purposes.
+            tier = TrustTier.objects.filter(id=request.POST.get("tier")).first()
+            if tier:
+                profile.tier = tier
+                profile.save()
+                messages.success(request, f"Tier changed to {tier.name}.")
+            tab = "custom"
+        elif "visibility" in request.POST:
             profile.visibility = request.POST.get("visibility", profile.visibility)
             profile.save()
             messages.success(request, "Visibility updated.")
-        # Request a change to names, email or password which must be confirmed
         elif "change_details" in request.POST:
             token = get_random_string(32)
             PendingProfileChange.objects.create(
@@ -606,7 +621,6 @@ def profile_view(request):
             )
             messages.info(request, "Check your email to confirm profile changes.")
         elif "update_extra" in request.POST:
-            # Additional volunteer info is edited via a separate form
             form = ProfileExtraForm(request.POST, instance=profile)
             if form.is_valid():
                 form.save()
@@ -622,6 +636,8 @@ def profile_view(request):
         if email_hash
         else None
     )
+    tiers = TrustTier.objects.all()
+    fonts = ["Cairo", "Roboto", "Lato", "Open Sans"]
     context = {
         "user": user,
         "profile": profile,
@@ -629,7 +645,9 @@ def profile_view(request):
         "followers": followers,
         "visibility_choices": UserProfile.VISIBILITY_CHOICES,
         "councils": Council.objects.all(),
-        "tab": "profile",
+        "tab": tab,
+        "tiers": tiers,
+        "fonts": fonts,
     }
     return render(request, "registration/profile.html", context)
 
