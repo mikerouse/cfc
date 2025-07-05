@@ -889,22 +889,44 @@ def submit_contribution(request):
 
     council = get_object_or_404(Council, slug=request.POST.get("council"))
 
-    # Gracefully handle an invalid field slug so users don't see a 404 page when
-    # the form posts incorrect data. This can happen if the expected DataField
-    # does not exist in the database.
+    # Capture form values before any validation so we can log them in case the
+    # field slug is invalid. This helps troubleshooting mysterious submissions.
     field_slug = request.POST.get("field")
-    try:
-        field = DataField.objects.get(slug=field_slug)
-    except DataField.DoesNotExist:
-        return JsonResponse({"error": "invalid_field"}, status=400)
     year_id = request.POST.get("year")
     year = FinancialYear.objects.filter(id=year_id).first() if year_id else None
     value = request.POST.get("value", "").strip()
 
     # Determine client IP for logging and blocking.
-    ip = request.META.get("HTTP_X_FORWARDED_FOR", "").split(",")[0].strip() or request.META.get("REMOTE_ADDR")
+    ip = (
+        request.META.get("HTTP_X_FORWARDED_FOR", "").split(",")[0].strip()
+        or request.META.get("REMOTE_ADDR")
+    )
     if BlockedIP.objects.filter(ip_address=ip).exists():
         return JsonResponse({"error": "blocked"}, status=403)
+
+    # Gracefully handle an invalid field slug. Instead of returning a 404 we
+    # log the details and send a JSON error so the UI can show a friendly
+    # message.
+    try:
+        field = DataField.objects.get(slug=field_slug)
+    except DataField.DoesNotExist:
+        from .models import RejectionLog
+
+        RejectionLog.objects.create(
+            council=council,
+            field=None,
+            year=year,
+            value=f"{field_slug}: {value}",
+            ip_address=ip,
+            reason="invalid_field",
+        )
+        return JsonResponse(
+            {
+                "error": "invalid_field",
+                "message": "The submitted field was not recognised.",
+            },
+            status=400,
+        )
 
     profile = request.user.profile
     # Submissions from tier 3+ skip moderation

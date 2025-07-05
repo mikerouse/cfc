@@ -109,3 +109,7 @@ class ContributionReviewTests(TestCase):
         )
         self.assertEqual(resp.status_code, 400)
         self.assertEqual(resp.json()["error"], "invalid_field")
+        log = RejectionLog.objects.latest("id")
+        self.assertEqual(log.reason, "invalid_field")
+        self.assertIsNone(log.field)
+        self.assertIn("does-not-exist", log.value)
