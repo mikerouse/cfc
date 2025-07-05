@@ -216,6 +216,22 @@ def council_detail(request, slug):
                 default_slugs.append(counter.slug)
         counters = head_list + other_list
 
+    # Pull a few non-financial stats to display in a meta zone. These use
+    # existing DataField values so we don't need a separate model.
+    meta_fields = ["population", "elected_members", "waste_report_count"]
+    meta_values = []
+    for slug in meta_fields:
+        field = DataField.objects.filter(slug=slug).first()
+        if not field:
+            continue
+        fs = (
+            FigureSubmission.objects.filter(council=council, field=field)
+            .order_by("-year__label")
+            .first()
+        )
+        if fs:
+            meta_values.append({"field": field, "value": field.display_value(fs.value)})
+
     context = {
         "council": council,
         "figures": figures,
@@ -225,12 +241,13 @@ def council_detail(request, slug):
         "default_counter_slugs": default_slugs,
         "tab": tab,
         "focus": focus,
+        "meta_values": meta_values,
         # Set of field slugs with pending contributions so the template
         # can show a "pending confirmation" notice in place of the form.
         "pending_slugs": set(
-            Contribution.objects.filter(
-                council=council, status="pending"
-            ).values_list("field__slug", flat=True)
+            Contribution.objects.filter(council=council, status="pending").values_list(
+                "field__slug", flat=True
+            )
         ),
     }
     if tab == "edit":
@@ -360,9 +377,13 @@ def following(request):
 
 def contribute(request):
     """Show contribution dashboard with various queues."""
-    queue = Contribution.objects.filter(status="pending").select_related("council", "field", "user")
+    queue = Contribution.objects.filter(status="pending").select_related(
+        "council", "field", "user"
+    )
     my_contribs = (
-        Contribution.objects.filter(user=request.user).select_related("council", "field")
+        Contribution.objects.filter(user=request.user).select_related(
+            "council", "field"
+        )
         if request.user.is_authenticated
         else []
     )
@@ -405,7 +426,9 @@ def my_profile(request):
     email = (user.email or "").strip().lower()
     email_hash = hashlib.md5(email.encode("utf-8")).hexdigest() if email else ""
     gravatar_url = (
-        f"https://www.gravatar.com/avatar/{email_hash}?d=identicon" if email_hash else None
+        f"https://www.gravatar.com/avatar/{email_hash}?d=identicon"
+        if email_hash
+        else None
     )
 
     tiers = TrustTier.objects.all()
@@ -924,10 +947,9 @@ def submit_contribution(request):
     value = request.POST.get("value", "").strip()
 
     # Determine client IP for logging and blocking.
-    ip = (
-        request.META.get("HTTP_X_FORWARDED_FOR", "").split(",")[0].strip()
-        or request.META.get("REMOTE_ADDR")
-    )
+    ip = request.META.get("HTTP_X_FORWARDED_FOR", "").split(",")[
+        0
+    ].strip() or request.META.get("REMOTE_ADDR")
     if BlockedIP.objects.filter(ip_address=ip).exists():
         return JsonResponse({"error": "blocked"}, status=403)
 
@@ -1154,7 +1176,8 @@ def council_counters(request, slug):
             ordered = [
                 c
                 for c in ordered
-                if not c.council_types.exists() or c.council_types.filter(id=council.council_type_id).exists()
+                if not c.council_types.exists()
+                or c.council_types.filter(id=council.council_type_id).exists()
             ]
         else:
             ordered = [c for c in ordered if not c.council_types.exists()]
@@ -1242,9 +1265,7 @@ def god_mode(request):
         log_dir = Path(settings.BASE_DIR) / "logs"
         log_dir.mkdir(exist_ok=True)
         handler = logging.FileHandler(log_dir / "god_mode.log")
-        handler.setFormatter(
-            logging.Formatter("%(asctime)s %(levelname)s %(message)s")
-        )
+        handler.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(message)s"))
         logger.addHandler(handler)
         logger.setLevel(logging.INFO)
 
@@ -1274,7 +1295,9 @@ def god_mode(request):
             ids = request.POST.getlist("ids")
             RejectionLog.objects.filter(id__in=ids).delete()
             messages.success(request, "Deleted entries")
-            logger.info("Deleted rejection log entries %s by %s", ids, request.user.username)
+            logger.info(
+                "Deleted rejection log entries %s by %s", ids, request.user.username
+            )
         if "block" in request.POST:
             ip = request.POST.get("block")
             BlockedIP.objects.get_or_create(ip_address=ip)
