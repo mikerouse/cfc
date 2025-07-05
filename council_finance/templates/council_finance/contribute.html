@@ -161,5 +161,11 @@ document.getElementById('reject-cancel').addEventListener('click', () => {
 document.getElementById('reject-reason').addEventListener('change', function() {
   document.getElementById('reject-details').classList.toggle('hidden', this.value !== 'other');
 });
+
+// Confirm moderation actions are present for debugging purposes.
+document.addEventListener('DOMContentLoaded', () => {
+  const actions = document.querySelectorAll('.edit-btn, .reject-btn');
+  console.log('Loaded moderation buttons:', actions.length);
+});
 </script>
 {% endblock %}

@@ -104,6 +104,16 @@
         });
     }
 
+    // Debug message to verify the God Mode link renders when expected.
+    document.addEventListener('DOMContentLoaded', () => {
+        const godLink = document.querySelector('a[href="{% url 'god_mode' %}"]');
+        if (godLink) {
+            console.log('God Mode link present in header');
+        } else {
+            console.log('God Mode link not rendered for this user');
+        }
+    });
+
 
     // Live search behaviour for the main header search box.
     const searchInput = document.getElementById('live-search-input');

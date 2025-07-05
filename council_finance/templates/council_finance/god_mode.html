@@ -52,5 +52,10 @@ if (checkAll) {
     document.querySelectorAll('input[name="ids"]').forEach(cb => cb.checked = checkAll.checked);
   });
 }
+
+// Log how many entries are shown to help with front-end debugging.
+document.addEventListener('DOMContentLoaded', () => {
+  console.log('God Mode loaded with', document.querySelectorAll('tbody tr').length, 'log rows');
+});
 </script>
 {% endblock %}
