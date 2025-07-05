@@ -1125,8 +1125,11 @@ def field_delete(request, slug):
 
 @login_required
 def god_mode(request):
-    """Tier 5 tool for reviewing the rejection log and blocking IPs."""
-    if request.user.profile.tier.level < 5:
+    """Tier 5 tool for reviewing the rejection log and blocking IPs.
+
+    Superusers are allowed to bypass the tier requirement entirely.
+    """
+    if not request.user.is_superuser and request.user.profile.tier.level < 5:
         raise Http404()
 
     # Configure a logger specifically for this view. The logger writes to
