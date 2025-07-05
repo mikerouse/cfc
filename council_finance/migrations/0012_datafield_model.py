@@ -7,6 +7,8 @@ PROTECTED_SLUGS = {
     "council_name": "Council Name",
     "population": "Population",
     "households": "Residential Households",
+    # Website addresses are shown prominently so this field should always exist
+    "council_website": "Website address",
 }
 
 

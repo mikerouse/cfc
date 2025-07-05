@@ -134,7 +134,9 @@ class CouncilAdmin(admin.ModelAdmin):
             slug=council_data["slug"],
             defaults={
                 "name": council_data.get("name", ""),
-                "website": council_data.get("website", ""),
+                # JSON imports use the ``council_website`` field name so store
+                # the value on the Council model's ``website`` attribute.
+                "website": council_data.get("council_website", ""),
                 "council_type": council_type,
             },
         )

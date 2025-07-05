@@ -24,7 +24,7 @@
       </span>
     {% else %}
       <span>
-        <a href="{% url 'council_detail' council.slug %}?tab=edit&focus=website" class="text-blue-700 hover:underline">Contribute website address</a>
+        <a href="{% url 'council_detail' council.slug %}?tab=edit&focus=council_website" class="text-blue-700 hover:underline">Contribute website address</a>
       </span>
     {% endif %}
   </div>
@@ -44,10 +44,10 @@
 <div class="text-center space-y-1 mb-4">
   {# Show the council's website or an input when editing #}
   {% if tab == 'edit' %}
-    <form id="field-website" method="post" action="{% url 'submit_contribution' %}" class="mb-2 {% if focus == 'website' %}bg-yellow-50 border border-yellow-300 p-2 rounded{% endif %}">
+    <form id="field-council_website" method="post" action="{% url 'submit_contribution' %}" class="mb-2 {% if focus == 'council_website' %}bg-yellow-50 border border-yellow-300 p-2 rounded{% endif %}">
       {% csrf_token %}
       <input type="hidden" name="council" value="{{ council.slug }}">
-      <input type="hidden" name="field" value="website">
+      <input type="hidden" name="field" value="council_website">
       <label class="block font-medium">Website address</label>
       <input type="url" name="value" value="{{ council.website }}" class="border rounded p-1 w-full">
       <button type="submit" class="mt-1 bg-blue-600 text-white px-2 py-1 rounded">Submit</button>

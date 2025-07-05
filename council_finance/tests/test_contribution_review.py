@@ -25,7 +25,7 @@ class ContributionReviewTests(TestCase):
             username="contrib", email="c@example.com", password="pw"
         )
         self.council = Council.objects.create(name="Test", slug="test")
-        self.field = DataField.objects.create(name="Website", slug="website")
+        self.field = DataField.objects.create(name="Website", slug="council_website")
         self.contrib = Contribution.objects.create(
             user=self.user,
             council=self.council,

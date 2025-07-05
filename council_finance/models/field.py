@@ -11,6 +11,9 @@ PROTECTED_SLUGS = {
     "council_name",
     "population",
     "households",
+    # Each council should always have a website address recorded, so this
+    # field is protected to prevent accidental removal.
+    "council_website",
 }
 
 class DataField(models.Model):

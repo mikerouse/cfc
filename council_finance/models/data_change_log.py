@@ -27,7 +27,7 @@ class DataChangeLog(models.Model):
 
     def rollback(self):
         """Revert the change stored in this log."""
-        if self.field.slug == "website":
+        if self.field.slug == "council_website":
             self.council.website = self.old_value
             self.council.save()
         elif self.field.slug == "council_type":

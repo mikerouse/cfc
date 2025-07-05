@@ -1024,7 +1024,7 @@ def _apply_contribution(contribution, user):
 
     old_value = contribution.old_value
 
-    if field.slug == "website":
+    if field.slug == "council_website":
         council.website = contribution.value
         council.save()
     elif field.slug == "council_type":
