@@ -62,7 +62,8 @@
                         {% recent_notifications 5 as notes %}
                         {% for note in notes %}
                         <div class="p-2 border-b {% if not note.read %}bg-gray-100{% endif %}">
-                            <p class="text-sm">{{ note.message }}</p>
+                            {# Notification messages may contain links, so mark as safe #}
+                            <p class="text-sm">{{ note.message|safe }}</p>
                             <p class="text-xs text-gray-500">{{ note.created|date:'SHORT_DATETIME_FORMAT' }}</p>
                         </div>
                         {% empty %}
