@@ -87,6 +87,10 @@
                     {{ form.headline.errors }}
                 </td>
             </tr>
+            <tr class="odd:bg-gray-50">
+                <th class="text-left p-2 border">{{ form.council_types.label_tag }}</th>
+                <td class="p-2 border">{{ form.council_types }} {{ form.council_types.errors }}</td>
+            </tr>
         </tbody>
     </table>
 <div class="mt-2 p-2 bg-gray-50 rounded" id="preview-card">

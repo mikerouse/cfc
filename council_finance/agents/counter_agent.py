@@ -18,6 +18,15 @@ class CounterAgent(AgentBase):
         council = Council.objects.get(slug=council_slug)
         year = FinancialYear.objects.get(label=year_label)
         counters = CounterDefinition.objects.all()
+        # Only include counters relevant to this council's type. When a counter
+        # has no types assigned it applies everywhere.
+        if council.council_type_id:
+            counters = counters.filter(
+                Q(council_types__isnull=True) | Q(council_types=council.council_type)
+            )
+        else:
+            counters = counters.filter(council_types__isnull=True)
+        counters = counters.distinct()
 
         # Preload all figures for this council/year. Any record flagged as
         # needing population is recorded so formulas referencing it can raise a

@@ -190,7 +190,14 @@ def council_detail(request, slug):
         # otherwise we fall back to the counter's show_by_default flag.
         head_list = []
         other_list = []
-        for counter in CounterDefinition.objects.all():
+        counters_qs = CounterDefinition.objects.all()
+        if council.council_type_id:
+            counters_qs = counters_qs.filter(
+                Q(council_types__isnull=True) | Q(council_types=council.council_type)
+            )
+        else:
+            counters_qs = counters_qs.filter(council_types__isnull=True)
+        for counter in counters_qs.distinct():
             enabled = override_map.get(counter.id, counter.show_by_default)
             if not enabled:
                 continue
@@ -1143,6 +1150,14 @@ def council_counters(request, slug):
         }
 
         ordered = list(CounterDefinition.objects.all())
+        if council.council_type_id:
+            ordered = [
+                c
+                for c in ordered
+                if not c.council_types.exists() or c.council_types.filter(id=council.council_type_id).exists()
+            ]
+        else:
+            ordered = [c for c in ordered if not c.council_types.exists()]
         ordered.sort(key=lambda c: (not c.headline, c.slug))
         for counter in ordered:
             enabled = override_map.get(counter.id, counter.show_by_default)

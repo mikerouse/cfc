@@ -43,6 +43,12 @@ class CounterDefinition(models.Model):
         default=False,
         help_text="Highlight this counter as a headline figure",
     )
+    # Restrict display to certain council types. Empty set implies all types.
+    council_types = models.ManyToManyField(
+        "council_finance.CouncilType",
+        blank=True,
+        help_text="Council types this counter applies to",
+    )
 
     def format_value(self, value: float) -> str:
         """Return the value formatted according to the settings."""
@@ -78,6 +84,11 @@ class CounterDefinition(models.Model):
 
     def __str__(self) -> str:
         return self.name
+
+    def display_council_types(self) -> str:
+        """Helper for admin list view."""
+        names = [ct.name for ct in self.council_types.all()]
+        return ", ".join(names) if names else "All"
 
 
 class CouncilCounter(models.Model):

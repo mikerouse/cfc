@@ -104,6 +104,15 @@ class CouncilListForm(forms.ModelForm):
 class CounterDefinitionForm(forms.ModelForm):
     """Edit counter definitions from the staff page."""
 
+    # Select which council types a counter should apply to. An empty selection
+    # means the counter is universal.
+    council_types = forms.ModelMultipleChoiceField(
+        queryset=None,
+        required=False,
+        widget=forms.SelectMultiple,
+        label="Council types",
+    )
+
     class Meta:
         model = CounterDefinition
         fields = [
@@ -117,6 +126,7 @@ class CounterDefinitionForm(forms.ModelForm):
             "friendly_format",
             "show_by_default",
             "headline",
+            "council_types",
         ]
         widgets = {
             "explanation": forms.Textarea(
@@ -132,11 +142,15 @@ class CounterDefinitionForm(forms.ModelForm):
             "friendly_format": forms.CheckboxInput(attrs={"class": "mr-2"}),
             "show_by_default": forms.CheckboxInput(attrs={"class": "mr-2"}),
             "headline": forms.CheckboxInput(attrs={"class": "mr-2"}),
+            "council_types": forms.SelectMultiple(attrs={"class": "border rounded p-1 w-full"}),
         }
 
     def __init__(self, *args, **kwargs):
         """Add Tailwind classes to text inputs for consistency."""
         super().__init__(*args, **kwargs)
+        from .models import CouncilType
+        # Ensure council type options reflect the current set without code changes.
+        self.fields["council_types"].queryset = CouncilType.objects.all()
         for name, field in self.fields.items():
             if name in ["show_currency", "friendly_format", "show_by_default", "headline"]:
                 continue
