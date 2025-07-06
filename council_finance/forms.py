@@ -5,6 +5,7 @@ from django.utils.crypto import get_random_string
 from .models import UserProfile
 from .models import CouncilList, Council
 from .models import CounterDefinition, DataField
+from .models.site_counter import SiteCounter, GroupCounter
 from .models.field import PROTECTED_SLUGS
 from django.contrib.contenttypes.models import ContentType
 
@@ -217,3 +218,76 @@ class DataFieldForm(forms.ModelForm):
             else:
                 field.widget.attrs.setdefault("class", "border rounded p-1 w-full")
         self.fields["dataset_type"].widget.attrs["id"] = "id_dataset_type"
+
+class SiteCounterForm(forms.ModelForm):
+    """Form for creating and editing site-wide counters."""
+
+    class Meta:
+        model = SiteCounter
+        fields = [
+            "name",
+            "slug",
+            "counter",
+            "duration",
+            "precision",
+            "show_currency",
+            "friendly_format",
+            "promote_homepage",
+        ]
+        widgets = {
+            "duration": forms.NumberInput(attrs={"min": 0, "class": "border rounded p-1 w-full"}),
+            "precision": forms.NumberInput(attrs={"min": 0, "class": "border rounded p-1 w-full"}),
+            "show_currency": forms.CheckboxInput(attrs={"class": "mr-2"}),
+            "friendly_format": forms.CheckboxInput(attrs={"class": "mr-2"}),
+            "promote_homepage": forms.CheckboxInput(attrs={"class": "mr-2"}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        for name, field in self.fields.items():
+            if isinstance(field.widget, forms.CheckboxInput):
+                continue
+            field.widget.attrs.setdefault("class", "border rounded p-1 w-full")
+
+
+class GroupCounterForm(forms.ModelForm):
+    """Form for creating and editing custom group counters."""
+
+    class Meta:
+        model = GroupCounter
+        fields = [
+            "name",
+            "slug",
+            "counter",
+            "councils",
+            "council_list",
+            "council_types",
+            "duration",
+            "precision",
+            "show_currency",
+            "friendly_format",
+            "promote_homepage",
+        ]
+        widgets = {
+            "councils": forms.SelectMultiple(attrs={"class": "border rounded p-1 w-full"}),
+            "council_list": forms.Select(attrs={"class": "border rounded p-1 w-full"}),
+            "council_types": forms.SelectMultiple(attrs={"class": "border rounded p-1 w-full"}),
+            "duration": forms.NumberInput(attrs={"min": 0, "class": "border rounded p-1 w-full"}),
+            "precision": forms.NumberInput(attrs={"min": 0, "class": "border rounded p-1 w-full"}),
+            "show_currency": forms.CheckboxInput(attrs={"class": "mr-2"}),
+            "friendly_format": forms.CheckboxInput(attrs={"class": "mr-2"}),
+            "promote_homepage": forms.CheckboxInput(attrs={"class": "mr-2"}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        from .models import Council, CouncilType, CouncilList
+
+        self.fields["councils"].queryset = Council.objects.all().order_by("name")
+        self.fields["council_types"].queryset = CouncilType.objects.all()
+        self.fields["council_list"].queryset = CouncilList.objects.all()
+        for name, field in self.fields.items():
+            if isinstance(field.widget, forms.CheckboxInput):
+                continue
+            field.widget.attrs.setdefault("class", "border rounded p-1 w-full")
+

@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block title %}Site Counters - Council Finance Counters{% endblock %}
+{% block content %}
+<h1 class="text-2xl font-bold mb-4">Site-Wide Counters</h1>
+{% include "council_finance/counter_tabs.html" with section='site' %}
+<p class="mb-4">Existing site-wide counters are shown below. Click a name to edit or use <strong>Add counter</strong> to create a new one.</p>
+<div class="mb-4 text-right">
+    <a href="{% url 'site_counter_add' %}" class="bg-blue-600 text-white px-4 py-1 rounded">Add counter</a>
+</div>
+<table class="min-w-full bg-white border">
+    <thead>
+        <tr>
+            <th class="border px-2 py-1 text-left">Name</th>
+            <th class="border px-2 py-1">Slug</th>
+            <th class="border px-2 py-1">Metric</th>
+            <th class="border px-2 py-1">Promote?</th>
+            <th class="border px-2 py-1">Actions</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for counter in counters %}
+        <tr class="odd:bg-gray-50">
+            <td class="border px-2 py-1"><a href="{% url 'site_counter_edit' counter.slug %}" class="text-blue-600 underline">{{ counter.name }}</a></td>
+            <td class="border px-2 py-1 text-center">{{ counter.slug }}</td>
+            <td class="border px-2 py-1 text-center">{{ counter.counter.name }}</td>
+            <td class="border px-2 py-1 text-center">{% if counter.promote_homepage %}Yes{% else %}No{% endif %}</td>
+            <td class="border px-2 py-1 text-center"><a href="{% url 'site_counter_edit' counter.slug %}" class="text-blue-600 underline">Edit</a></td>
+        </tr>
+        {% empty %}
+        <tr>
+            <td class="border px-2 py-1 text-center" colspan="5">No site-wide counters defined yet.</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endblock %}

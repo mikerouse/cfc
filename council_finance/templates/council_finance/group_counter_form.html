@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block title %}Edit Group Counter - Council Finance Counters{% endblock %}
+{% block content %}
+<h1 class="text-2xl font-bold mb-4">{{ form.instance.pk|yesno:'Edit Counter,Add Counter' }}</h1>
+{% include "council_finance/counter_tabs.html" with section='groups' %}
+<form method="post" class="space-y-4">
+    {% csrf_token %}
+    {{ form.non_field_errors }}
+    <table class="min-w-full border border-gray-300">
+        <tbody>
+            {% for field in form %}
+            <tr class="odd:bg-gray-50">
+                <th class="text-left p-2 border">{{ field.label_tag }}</th>
+                <td class="p-2 border flex items-center">{{ field }} {{ field.errors }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    <div class="mt-4">
+        <button class="bg-blue-600 text-white px-4 py-1 rounded" type="submit">Save</button>
+        <a href="{% url 'group_counter_list' %}" class="ml-2 underline">Cancel</a>
+    </div>
+</form>
+{% endblock %}

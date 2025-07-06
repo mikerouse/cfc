@@ -27,6 +27,8 @@ from .forms import (
     SignUpForm,
     CouncilListForm,
     CounterDefinitionForm,
+    SiteCounterForm,
+    GroupCounterForm,
     DataFieldForm,
     ProfileExtraForm,
 )
@@ -43,6 +45,8 @@ from .models import (
     CouncilList,
     CounterDefinition,
     CouncilCounter,
+    SiteCounter,
+    GroupCounter,
     SiteSetting,
     TrustTier,
     Contribution,
@@ -483,6 +487,84 @@ def counter_definition_list(request):
         request,
         "council_finance/counter_definition_list.html",
         {"counters": counters},
+    )
+
+
+@login_required
+def site_counter_list(request):
+    """List all site-wide counters."""
+
+    if not request.user.is_staff:
+        raise Http404()
+
+    from .models import SiteCounter
+
+    counters = SiteCounter.objects.all()
+    return render(
+        request,
+        "council_finance/site_counter_list.html",
+        {"counters": counters},
+    )
+
+
+@login_required
+def group_counter_list(request):
+    """List all custom group counters."""
+
+    if not request.user.is_staff:
+        raise Http404()
+
+    from .models import GroupCounter
+
+    counters = GroupCounter.objects.all()
+    return render(
+        request,
+        "council_finance/group_counter_list.html",
+        {"counters": counters},
+    )
+
+
+@login_required
+def site_counter_form(request, slug=None):
+    """Create or edit a site-wide counter."""
+
+    if not request.user.is_staff:
+        raise Http404()
+
+    from .models import SiteCounter
+
+    counter = get_object_or_404(SiteCounter, slug=slug) if slug else None
+    form = SiteCounterForm(request.POST or None, instance=counter)
+    if request.method == "POST" and form.is_valid():
+        form.save()
+        messages.success(request, "Counter saved.")
+        return redirect("site_counter_list")
+    return render(
+        request,
+        "council_finance/site_counter_form.html",
+        {"form": form},
+    )
+
+
+@login_required
+def group_counter_form(request, slug=None):
+    """Create or edit a custom group counter."""
+
+    if not request.user.is_staff:
+        raise Http404()
+
+    from .models import GroupCounter
+
+    counter = get_object_or_404(GroupCounter, slug=slug) if slug else None
+    form = GroupCounterForm(request.POST or None, instance=counter)
+    if request.method == "POST" and form.is_valid():
+        form.save()
+        messages.success(request, "Counter saved.")
+        return redirect("group_counter_list")
+    return render(
+        request,
+        "council_finance/group_counter_form.html",
+        {"form": form},
     )
 
 

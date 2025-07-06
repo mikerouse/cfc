@@ -1,0 +1,5 @@
+<div class="mb-4 border-b flex gap-4 text-sm">
+    <a href="{% url 'counter_definitions' %}" class="py-2 px-4 border-b-2 {% if section == 'council' %}border-blue-600 font-semibold{% else %}border-transparent{% endif %}">Council Counters</a>
+    <a href="{% url 'site_counter_list' %}" class="py-2 px-4 border-b-2 {% if section == 'site' %}border-blue-600 font-semibold{% else %}border-transparent{% endif %}">Site-Wide Counters</a>
+    <a href="{% url 'group_counter_list' %}" class="py-2 px-4 border-b-2 {% if section == 'groups' %}border-blue-600 font-semibold{% else %}border-transparent{% endif %}">Custom Group Counters</a>
+</div>
