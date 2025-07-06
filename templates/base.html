@@ -181,9 +181,10 @@
     </script>
     {% endif %}
 
-    {# Main content area. flex-1 allows the body flex layout to fill vertical
-       space and w-full ensures the element always spans the available width
-       while max-w-7xl caps the width on large screens. #}
+    <!-- Main content area.
+         flex-1 allows the body flex layout to fill vertical space and w-full
+         keeps the element at full width while max-w-7xl caps the size on
+         large screens. -->
     <main class="flex-1 max-w-7xl w-full mx-auto p-4">
         {% block content %}{% endblock %}
     </main>
