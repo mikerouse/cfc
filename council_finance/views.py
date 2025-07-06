@@ -130,7 +130,9 @@ def home(request):
                         value += float(data["value"])
                     except (TypeError, ValueError):
                         pass
-        promoted.append({"name": sc.name, "formatted": sc.counter.format_value(value)})
+        # Format the total using the settings from the SiteCounter instance
+        formatted = CounterDefinition.format_value(sc, value)
+        promoted.append({"name": sc.name, "formatted": formatted})
 
     for gc in GroupCounter.objects.filter(promote_homepage=True):
         councils = Council.objects.all()
@@ -151,7 +153,9 @@ def home(request):
                         value += float(data["value"])
                     except (TypeError, ValueError):
                         pass
-        promoted.append({"name": gc.name, "formatted": gc.counter.format_value(value)})
+        # Use the group counter's formatting preferences when displaying
+        formatted = CounterDefinition.format_value(gc, value)
+        promoted.append({"name": gc.name, "formatted": formatted})
 
     context = {
         "query": query,
@@ -761,9 +765,16 @@ def preview_aggregate_counter(request):
     counter_slug = request.GET.get("counter")
     if not counter_slug:
         return JsonResponse({"error": "Missing counter"}, status=400)
-    year_label = request.GET.get("year")
-    if year_label and year_label != "all":
-        year = FinancialYear.objects.filter(label=year_label).first()
+    year_param = request.GET.get("year")
+    if year_param and year_param != "all":
+        # ``year`` may be provided as either a label like "23/24" or the
+        # primary key value from the model. Handle both to keep the
+        # JavaScript simple.
+        year = (
+            FinancialYear.objects.filter(pk=year_param).first()
+            if str(year_param).isdigit()
+            else FinancialYear.objects.filter(label=year_param).first()
+        )
         if not year:
             return JsonResponse({"error": "Invalid data"}, status=400)
         years = [year]
@@ -801,13 +812,20 @@ def preview_aggregate_counter(request):
                 except (TypeError, ValueError):
                     pass
 
-    dummy = type("D", (), {
-        "precision": int(request.GET.get("precision", 0)),
-        "show_currency": request.GET.get("show_currency", "true") == "true",
-        "friendly_format": request.GET.get("friendly_format", "false") == "true",
-    })()
+    dummy = type(
+        "D",
+        (),
+        {
+            "precision": int(request.GET.get("precision", 0)),
+            "show_currency": request.GET.get("show_currency", "true") == "true",
+            "friendly_format": request.GET.get("friendly_format", "false") == "true",
+        },
+    )()
 
-    formatted = counter.format_value(dummy, total)
+    # ``format_value`` lives on ``CounterDefinition`` and expects the instance
+    # to provide precision, show_currency and friendly_format attributes.
+    # Using the dummy object lets us preview arbitrary settings.
+    formatted = CounterDefinition.format_value(dummy, total)
     return JsonResponse({"value": total, "formatted": formatted})
 
 
