@@ -225,6 +225,7 @@ class SiteCounterForm(forms.ModelForm):
         fields = [
             "name",
             "counter",
+            "year",
             "duration",
             "precision",
             "show_currency",
@@ -232,6 +233,7 @@ class SiteCounterForm(forms.ModelForm):
             "promote_homepage",
         ]
         widgets = {
+            "year": forms.Select(attrs={"class": "border rounded p-1 w-full"}),
             "duration": forms.NumberInput(attrs={"min": 0, "class": "border rounded p-1 w-full"}),
             "precision": forms.NumberInput(attrs={"min": 0, "class": "border rounded p-1 w-full"}),
             "show_currency": forms.CheckboxInput(attrs={"class": "mr-2"}),
@@ -241,6 +243,8 @@ class SiteCounterForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        from .models import FinancialYear
+        self.fields["year"].queryset = FinancialYear.objects.order_by("-label")
         for name, field in self.fields.items():
             if isinstance(field.widget, forms.CheckboxInput):
                 continue
@@ -255,6 +259,7 @@ class GroupCounterForm(forms.ModelForm):
         fields = [
             "name",
             "counter",
+            "year",
             "councils",
             "council_list",
             "council_types",
@@ -268,6 +273,7 @@ class GroupCounterForm(forms.ModelForm):
             "councils": forms.SelectMultiple(attrs={"class": "border rounded p-1 w-full"}),
             "council_list": forms.Select(attrs={"class": "border rounded p-1 w-full"}),
             "council_types": forms.SelectMultiple(attrs={"class": "border rounded p-1 w-full"}),
+            "year": forms.Select(attrs={"class": "border rounded p-1 w-full"}),
             "duration": forms.NumberInput(attrs={"min": 0, "class": "border rounded p-1 w-full"}),
             "precision": forms.NumberInput(attrs={"min": 0, "class": "border rounded p-1 w-full"}),
             "show_currency": forms.CheckboxInput(attrs={"class": "mr-2"}),
@@ -278,10 +284,11 @@ class GroupCounterForm(forms.ModelForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         from .models import Council, CouncilType, CouncilList
-
+        from .models import FinancialYear
         self.fields["councils"].queryset = Council.objects.all().order_by("name")
         self.fields["council_types"].queryset = CouncilType.objects.all()
         self.fields["council_list"].queryset = CouncilList.objects.all()
+        self.fields["year"].queryset = FinancialYear.objects.order_by("-label")
         for name, field in self.fields.items():
             if isinstance(field.widget, forms.CheckboxInput):
                 continue

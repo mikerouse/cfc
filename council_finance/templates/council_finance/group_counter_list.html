@@ -13,6 +13,7 @@
             <th class="border px-2 py-1 text-left">Name</th>
             <th class="border px-2 py-1">Slug</th>
             <th class="border px-2 py-1">Metric</th>
+            <th class="border px-2 py-1">Year</th>
             <th class="border px-2 py-1">Promote?</th>
             <th class="border px-2 py-1">Actions</th>
         </tr>
@@ -23,6 +24,7 @@
             <td class="border px-2 py-1"><a href="{% url 'group_counter_edit' counter.slug %}" class="text-blue-600 underline">{{ counter.name }}</a></td>
             <td class="border px-2 py-1 text-center">{{ counter.slug }}</td>
             <td class="border px-2 py-1 text-center">{{ counter.counter.name }}</td>
+            <td class="border px-2 py-1 text-center">{% if counter.year %}{{ counter.year.label }}{% else %}All{% endif %}</td>
             <td class="border px-2 py-1 text-center">{% if counter.promote_homepage %}Yes{% else %}No{% endif %}</td>
             <td class="border px-2 py-1 text-center"><a href="{% url 'group_counter_edit' counter.slug %}" class="text-blue-600 underline">Edit</a></td>
         </tr>

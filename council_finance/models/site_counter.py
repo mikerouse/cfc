@@ -12,6 +12,13 @@ class SiteCounter(models.Model):
     name = models.CharField(max_length=100)
     slug = models.SlugField(unique=True)
     counter = models.ForeignKey(CounterDefinition, on_delete=models.CASCADE)
+    year = models.ForeignKey(
+        'FinancialYear',
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        help_text="Limit to a single year or leave blank to sum all years",
+    )
     duration = models.PositiveIntegerField(default=2000)
     precision = models.PositiveIntegerField(default=0)
     show_currency = models.BooleanField(default=True, help_text="Prefix with £ and include comma separators")
@@ -45,6 +52,13 @@ class GroupCounter(models.Model):
     councils = models.ManyToManyField(Council, blank=True)
     council_list = models.ForeignKey(CouncilList, null=True, blank=True, on_delete=models.SET_NULL)
     council_types = models.ManyToManyField(CouncilType, blank=True)
+    year = models.ForeignKey(
+        "FinancialYear",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        help_text="Limit to a single year or leave blank to sum all years",
+    )
     duration = models.PositiveIntegerField(default=2000)
     precision = models.PositiveIntegerField(default=0)
     show_currency = models.BooleanField(default=True, help_text="Prefix with £ and include comma separators")

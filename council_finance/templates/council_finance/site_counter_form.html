@@ -29,6 +29,8 @@
 async function updatePreview() {
     const url = new URL('{% url "preview_aggregate_counter" %}', window.location.origin);
     url.searchParams.append('counter', document.getElementById('id_counter').value);
+    const year = document.getElementById('id_year');
+    if (year) url.searchParams.append('year', year.value);
     url.searchParams.append('precision', document.getElementById('id_precision').value);
     url.searchParams.append('show_currency', document.getElementById('id_show_currency').checked);
     url.searchParams.append('friendly_format', document.getElementById('id_friendly_format').checked);
@@ -36,7 +38,7 @@ async function updatePreview() {
     const data = await resp.json();
     document.getElementById('preview-value').textContent = data.formatted || data.error || '0';
 }
-['id_counter','id_precision','id_show_currency','id_friendly_format'].forEach(id => {
+['id_counter','id_year','id_precision','id_show_currency','id_friendly_format'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.addEventListener('change', updatePreview);
 });

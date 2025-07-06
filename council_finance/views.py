@@ -117,16 +117,19 @@ def home(request):
     from .agents.counter_agent import CounterAgent
 
     agent = CounterAgent()
+    all_years = list(FinancialYear.objects.order_by("-label"))
     for sc in SiteCounter.objects.filter(promote_homepage=True):
         value = 0
+        years = [sc.year] if sc.year else all_years
         for council in Council.objects.all():
-            res = agent.run(council_slug=council.slug, year_label=latest_year.label if latest_year else None)
-            data = res.get(sc.counter.slug)
-            if data and data.get("value") is not None:
-                try:
-                    value += float(data["value"])
-                except (TypeError, ValueError):
-                    pass
+            for yr in years:
+                res = agent.run(council_slug=council.slug, year_label=yr.label)
+                data = res.get(sc.counter.slug)
+                if data and data.get("value") is not None:
+                    try:
+                        value += float(data["value"])
+                    except (TypeError, ValueError):
+                        pass
         promoted.append({"name": sc.name, "formatted": sc.counter.format_value(value)})
 
     for gc in GroupCounter.objects.filter(promote_homepage=True):
@@ -138,14 +141,16 @@ def home(request):
         if gc.council_types.exists():
             councils = councils.filter(council_type__in=gc.council_types.all())
         value = 0
+        years = [gc.year] if gc.year else all_years
         for council in councils:
-            res = agent.run(council_slug=council.slug, year_label=latest_year.label if latest_year else None)
-            data = res.get(gc.counter.slug)
-            if data and data.get("value") is not None:
-                try:
-                    value += float(data["value"])
-                except (TypeError, ValueError):
-                    pass
+            for yr in years:
+                res = agent.run(council_slug=council.slug, year_label=yr.label)
+                data = res.get(gc.counter.slug)
+                if data and data.get("value") is not None:
+                    try:
+                        value += float(data["value"])
+                    except (TypeError, ValueError):
+                        pass
         promoted.append({"name": gc.name, "formatted": gc.counter.format_value(value)})
 
     context = {
@@ -757,15 +762,15 @@ def preview_aggregate_counter(request):
     if not counter_slug:
         return JsonResponse({"error": "Missing counter"}, status=400)
     year_label = request.GET.get("year")
-    year = (
-        FinancialYear.objects.filter(label=year_label).first()
-        if year_label
-        else None
-    )
-    if not year:
-        year = FinancialYear.objects.order_by("-label").first()
+    if year_label and year_label != "all":
+        year = FinancialYear.objects.filter(label=year_label).first()
+        if not year:
+            return JsonResponse({"error": "Invalid data"}, status=400)
+        years = [year]
+    else:
+        years = list(FinancialYear.objects.order_by("-label"))
     counter = CounterDefinition.objects.filter(slug=counter_slug).first()
-    if not counter or not year:
+    if not counter or not years:
         return JsonResponse({"error": "Invalid data"}, status=400)
 
     councils = Council.objects.all()
@@ -787,13 +792,14 @@ def preview_aggregate_counter(request):
     agent = CounterAgent()
     total = 0
     for c in councils:
-        values = agent.run(council_slug=c.slug, year_label=year.label)
-        result = values.get(counter_slug)
-        if result and result.get("value") is not None:
-            try:
-                total += float(result["value"])
-            except (TypeError, ValueError):
-                pass
+        for yr in years:
+            values = agent.run(council_slug=c.slug, year_label=yr.label)
+            result = values.get(counter_slug)
+            if result and result.get("value") is not None:
+                try:
+                    total += float(result["value"])
+                except (TypeError, ValueError):
+                    pass
 
     dummy = type("D", (), {
         "precision": int(request.GET.get("precision", 0)),
