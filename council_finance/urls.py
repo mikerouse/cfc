@@ -67,33 +67,33 @@ urlpatterns = [
     path("terms/", views.terms_of_use, name="terms_of_use"),
     path("privacy/", views.privacy_cookies, name="privacy_cookies"),
     path("corrections/", views.corrections, name="corrections"),
-    # Staff-only views for managing counters
-    path("staff/counters/", views.counter_definition_list, name="counter_definitions"),
-    path("staff/counters/site/", views.site_counter_list, name="site_counter_list"),
-    path("staff/counters/site/add/", views.site_counter_form, name="site_counter_add"),
-    path("staff/counters/site/<slug:slug>/", views.site_counter_form, name="site_counter_edit"),
-    path("staff/counters/groups/", views.group_counter_list, name="group_counter_list"),
-    path("staff/counters/groups/add/", views.group_counter_form, name="group_counter_add"),
-    path("staff/counters/groups/<slug:slug>/", views.group_counter_form, name="group_counter_edit"),
-    path("staff/counters/add/", views.counter_definition_form, name="counter_add"),
+    # Management views for counters
+    path("manage/counters/", views.counter_definition_list, name="counter_definitions"),
+    path("manage/counters/site/", views.site_counter_list, name="site_counter_list"),
+    path("manage/counters/site/add/", views.site_counter_form, name="site_counter_add"),
+    path("manage/counters/site/<slug:slug>/", views.site_counter_form, name="site_counter_edit"),
+    path("manage/counters/groups/", views.group_counter_list, name="group_counter_list"),
+    path("manage/counters/groups/add/", views.group_counter_form, name="group_counter_add"),
+    path("manage/counters/groups/<slug:slug>/", views.group_counter_form, name="group_counter_edit"),
+    path("manage/counters/add/", views.counter_definition_form, name="counter_add"),
     # The preview endpoint must appear before the dynamic slug path so Django
     # doesn't interpret "preview" as a slug. Without this ordering a request to
-    # "/staff/counters/preview/" would be routed to the counter edit view and
+    # "/manage/counters/preview/" would be routed to the counter edit view and
     # return a 404 if no counter actually has the slug "preview".
     path(
-        "staff/counters/preview/",
+        "manage/counters/preview/",
         views.preview_counter_value,
         name="preview_counter_value",
     ),
     path(
-        "staff/counters/<slug:slug>/",
+        "manage/counters/<slug:slug>/",
         views.counter_definition_form,
         name="counter_edit",
     ),
-    # Staff views for managing fields
-    path("staff/fields/", views.field_list, name="field_list"),
-    path("staff/fields/add/", views.field_form, name="field_add"),
-    path("staff/fields/<slug:slug>/", views.field_form, name="field_edit"),
-    path("staff/fields/<slug:slug>/delete/", views.field_delete, name="field_delete"),
+    # Management views for fields
+    path("manage/fields/", views.field_list, name="field_list"),
+    path("manage/fields/add/", views.field_form, name="field_add"),
+    path("manage/fields/<slug:slug>/", views.field_form, name="field_edit"),
+    path("manage/fields/<slug:slug>/delete/", views.field_delete, name="field_delete"),
     path("god-mode/", views.god_mode, name="god_mode"),
 ]

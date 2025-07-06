@@ -34,6 +34,9 @@ from .forms import (
 )
 from django.conf import settings
 
+# Minimum trust tier level required to access management views.
+MANAGEMENT_TIER = 4
+
 from .models import DataField
 from .models import (
     Council,
@@ -479,7 +482,7 @@ def corrections(request):
 def counter_definition_list(request):
     """Display a list of existing counters for quick management."""
 
-    if not request.user.is_staff:
+    if not request.user.is_superuser and request.user.profile.tier.level < MANAGEMENT_TIER:
         raise Http404()
 
     counters = CounterDefinition.objects.all()
@@ -494,7 +497,7 @@ def counter_definition_list(request):
 def site_counter_list(request):
     """List all site-wide counters."""
 
-    if not request.user.is_staff:
+    if not request.user.is_superuser and request.user.profile.tier.level < MANAGEMENT_TIER:
         raise Http404()
 
     from .models import SiteCounter
@@ -511,7 +514,7 @@ def site_counter_list(request):
 def group_counter_list(request):
     """List all custom group counters."""
 
-    if not request.user.is_staff:
+    if not request.user.is_superuser and request.user.profile.tier.level < MANAGEMENT_TIER:
         raise Http404()
 
     from .models import GroupCounter
@@ -528,7 +531,7 @@ def group_counter_list(request):
 def site_counter_form(request, slug=None):
     """Create or edit a site-wide counter."""
 
-    if not request.user.is_staff:
+    if not request.user.is_superuser and request.user.profile.tier.level < MANAGEMENT_TIER:
         raise Http404()
 
     from .models import SiteCounter
@@ -550,7 +553,7 @@ def site_counter_form(request, slug=None):
 def group_counter_form(request, slug=None):
     """Create or edit a custom group counter."""
 
-    if not request.user.is_staff:
+    if not request.user.is_superuser and request.user.profile.tier.level < MANAGEMENT_TIER:
         raise Http404()
 
     from .models import GroupCounter
@@ -572,7 +575,7 @@ def group_counter_form(request, slug=None):
 def counter_definition_form(request, slug=None):
     """Create or edit a single counter definition, with live preview for selected council."""
 
-    if not request.user.is_staff:
+    if not request.user.is_superuser and request.user.profile.tier.level < MANAGEMENT_TIER:
         raise Http404()
 
     from .models import Council
@@ -1290,8 +1293,8 @@ def council_counters(request, slug):
 
 @login_required
 def field_list(request):
-    """List all data fields for staff management."""
-    if not request.user.is_staff:
+    """List all data fields for management."""
+    if not request.user.is_superuser and request.user.profile.tier.level < MANAGEMENT_TIER:
         raise Http404()
     fields = DataField.objects.all()
     return render(request, "council_finance/field_list.html", {"fields": fields})
@@ -1300,7 +1303,7 @@ def field_list(request):
 @login_required
 def field_form(request, slug=None):
     """Create or edit a data field."""
-    if not request.user.is_staff:
+    if not request.user.is_superuser and request.user.profile.tier.level < MANAGEMENT_TIER:
         raise Http404()
     field = get_object_or_404(DataField, slug=slug) if slug else None
     form = DataFieldForm(request.POST or None, instance=field)
@@ -1314,7 +1317,7 @@ def field_form(request, slug=None):
 @login_required
 def field_delete(request, slug):
     """Delete a data field unless it's protected."""
-    if not request.user.is_staff:
+    if not request.user.is_superuser and request.user.profile.tier.level < MANAGEMENT_TIER:
         raise Http404()
     field = get_object_or_404(DataField, slug=slug)
     if field.is_protected:

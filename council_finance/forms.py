@@ -103,7 +103,7 @@ class CouncilListForm(forms.ModelForm):
 
 
 class CounterDefinitionForm(forms.ModelForm):
-    """Edit counter definitions from the staff page."""
+    """Edit counter definitions from the management pages."""
 
     # Select which council types a counter should apply to. An empty selection
     # means the counter is universal.
@@ -170,8 +170,8 @@ class DataFieldForm(forms.ModelForm):
         label="Dataset",
         help_text="Model used for list options",
     )
-    # Allow multiple council types to be selected so staff can limit where a
-    # field appears. When no types are chosen the field applies to all councils.
+    # Allow multiple council types so managers can limit where a field appears.
+    # When no types are chosen the field applies to all councils.
     council_types = forms.ModelMultipleChoiceField(
         queryset=None,
         required=False,
@@ -202,7 +202,7 @@ class DataFieldForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        # Prevent editing the slug of protected fields so staff can't rename
+        # Prevent editing the slug of protected fields so managers can't rename
         # important built-in definitions. The value itself can still change.
         if self.instance and self.instance.pk and self.instance.slug in PROTECTED_SLUGS:
             self.fields["slug"].disabled = True
