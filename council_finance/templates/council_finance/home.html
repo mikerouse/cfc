@@ -4,7 +4,9 @@
 {% block content %}
 <div id="homepage-search" class="text-center my-8">
     <form method="get" action="{% url 'home' %}" class="my-4 flex gap-2">
-        <input type="text" name="q" value="{{ query }}" placeholder="Search councils" class="border rounded px-2 py-1" />
+        {# Allow the search field to expand and occupy the remaining space so it
+           stretches across the page on larger screens. #}
+        <input type="text" name="q" value="{{ query }}" placeholder="Search councils" class="border rounded px-2 py-1 flex-grow w-full" />
         <button type="submit" class="bg-blue-600 text-white px-4 py-1 rounded">Search</button>
     </form>
 </div>
@@ -41,6 +43,9 @@
                 </div>
             {% endfor %}
         </div>
+        {# Hidden element ensures Tailwind's JIT engine generates utility
+           classes for all column spans used by the resize script. #}
+        <div class="hidden sm:col-span-1 sm:col-span-2 sm:col-span-3"></div>
     {% endif %}
 </div>
 <ul class="list-disc pl-5">
