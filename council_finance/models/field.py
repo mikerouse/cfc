@@ -72,7 +72,17 @@ class DataField(models.Model):
         return self.slug in PROTECTED_SLUGS
 
     def save(self, *args, **kwargs):
-        """Prevent renaming protected slugs."""
+        """Prevent renaming protected slugs and auto-generate when blank."""
+        if not self.slug:
+            from django.utils.text import slugify
+
+            base = slugify(self.name)
+            slug = base
+            i = 1
+            while DataField.objects.filter(slug=slug).exclude(pk=self.pk).exists():
+                slug = f"{base}-{i}"
+                i += 1
+            self.slug = slug
         if self.pk:
             original = DataField.objects.get(pk=self.pk)
             if original.slug in PROTECTED_SLUGS and original.slug != self.slug:

@@ -19,6 +19,7 @@ from .pending_profile_change import PendingProfileChange
 from .notification import Notification
 from .council_list import CouncilList
 from .counter import CounterDefinition, CouncilCounter
+from .site_counter import SiteCounter, GroupCounter
 from .setting import SiteSetting
 
 __all__ = [
@@ -42,5 +43,7 @@ __all__ = [
     'CouncilList',
     'CounterDefinition',
     'CouncilCounter',
+    'SiteCounter',
+    'GroupCounter',
     'SiteSetting',
 ]

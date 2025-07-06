@@ -5,6 +5,7 @@ from django.utils.crypto import get_random_string
 from .models import UserProfile
 from .models import CouncilList, Council
 from .models import CounterDefinition, DataField
+from .models.site_counter import SiteCounter, GroupCounter
 from .models.field import PROTECTED_SLUGS
 from django.contrib.contenttypes.models import ContentType
 
@@ -102,7 +103,7 @@ class CouncilListForm(forms.ModelForm):
 
 
 class CounterDefinitionForm(forms.ModelForm):
-    """Edit counter definitions from the staff page."""
+    """Edit counter definitions from the management pages."""
 
     # Select which council types a counter should apply to. An empty selection
     # means the counter is universal.
@@ -117,7 +118,6 @@ class CounterDefinitionForm(forms.ModelForm):
         model = CounterDefinition
         fields = [
             "name",
-            "slug",
             "formula",
             "explanation",
             "duration",
@@ -169,8 +169,8 @@ class DataFieldForm(forms.ModelForm):
         label="Dataset",
         help_text="Model used for list options",
     )
-    # Allow multiple council types to be selected so staff can limit where a
-    # field appears. When no types are chosen the field applies to all councils.
+    # Allow multiple council types so managers can limit where a field appears.
+    # When no types are chosen the field applies to all councils.
     council_types = forms.ModelMultipleChoiceField(
         queryset=None,
         required=False,
@@ -182,7 +182,6 @@ class DataFieldForm(forms.ModelForm):
         model = DataField
         fields = [
             "name",
-            "slug",
             "category",
             "explanation",
             "content_type",
@@ -201,9 +200,9 @@ class DataFieldForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        # Prevent editing the slug of protected fields so staff can't rename
+        # Prevent editing the slug of protected fields so managers can't rename
         # important built-in definitions. The value itself can still change.
-        if self.instance and self.instance.pk and self.instance.slug in PROTECTED_SLUGS:
+        if "slug" in self.fields and self.instance and self.instance.pk and self.instance.slug in PROTECTED_SLUGS:
             self.fields["slug"].disabled = True
         # Populate the council type choices dynamically so any new types appear
         # automatically without code changes.
@@ -217,3 +216,91 @@ class DataFieldForm(forms.ModelForm):
             else:
                 field.widget.attrs.setdefault("class", "border rounded p-1 w-full")
         self.fields["dataset_type"].widget.attrs["id"] = "id_dataset_type"
+
+class SiteCounterForm(forms.ModelForm):
+    """Form for creating and editing site-wide counters."""
+
+    class Meta:
+        model = SiteCounter
+        fields = [
+            "name",
+            "explanation",
+            "counter",
+            "year",
+            "columns",
+            "duration",
+            "precision",
+            "show_currency",
+            "friendly_format",
+            "promote_homepage",
+        ]
+        widgets = {
+            "explanation": forms.Textarea(
+                attrs={"rows": 2, "class": "border rounded p-1 w-full"}
+            ),
+            "year": forms.Select(attrs={"class": "border rounded p-1 w-full"}),
+            "duration": forms.NumberInput(attrs={"min": 0, "class": "border rounded p-1 w-full"}),
+            "precision": forms.NumberInput(attrs={"min": 0, "class": "border rounded p-1 w-full"}),
+            "show_currency": forms.CheckboxInput(attrs={"class": "mr-2"}),
+            "friendly_format": forms.CheckboxInput(attrs={"class": "mr-2"}),
+            "promote_homepage": forms.CheckboxInput(attrs={"class": "mr-2"}),
+            "columns": forms.Select(attrs={"class": "border rounded p-1 w-full"}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        from .models import FinancialYear
+        # Exclude the special "general" year used for aggregated data and
+        # present an explicit option for using all years combined. Setting the
+        # ``empty_label`` ensures the first drop-down choice reads nicely.
+        self.fields["year"].queryset = FinancialYear.objects.order_by("-label").exclude(label__iexact="general")
+        self.fields["year"].empty_label = "All Available Years"
+        for name, field in self.fields.items():
+            if isinstance(field.widget, forms.CheckboxInput):
+                continue
+            field.widget.attrs.setdefault("class", "border rounded p-1 w-full")
+
+
+class GroupCounterForm(forms.ModelForm):
+    """Form for creating and editing custom group counters."""
+
+    class Meta:
+        model = GroupCounter
+        fields = [
+            "name",
+            "counter",
+            "year",
+            "councils",
+            "council_list",
+            "council_types",
+            "duration",
+            "precision",
+            "show_currency",
+            "friendly_format",
+            "promote_homepage",
+        ]
+        widgets = {
+            "councils": forms.SelectMultiple(attrs={"class": "border rounded p-1 w-full"}),
+            "council_list": forms.Select(attrs={"class": "border rounded p-1 w-full"}),
+            "council_types": forms.SelectMultiple(attrs={"class": "border rounded p-1 w-full"}),
+            "year": forms.Select(attrs={"class": "border rounded p-1 w-full"}),
+            "duration": forms.NumberInput(attrs={"min": 0, "class": "border rounded p-1 w-full"}),
+            "precision": forms.NumberInput(attrs={"min": 0, "class": "border rounded p-1 w-full"}),
+            "show_currency": forms.CheckboxInput(attrs={"class": "mr-2"}),
+            "friendly_format": forms.CheckboxInput(attrs={"class": "mr-2"}),
+            "promote_homepage": forms.CheckboxInput(attrs={"class": "mr-2"}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        from .models import Council, CouncilType, CouncilList
+        from .models import FinancialYear
+        self.fields["councils"].queryset = Council.objects.all().order_by("name")
+        self.fields["council_types"].queryset = CouncilType.objects.all()
+        self.fields["council_list"].queryset = CouncilList.objects.all()
+        self.fields["year"].queryset = FinancialYear.objects.order_by("-label")
+        for name, field in self.fields.items():
+            if isinstance(field.widget, forms.CheckboxInput):
+                continue
+            field.widget.attrs.setdefault("class", "border rounded p-1 w-full")
+

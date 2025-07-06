@@ -50,6 +50,20 @@ class CounterDefinition(models.Model):
         help_text="Council types this counter applies to",
     )
 
+    def save(self, *args, **kwargs):
+        """Auto-generate a slug from the name when missing."""
+        if not self.slug:
+            from django.utils.text import slugify
+
+            base = slugify(self.name)
+            slug = base
+            i = 1
+            while CounterDefinition.objects.filter(slug=slug).exclude(pk=self.pk).exists():
+                slug = f"{base}-{i}"
+                i += 1
+            self.slug = slug
+        super().save(*args, **kwargs)
+
     def format_value(self, value: float) -> str:
         """Return the value formatted according to the settings."""
         # This helper keeps formatting rules in one place so templates and

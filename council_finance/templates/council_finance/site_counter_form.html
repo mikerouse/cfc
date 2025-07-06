@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% block title %}Edit Site Counter - Council Finance Counters{% endblock %}
+{% block content %}
+<h1 class="text-2xl font-bold mb-4">{{ form.instance.pk|yesno:'Edit Counter,Add Counter' }}</h1>
+{% include "council_finance/counter_tabs.html" with section='site' %}
+<form method="post" class="space-y-4">
+    {% csrf_token %}
+    {{ form.non_field_errors }}
+    <table class="min-w-full border border-gray-300">
+        <tbody>
+            {% for field in form %}
+            <tr class="odd:bg-gray-50">
+                <th class="text-left p-2 border">{{ field.label_tag }}</th>
+                <td class="p-2 border flex items-center">{{ field }} {{ field.errors }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    <div class="p-2 bg-gray-50 rounded" id="preview-card">
+        <p class="text-sm text-gray-600 mb-1">Preview</p>
+        <p class="text-lg font-bold" id="preview-value">0</p>
+    </div>
+    <div class="mt-4">
+        <button class="bg-blue-600 text-white px-4 py-1 rounded" type="submit">Save</button>
+        <a href="{% url 'site_counter_list' %}" class="ml-2 underline">Cancel</a>
+    </div>
+</form>
+<script>
+async function updatePreview() {
+    const url = new URL('{% url "preview_aggregate_counter" %}', window.location.origin);
+    url.searchParams.append('counter', document.getElementById('id_counter').value);
+    const year = document.getElementById('id_year');
+    if (year) url.searchParams.append('year', year.value);
+    url.searchParams.append('precision', document.getElementById('id_precision').value);
+    url.searchParams.append('show_currency', document.getElementById('id_show_currency').checked);
+    url.searchParams.append('friendly_format', document.getElementById('id_friendly_format').checked);
+    const resp = await fetch(url, {headers: {'X-Requested-With': 'XMLHttpRequest'}});
+    const data = await resp.json();
+    document.getElementById('preview-value').textContent = data.formatted || data.error || '0';
+}
+['id_counter','id_year','id_precision','id_show_currency','id_friendly_format'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.addEventListener('change', updatePreview);
+});
+document.addEventListener('DOMContentLoaded', updatePreview);
+</script>
+{% endblock %}

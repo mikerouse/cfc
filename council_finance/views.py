@@ -27,10 +27,15 @@ from .forms import (
     SignUpForm,
     CouncilListForm,
     CounterDefinitionForm,
+    SiteCounterForm,
+    GroupCounterForm,
     DataFieldForm,
     ProfileExtraForm,
 )
 from django.conf import settings
+
+# Minimum trust tier level required to access management views.
+MANAGEMENT_TIER = 4
 
 from .models import DataField
 from .models import (
@@ -43,6 +48,8 @@ from .models import (
     CouncilList,
     CounterDefinition,
     CouncilCounter,
+    SiteCounter,
+    GroupCounter,
     SiteSetting,
     TrustTier,
     Contribution,
@@ -105,10 +112,78 @@ def home(request):
         # Fallback when no figures are loaded
         total_debt = 0
 
+    promoted = []
+    from .models import SiteCounter, GroupCounter
+    from .agents.counter_agent import CounterAgent
+
+    agent = CounterAgent()
+    all_years = list(FinancialYear.objects.order_by("-label"))
+    for sc in SiteCounter.objects.filter(promote_homepage=True):
+        value = 0
+        years = [sc.year] if sc.year else all_years
+        for council in Council.objects.all():
+            for yr in years:
+                res = agent.run(council_slug=council.slug, year_label=yr.label)
+                data = res.get(sc.counter.slug)
+                if data and data.get("value") is not None:
+                    try:
+                        value += float(data["value"])
+                    except (TypeError, ValueError):
+                        pass
+        # Format the total using the settings from the SiteCounter instance
+        formatted = CounterDefinition.format_value(sc, value)
+        promoted.append({
+            "slug": sc.slug,
+            "name": sc.name,
+            "formatted": formatted,
+            "raw": value,
+            "duration": sc.duration,
+            "precision": sc.precision,
+            "show_currency": sc.show_currency,
+            "friendly_format": sc.friendly_format,
+            "explanation": sc.explanation,
+            "columns": sc.columns,
+        })
+
+    for gc in GroupCounter.objects.filter(promote_homepage=True):
+        councils = Council.objects.all()
+        if gc.councils.exists():
+            councils = gc.councils.all()
+        if gc.council_list_id:
+            councils = councils & gc.council_list.councils.all()
+        if gc.council_types.exists():
+            councils = councils.filter(council_type__in=gc.council_types.all())
+        value = 0
+        years = [gc.year] if gc.year else all_years
+        for council in councils:
+            for yr in years:
+                res = agent.run(council_slug=council.slug, year_label=yr.label)
+                data = res.get(gc.counter.slug)
+                if data and data.get("value") is not None:
+                    try:
+                        value += float(data["value"])
+                    except (TypeError, ValueError):
+                        pass
+        # Use the group counter's formatting preferences when displaying
+        formatted = CounterDefinition.format_value(gc, value)
+        promoted.append({
+            "slug": gc.slug,
+            "name": gc.name,
+            "formatted": formatted,
+            "raw": value,
+            "duration": gc.duration,
+            "precision": gc.precision,
+            "show_currency": gc.show_currency,
+            "friendly_format": gc.friendly_format,
+            "explanation": "",  # groups currently lack custom explanations
+            "columns": 3,  # groups default to full width for now
+        })
+
     context = {
         "query": query,
         "councils": councils,
         "total_debt": total_debt,
+        "promoted_counters": promoted,
     }
 
     return render(request, "council_finance/home.html", context)
@@ -475,7 +550,7 @@ def corrections(request):
 def counter_definition_list(request):
     """Display a list of existing counters for quick management."""
 
-    if not request.user.is_staff:
+    if not request.user.is_superuser and request.user.profile.tier.level < MANAGEMENT_TIER:
         raise Http404()
 
     counters = CounterDefinition.objects.all()
@@ -487,10 +562,88 @@ def counter_definition_list(request):
 
 
 @login_required
+def site_counter_list(request):
+    """List all site-wide counters."""
+
+    if not request.user.is_superuser and request.user.profile.tier.level < MANAGEMENT_TIER:
+        raise Http404()
+
+    from .models import SiteCounter
+
+    counters = SiteCounter.objects.all()
+    return render(
+        request,
+        "council_finance/site_counter_list.html",
+        {"counters": counters},
+    )
+
+
+@login_required
+def group_counter_list(request):
+    """List all custom group counters."""
+
+    if not request.user.is_superuser and request.user.profile.tier.level < MANAGEMENT_TIER:
+        raise Http404()
+
+    from .models import GroupCounter
+
+    counters = GroupCounter.objects.all()
+    return render(
+        request,
+        "council_finance/group_counter_list.html",
+        {"counters": counters},
+    )
+
+
+@login_required
+def site_counter_form(request, slug=None):
+    """Create or edit a site-wide counter."""
+
+    if not request.user.is_superuser and request.user.profile.tier.level < MANAGEMENT_TIER:
+        raise Http404()
+
+    from .models import SiteCounter
+
+    counter = get_object_or_404(SiteCounter, slug=slug) if slug else None
+    form = SiteCounterForm(request.POST or None, instance=counter)
+    if request.method == "POST" and form.is_valid():
+        form.save()
+        messages.success(request, "Counter saved.")
+        return redirect("site_counter_list")
+    return render(
+        request,
+        "council_finance/site_counter_form.html",
+        {"form": form},
+    )
+
+
+@login_required
+def group_counter_form(request, slug=None):
+    """Create or edit a custom group counter."""
+
+    if not request.user.is_superuser and request.user.profile.tier.level < MANAGEMENT_TIER:
+        raise Http404()
+
+    from .models import GroupCounter
+
+    counter = get_object_or_404(GroupCounter, slug=slug) if slug else None
+    form = GroupCounterForm(request.POST or None, instance=counter)
+    if request.method == "POST" and form.is_valid():
+        form.save()
+        messages.success(request, "Counter saved.")
+        return redirect("group_counter_list")
+    return render(
+        request,
+        "council_finance/group_counter_form.html",
+        {"form": form},
+    )
+
+
+@login_required
 def counter_definition_form(request, slug=None):
     """Create or edit a single counter definition, with live preview for selected council."""
 
-    if not request.user.is_staff:
+    if not request.user.is_superuser and request.user.profile.tier.level < MANAGEMENT_TIER:
         raise Http404()
 
     from .models import Council
@@ -622,6 +775,80 @@ def preview_counter_value(request):
         return JsonResponse({"error": str(e)}, status=400)
     except Exception:
         return JsonResponse({"error": "calculation failed"}, status=400)
+
+
+@login_required
+@require_GET
+def preview_aggregate_counter(request):
+    """Preview a site or group counter by summing across councils."""
+    from .agents.counter_agent import CounterAgent
+    from .models import Council, FinancialYear, CouncilList, CounterDefinition
+
+    counter_slug = request.GET.get("counter")
+    if not counter_slug:
+        return JsonResponse({"error": "Missing counter"}, status=400)
+    year_param = request.GET.get("year")
+    if year_param and year_param != "all":
+        # ``year`` may be provided as either a label like "23/24" or the
+        # primary key value from the model. Handle both to keep the
+        # JavaScript simple.
+        year = (
+            FinancialYear.objects.filter(pk=year_param).first()
+            if str(year_param).isdigit()
+            else FinancialYear.objects.filter(label=year_param).first()
+        )
+        if not year:
+            return JsonResponse({"error": "Invalid data"}, status=400)
+        years = [year]
+    else:
+        years = list(FinancialYear.objects.order_by("-label"))
+    counter = CounterDefinition.objects.filter(slug=counter_slug).first()
+    if not counter or not years:
+        return JsonResponse({"error": "Invalid data"}, status=400)
+
+    councils = Council.objects.all()
+    cslugs = request.GET.get("councils")
+    if cslugs:
+        councils = councils.filter(slug__in=[s for s in cslugs.split(",") if s])
+    clist = request.GET.get("council_list")
+    if clist:
+        try:
+            cl = CouncilList.objects.get(pk=clist)
+            councils = councils.filter(pk__in=cl.councils.values_list("pk", flat=True))
+        except CouncilList.DoesNotExist:
+            pass
+    ctypes = request.GET.get("council_types")
+    if ctypes:
+        ids = [int(i) for i in ctypes.split(",") if i]
+        councils = councils.filter(council_type_id__in=ids)
+
+    agent = CounterAgent()
+    total = 0
+    for c in councils:
+        for yr in years:
+            values = agent.run(council_slug=c.slug, year_label=yr.label)
+            result = values.get(counter_slug)
+            if result and result.get("value") is not None:
+                try:
+                    total += float(result["value"])
+                except (TypeError, ValueError):
+                    pass
+
+    dummy = type(
+        "D",
+        (),
+        {
+            "precision": int(request.GET.get("precision", 0)),
+            "show_currency": request.GET.get("show_currency", "true") == "true",
+            "friendly_format": request.GET.get("friendly_format", "false") == "true",
+        },
+    )()
+
+    # ``format_value`` lives on ``CounterDefinition`` and expects the instance
+    # to provide precision, show_currency and friendly_format attributes.
+    # Using the dummy object lets us preview arbitrary settings.
+    formatted = CounterDefinition.format_value(dummy, total)
+    return JsonResponse({"value": total, "formatted": formatted})
 
 
 @login_required
@@ -1208,8 +1435,8 @@ def council_counters(request, slug):
 
 @login_required
 def field_list(request):
-    """List all data fields for staff management."""
-    if not request.user.is_staff:
+    """List all data fields for management."""
+    if not request.user.is_superuser and request.user.profile.tier.level < MANAGEMENT_TIER:
         raise Http404()
     fields = DataField.objects.all()
     return render(request, "council_finance/field_list.html", {"fields": fields})
@@ -1218,7 +1445,7 @@ def field_list(request):
 @login_required
 def field_form(request, slug=None):
     """Create or edit a data field."""
-    if not request.user.is_staff:
+    if not request.user.is_superuser and request.user.profile.tier.level < MANAGEMENT_TIER:
         raise Http404()
     field = get_object_or_404(DataField, slug=slug) if slug else None
     form = DataFieldForm(request.POST or None, instance=field)
@@ -1232,7 +1459,7 @@ def field_form(request, slug=None):
 @login_required
 def field_delete(request, slug):
     """Delete a data field unless it's protected."""
-    if not request.user.is_staff:
+    if not request.user.is_superuser and request.user.profile.tier.level < MANAGEMENT_TIER:
         raise Http404()
     field = get_object_or_404(DataField, slug=slug)
     if field.is_protected:
