@@ -118,7 +118,6 @@ class CounterDefinitionForm(forms.ModelForm):
         model = CounterDefinition
         fields = [
             "name",
-            "slug",
             "formula",
             "explanation",
             "duration",
@@ -183,7 +182,6 @@ class DataFieldForm(forms.ModelForm):
         model = DataField
         fields = [
             "name",
-            "slug",
             "category",
             "explanation",
             "content_type",
@@ -204,7 +202,7 @@ class DataFieldForm(forms.ModelForm):
         super().__init__(*args, **kwargs)
         # Prevent editing the slug of protected fields so managers can't rename
         # important built-in definitions. The value itself can still change.
-        if self.instance and self.instance.pk and self.instance.slug in PROTECTED_SLUGS:
+        if "slug" in self.fields and self.instance and self.instance.pk and self.instance.slug in PROTECTED_SLUGS:
             self.fields["slug"].disabled = True
         # Populate the council type choices dynamically so any new types appear
         # automatically without code changes.
@@ -226,7 +224,6 @@ class SiteCounterForm(forms.ModelForm):
         model = SiteCounter
         fields = [
             "name",
-            "slug",
             "counter",
             "duration",
             "precision",
@@ -257,7 +254,6 @@ class GroupCounterForm(forms.ModelForm):
         model = GroupCounter
         fields = [
             "name",
-            "slug",
             "counter",
             "councils",
             "council_list",

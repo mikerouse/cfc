@@ -21,6 +21,20 @@ class SiteCounter(models.Model):
     def __str__(self) -> str:
         return self.name
 
+    def save(self, *args, **kwargs):
+        """Generate slug from name when creating."""
+        if not self.slug:
+            from django.utils.text import slugify
+
+            base = slugify(self.name)
+            slug = base
+            i = 1
+            while SiteCounter.objects.filter(slug=slug).exclude(pk=self.pk).exists():
+                slug = f"{base}-{i}"
+                i += 1
+            self.slug = slug
+        super().save(*args, **kwargs)
+
 
 class GroupCounter(models.Model):
     """Counter that totals a metric across a subset of councils."""
@@ -39,3 +53,17 @@ class GroupCounter(models.Model):
 
     def __str__(self) -> str:
         return self.name
+
+    def save(self, *args, **kwargs):
+        """Generate slug from name when creating."""
+        if not self.slug:
+            from django.utils.text import slugify
+
+            base = slugify(self.name)
+            slug = base
+            i = 1
+            while GroupCounter.objects.filter(slug=slug).exclude(pk=self.pk).exists():
+                slug = f"{base}-{i}"
+                i += 1
+            self.slug = slug
+        super().save(*args, **kwargs)

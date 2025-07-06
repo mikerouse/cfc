@@ -16,9 +16,30 @@
             {% endfor %}
         </tbody>
     </table>
+    <div class="p-2 bg-gray-50 rounded" id="preview-card">
+        <p class="text-sm text-gray-600 mb-1">Preview</p>
+        <p class="text-lg font-bold" id="preview-value">0</p>
+    </div>
     <div class="mt-4">
         <button class="bg-blue-600 text-white px-4 py-1 rounded" type="submit">Save</button>
         <a href="{% url 'site_counter_list' %}" class="ml-2 underline">Cancel</a>
     </div>
 </form>
+<script>
+async function updatePreview() {
+    const url = new URL('{% url "preview_aggregate_counter" %}', window.location.origin);
+    url.searchParams.append('counter', document.getElementById('id_counter').value);
+    url.searchParams.append('precision', document.getElementById('id_precision').value);
+    url.searchParams.append('show_currency', document.getElementById('id_show_currency').checked);
+    url.searchParams.append('friendly_format', document.getElementById('id_friendly_format').checked);
+    const resp = await fetch(url, {headers: {'X-Requested-With': 'XMLHttpRequest'}});
+    const data = await resp.json();
+    document.getElementById('preview-value').textContent = data.formatted || data.error || '0';
+}
+['id_counter','id_precision','id_show_currency','id_friendly_format'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.addEventListener('change', updatePreview);
+});
+document.addEventListener('DOMContentLoaded', updatePreview);
+</script>
 {% endblock %}

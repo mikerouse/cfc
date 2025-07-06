@@ -112,10 +112,47 @@ def home(request):
         # Fallback when no figures are loaded
         total_debt = 0
 
+    promoted = []
+    from .models import SiteCounter, GroupCounter
+    from .agents.counter_agent import CounterAgent
+
+    agent = CounterAgent()
+    for sc in SiteCounter.objects.filter(promote_homepage=True):
+        value = 0
+        for council in Council.objects.all():
+            res = agent.run(council_slug=council.slug, year_label=latest_year.label if latest_year else None)
+            data = res.get(sc.counter.slug)
+            if data and data.get("value") is not None:
+                try:
+                    value += float(data["value"])
+                except (TypeError, ValueError):
+                    pass
+        promoted.append({"name": sc.name, "formatted": sc.counter.format_value(value)})
+
+    for gc in GroupCounter.objects.filter(promote_homepage=True):
+        councils = Council.objects.all()
+        if gc.councils.exists():
+            councils = gc.councils.all()
+        if gc.council_list_id:
+            councils = councils & gc.council_list.councils.all()
+        if gc.council_types.exists():
+            councils = councils.filter(council_type__in=gc.council_types.all())
+        value = 0
+        for council in councils:
+            res = agent.run(council_slug=council.slug, year_label=latest_year.label if latest_year else None)
+            data = res.get(gc.counter.slug)
+            if data and data.get("value") is not None:
+                try:
+                    value += float(data["value"])
+                except (TypeError, ValueError):
+                    pass
+        promoted.append({"name": gc.name, "formatted": gc.counter.format_value(value)})
+
     context = {
         "query": query,
         "councils": councils,
         "total_debt": total_debt,
+        "promoted_counters": promoted,
     }
 
     return render(request, "council_finance/home.html", context)
@@ -707,6 +744,65 @@ def preview_counter_value(request):
         return JsonResponse({"error": str(e)}, status=400)
     except Exception:
         return JsonResponse({"error": "calculation failed"}, status=400)
+
+
+@login_required
+@require_GET
+def preview_aggregate_counter(request):
+    """Preview a site or group counter by summing across councils."""
+    from .agents.counter_agent import CounterAgent
+    from .models import Council, FinancialYear, CouncilList, CounterDefinition
+
+    counter_slug = request.GET.get("counter")
+    if not counter_slug:
+        return JsonResponse({"error": "Missing counter"}, status=400)
+    year_label = request.GET.get("year")
+    year = (
+        FinancialYear.objects.filter(label=year_label).first()
+        if year_label
+        else None
+    )
+    if not year:
+        year = FinancialYear.objects.order_by("-label").first()
+    counter = CounterDefinition.objects.filter(slug=counter_slug).first()
+    if not counter or not year:
+        return JsonResponse({"error": "Invalid data"}, status=400)
+
+    councils = Council.objects.all()
+    cslugs = request.GET.get("councils")
+    if cslugs:
+        councils = councils.filter(slug__in=[s for s in cslugs.split(",") if s])
+    clist = request.GET.get("council_list")
+    if clist:
+        try:
+            cl = CouncilList.objects.get(pk=clist)
+            councils = councils.filter(pk__in=cl.councils.values_list("pk", flat=True))
+        except CouncilList.DoesNotExist:
+            pass
+    ctypes = request.GET.get("council_types")
+    if ctypes:
+        ids = [int(i) for i in ctypes.split(",") if i]
+        councils = councils.filter(council_type_id__in=ids)
+
+    agent = CounterAgent()
+    total = 0
+    for c in councils:
+        values = agent.run(council_slug=c.slug, year_label=year.label)
+        result = values.get(counter_slug)
+        if result and result.get("value") is not None:
+            try:
+                total += float(result["value"])
+            except (TypeError, ValueError):
+                pass
+
+    dummy = type("D", (), {
+        "precision": int(request.GET.get("precision", 0)),
+        "show_currency": request.GET.get("show_currency", "true") == "true",
+        "friendly_format": request.GET.get("friendly_format", "false") == "true",
+    })()
+
+    formatted = counter.format_value(dummy, total)
+    return JsonResponse({"value": total, "formatted": formatted})
 
 
 @login_required

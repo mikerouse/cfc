@@ -86,6 +86,11 @@ urlpatterns = [
         name="preview_counter_value",
     ),
     path(
+        "manage/counters/preview-aggregate/",
+        views.preview_aggregate_counter,
+        name="preview_aggregate_counter",
+    ),
+    path(
         "manage/counters/<slug:slug>/",
         views.counter_definition_form,
         name="counter_edit",

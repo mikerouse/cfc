@@ -4,8 +4,10 @@ from council_finance.models import Council, CouncilType, DataField, FinancialYea
 
 class CounterCouncilTypeTest(TestCase):
     def setUp(self):
-        self.ct_district = CouncilType.objects.create(name="District")
-        self.ct_county = CouncilType.objects.create(name="County")
+        # Use get_or_create so the test works when default council types
+        # already exist from migrations. This avoids UNIQUE errors.
+        self.ct_district, _ = CouncilType.objects.get_or_create(name="District")
+        self.ct_county, _ = CouncilType.objects.get_or_create(name="County")
         self.council = Council.objects.create(name="D", slug="d", council_type=self.ct_district)
         self.year = FinancialYear.objects.create(label="2024")
         self.field = DataField.objects.create(name="Total", slug="total")
