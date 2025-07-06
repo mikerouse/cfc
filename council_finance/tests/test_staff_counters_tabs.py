@@ -19,6 +19,7 @@ class ManagementCounterPagesTests(TestCase):
         self.assertEqual(resp.status_code, 200)
         resp = self.client.get(reverse("site_counter_add"))
         self.assertEqual(resp.status_code, 200)
+        self.assertIn(b"name=\"explanation\"", resp.content)
 
     def test_group_counter_pages(self):
         self.client.login(username="manager", password="secret")

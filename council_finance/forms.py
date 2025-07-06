@@ -224,6 +224,7 @@ class SiteCounterForm(forms.ModelForm):
         model = SiteCounter
         fields = [
             "name",
+            "explanation",
             "counter",
             "year",
             "duration",
@@ -233,6 +234,9 @@ class SiteCounterForm(forms.ModelForm):
             "promote_homepage",
         ]
         widgets = {
+            "explanation": forms.Textarea(
+                attrs={"rows": 2, "class": "border rounded p-1 w-full"}
+            ),
             "year": forms.Select(attrs={"class": "border rounded p-1 w-full"}),
             "duration": forms.NumberInput(attrs={"min": 0, "class": "border rounded p-1 w-full"}),
             "precision": forms.NumberInput(attrs={"min": 0, "class": "border rounded p-1 w-full"}),

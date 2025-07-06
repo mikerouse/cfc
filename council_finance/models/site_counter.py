@@ -12,6 +12,10 @@ class SiteCounter(models.Model):
     name = models.CharField(max_length=100)
     slug = models.SlugField(unique=True)
     counter = models.ForeignKey(CounterDefinition, on_delete=models.CASCADE)
+    explanation = models.TextField(
+        blank=True,
+        help_text="Optional description shown via info icon on the home page",
+    )
     year = models.ForeignKey(
         'FinancialYear',
         null=True,

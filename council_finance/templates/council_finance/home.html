@@ -1,14 +1,31 @@
 {% extends "base.html" %}
+{% load static %}
 {% block title %}Home - Council Finance Counters{% endblock %}
 {% block content %}
 <h1 class="text-2xl font-bold mb-4">Welcome to Council Finance Counters</h1>
 <p>Total council debt: {{ total_debt|floatformat:0 }}</p>
 {% if promoted_counters %}
-<div class="my-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+<div class="my-8 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
     {% for item in promoted_counters %}
-    <div class="p-3 bg-gray-50 rounded text-center">
-        <p class="text-sm text-gray-600 mb-1">{{ item.name }}</p>
-        <p class="text-2xl font-bold">{{ item.formatted }}</p>
+    <div class="bg-white shadow rounded p-5 text-center space-y-2">
+        <p class="text-sm text-gray-500 flex items-center justify-center gap-1">
+            {{ item.name }}
+            {% if item.explanation %}
+            <button type="button" onclick="toggleInfo('info-{{ forloop.counter0 }}')" class="text-blue-600" aria-label="More info">
+                <i class="fas fa-info-circle"></i>
+            </button>
+            {% endif %}
+        </p>
+        <p class="text-3xl sm:text-4xl font-bold counter-value"
+           data-value="{{ item.raw }}"
+           data-duration="{{ item.duration }}"
+           data-precision="{{ item.precision }}"
+           data-show-currency="{{ item.show_currency }}"
+           data-friendly="{{ item.friendly_format }}"
+           data-formatted="{{ item.formatted }}">0</p>
+        {% if item.explanation %}
+        <p id="info-{{ forloop.counter0 }}" class="hidden text-sm text-gray-700">{{ item.explanation }}</p>
+        {% endif %}
     </div>
     {% endfor %}
 </div>
@@ -26,4 +43,34 @@
     {% endif %}
 {% endfor %}
 </ul>
+{% endblock %}
+{% block extra_scripts %}
+<script src="{% static 'js/countUp.umd.js' %}"></script>
+<script>
+function toggleInfo(id) {
+    const el = document.getElementById(id);
+    if (el) el.classList.toggle('hidden');
+}
+document.addEventListener('DOMContentLoaded', () => {
+    document.querySelectorAll('.counter-value').forEach(el => {
+        const val = parseFloat(el.dataset.value || '0');
+        const dur = parseInt(el.dataset.duration || '0') / 1000;
+        const showCurrency = el.dataset.showCurrency === 'true';
+        const precision = parseInt(el.dataset.precision || '0');
+        const thousands = showCurrency;
+        const display = el.dataset.formatted || val.toLocaleString();
+        const cu = new countUp.CountUp(el, val, {
+            duration: dur,
+            decimalPlaces: precision,
+            separator: thousands ? ',' : '',
+            prefix: showCurrency ? '£' : ''
+        });
+        if (!cu.error) {
+            cu.start(() => { el.textContent = display; });
+        } else {
+            el.textContent = display;
+        }
+    });
+});
+</script>
 {% endblock %}

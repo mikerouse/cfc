@@ -132,7 +132,16 @@ def home(request):
                         pass
         # Format the total using the settings from the SiteCounter instance
         formatted = CounterDefinition.format_value(sc, value)
-        promoted.append({"name": sc.name, "formatted": formatted})
+        promoted.append({
+            "name": sc.name,
+            "formatted": formatted,
+            "raw": value,
+            "duration": sc.duration,
+            "precision": sc.precision,
+            "show_currency": sc.show_currency,
+            "friendly_format": sc.friendly_format,
+            "explanation": sc.explanation,
+        })
 
     for gc in GroupCounter.objects.filter(promote_homepage=True):
         councils = Council.objects.all()
@@ -155,7 +164,16 @@ def home(request):
                         pass
         # Use the group counter's formatting preferences when displaying
         formatted = CounterDefinition.format_value(gc, value)
-        promoted.append({"name": gc.name, "formatted": formatted})
+        promoted.append({
+            "name": gc.name,
+            "formatted": formatted,
+            "raw": value,
+            "duration": gc.duration,
+            "precision": gc.precision,
+            "show_currency": gc.show_currency,
+            "friendly_format": gc.friendly_format,
+            "explanation": "",  # groups currently lack custom explanations
+        })
 
     context = {
         "query": query,
