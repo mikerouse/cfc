@@ -28,6 +28,13 @@ class SiteCounter(models.Model):
     show_currency = models.BooleanField(default=True, help_text="Prefix with £ and include comma separators")
     friendly_format = models.BooleanField(default=False, help_text="Use short forms e.g. £1m")
     promote_homepage = models.BooleanField(default=False, help_text="Show on the home page")
+    # Default column span when displayed on the homepage grid. Visitors can
+    # override this locally via drag-resize but we store an admin-configured
+    # default so counters look reasonable for first-time visitors.
+    columns = models.PositiveIntegerField(
+        default=1,
+        choices=[(1, "1"), (2, "2"), (3, "3")],
+    )
 
     def __str__(self) -> str:
         return self.name

@@ -133,6 +133,7 @@ def home(request):
         # Format the total using the settings from the SiteCounter instance
         formatted = CounterDefinition.format_value(sc, value)
         promoted.append({
+            "slug": sc.slug,
             "name": sc.name,
             "formatted": formatted,
             "raw": value,
@@ -141,6 +142,7 @@ def home(request):
             "show_currency": sc.show_currency,
             "friendly_format": sc.friendly_format,
             "explanation": sc.explanation,
+            "columns": sc.columns,
         })
 
     for gc in GroupCounter.objects.filter(promote_homepage=True):
@@ -165,6 +167,7 @@ def home(request):
         # Use the group counter's formatting preferences when displaying
         formatted = CounterDefinition.format_value(gc, value)
         promoted.append({
+            "slug": gc.slug,
             "name": gc.name,
             "formatted": formatted,
             "raw": value,
@@ -173,6 +176,7 @@ def home(request):
             "show_currency": gc.show_currency,
             "friendly_format": gc.friendly_format,
             "explanation": "",  # groups currently lack custom explanations
+            "columns": 3,  # groups default to full width for now
         })
 
     context = {

@@ -227,6 +227,7 @@ class SiteCounterForm(forms.ModelForm):
             "explanation",
             "counter",
             "year",
+            "columns",
             "duration",
             "precision",
             "show_currency",
@@ -243,6 +244,7 @@ class SiteCounterForm(forms.ModelForm):
             "show_currency": forms.CheckboxInput(attrs={"class": "mr-2"}),
             "friendly_format": forms.CheckboxInput(attrs={"class": "mr-2"}),
             "promote_homepage": forms.CheckboxInput(attrs={"class": "mr-2"}),
+            "columns": forms.Select(attrs={"class": "border rounded p-1 w-full"}),
         }
 
     def __init__(self, *args, **kwargs):
