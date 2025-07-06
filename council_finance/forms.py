@@ -244,7 +244,11 @@ class SiteCounterForm(forms.ModelForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         from .models import FinancialYear
-        self.fields["year"].queryset = FinancialYear.objects.order_by("-label")
+        # Exclude the special "general" year used for aggregated data and
+        # present an explicit option for using all years combined. Setting the
+        # ``empty_label`` ensures the first drop-down choice reads nicely.
+        self.fields["year"].queryset = FinancialYear.objects.order_by("-label").exclude(label__iexact="general")
+        self.fields["year"].empty_label = "All Available Years"
         for name, field in self.fields.items():
             if isinstance(field.widget, forms.CheckboxInput):
                 continue
