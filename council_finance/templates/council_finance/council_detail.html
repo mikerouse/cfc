@@ -191,7 +191,7 @@
 {% if counters %}
 <div id="counters-grid" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 my-6">
     {% for item in counters %}
-    <div class="bg-gray-50 p-10 rounded shadow text-center {% if item.counter.headline %}md:col-span-3{% endif %}" data-counter="{{ item.counter.slug }}" {% if item.counter.headline %}style="grid-column: span 3"{% endif %}>
+    <div id="counter-{{ item.counter.slug }}" class="bg-gray-50 p-10 rounded shadow text-center {% if item.counter.headline %}md:col-span-3{% endif %}" data-counter="{{ item.counter.slug }}" {% if item.counter.headline %}style="grid-column: span 3"{% endif %}>
         <p class="text-sm text-gray-600">{{ item.counter.name }}</p>
         <p class="text-red-700 text-sm counter-error" {% if not item.error %}style="display:none"{% endif %}>{{ item.error }}</p>
         <p class="{% if item.counter.headline %}text-6xl{% else %}text-4xl{% endif %} font-bold counter-value"
@@ -202,12 +202,20 @@
            data-show-currency="{{ item.counter.show_currency }}"
            data-friendly="{{ item.counter.friendly_format }}"
            {% if item.error %}style="display:none"{% endif %}>0</p>
+        <p class="counter-factoid text-sm text-gray-600"></p>
         <p class="text-xs mt-1">{{ item.counter.explanation }}</p>
+        {% with sid='factoids-'|add:item.counter.slug %}
+        {{ item.factoids|json_script:sid }}
+        {% endwith %}
     </div>
     {% endfor %}
 </div>
 {{ default_counter_slugs|json_script:"default-slugs" }}
 <script src="{% static 'js/countUp.umd.js' %}"></script>
+<style>
+  .counter-factoid{max-height:0;overflow:hidden;transition:max-height 0.5s ease;}
+  .counter-factoid.show{max-height:3rem;}
+</style>
 <script>
 function animateCounters() {
   document.querySelectorAll('.counter-value').forEach(el => {
@@ -231,12 +239,32 @@ function animateCounters() {
       duration: dur,
       decimalPlaces: precision,
       separator: thousands ? ',' : '',
-      prefix: showCurrency ? '£' : ''
+      prefix: showCurrency ? '£' : '',
+      easingFn: (t, b, c, d) => { t /= d; return -c * t * (t - 2) + b; }
     });
+    el.textContent = cu.formattingFn(0);
+    const container = el.parentElement;
+    const factEl = container.querySelector('.counter-factoid');
+    let facts = [];
+    const script = document.getElementById('factoids-' + container.dataset.counter);
+    if (script) {
+      try { facts = JSON.parse(script.textContent); } catch(e){ facts = []; }
+    }
+    function cycleFacts(i=0){
+      if(!factEl || !facts.length) return;
+      const f = facts[i];
+      factEl.innerHTML = f.icon ? `<i class='fas ${f.icon}'></i> ${f.text}` : f.text;
+      factEl.classList.add('show');
+      setTimeout(() => {
+        factEl.classList.remove('show');
+        setTimeout(() => cycleFacts((i+1)%facts.length), 500);
+      }, 4000);
+    }
     if (!cu.error) {
-      cu.start(() => { el.textContent = display; });
+      cu.start(() => { el.textContent = display; cycleFacts(); });
     } else {
       el.textContent = display;
+      cycleFacts();
     }
   });
 }
