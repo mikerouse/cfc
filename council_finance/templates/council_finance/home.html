@@ -18,10 +18,8 @@
 </h2>
 <div id="homepage-counters" class="my-8 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
     {% if promoted_counters %}
-        {# The counters already sit inside a grid wrapper above. Avoid adding
-           another nested grid so column spans work as expected. #}
         {% for item in promoted_counters %}
-            <div class="bg-white shadow rounded p-5 text-center space-y-2 relative resize-counter sm:col-span-{{ item.columns }}" data-slug="{{ item.slug }}" data-default-span="{{ item.columns }}">
+            <div class="bg-gray-100 shadow rounded p-10 text-center space-y-2 relative resize-counter sm:col-span-{{ item.columns }}" data-slug="{{ item.slug }}" data-default-span="{{ item.columns }}">
                 <p class="text-sm text-gray-500 flex items-center justify-center gap-1">
                     {{ item.name }}
                     {% if item.explanation %}
@@ -30,7 +28,7 @@
                         </button>
                         {% endif %}
                     </p>
-                    <p class="text-3xl sm:text-4xl font-bold counter-value"
+                    <p class="text-4xl sm:text-4xl font-bold counter-value"
                         data-value="{{ item.raw }}"
                         data-duration="{{ item.duration }}"
                         data-precision="{{ item.precision }}"
