@@ -85,10 +85,16 @@ document.addEventListener('DOMContentLoaded', () => {
             separator: thousands ? ',' : '',
             prefix: showCurrency ? '£' : '',
             easingFn: (t, b, c, d) => {
-                t /= d; return -c * t * (t - 2) + b; // easeOutQuad
+                // use an "ease out" cubic to give a smoother deceleration
+                t /= d; t--; return c * (t * t * t + 1) + b;
             }
         });
-        el.textContent = cu.formattingFn(0);
+        // Print the starting value with prefix/separator so it is visible immediately
+        if (cu.printValue) {
+            cu.printValue(0);
+        } else {
+            el.textContent = cu.formattingFn(0);
+        }
         const container = el.parentElement;
         const factEl = container.querySelector('.counter-factoid');
         let facts = [];
@@ -107,7 +113,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }, 4000);
         }
         if (!cu.error) {
-            cu.start(() => { el.textContent = display; cycleFacts(); });
+            cu.start(cycleFacts);
         } else {
             el.textContent = display;
             cycleFacts();
