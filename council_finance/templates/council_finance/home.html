@@ -32,8 +32,8 @@
                         data-value="{{ item.raw }}"
                         data-duration="{{ item.duration }}"
                         data-precision="{{ item.precision }}"
-                        data-show-currency="{{ item.show_currency }}"
-                        data-friendly="{{ item.friendly_format }}"
+                        data-show-currency="{{ item.show_currency|yesno:'true,false' }}"
+                        data-friendly="{{ item.friendly_format|yesno:'true,false' }}"
                         data-formatted="{{ item.formatted }}">0</p>
                     <p class="counter-factoid text-sm text-gray-600"></p>
                     {% if item.explanation %}
@@ -75,7 +75,9 @@ document.addEventListener('DOMContentLoaded', () => {
     document.querySelectorAll('.counter-value').forEach(el => {
         const val = parseFloat(el.dataset.value || '0');
         const dur = parseInt(el.dataset.duration || '0') / 1000;
-        const showCurrency = el.dataset.showCurrency === 'true';
+        // Dataset values may come back as "True" or "true" from the template.
+        // Normalise the string so the check works regardless of case.
+        const showCurrency = (el.dataset.showCurrency || 'false').toLowerCase() === 'true';
         const precision = parseInt(el.dataset.precision || '0');
         const thousands = showCurrency;
         const display = el.dataset.formatted || val.toLocaleString();
@@ -85,8 +87,8 @@ document.addEventListener('DOMContentLoaded', () => {
             separator: thousands ? ',' : '',
             prefix: showCurrency ? '£' : '',
             easingFn: (t, b, c, d) => {
-                // use an "ease out" cubic to give a smoother deceleration
-                t /= d; t--; return c * (t * t * t + 1) + b;
+                // simple linear deceleration: start fast and slow linearly
+                t /= d; return c * (2 - t) * t * 0.5 + b;
             }
         });
         // Print the starting value with prefix/separator so it is visible immediately

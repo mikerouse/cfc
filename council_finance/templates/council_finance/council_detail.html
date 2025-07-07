@@ -199,8 +199,8 @@
            data-value="{{ item.value }}"
            data-formatted="{{ item.formatted }}"
            data-precision="{{ item.counter.precision }}"
-           data-show-currency="{{ item.counter.show_currency }}"
-           data-friendly="{{ item.counter.friendly_format }}"
+           data-show-currency="{{ item.counter.show_currency|yesno:'true,false' }}"
+           data-friendly="{{ item.counter.friendly_format|yesno:'true,false' }}"
            {% if item.error %}style="display:none"{% endif %}>0</p>
         <p class="counter-factoid text-sm text-gray-600"></p>
         <p class="text-xs mt-1">{{ item.counter.explanation }}</p>
@@ -229,7 +229,8 @@ function animateCounters() {
     // Determine how the number should be formatted during the animation.
     // We honour user overrides for precision and thousands separators so
     // that the animated value looks similar to the final formatted result.
-    const showCurrency = el.dataset.showCurrency === 'true' || el.dataset.showCurrency === 'True';
+    // dataset values might be capitalised; normalise to handle both cases.
+    const showCurrency = (el.dataset.showCurrency || 'false').toLowerCase() === 'true';
     const precision = overridePrecision !== null ? parseInt(overridePrecision, 10)
       : parseInt(el.dataset.precision || '0', 10);
     const thousands = overrideThousands !== null ? overrideThousands === 'true'
@@ -241,8 +242,8 @@ function animateCounters() {
       separator: thousands ? ',' : '',
       prefix: showCurrency ? '£' : '',
       easingFn: (t, b, c, d) => {
-        // cubic easing for a smoother, more natural slowdown
-        t /= d; t--; return c * (t * t * t + 1) + b;
+        // linear deceleration - progressively slows towards the end
+        t /= d; return c * (2 - t) * t * 0.5 + b;
       }
     });
     // show prefix and separator immediately
@@ -357,9 +358,10 @@ function formatNumber(value, precision, thousands) {
 }
 
 function formatValue(value, counter) {
-  const showCurrency = counter.showCurrency === 'true' || counter.showCurrency === 'True';
+  // Normalise boolean-like strings so they work regardless of case
+  const showCurrency = (counter.showCurrency || 'false').toLowerCase() === 'true';
   const basePrecision = parseInt(counter.precision || '0', 10);
-  const baseFriendly = counter.friendly === 'true' || counter.friendly === 'True';
+  const baseFriendly = (counter.friendly || 'false').toLowerCase() === 'true';
 
   const precision = overridePrecision !== null ? parseInt(overridePrecision, 10) : basePrecision;
   const friendly = overrideFriendly !== null ? (overrideFriendly === 'true') : baseFriendly;
