@@ -309,16 +309,36 @@ class GroupCounterForm(forms.ModelForm):
 class FactoidForm(forms.ModelForm):
     """Create or edit factoids separately from counters."""
 
+    #: Default snippets used to pre-populate the ``text`` field based on
+    #: the selected ``factoid_type``. These placeholders explain what the
+    #: factoid will display and give admins a head start when creating new
+    #: items.
+    DEFAULT_TEXTS = {
+        "percent_change": "Debt changed by {value}% compared with last year",
+        "highest": "Highest value: {name}",
+        "lowest": "Lowest value: {name}",
+    }
+
     class Meta:
         model = Factoid
         fields = [
             "name",
+            "slug",
             "factoid_type",
             "text",
             "counters",
             "site_counters",
             "group_counters",
         ]
+        help_texts = {
+            "name": "Short label for internal use",
+            "slug": "Unique identifier used in URLs. Leave blank to generate automatically",
+            "factoid_type": "Determines available placeholders and default text",
+            "text": "Snippet shown below counters. Placeholders like {value} or {name} will be replaced",
+            "counters": "Standard counters this factoid appears under",
+            "site_counters": "Site-wide counters this factoid appears under",
+            "group_counters": "Group counters this factoid appears under",
+        }
         widgets = {
             "text": forms.TextInput(attrs={"class": "border rounded p-1 w-full"}),
             "counters": forms.SelectMultiple(attrs={"class": "border rounded p-1 w-full"}),
@@ -328,8 +348,15 @@ class FactoidForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        # Apply Tailwind classes to inputs and set up initial default text.
         for name, field in self.fields.items():
             if isinstance(field.widget, forms.CheckboxInput):
                 continue
             field.widget.attrs.setdefault("class", "border rounded p-1 w-full")
+
+        # When creating a new factoid pre-fill the text field using the default
+        # for the current type so admins understand the expected format.
+        if not self.instance.pk and not self.data:
+            ftype = self.initial.get("factoid_type") or self.fields["factoid_type"].initial
+            self.fields["text"].initial = self.DEFAULT_TEXTS.get(ftype, "")
 

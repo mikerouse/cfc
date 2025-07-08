@@ -22,3 +22,17 @@ class Factoid(models.Model):
 
     def __str__(self):
         return self.name
+
+    def save(self, *args, **kwargs):
+        """Ensure a unique slug is generated if one isn't supplied."""
+        if not self.slug:
+            from django.utils.text import slugify
+
+            base = slugify(self.name)
+            slug = base
+            i = 1
+            while Factoid.objects.filter(slug=slug).exclude(pk=self.pk).exists():
+                slug = f"{base}-{i}"
+                i += 1
+            self.slug = slug
+        super().save(*args, **kwargs)

@@ -9,7 +9,13 @@
             {% for field in form %}
             <tr class="odd:bg-gray-50">
                 <th class="text-left p-2 border w-40">{{ field.label_tag }}</th>
-                <td class="p-2 border">{{ field }}{{ field.errors }}</td>
+                <td class="p-2 border">
+                    {{ field }}
+                    {% if field.help_text %}
+                        <p class="text-sm text-gray-600">{{ field.help_text }}</p>
+                    {% endif %}
+                    {{ field.errors }}
+                </td>
             </tr>
             {% endfor %}
         </tbody>
@@ -18,4 +24,20 @@
         <button type="submit" class="bg-blue-600 text-white px-4 py-1 rounded">Save</button>
     </div>
 </form>
+{{ form.DEFAULT_TEXTS|json_script:"factoid-defaults" }}
+<script>
+const defaults = JSON.parse(document.getElementById('factoid-defaults').textContent);
+const typeField = document.getElementById('id_factoid_type');
+const textField = document.getElementById('id_text');
+function applyDefault(){
+    if(!textField.value){
+        textField.value = defaults[typeField.value] || '';
+    }
+}
+if(typeField){
+    typeField.addEventListener('change', applyDefault);
+    // Apply once on load in case the type has a predefined default
+    applyDefault();
+}
+</script>
 {% endblock %}
