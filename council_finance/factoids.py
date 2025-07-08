@@ -1,28 +1,32 @@
-"""Simple factoid engine for counters.
+"""Retrieve factoids associated with counters."""
 
-This module provides a helper to fetch factoids for a given counter
-slug. In a real implementation this might query the database or
-perform calculations based on financial data. For now we return
-static examples so the templates can demonstrate the feature.
-"""
-from typing import Dict, List
+from typing import List, Dict
 import random
 
-FACTOID_DATA: Dict[str, List[Dict[str, str]]] = {
-    "total_debt": [
-        {"icon": "fa-arrow-up text-red-600", "text": "Debt up 5% vs last year"},
-        {"icon": "fa-city", "text": "Highest debt: Example Council"},
-        {"icon": "fa-city", "text": "Lowest debt: Sample Borough"},
-    ],
-    "total_reserves": [
-        {"icon": "fa-arrow-down text-green-600", "text": "Reserves down 2%"},
-    ],
-}
+from .models import Factoid
 
 
 def get_factoids(counter_slug: str) -> List[Dict[str, str]]:
-    """Return a list of factoids for the given counter slug."""
-    factoids = FACTOID_DATA.get(counter_slug, [])
-    # Shuffle so repeated page loads vary the order.
-    random.shuffle(factoids)
-    return factoids
+    """Return factoids linked to the given counter slug."""
+    # Look up any Factoid objects related to a counter with this slug. This
+    # keeps the logic flexible so managers can add new snippets without code
+    # changes. When no factoids exist we fall back to the built-in examples so
+    # templates always have something to show during development.
+    qs = Factoid.objects.filter(counters__slug=counter_slug)
+    data = list(qs.values("text", "factoid_type"))
+
+    if not data:
+        fallback = {
+            "total_debt": [
+                {"icon": "fa-arrow-up text-red-600", "text": "Debt up 5% vs last year"},
+                {"icon": "fa-city", "text": "Highest debt: Example Council"},
+                {"icon": "fa-city", "text": "Lowest debt: Sample Borough"},
+            ],
+            "total_reserves": [
+                {"icon": "fa-arrow-down text-green-600", "text": "Reserves down 2%"},
+            ],
+        }
+        data = fallback.get(counter_slug, [])
+
+    random.shuffle(data)
+    return data

@@ -6,6 +6,7 @@ from .models import UserProfile
 from .models import CouncilList, Council
 from .models import CounterDefinition, DataField
 from .models.site_counter import SiteCounter, GroupCounter
+from .models.factoid import Factoid
 from .models.field import PROTECTED_SLUGS
 from django.contrib.contenttypes.models import ContentType
 
@@ -299,6 +300,34 @@ class GroupCounterForm(forms.ModelForm):
         self.fields["council_types"].queryset = CouncilType.objects.all()
         self.fields["council_list"].queryset = CouncilList.objects.all()
         self.fields["year"].queryset = FinancialYear.objects.order_by("-label")
+        for name, field in self.fields.items():
+            if isinstance(field.widget, forms.CheckboxInput):
+                continue
+            field.widget.attrs.setdefault("class", "border rounded p-1 w-full")
+
+
+class FactoidForm(forms.ModelForm):
+    """Create or edit factoids separately from counters."""
+
+    class Meta:
+        model = Factoid
+        fields = [
+            "name",
+            "factoid_type",
+            "text",
+            "counters",
+            "site_counters",
+            "group_counters",
+        ]
+        widgets = {
+            "text": forms.TextInput(attrs={"class": "border rounded p-1 w-full"}),
+            "counters": forms.SelectMultiple(attrs={"class": "border rounded p-1 w-full"}),
+            "site_counters": forms.SelectMultiple(attrs={"class": "border rounded p-1 w-full"}),
+            "group_counters": forms.SelectMultiple(attrs={"class": "border rounded p-1 w-full"}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
         for name, field in self.fields.items():
             if isinstance(field.widget, forms.CheckboxInput):
                 continue

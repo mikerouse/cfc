@@ -100,5 +100,8 @@ urlpatterns = [
     path("manage/fields/add/", views.field_form, name="field_add"),
     path("manage/fields/<slug:slug>/", views.field_form, name="field_edit"),
     path("manage/fields/<slug:slug>/delete/", views.field_delete, name="field_delete"),
+    path("manage/factoids/", views.factoid_list, name="factoid_list"),
+    path("manage/factoids/add/", views.factoid_form, name="factoid_add"),
+    path("manage/factoids/<slug:slug>/", views.factoid_form, name="factoid_edit"),
     path("god-mode/", views.god_mode, name="god_mode"),
 ]

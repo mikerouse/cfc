@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block title %}Edit Factoid - Council Finance Counters{% endblock %}
+{% block content %}
+<h1 class="text-2xl font-bold mb-4">{{ form.instance.pk|yesno:'Edit Factoid,Add Factoid' }}</h1>
+<form method="post" class="space-y-4">
+    {% csrf_token %}
+    <table class="min-w-full border border-gray-300">
+        <tbody>
+            {% for field in form %}
+            <tr class="odd:bg-gray-50">
+                <th class="text-left p-2 border w-40">{{ field.label_tag }}</th>
+                <td class="p-2 border">{{ field }}{{ field.errors }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    <div class="text-right">
+        <button type="submit" class="bg-blue-600 text-white px-4 py-1 rounded">Save</button>
+    </div>
+</form>
+{% endblock %}

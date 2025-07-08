@@ -31,6 +31,7 @@ from .forms import (
     GroupCounterForm,
     DataFieldForm,
     ProfileExtraForm,
+    FactoidForm,
 )
 from django.conf import settings
 
@@ -52,6 +53,7 @@ from .models import (
     SiteCounter,
     GroupCounter,
     SiteSetting,
+    Factoid,
     TrustTier,
     Contribution,
     DataChangeLog,
@@ -1458,6 +1460,29 @@ def field_form(request, slug=None):
         messages.success(request, "Field saved.")
         return redirect("field_list")
     return render(request, "council_finance/field_form.html", {"form": form})
+
+
+@login_required
+def factoid_list(request):
+    """List all factoids for management."""
+    if not request.user.is_superuser and request.user.profile.tier.level < MANAGEMENT_TIER:
+        raise Http404()
+    factoids = Factoid.objects.all()
+    return render(request, "council_finance/factoid_list.html", {"factoids": factoids})
+
+
+@login_required
+def factoid_form(request, slug=None):
+    """Create or edit a factoid."""
+    if not request.user.is_superuser and request.user.profile.tier.level < MANAGEMENT_TIER:
+        raise Http404()
+    factoid = get_object_or_404(Factoid, slug=slug) if slug else None
+    form = FactoidForm(request.POST or None, instance=factoid)
+    if request.method == "POST" and form.is_valid():
+        form.save()
+        messages.success(request, "Factoid saved.")
+        return redirect("factoid_list")
+    return render(request, "council_finance/factoid_form.html", {"form": form})
 
 
 @login_required

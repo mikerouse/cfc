@@ -83,6 +83,7 @@
                 <span class="text-gray-300">Admin</span>
                 <a href="{% url 'admin:index' %}" class="hover:underline">Django Admin</a>
                 <a href="{% url 'counter_definitions' %}" class="hover:underline">Counters</a>
+                <a href="{% url 'factoid_list' %}" class="hover:underline">Factoids</a>
                 <a href="{% url 'field_list' %}" class="hover:underline">Fields Manager</a>
                 {# Superadmins can always access God Mode regardless of tier. #}
                 {% if user.is_superuser or user.profile.tier.level >= 5 %}
