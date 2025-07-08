@@ -63,3 +63,11 @@ client-side using **math.js** so mistakes are surfaced immediately. Counters
 also define precision, currency display and whether large values should appear
 as friendly text like `£1m`.
 
+### Proxy configuration
+
+When `USE_X_FORWARDED_HOST` is enabled the application trusts the
+`X-Forwarded-For` header to determine the client's IP address when handling
+submissions. Deployments behind reverse proxies must ensure the proxy chain is
+configured to pass a clean header from trusted sources only; otherwise the
+recorded address can be spoofed.
+
