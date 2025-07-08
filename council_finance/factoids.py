@@ -9,10 +9,18 @@ from .models import Factoid
 def previous_year_label(label: str) -> Optional[str]:
     """Return the previous financial year label if parsable."""
     try:
-        base = int(str(label).split("/")[0])
+        parts = str(label).split("/")
+        if len(parts) == 2:
+            first = int(parts[0])
+            second = int(parts[1])
+            prev_first = first - 1
+            prev_second = second - 1
+            second_fmt = f"{prev_second:0{len(parts[1])}d}"
+            return f"{prev_first}/{second_fmt}"
+        base = int(parts[0])
+        return str(base - 1)
     except (TypeError, ValueError):
         return None
-    return str(base - 1)
 
 
 def get_factoids(counter_slug: str, context: Optional[Dict[str, Any]] = None) -> List[Dict[str, str]]:
@@ -59,6 +67,12 @@ def get_factoids(counter_slug: str, context: Optional[Dict[str, Any]] = None) ->
                     prev = float(context.get("previous_raw"))
                     change = (current - prev) / prev * 100
                     safe["value"] = f"{change:.1f}%"
+                    if change > 0:
+                        item["icon"] = "fa-chevron-up text-green-600"
+                    elif change < 0:
+                        item["icon"] = "fa-chevron-down text-red-600"
+                    else:
+                        item["icon"] = "fa-chevron-right text-gray-500"
                 except Exception:
                     pass
             item["text"] = item["text"].format_map(safe)

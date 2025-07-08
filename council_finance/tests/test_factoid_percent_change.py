@@ -41,3 +41,10 @@ class FactoidPercentChangeTest(TestCase):
             {"raw": 110, "previous_raw": 100},
         )
         self.assertEqual(facts[0]["text"], "10.0% change")
+
+    def test_icon_assigned(self):
+        facts = get_factoids(
+            "debt",
+            {"raw": 90, "previous_raw": 100},
+        )
+        self.assertEqual(facts[0]["icon"], "fa-chevron-down text-red-600")
