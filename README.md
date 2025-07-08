@@ -75,3 +75,11 @@ python manage.py runagent SiteTotalsAgent
 Totals are cached by counter slug and year label. The home view reads these
 values directly from the cache to avoid expensive per-request calculations.
 
+### Proxy configuration
+
+When `USE_X_FORWARDED_HOST` is enabled the application trusts the
+`X-Forwarded-For` header to determine the client's IP address when handling
+submissions. Deployments behind reverse proxies must ensure the proxy chain is
+configured to pass a clean header from trusted sources only; otherwise the
+recorded address can be spoofed.
+

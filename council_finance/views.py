@@ -12,6 +12,7 @@ from django.contrib.auth.decorators import login_required
 from django.contrib.auth.hashers import make_password
 from django.contrib.auth import login
 from django.utils.crypto import get_random_string
+from django.core.paginator import Paginator
 from django.urls import reverse
 import csv
 import hashlib
@@ -338,6 +339,28 @@ def council_detail(request, slug):
         context["council_types"] = CouncilType.objects.all()
 
     return render(request, "council_finance/council_detail.html", context)
+
+
+# ---------------------------------------------------------------------------
+# Council change log view
+# ---------------------------------------------------------------------------
+def council_change_log(request, slug):
+    """Show a paginated list of approved changes for this council."""
+    council = get_object_or_404(Council, slug=slug)
+    logs = (
+        DataChangeLog.objects.filter(council=council)
+        .select_related("contribution__user", "field", "year")
+        .order_by("-created")
+    )
+    paginator = Paginator(logs, 20)
+    page = paginator.get_page(request.GET.get("page"))
+    context = {
+        "council": council,
+        "page_obj": page,
+        "paginator": paginator,
+        "tab": "log",
+    }
+    return render(request, "council_finance/council_log.html", context)
 
 
 # Additional views for common site pages
@@ -1253,9 +1276,20 @@ def submit_contribution(request):
     value = request.POST.get("value", "").strip()
 
     # Determine client IP for logging and blocking.
-    ip = request.META.get("HTTP_X_FORWARDED_FOR", "").split(",")[
-        0
-    ].strip() or request.META.get("REMOTE_ADDR")
+    # When Django is configured to respect proxy headers we trust the first
+    # address in ``HTTP_X_FORWARDED_FOR``.  This header should only be
+    # accepted from a properly configured chain of trusted proxies.  In
+    # environments without a proxy (or when ``USE_X_FORWARDED_HOST`` is
+    # False) we fall back to ``REMOTE_ADDR`` to avoid spoofing.
+    if settings.USE_X_FORWARDED_HOST:
+        forwarded_for = request.META.get("HTTP_X_FORWARDED_FOR", "")
+        ip = forwarded_for.split(",")[0].strip() if forwarded_for else None
+    else:
+        forwarded_for = None
+        ip = None
+
+    if not ip:
+        ip = request.META.get("REMOTE_ADDR")
     if BlockedIP.objects.filter(ip_address=ip).exists():
         return JsonResponse({"error": "blocked"}, status=403)
 

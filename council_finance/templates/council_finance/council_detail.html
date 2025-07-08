@@ -40,6 +40,7 @@
     {% if user.is_superuser or user.profile.tier.level >= 5 %}
     <a href="{% url 'council_detail' council.slug %}?tab=legacy" class="py-2 px-4 border-b-2 {% if tab == 'legacy' %}border-blue-600 font-semibold{% else %}border-transparent{% endif %}">Legacy Data</a>
     {% endif %}
+    <a href="{% url 'council_change_log' council.slug %}" class="py-2 px-4 border-b-2 {% if tab == 'log' %}border-blue-600 font-semibold{% else %}border-transparent{% endif %}">Log</a>
   </nav>
 </div>
 {% if tab == 'edit' %}
