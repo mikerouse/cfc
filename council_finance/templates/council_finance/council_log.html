@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+{% load static %}
+{% block title %}Change Log - {{ council.name }}{% endblock %}
+{% block content %}
+<h1 class="text-3xl sm:text-4xl font-extrabold mb-4 pt-5 flex items-left gap-2">
+  <span class="w-8 h-8 bg-gray-300 rounded-full"></span>
+  {{ council.name }}
+</h1>
+<div class="mb-4 border-b text-center">
+  <nav class="inline-flex gap-4">
+    <a href="{% url 'council_detail' council.slug %}" class="py-2 px-4 border-b-2 {% if tab == 'view' %}border-blue-600 font-semibold{% else %}border-transparent{% endif %}">View</a>
+    <a href="{% url 'council_detail' council.slug %}?tab=edit" class="py-2 px-4 border-b-2 {% if tab == 'edit' %}border-blue-600 font-semibold{% else %}border-transparent{% endif %}">Edit</a>
+    {% if user.is_superuser or user.profile.tier.level >= 5 %}
+    <a href="{% url 'council_detail' council.slug %}?tab=legacy" class="py-2 px-4 border-b-2 {% if tab == 'legacy' %}border-blue-600 font-semibold{% else %}border-transparent{% endif %}">Legacy Data</a>
+    {% endif %}
+    <a href="{% url 'council_change_log' council.slug %}" class="py-2 px-4 border-b-2 {% if tab == 'log' %}border-blue-600 font-semibold{% else %}border-transparent{% endif %}">Log</a>
+  </nav>
+</div>
+<table class="min-w-full bg-white border mb-4">
+  <thead>
+    <tr>
+      <th class="border px-2 py-1">Field</th>
+      <th class="border px-2 py-1">Year</th>
+      <th class="border px-2 py-1">Contributor</th>
+      <th class="border px-2 py-1">Old Value</th>
+      <th class="border px-2 py-1">New Value</th>
+      <th class="border px-2 py-1">Timestamp</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for log in page_obj %}
+    <tr class="odd:bg-gray-50">
+      <td class="border px-2 py-1">{{ log.field.name }}</td>
+      <td class="border px-2 py-1 text-center">{{ log.year }}</td>
+      <td class="border px-2 py-1">
+        {% if log.contribution and log.contribution.user %}
+        {{ log.contribution.user.username }}
+        {% else %}
+        System
+        {% endif %}
+      </td>
+      <td class="border px-2 py-1">{{ log.old_value }}</td>
+      <td class="border px-2 py-1">{{ log.new_value }}</td>
+      <td class="border px-2 py-1">{{ log.created|date:'SHORT_DATETIME_FORMAT' }}</td>
+    </tr>
+    {% empty %}
+    <tr>
+      <td class="border px-2 py-1 text-center" colspan="6">No log entries.</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+<div class="flex justify-between">
+  {% if page_obj.has_previous %}
+  <a href="?page={{ page_obj.previous_page_number }}" class="underline">Previous</a>
+  {% else %}
+  <span></span>
+  {% endif %}
+  <span>Page {{ page_obj.number }} of {{ paginator.num_pages }}</span>
+  {% if page_obj.has_next %}
+  <a href="?page={{ page_obj.next_page_number }}" class="underline">Next</a>
+  {% else %}
+  <span></span>
+  {% endif %}
+</div>
+{% endblock %}
