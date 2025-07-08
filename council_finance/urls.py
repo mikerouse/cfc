@@ -47,6 +47,11 @@ urlpatterns = [
         views.council_counters,
         name="council_counters",
     ),
+    path(
+        "councils/<slug:slug>/log/",
+        views.council_change_log,
+        name="council_change_log",
+    ),
     path("councils/<slug:slug>/", views.council_detail, name="council_detail"),
     # Common menu pages
     path("leaderboards/", views.leaderboards, name="leaderboards"),

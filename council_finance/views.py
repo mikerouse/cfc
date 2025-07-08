@@ -12,6 +12,7 @@ from django.contrib.auth.decorators import login_required
 from django.contrib.auth.hashers import make_password
 from django.contrib.auth import login
 from django.utils.crypto import get_random_string
+from django.core.paginator import Paginator
 from django.urls import reverse
 import csv
 import hashlib
@@ -385,6 +386,28 @@ def council_detail(request, slug):
         context["council_types"] = CouncilType.objects.all()
 
     return render(request, "council_finance/council_detail.html", context)
+
+
+# ---------------------------------------------------------------------------
+# Council change log view
+# ---------------------------------------------------------------------------
+def council_change_log(request, slug):
+    """Show a paginated list of approved changes for this council."""
+    council = get_object_or_404(Council, slug=slug)
+    logs = (
+        DataChangeLog.objects.filter(council=council)
+        .select_related("contribution__user", "field", "year")
+        .order_by("-created")
+    )
+    paginator = Paginator(logs, 20)
+    page = paginator.get_page(request.GET.get("page"))
+    context = {
+        "council": council,
+        "page_obj": page,
+        "paginator": paginator,
+        "tab": "log",
+    }
+    return render(request, "council_finance/council_log.html", context)
 
 
 # Additional views for common site pages
