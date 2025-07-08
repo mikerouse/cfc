@@ -3,3 +3,4 @@ brevo-python>=1.1.2
 python-dotenv>=1.0.0
 fontawesome-free>=5.15.4
 django-heroicons>=0.0.8
+pytest-django>=4.5
