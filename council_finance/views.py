@@ -146,7 +146,10 @@ def home(request):
             "friendly_format": sc.friendly_format,
             "explanation": sc.explanation,
             "columns": sc.columns,
-            "factoids": get_factoids(sc.counter.slug),
+            "factoids": get_factoids(
+                sc.counter.slug,
+                {"value": formatted, "raw": value},
+            ),
         })
 
     for gc in GroupCounter.objects.filter(promote_homepage=True):
@@ -181,7 +184,10 @@ def home(request):
             "friendly_format": gc.friendly_format,
             "explanation": "",  # groups currently lack custom explanations
             "columns": 3,  # groups default to full width for now
-            "factoids": get_factoids(gc.counter.slug),
+            "factoids": get_factoids(
+                gc.counter.slug,
+                {"value": formatted, "raw": value},
+            ),
         })
 
     context = {
@@ -287,7 +293,10 @@ def council_detail(request, slug):
                 "value": result.get("value"),
                 "formatted": result.get("formatted"),
                 "error": result.get("error"),
-                "factoids": get_factoids(counter.slug),
+                "factoids": get_factoids(
+                    counter.slug,
+                    {"value": result.get("formatted"), "raw": result.get("value")},
+                ),
             }
             if counter.headline:
                 head_list.append(item)
@@ -855,6 +864,43 @@ def preview_aggregate_counter(request):
     # Using the dummy object lets us preview arbitrary settings.
     formatted = CounterDefinition.format_value(dummy, total)
     return JsonResponse({"value": total, "formatted": formatted})
+
+
+@login_required
+@require_GET
+def preview_factoid(request):
+    """Return the rendered factoid text for a counter, council and year."""
+    from .agents.counter_agent import CounterAgent
+    from .models import Council, FinancialYear, CounterDefinition
+
+    counter_slug = request.GET.get("counter")
+    council_slug = request.GET.get("council")
+    year_label = request.GET.get("year")
+    text = request.GET.get("text", "")
+
+    if not (counter_slug and council_slug and year_label and text):
+        return JsonResponse({"error": "Missing data"}, status=400)
+
+    year = FinancialYear.objects.filter(label=year_label).first()
+    if not year:
+        return JsonResponse({"error": "Invalid year"}, status=400)
+
+    counter = CounterDefinition.objects.filter(slug=counter_slug).first()
+    if not counter:
+        return JsonResponse({"error": "Invalid counter"}, status=400)
+
+    agent = CounterAgent()
+    values = agent.run(council_slug=council_slug, year_label=year.label)
+    result = values.get(counter_slug)
+    if not result or result.get("formatted") is None:
+        return JsonResponse({"error": "No data"}, status=400)
+
+    class SafeDict(dict):
+        def __missing__(self, key):
+            return "{" + key + "}"
+
+    rendered = text.format_map(SafeDict(value=result.get("formatted")))
+    return JsonResponse({"text": rendered})
 
 
 @login_required
@@ -1478,11 +1524,17 @@ def factoid_form(request, slug=None):
         raise Http404()
     factoid = get_object_or_404(Factoid, slug=slug) if slug else None
     form = FactoidForm(request.POST or None, instance=factoid)
+    councils = Council.objects.order_by("name")
+    years = FinancialYear.objects.order_by("-label")
     if request.method == "POST" and form.is_valid():
         form.save()
         messages.success(request, "Factoid saved.")
         return redirect("factoid_list")
-    return render(request, "council_finance/factoid_form.html", {"form": form})
+    return render(
+        request,
+        "council_finance/factoid_form.html",
+        {"form": form, "councils": councils, "years": years},
+    )
 
 
 @login_required

@@ -1,13 +1,18 @@
 """Retrieve factoids associated with counters."""
 
-from typing import List, Dict
+from typing import List, Dict, Optional, Any
 import random
 
 from .models import Factoid
 
 
-def get_factoids(counter_slug: str) -> List[Dict[str, str]]:
-    """Return factoids linked to the given counter slug."""
+def get_factoids(counter_slug: str, context: Optional[Dict[str, Any]] = None) -> List[Dict[str, str]]:
+    """Return factoids linked to the given counter slug.
+
+    ``context`` can include placeholders such as ``value`` or ``name`` which
+    will be substituted into the factoid text. Missing keys are left in place so
+    admins can easily spot problems.
+    """
     # Look up any Factoid objects related to a counter with this slug. This
     # keeps the logic flexible so managers can add new snippets without code
     # changes. When no factoids exist we fall back to the built-in examples so
@@ -27,6 +32,15 @@ def get_factoids(counter_slug: str) -> List[Dict[str, str]]:
             ],
         }
         data = fallback.get(counter_slug, [])
+
+    if context:
+        class SafeDict(dict):
+            def __missing__(self, key):
+                return "{" + key + "}"
+
+        safe = SafeDict(**context)
+        for item in data:
+            item["text"] = item["text"].format_map(safe)
 
     random.shuffle(data)
     return data

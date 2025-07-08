@@ -102,6 +102,7 @@ urlpatterns = [
     path("manage/fields/<slug:slug>/delete/", views.field_delete, name="field_delete"),
     path("manage/factoids/", views.factoid_list, name="factoid_list"),
     path("manage/factoids/add/", views.factoid_form, name="factoid_add"),
+    path("manage/factoids/preview/", views.preview_factoid, name="preview_factoid"),
     path("manage/factoids/<slug:slug>/", views.factoid_form, name="factoid_edit"),
     path(
         "manage/factoids/<slug:slug>/delete/",
