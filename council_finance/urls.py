@@ -103,5 +103,10 @@ urlpatterns = [
     path("manage/factoids/", views.factoid_list, name="factoid_list"),
     path("manage/factoids/add/", views.factoid_form, name="factoid_add"),
     path("manage/factoids/<slug:slug>/", views.factoid_form, name="factoid_edit"),
+    path(
+        "manage/factoids/<slug:slug>/delete/",
+        views.factoid_delete,
+        name="factoid_delete",
+    ),
     path("god-mode/", views.god_mode, name="god_mode"),
 ]

@@ -21,7 +21,12 @@
             <td class="border px-2 py-1"><a href="{% url 'factoid_edit' f.slug %}" class="text-blue-600 underline">{{ f.name }}</a></td>
             <td class="border px-2 py-1 text-center">{{ f.slug }}</td>
             <td class="border px-2 py-1 text-center">{{ f.get_factoid_type_display }}</td>
-            <td class="border px-2 py-1 text-center"><a href="{% url 'factoid_edit' f.slug %}" class="text-blue-600 underline">Edit</a></td>
+            <td class="border px-2 py-1 text-center">
+                <a href="{% url 'factoid_edit' f.slug %}" class="text-blue-600 underline">Edit</a>
+                {% if user.is_superuser or user.profile.tier.level >= 5 %}
+                | <a href="{% url 'factoid_delete' f.slug %}" class="text-red-600 underline">Delete</a>
+                {% endif %}
+            </td>
         </tr>
         {% empty %}
         <tr>

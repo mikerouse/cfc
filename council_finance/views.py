@@ -1486,6 +1486,21 @@ def factoid_form(request, slug=None):
 
 
 @login_required
+def factoid_delete(request, slug):
+    """Remove a factoid. Only available to God Mode admins."""
+
+    # God Mode corresponds to trust tier level 5. Superusers automatically
+    # bypass the tier requirement which allows emergency cleanup of data.
+    if not request.user.is_superuser and request.user.profile.tier.level < 5:
+        raise Http404()
+
+    factoid = get_object_or_404(Factoid, slug=slug)
+    factoid.delete()
+    messages.success(request, "Factoid deleted.")
+    return redirect("factoid_list")
+
+
+@login_required
 def field_delete(request, slug):
     """Delete a data field unless it's protected."""
     if not request.user.is_superuser and request.user.profile.tier.level < MANAGEMENT_TIER:
