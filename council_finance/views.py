@@ -38,6 +38,7 @@ from django.conf import settings
 MANAGEMENT_TIER = 4
 
 from .models import DataField
+from .factoids import get_factoids
 from .models import (
     Council,
     FinancialYear,
@@ -143,6 +144,7 @@ def home(request):
             "friendly_format": sc.friendly_format,
             "explanation": sc.explanation,
             "columns": sc.columns,
+            "factoids": get_factoids(sc.counter.slug),
         })
 
     for gc in GroupCounter.objects.filter(promote_homepage=True):
@@ -177,6 +179,7 @@ def home(request):
             "friendly_format": gc.friendly_format,
             "explanation": "",  # groups currently lack custom explanations
             "columns": 3,  # groups default to full width for now
+            "factoids": get_factoids(gc.counter.slug),
         })
 
     context = {
@@ -282,6 +285,7 @@ def council_detail(request, slug):
                 "value": result.get("value"),
                 "formatted": result.get("formatted"),
                 "error": result.get("error"),
+                "factoids": get_factoids(counter.slug),
             }
             if counter.headline:
                 head_list.append(item)

@@ -19,7 +19,7 @@
 <div id="homepage-counters" class="my-8 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
     {% if promoted_counters %}
         {% for item in promoted_counters %}
-            <div class="bg-gray-100 shadow rounded p-10 text-center space-y-2 relative resize-counter sm:col-span-{{ item.columns }}" data-slug="{{ item.slug }}" data-default-span="{{ item.columns }}">
+            <div id="counter-{{ item.slug }}" class="bg-gray-100 shadow rounded p-10 text-center space-y-2 relative resize-counter sm:col-span-{{ item.columns }}" data-slug="{{ item.slug }}" data-default-span="{{ item.columns }}">
                 <p class="text-sm text-gray-500 flex items-center justify-center gap-1">
                     {{ item.name }}
                     {% if item.explanation %}
@@ -32,14 +32,18 @@
                         data-value="{{ item.raw }}"
                         data-duration="{{ item.duration }}"
                         data-precision="{{ item.precision }}"
-                        data-show-currency="{{ item.show_currency }}"
-                        data-friendly="{{ item.friendly_format }}"
+                        data-show-currency="{{ item.show_currency|yesno:'true,false' }}"
+                        data-friendly="{{ item.friendly_format|yesno:'true,false' }}"
                         data-formatted="{{ item.formatted }}">0</p>
+                    <p class="counter-factoid text-sm text-gray-600"></p>
                     {% if item.explanation %}
                     <p id="info-{{ forloop.counter0 }}" class="hidden text-sm text-gray-700">{{ item.explanation }}</p>
                     {% endif %}
-                    <div class="absolute bottom-0 right-0 w-3 h-3 bg-gray-300 cursor-ew-resize handle"></div>
-                </div>
+                <div class="absolute bottom-0 right-0 w-3 h-3 bg-gray-300 cursor-ew-resize handle"></div>
+                {% with script_id='factoids-'|add:item.slug %}
+                {{ item.factoids|json_script:script_id }}
+                {% endwith %}
+            </div>
         {% endfor %}
         <!-- Hidden element ensures Tailwind's JIT engine generates utility
              classes for all column spans used by the resize script. -->
@@ -58,6 +62,10 @@
 {% endblock %}
 {% block extra_scripts %}
 <script src="{% static 'js/countUp.umd.js' %}"></script>
+<style>
+  .counter-factoid{max-height:0;overflow:hidden;transition:max-height 0.5s ease;}
+  .counter-factoid.show{max-height:3rem;}
+</style>
 <script>
 function toggleInfo(id) {
     const el = document.getElementById(id);
@@ -67,7 +75,9 @@ document.addEventListener('DOMContentLoaded', () => {
     document.querySelectorAll('.counter-value').forEach(el => {
         const val = parseFloat(el.dataset.value || '0');
         const dur = parseInt(el.dataset.duration || '0') / 1000;
-        const showCurrency = el.dataset.showCurrency === 'true';
+        // Dataset values may come back as "True" or "true" from the template.
+        // Normalise the string so the check works regardless of case.
+        const showCurrency = (el.dataset.showCurrency || 'false').toLowerCase() === 'true';
         const precision = parseInt(el.dataset.precision || '0');
         const thousands = showCurrency;
         const display = el.dataset.formatted || val.toLocaleString();
@@ -75,12 +85,40 @@ document.addEventListener('DOMContentLoaded', () => {
             duration: dur,
             decimalPlaces: precision,
             separator: thousands ? ',' : '',
-            prefix: showCurrency ? '£' : ''
+            prefix: showCurrency ? '£' : '',
+            easingFn: (t, b, c, d) => {
+                // simple linear deceleration: start fast and slow linearly
+                t /= d; return c * (2 - t) * t * 0.5 + b;
+            }
         });
+        // Print the starting value with prefix/separator so it is visible immediately
+        if (cu.printValue) {
+            cu.printValue(0);
+        } else {
+            el.textContent = cu.formattingFn(0);
+        }
+        const container = el.parentElement;
+        const factEl = container.querySelector('.counter-factoid');
+        let facts = [];
+        const script = document.getElementById('factoids-' + container.dataset.slug);
+        if (script) {
+            try { facts = JSON.parse(script.textContent); } catch (e) { facts = []; }
+        }
+        function cycleFacts(i=0){
+            if(!factEl || !facts.length) return;
+            const f = facts[i];
+            factEl.innerHTML = f.icon ? `<i class='fas ${f.icon}'></i> ${f.text}` : f.text;
+            factEl.classList.add('show');
+            setTimeout(() => {
+                factEl.classList.remove('show');
+                setTimeout(() => cycleFacts((i+1)%facts.length), 500);
+            }, 4000);
+        }
         if (!cu.error) {
-            cu.start(() => { el.textContent = display; });
+            cu.start(cycleFacts);
         } else {
             el.textContent = display;
+            cycleFacts();
         }
     });
     // Allow visitors to resize promoted counters and persist using localStorage
