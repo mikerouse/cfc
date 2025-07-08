@@ -92,6 +92,8 @@
         </div>
         {% endif %}
     </header>
+    <!-- Shared live search helper -->
+    <script src="{% static 'js/live_search.js' %}"></script>
     <script>
     const toggle = document.getElementById('notif-toggle');
     if (toggle) {
@@ -117,44 +119,12 @@
     });
 
 
-    // Live search behaviour for the main header search box.
-    const searchInput = document.getElementById('live-search-input');
-    const searchResults = document.getElementById('live-search-results');
-    if (searchInput && searchResults) {
-        searchInput.addEventListener('input', () => {
-            const q = searchInput.value.trim();
-            if (q.length < 2) {
-                searchResults.innerHTML = '';
-                searchResults.classList.add('hidden');
-                return;
-            }
-            fetch(`/api/councils/search/?q=${encodeURIComponent(q)}`)
-                .then(r => r.json())
-                .then(items => {
-                    searchResults.innerHTML = '';
-                    if (!items.length) {
-                        searchResults.classList.add('hidden');
-                        return;
-                    }
-                    items.forEach(item => {
-                        const a = document.createElement('a');
-                        a.href = `/councils/${item.slug}/`;
-                        a.textContent = item.name;
-                        a.className = 'block px-2 py-1 hover:bg-gray-200';
-                        searchResults.appendChild(a);
-                    });
-                    searchResults.classList.remove('hidden');
-                })
-                .catch(() => {
-                    searchResults.classList.add('hidden');
-                });
-        });
-        document.addEventListener('click', (e) => {
-            if (!searchResults.contains(e.target) && e.target !== searchInput) {
-                searchResults.classList.add('hidden');
-            }
-        });
-    }
+    // Attach live search to the header input. This reuses the helper defined
+    // in static/js/live_search.js so multiple inputs can share the same logic.
+    attachLiveSearch(
+        document.getElementById('live-search-input'),
+        document.getElementById('live-search-results')
+    );
     </script>
 
     {# Display one-off messages generated via Django's messages framework. #}

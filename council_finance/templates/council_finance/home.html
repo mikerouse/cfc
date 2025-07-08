@@ -3,10 +3,13 @@
 {% block title %}Home - Council Finance Counters{% endblock %}
 {% block content %}
 <div id="homepage-search" class="text-center my-8">
-    <form method="get" action="{% url 'home' %}" class="my-4 flex gap-2">
-        <!-- Allow the search field to expand and occupy the remaining space so
-             it stretches across the page on larger screens. -->
-        <input type="text" name="q" value="{{ query }}" placeholder="Search councils" class="border rounded px-2 py-1 flex-grow w-full" />
+    <form method="get" action="{% url 'home' %}" class="my-4 flex gap-2 justify-center">
+        <!-- Wrap the input so we can position the drop-down results absolutely
+             beneath it without affecting the button layout. -->
+        <div class="relative flex-grow max-w-sm">
+            <input id="homepage-search-input" type="text" name="q" value="{{ query }}" placeholder="Search councils" class="border rounded px-2 py-1 w-full" autocomplete="off" />
+            <ul id="homepage-search-results" class="absolute left-0 right-0 bg-white text-black border rounded shadow mt-1 hidden z-10"></ul>
+        </div>
         <button type="submit" class="bg-blue-600 text-white px-4 py-1 rounded">Search</button>
     </form>
 </div>
@@ -62,6 +65,7 @@
 {% endblock %}
 {% block extra_scripts %}
 <script src="{% static 'js/countUp.umd.js' %}"></script>
+<script src="{% static 'js/live_search.js' %}"></script>
 <style>
   .counter-factoid{max-height:0;overflow:hidden;transition:max-height 0.5s ease;}
   .counter-factoid.show{max-height:3rem;}
@@ -155,6 +159,13 @@ document.addEventListener('DOMContentLoaded', () => {
         el.classList.remove('sm:col-span-1','sm:col-span-2','sm:col-span-3');
         el.classList.add(`sm:col-span-${span}`);
     }
+    // Enable live search for the homepage field using the helper shared with
+    // the header search. Results appear as the visitor types two or more
+    // letters.
+    attachLiveSearch(
+        document.getElementById('homepage-search-input'),
+        document.getElementById('homepage-search-results')
+    );
 });
 </script>
 {% endblock %}
