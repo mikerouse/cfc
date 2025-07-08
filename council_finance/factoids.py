@@ -9,17 +9,27 @@ from .models import Factoid
 def previous_year_label(label: str) -> Optional[str]:
     """Return the previous financial year label if parsable."""
     try:
-        parts = str(label).split("/")
+        # Accept formats like ``2023/24`` or ``2023-24`` by normalising the
+        # separator. Using ``replace`` allows us to handle mixed inputs without
+        # multiple branches.
+        clean = str(label).replace("-", "/")
+        parts = clean.split("/")
         if len(parts) == 2:
+            # Keep the same width for the trailing year so ``23/24`` becomes
+            # ``22/23`` rather than ``22/23``. This mirrors the original
+            # formatting supplied by admins.
             first = int(parts[0])
-            second = int(parts[1])
+            second_str = parts[1]
+            second = int(second_str)
             prev_first = first - 1
             prev_second = second - 1
-            second_fmt = f"{prev_second:0{len(parts[1])}d}"
+            second_fmt = f"{prev_second:0{len(second_str)}d}"
             return f"{prev_first}/{second_fmt}"
         base = int(parts[0])
         return str(base - 1)
     except (TypeError, ValueError):
+        # Invalid or non-numeric labels simply return ``None`` so callers can
+        # decide how to handle missing data gracefully.
         return None
 
 
@@ -57,14 +67,19 @@ def get_factoids(counter_slug: str, context: Optional[Dict[str, Any]] = None) ->
 
         for item in data:
             safe = SafeDict(**context)
-            if (
-                item.get("factoid_type") == "percent_change"
-                and context.get("previous_raw") not in (None, 0)
-                and context.get("raw") not in (None, "")
-            ):
+            if item.get("factoid_type") == "percent_change":
+                # ``raw`` values are numbers from counters while ``previous_raw``
+                # holds the prior year's figure. We coerce both to floats so the
+                # percentage can be calculated reliably.
                 try:
-                    current = float(context.get("raw"))
-                    prev = float(context.get("previous_raw"))
+                    current = float(context.get("raw", 0))
+                    prev = float(context.get("previous_raw", 0))
+                except (TypeError, ValueError):
+                    current = prev = 0
+
+                if prev:
+                    # Normal case: compute the percentage difference using the
+                    # previous year as the baseline.
                     change = (current - prev) / prev * 100
                     safe["value"] = f"{change:.1f}%"
                     if change > 0:
@@ -73,8 +88,13 @@ def get_factoids(counter_slug: str, context: Optional[Dict[str, Any]] = None) ->
                         item["icon"] = "fa-chevron-down text-red-600"
                     else:
                         item["icon"] = "fa-chevron-right text-gray-500"
-                except Exception:
-                    pass
+                else:
+                    # When no previous value exists (or is zero) we avoid a
+                    # division error and display ``0%`` with a neutral icon so
+                    # users can still understand the context.
+                    safe["value"] = "0%"
+                    item["icon"] = "fa-chevron-right text-gray-500"
+
             item["text"] = item["text"].format_map(safe)
 
     random.shuffle(data)

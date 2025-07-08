@@ -48,3 +48,11 @@ class FactoidPercentChangeTest(TestCase):
             {"raw": 90, "previous_raw": 100},
         )
         self.assertEqual(facts[0]["icon"], "fa-chevron-down text-red-600")
+
+    def test_handles_zero_previous(self):
+        """When there is no previous value the function should return 0%."""
+        facts = get_factoids(
+            "debt",
+            {"raw": 90, "previous_raw": 0},
+        )
+        self.assertEqual(facts[0]["text"], "0% change")
