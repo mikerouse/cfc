@@ -63,3 +63,15 @@ client-side using **math.js** so mistakes are surfaced immediately. Counters
 also define precision, currency display and whether large values should appear
 as friendly text like `£1m`.
 
+## Cached Site Totals
+
+Use the `SiteTotalsAgent` to pre-compute homepage figures. Schedule the agent
+via cron so visitors see fast responses:
+
+```bash
+python manage.py runagent SiteTotalsAgent
+```
+
+Totals are cached by counter slug and year label. The home view reads these
+values directly from the cache to avoid expensive per-request calculations.
+

@@ -116,38 +116,18 @@ def home(request):
         total_debt = 0
 
     promoted = []
+    # Import here to keep the view lightweight if the home page is cached.
     from .models import SiteCounter, GroupCounter
-    from .agents.counter_agent import CounterAgent
+    from django.core.cache import cache
 
-    agent = CounterAgent()
     all_years = list(FinancialYear.objects.order_by("-label"))
+    # Pull pre-computed totals from the cache for each promoted site counter.
     for sc in SiteCounter.objects.filter(promote_homepage=True):
-        value = 0
+        year_label = sc.year.label if sc.year else "all"
+        value = cache.get(f"counter_total:{sc.slug}:{year_label}", 0)
         prev_value = 0
-        years = [sc.year] if sc.year else all_years
-        prev_year = None
         if sc.year:
-            label = previous_year_label(sc.year.label)
-            if label:
-                prev_year = FinancialYear.objects.filter(label=label).first()
-        for council in Council.objects.all():
-            for yr in years:
-                res = agent.run(council_slug=council.slug, year_label=yr.label)
-                data = res.get(sc.counter.slug)
-                if data and data.get("value") is not None:
-                    try:
-                        value += float(data["value"])
-                    except (TypeError, ValueError):
-                        pass
-            if prev_year:
-                res = agent.run(council_slug=council.slug, year_label=prev_year.label)
-                data = res.get(sc.counter.slug)
-                if data and data.get("value") is not None:
-                    try:
-                        prev_value += float(data["value"])
-                    except (TypeError, ValueError):
-                        pass
-        # Format the total using the settings from the SiteCounter instance
+            prev_value = cache.get(f"counter_total:{sc.slug}:{year_label}:prev", 0)
         formatted = CounterDefinition.format_value(sc, value)
         promoted.append({
             "slug": sc.slug,
@@ -166,40 +146,13 @@ def home(request):
             ),
         })
 
+    # Group counters follow the same pattern but target a subset of councils.
     for gc in GroupCounter.objects.filter(promote_homepage=True):
-        councils = Council.objects.all()
-        if gc.councils.exists():
-            councils = gc.councils.all()
-        if gc.council_list_id:
-            councils = councils & gc.council_list.councils.all()
-        if gc.council_types.exists():
-            councils = councils.filter(council_type__in=gc.council_types.all())
-        value = 0
+        year_label = gc.year.label if gc.year else "all"
+        value = cache.get(f"counter_total:{gc.slug}:{year_label}", 0)
         prev_value = 0
-        years = [gc.year] if gc.year else all_years
-        prev_year = None
         if gc.year:
-            label = previous_year_label(gc.year.label)
-            if label:
-                prev_year = FinancialYear.objects.filter(label=label).first()
-        for council in councils:
-            for yr in years:
-                res = agent.run(council_slug=council.slug, year_label=yr.label)
-                data = res.get(gc.counter.slug)
-                if data and data.get("value") is not None:
-                    try:
-                        value += float(data["value"])
-                    except (TypeError, ValueError):
-                        pass
-            if prev_year:
-                res = agent.run(council_slug=council.slug, year_label=prev_year.label)
-                data = res.get(gc.counter.slug)
-                if data and data.get("value") is not None:
-                    try:
-                        prev_value += float(data["value"])
-                    except (TypeError, ValueError):
-                        pass
-        # Use the group counter's formatting preferences when displaying
+            prev_value = cache.get(f"counter_total:{gc.slug}:{year_label}:prev", 0)
         formatted = CounterDefinition.format_value(gc, value)
         promoted.append({
             "slug": gc.slug,
