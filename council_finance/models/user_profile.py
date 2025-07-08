@@ -63,6 +63,13 @@ class UserProfile(models.Model):
     # Gamification fields tracking contribution performance.
     points = models.IntegerField(default=0)
     rejection_count = models.IntegerField(default=0)
+    # Number of unique IP addresses that have been verified via approved
+    # submissions. This can be used to gauge trustworthiness of the account
+    # based on consistent usage patterns.
+    verified_ip_count = models.IntegerField(default=0)
+    # Total number of contributions by this user that moderators approved.
+    # Used for auto-approval thresholds.
+    approved_submission_count = models.IntegerField(default=0)
 
     def __str__(self) -> str:
         return f"Profile for {self.user.username}"

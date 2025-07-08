@@ -114,3 +114,9 @@ DEFAULT_FINANCIAL_YEAR = "2023/24"
 # migrations. Without this setting Django would default to AutoField and
 # repeatedly generate spurious migration files.
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
+
+# Auto-approval defaults used when creating new user accounts. These values
+# can be overridden via the ``SiteSetting`` admin by storing integer values
+# under the matching keys.
+AUTO_APPROVE_MIN_VERIFIED_IPS = 1
+AUTO_APPROVE_MIN_APPROVED = 3

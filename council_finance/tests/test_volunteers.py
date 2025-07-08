@@ -8,6 +8,7 @@ from council_finance.models import (
     Contribution,
     Council,
     DataField,
+    VerifiedIP,
 )
 
 class TierNotificationTests(TestCase):
@@ -59,6 +60,37 @@ class ContributionApprovalTests(TestCase):
         )
         self.assertEqual(response.json()["status"], "approved")
         self.assertEqual(Contribution.objects.last().status, "approved")
+
+    def test_history_based_auto_approve(self):
+        # Seed profile with enough approved contributions and a verified IP
+        self.user.profile.email_confirmed = True
+        self.user.profile.approved_submission_count = 3
+        self.user.profile.verified_ip_count = 1
+        self.user.profile.save()
+        VerifiedIP.objects.create(user=self.user, ip_address="1.2.3.4")
+
+        self.client.login(username="contrib", password="pass123")
+        resp = self.client.post(
+            reverse("submit_contribution"),
+            {"council": "test", "field": "council_website", "value": "http://d.com"},
+            HTTP_X_REQUESTED_WITH="XMLHttpRequest",
+        )
+        self.assertEqual(resp.json()["status"], "approved")
+
+    def test_missing_history_no_auto_approve(self):
+        """Without a confirmed email or enough history the submission stays pending."""
+        self.user.profile.email_confirmed = True
+        self.user.profile.approved_submission_count = 1
+        self.user.profile.verified_ip_count = 0
+        self.user.profile.save()
+
+        self.client.login(username="contrib", password="pass123")
+        resp = self.client.post(
+            reverse("submit_contribution"),
+            {"council": "test", "field": "council_website", "value": "http://e.com"},
+            HTTP_X_REQUESTED_WITH="XMLHttpRequest",
+        )
+        self.assertEqual(resp.json()["status"], "pending")
 
     def test_standard_post_redirects(self):
         self.client.login(username="contrib", password="pass123")
