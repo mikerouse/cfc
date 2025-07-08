@@ -6,6 +6,11 @@
   <span class="w-8 h-8 bg-gray-300 rounded-full"></span>
   {{ council.name }}
 </h1>
+{% if user.is_authenticated %}
+  <button id="follow-btn" class="mb-2 bg-blue-600 text-white px-2 py-1 rounded" data-following="{{ is_following|yesno:'true,false' }}" data-slug="{{ council.slug }}">
+    {% if is_following %}Unfollow{% else %}Follow{% endif %}
+  </button>
+{% endif %}
 <div class="council-meta-in-header flex flex-row items-center gap-4 text-gray-500 text-sm mb-2">
   <div class="council-type-in-header">
     {% if council.council_type %}
@@ -473,6 +478,22 @@ toggleBtn.addEventListener('click', () => {
 </script>
 {% endif %}
 {% endif %}
+<script>
+function getCookie(name){const m=document.cookie.match('(^|;)\\s*'+name+'\\s*=\\s*([^;]+)');return m?m.pop():'';}
+const followBtn=document.getElementById('follow-btn');
+if(followBtn){
+  const csrftoken=getCookie('csrftoken');
+  followBtn.addEventListener('click',()=>{
+    const slug=followBtn.dataset.slug;
+    const following=followBtn.dataset.following==='true';
+    const url=following?`/unfollow/${slug}/`:`/follow/${slug}/`;
+    fetch(url,{method:'POST',headers:{'X-CSRFToken':csrftoken}}).then(r=>r.json()).then(()=>{
+      followBtn.dataset.following=following?'false':'true';
+      followBtn.textContent=following?'Follow':'Unfollow';
+    });
+  });
+}
+</script>
 {% if meta_values and tab != 'legacy' %}
 <div id="meta-zone" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 my-6">
     {% for m in meta_values %}
