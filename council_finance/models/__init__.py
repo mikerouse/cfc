@@ -23,6 +23,12 @@ from .counter import CounterDefinition, CouncilCounter
 from .site_counter import SiteCounter, GroupCounter
 from .factoid import Factoid
 from .setting import SiteSetting
+from .council_follow import CouncilFollow
+from .council_update import (
+    CouncilUpdate,
+    CouncilUpdateLike,
+    CouncilUpdateComment,
+)
 
 __all__ = [
     'Council',
@@ -48,6 +54,10 @@ __all__ = [
     'CouncilCounter',
     'SiteCounter',
     'GroupCounter',
+    'CouncilFollow',
+    'CouncilUpdate',
+    'CouncilUpdateLike',
+    'CouncilUpdateComment',
     'Factoid',
     'SiteSetting',
 ]

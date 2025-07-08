@@ -364,3 +364,16 @@ class FactoidForm(forms.ModelForm):
             ftype = self.initial.get("factoid_type") or self.fields["factoid_type"].initial
             self.fields["text"].initial = self.DEFAULT_TEXTS.get(ftype, "")
 
+
+class UpdateCommentForm(forms.ModelForm):
+    """Simple form to add a comment to a council update."""
+
+    class Meta:
+        from .models import CouncilUpdateComment
+
+        model = CouncilUpdateComment
+        fields = ["text"]
+        widgets = {
+            "text": forms.Textarea(attrs={"rows": 2, "class": "border rounded p-1 w-full"}),
+        }
+

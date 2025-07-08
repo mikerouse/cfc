@@ -1,6 +1,56 @@
 {% extends "base.html" %}
+{% load static extras %}
 {% block title %}Following - Council Finance Counters{% endblock %}
 {% block content %}
 <h1 class="text-2xl font-bold mb-4">Following</h1>
-<p>List of councils you are following will appear here.</p>
+{% if updates %}
+  <ul id="feed" class="space-y-4">
+    {% for up in updates %}
+    <li class="border rounded p-4" data-update="{{ up.id }}">
+      <p class="text-sm text-gray-600">{{ up.created|date:'SHORT_DATETIME_FORMAT' }}</p>
+      <p class="mb-2"><strong>{{ up.council.name }}</strong> - {{ up.message }}</p>
+      <div class="flex items-center gap-4 text-sm">
+        <button class="like-btn text-blue-600" data-id="{{ up.id }}">
+          Like (<span class="like-count">{{ up.likes.count }}</span>)
+        </button>
+      </div>
+      <form class="comment-form mt-2" data-id="{{ up.id }}" method="post">
+        {% csrf_token %}
+        {{ comment_forms|get_item:up.id }}
+        <button type="submit" class="bg-blue-600 text-white px-2 py-1 rounded text-sm mt-1">Comment</button>
+      </form>
+      <ul class="comments mt-2 text-sm space-y-1">
+        {% for c in up.comments.all %}
+        <li><strong>{{ c.user.username }}:</strong> {{ c.text }}</li>
+        {% endfor %}
+      </ul>
+    </li>
+    {% endfor %}
+  </ul>
+{% else %}
+  <p>No updates yet.</p>
+{% endif %}
+<script>
+function getCookie(name){const m=document.cookie.match('(^|;)\\s*'+name+'\\s*=\\s*([^;]+)');return m?m.pop():'';}
+const csrftoken=getCookie('csrftoken');
+document.querySelectorAll('.like-btn').forEach(btn=>{
+  btn.addEventListener('click',()=>{
+    const id=btn.dataset.id;
+    fetch(`/updates/${id}/like/`,{method:'POST',headers:{'X-CSRFToken':csrftoken}})
+      .then(r=>r.json()).then(data=>{
+        if(data.count!=undefined){
+          btn.querySelector('.like-count').textContent=data.count;
+        }
+      });
+  });
+});
+document.querySelectorAll('.comment-form').forEach(f=>{
+  f.addEventListener('submit',e=>{
+    e.preventDefault();
+    const id=f.dataset.id;const text=f.querySelector('textarea').value;
+    fetch(`/updates/${id}/comment/`,{method:'POST',headers:{'X-CSRFToken':csrftoken,'Content-Type':'application/x-www-form-urlencoded'},body:`text=${encodeURIComponent(text)}`})
+      .then(r=>r.json()).then(data=>{if(data.status==='ok'){location.reload();}});
+  });
+});
+</script>
 {% endblock %}

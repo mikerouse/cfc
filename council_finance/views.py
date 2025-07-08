@@ -33,6 +33,7 @@ from .forms import (
     DataFieldForm,
     ProfileExtraForm,
     FactoidForm,
+    UpdateCommentForm,
 )
 from django.conf import settings
 
@@ -327,6 +328,14 @@ def council_detail(request, slug):
         if fs:
             meta_values.append({"field": field, "value": field.display_value(fs.value)})
 
+    is_following = False
+    if request.user.is_authenticated:
+        from .models import CouncilFollow
+
+        is_following = CouncilFollow.objects.filter(
+            user=request.user, council=council
+        ).exists()
+        
     edit_figures = figures.filter(year=edit_selected_year) if edit_selected_year else figures.none()
 
     context = {
@@ -358,6 +367,7 @@ def council_detail(request, slug):
                 council=council, status="pending"
             ).values_list("field__slug", "year_id")
         ),
+        "is_following": is_following,
     }
     if tab == "edit":
         from .models import CouncilType
@@ -511,8 +521,26 @@ def my_lists(request):
 
 
 def following(request):
-    """Show councils the user follows."""
-    return render(request, "council_finance/following.html")
+    """Show recent updates for councils the user follows."""
+
+    if not request.user.is_authenticated:
+        from django.shortcuts import redirect
+
+        return redirect("login")
+
+    from .models import CouncilFollow, CouncilUpdate
+
+    followed_ids = CouncilFollow.objects.filter(user=request.user).values_list("council_id", flat=True)
+    updates = (
+        CouncilUpdate.objects.filter(council_id__in=followed_ids)
+        .select_related("council")
+        .order_by("-created")[:50]
+    )
+
+    comment_forms = {u.id: UpdateCommentForm() for u in updates}
+
+    context = {"updates": updates, "comment_forms": comment_forms}
+    return render(request, "council_finance/following.html", context)
 
 
 def contribute(request):
@@ -1228,6 +1256,36 @@ def add_favourite(request):
 
 
 @login_required
+def follow_council(request, slug):
+    """AJAX endpoint to follow a council for updates."""
+    if request.method != "POST":
+        return HttpResponseBadRequest("POST required")
+    try:
+        council = Council.objects.get(slug=slug)
+        from .models import CouncilFollow
+
+        CouncilFollow.objects.get_or_create(user=request.user, council=council)
+        return JsonResponse({"status": "ok"})
+    except Council.DoesNotExist:
+        return JsonResponse({"error": "not found"}, status=400)
+
+
+@login_required
+def unfollow_council(request, slug):
+    """AJAX endpoint to unfollow a council."""
+    if request.method != "POST":
+        return HttpResponseBadRequest("POST required")
+    try:
+        council = Council.objects.get(slug=slug)
+        from .models import CouncilFollow
+
+        CouncilFollow.objects.filter(user=request.user, council=council).delete()
+        return JsonResponse({"status": "ok"})
+    except Council.DoesNotExist:
+        return JsonResponse({"error": "not found"}, status=400)
+
+
+@login_required
 def remove_favourite(request):
     """AJAX endpoint to remove a council from favourites."""
     if request.method != "POST":
@@ -1288,6 +1346,44 @@ def move_between_lists(request):
         return JsonResponse({"status": "ok"})
     except (Council.DoesNotExist, CouncilList.DoesNotExist):
         return JsonResponse({"error": "invalid"}, status=400)
+
+
+@login_required
+def like_update(request, update_id):
+    """Toggle a like on a council update."""
+    from .models import CouncilUpdate, CouncilUpdateLike
+
+    if request.method != "POST":
+        return HttpResponseBadRequest("POST required")
+    update = CouncilUpdate.objects.filter(id=update_id).first()
+    if not update:
+        return JsonResponse({"error": "not found"}, status=400)
+    like, created = CouncilUpdateLike.objects.get_or_create(
+        update=update, user=request.user
+    )
+    if not created:
+        like.delete()
+        liked = False
+    else:
+        liked = True
+    return JsonResponse({"status": "ok", "liked": liked, "count": update.likes.count()})
+
+
+@login_required
+def comment_update(request, update_id):
+    """Add a comment to a council update."""
+    from .models import CouncilUpdate, CouncilUpdateComment
+
+    if request.method != "POST":
+        return HttpResponseBadRequest("POST required")
+    update = CouncilUpdate.objects.filter(id=update_id).first()
+    if not update:
+        return JsonResponse({"error": "not found"}, status=400)
+    text = request.POST.get("text", "").strip()
+    if not text:
+        return JsonResponse({"error": "empty"}, status=400)
+    CouncilUpdateComment.objects.create(update=update, user=request.user, text=text)
+    return JsonResponse({"status": "ok"})
 
 
 @login_required
