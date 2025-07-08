@@ -48,6 +48,11 @@ urlpatterns = [
         name="council_counters",
     ),
     path(
+        "councils/<slug:slug>/edit-table/",
+        views.edit_figures_table,
+        name="edit_figures_table",
+    ),
+    path(
         "councils/<slug:slug>/log/",
         views.council_change_log,
         name="council_change_log",
@@ -63,6 +68,10 @@ urlpatterns = [
     path("lists/move/", views.move_between_lists, name="move_between_lists"),
     path("lists/<int:list_id>/metric/", views.list_metric, name="list_metric"),
     path("following/", views.following, name="following"),
+    path("follow/<slug:slug>/", views.follow_council, name="follow_council"),
+    path("unfollow/<slug:slug>/", views.unfollow_council, name="unfollow_council"),
+    path("updates/<int:update_id>/like/", views.like_update, name="like_update"),
+    path("updates/<int:update_id>/comment/", views.comment_update, name="comment_update"),
     path("contribute/", views.contribute, name="contribute"),
     path("contribute/submit/", views.submit_contribution, name="submit_contribution"),
     path("contribute/<int:pk>/<str:action>/", views.review_contribution, name="review_contribution"),

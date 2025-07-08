@@ -93,8 +93,10 @@
         </div>
         {% endif %}
     </header>
-    <!-- Shared live search helper -->
+    <!-- Shared helpers for live search and numeric entry formatting -->
     <script src="{% static 'js/live_search.js' %}"></script>
+    <script src="{% static 'js/number_helper.js' %}"></script>
+    <script src="{% static 'js/edit_figures.js' %}"></script>
     <script>
     const toggle = document.getElementById('notif-toggle');
     if (toggle) {

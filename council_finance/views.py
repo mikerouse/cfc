@@ -33,6 +33,7 @@ from .forms import (
     DataFieldForm,
     ProfileExtraForm,
     FactoidForm,
+    UpdateCommentForm,
 )
 from django.conf import settings
 
@@ -237,6 +238,18 @@ def council_detail(request, slug):
     current_label = current_financial_year_label()
     for y in years:
         y.display = "Current Year to Date" if y.label == current_label else y.label
+
+    # Edit tab uses a shorter list of years (last 25) so users can select
+    # historical figures. The dropdown defaults to the latest year unless
+    # the request specifies otherwise.
+    edit_years = years[:25]
+    edit_selected_year = edit_years[0] if edit_years else None
+    req_year = request.GET.get("year") if tab == "edit" else None
+    if req_year:
+        for y in edit_years:
+            if y.label == req_year:
+                edit_selected_year = y
+                break
     counters = []
     default_slugs = []
     if selected_year:
@@ -315,6 +328,16 @@ def council_detail(request, slug):
         if fs:
             meta_values.append({"field": field, "value": field.display_value(fs.value)})
 
+    is_following = False
+    if request.user.is_authenticated:
+        from .models import CouncilFollow
+
+        is_following = CouncilFollow.objects.filter(
+            user=request.user, council=council
+        ).exists()
+        
+    edit_figures = figures.filter(year=edit_selected_year) if edit_selected_year else figures.none()
+
     context = {
         "council": council,
         "figures": figures,
@@ -325,6 +348,9 @@ def council_detail(request, slug):
         "tab": tab,
         "focus": focus,
         "meta_values": meta_values,
+        "edit_years": edit_years,
+        "edit_selected_year": edit_selected_year,
+        "edit_figures": edit_figures,
         # Set of field slugs with pending contributions so the template
         # can show a "pending confirmation" notice in place of the form.
         "pending_slugs": set(
@@ -332,6 +358,16 @@ def council_detail(request, slug):
                 "field__slug", flat=True
             )
         ),
+        # Keys of the form "slug-year_id" indicating pending contributions
+        # for specific figure/year pairs. This allows the edit interface to
+        # disable inputs when a submission is awaiting moderation.
+        "pending_pairs": set(
+            f"{slug}-{year_id or 'none'}"
+            for slug, year_id in Contribution.objects.filter(
+                council=council, status="pending"
+            ).values_list("field__slug", "year_id")
+        ),
+        "is_following": is_following,
     }
     if tab == "edit":
         from .models import CouncilType
@@ -485,8 +521,26 @@ def my_lists(request):
 
 
 def following(request):
-    """Show councils the user follows."""
-    return render(request, "council_finance/following.html")
+    """Show recent updates for councils the user follows."""
+
+    if not request.user.is_authenticated:
+        from django.shortcuts import redirect
+
+        return redirect("login")
+
+    from .models import CouncilFollow, CouncilUpdate
+
+    followed_ids = CouncilFollow.objects.filter(user=request.user).values_list("council_id", flat=True)
+    updates = (
+        CouncilUpdate.objects.filter(council_id__in=followed_ids)
+        .select_related("council")
+        .order_by("-created")[:50]
+    )
+
+    comment_forms = {u.id: UpdateCommentForm() for u in updates}
+
+    context = {"updates": updates, "comment_forms": comment_forms}
+    return render(request, "council_finance/following.html", context)
 
 
 def contribute(request):
@@ -1202,6 +1256,36 @@ def add_favourite(request):
 
 
 @login_required
+def follow_council(request, slug):
+    """AJAX endpoint to follow a council for updates."""
+    if request.method != "POST":
+        return HttpResponseBadRequest("POST required")
+    try:
+        council = Council.objects.get(slug=slug)
+        from .models import CouncilFollow
+
+        CouncilFollow.objects.get_or_create(user=request.user, council=council)
+        return JsonResponse({"status": "ok"})
+    except Council.DoesNotExist:
+        return JsonResponse({"error": "not found"}, status=400)
+
+
+@login_required
+def unfollow_council(request, slug):
+    """AJAX endpoint to unfollow a council."""
+    if request.method != "POST":
+        return HttpResponseBadRequest("POST required")
+    try:
+        council = Council.objects.get(slug=slug)
+        from .models import CouncilFollow
+
+        CouncilFollow.objects.filter(user=request.user, council=council).delete()
+        return JsonResponse({"status": "ok"})
+    except Council.DoesNotExist:
+        return JsonResponse({"error": "not found"}, status=400)
+
+
+@login_required
 def remove_favourite(request):
     """AJAX endpoint to remove a council from favourites."""
     if request.method != "POST":
@@ -1262,6 +1346,44 @@ def move_between_lists(request):
         return JsonResponse({"status": "ok"})
     except (Council.DoesNotExist, CouncilList.DoesNotExist):
         return JsonResponse({"error": "invalid"}, status=400)
+
+
+@login_required
+def like_update(request, update_id):
+    """Toggle a like on a council update."""
+    from .models import CouncilUpdate, CouncilUpdateLike
+
+    if request.method != "POST":
+        return HttpResponseBadRequest("POST required")
+    update = CouncilUpdate.objects.filter(id=update_id).first()
+    if not update:
+        return JsonResponse({"error": "not found"}, status=400)
+    like, created = CouncilUpdateLike.objects.get_or_create(
+        update=update, user=request.user
+    )
+    if not created:
+        like.delete()
+        liked = False
+    else:
+        liked = True
+    return JsonResponse({"status": "ok", "liked": liked, "count": update.likes.count()})
+
+
+@login_required
+def comment_update(request, update_id):
+    """Add a comment to a council update."""
+    from .models import CouncilUpdate, CouncilUpdateComment
+
+    if request.method != "POST":
+        return HttpResponseBadRequest("POST required")
+    update = CouncilUpdate.objects.filter(id=update_id).first()
+    if not update:
+        return JsonResponse({"error": "not found"}, status=400)
+    text = request.POST.get("text", "").strip()
+    if not text:
+        return JsonResponse({"error": "empty"}, status=400)
+    CouncilUpdateComment.objects.create(update=update, user=request.user, text=text)
+    return JsonResponse({"status": "ok"})
 
 
 @login_required
@@ -1351,7 +1473,7 @@ def submit_contribution(request):
         ):
             status = "pending"
 
-    Contribution.objects.create(
+    contrib = Contribution.objects.create(
         user=request.user,
         council=council,
         field=field,
@@ -1364,6 +1486,29 @@ def submit_contribution(request):
         msg = "Contribution accepted"
     else:
         msg = "Contribution queued for approval"
+
+    # Award a single point for the submission unless the user recently
+    # updated the same field and year. This discourages gaming the system
+    # by repeatedly submitting tiny edits.
+    from datetime import timedelta
+    from django.utils import timezone
+
+    window = timezone.now() - timedelta(weeks=3)
+    recent = Contribution.objects.filter(
+        user=request.user,
+        council=council,
+        field=field,
+        year=year,
+        created__gte=window,
+    ).exclude(pk=contrib.pk)
+    if not recent.exists():
+        profile.points += 1
+        profile.save()
+        link = reverse("council_detail", args=[council.slug])
+        create_notification(
+            request.user,
+            f"Thanks for submitting a figure for <a href='{link}'>{council.name}</a>. You earned 1 point.",
+        )
 
     # Create an in-app notification so the user can see a record of their
     # submission. This helps provide immediate feedback even after redirect.
@@ -1529,6 +1674,39 @@ def list_metric(request, list_id):
                 continue
 
     return JsonResponse({"values": values, "total": total})
+
+
+@login_required
+def edit_figures_table(request, slug):
+    """Return the edit table HTML for a specific year."""
+    if request.headers.get("X-Requested-With") != "XMLHttpRequest":
+        return HttpResponseBadRequest("XHR required")
+
+    council = get_object_or_404(Council, slug=slug)
+    year_label = request.GET.get("year")
+    year = None
+    if year_label:
+        year = FinancialYear.objects.filter(label=year_label).first()
+    if not year:
+        year = FinancialYear.objects.order_by("-label").first()
+
+    figures = FigureSubmission.objects.filter(council=council, year=year).select_related("field", "year")
+    if council.council_type_id:
+        figures = figures.filter(
+            Q(field__council_types__isnull=True) | Q(field__council_types=council.council_type)
+        )
+    else:
+        figures = figures.filter(field__council_types__isnull=True)
+
+    context = {
+        "figures": figures.order_by("field__name"),
+        "council": council,
+        "pending_pairs": set(
+            f"{slug}-{y or 'none'}"
+            for slug, y in Contribution.objects.filter(council=council, status="pending").values_list("field__slug", "year_id")
+        ),
+    }
+    return render(request, "council_finance/edit_figures_table.html", context)
 
 
 def council_counters(request, slug):

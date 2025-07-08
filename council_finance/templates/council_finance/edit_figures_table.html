@@ -1,0 +1,44 @@
+<table class="min-w-full text-sm mt-2">
+    <thead class="bg-gray-100">
+        <tr>
+            <th class="px-2 py-1 text-left">Year</th>
+            <th class="px-2 py-1 text-left">Field</th>
+            <th class="px-2 py-1 text-left">Value</th>
+            <th class="px-2 py-1 text-left">Helper</th>
+        </tr>
+    </thead>
+    <tbody>
+    {% for fig in figures %}
+        {% with key=fig.field.slug|add:'-'|add:fig.year.id %}
+        <tr class="border-b" data-key="{{ key }}">
+            <td class="px-2 py-1">{{ fig.year.label }}</td>
+            <td class="px-2 py-1">{{ fig.field.name|capfirst }}</td>
+            <td class="px-2 py-1">
+                {% if key in pending_pairs %}
+                    <i class="fas fa-clock mr-1"></i>Pending confirmation
+                {% else %}
+                <form method="post" action="{% url 'submit_contribution' %}" class="edit-fig-form flex gap-2">
+                    {% csrf_token %}
+                    <input type="hidden" name="council" value="{{ council.slug }}">
+                    <input type="hidden" name="field" value="{{ fig.field.slug }}">
+                    <input type="hidden" name="year" value="{{ fig.year.id }}">
+                    <input type="text" name="value" value="{{ fig.value }}" class="border rounded p-1 flex-1"
+                        {% if fig.field.content_type == 'monetary' or fig.field.content_type == 'integer' %}data-num-input{% endif %}>
+                    <button type="submit" class="bg-blue-600 text-white px-2 py-1 rounded">Submit</button>
+                </form>
+                {% endif %}
+            </td>
+            <td class="px-2 py-1 text-xs text-gray-500 num-helper">
+                {% if fig.field.content_type == 'integer' %}
+                    This should be a round number
+                {% elif fig.field.content_type == 'text' %}
+                    Input text only
+                {% elif fig.field.content_type == 'url' %}
+                    Ensure the URL starts with https://
+                {% endif %}
+            </td>
+        </tr>
+        {% endwith %}
+    {% endfor %}
+    </tbody>
+</table>

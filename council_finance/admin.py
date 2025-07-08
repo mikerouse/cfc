@@ -20,6 +20,12 @@ from .models.council_type import CouncilType
 from .models.council_type import CouncilCapability
 from .models.user_profile import UserProfile
 from .models.user_follow import UserFollow
+from .models.council_follow import CouncilFollow
+from .models.council_update import (
+    CouncilUpdate,
+    CouncilUpdateLike,
+    CouncilUpdateComment,
+)
 from .models.trust_tier import TrustTier
 from .models.contribution import Contribution
 from .models.pending_profile_change import PendingProfileChange
@@ -243,6 +249,10 @@ class DataFieldAdmin(admin.ModelAdmin):
 admin.site.register(DataField, DataFieldAdmin)
 admin.site.register(UserProfile)
 admin.site.register(UserFollow)
+admin.site.register(CouncilFollow)
+admin.site.register(CouncilUpdate)
+admin.site.register(CouncilUpdateLike)
+admin.site.register(CouncilUpdateComment)
 admin.site.register(PendingProfileChange)
 admin.site.register(Notification)
 # Manage volunteer trust levels and their submissions
