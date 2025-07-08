@@ -39,7 +39,7 @@ from django.conf import settings
 MANAGEMENT_TIER = 4
 
 from .models import DataField
-from .factoids import get_factoids
+from .factoids import get_factoids, previous_year_label
 from .models import (
     Council,
     FinancialYear,
@@ -123,7 +123,13 @@ def home(request):
     all_years = list(FinancialYear.objects.order_by("-label"))
     for sc in SiteCounter.objects.filter(promote_homepage=True):
         value = 0
+        prev_value = 0
         years = [sc.year] if sc.year else all_years
+        prev_year = None
+        if sc.year:
+            label = previous_year_label(sc.year.label)
+            if label:
+                prev_year = FinancialYear.objects.filter(label=label).first()
         for council in Council.objects.all():
             for yr in years:
                 res = agent.run(council_slug=council.slug, year_label=yr.label)
@@ -131,6 +137,14 @@ def home(request):
                 if data and data.get("value") is not None:
                     try:
                         value += float(data["value"])
+                    except (TypeError, ValueError):
+                        pass
+            if prev_year:
+                res = agent.run(council_slug=council.slug, year_label=prev_year.label)
+                data = res.get(sc.counter.slug)
+                if data and data.get("value") is not None:
+                    try:
+                        prev_value += float(data["value"])
                     except (TypeError, ValueError):
                         pass
         # Format the total using the settings from the SiteCounter instance
@@ -148,7 +162,7 @@ def home(request):
             "columns": sc.columns,
             "factoids": get_factoids(
                 sc.counter.slug,
-                {"value": formatted, "raw": value},
+                {"value": formatted, "raw": value, "previous_raw": prev_value},
             ),
         })
 
@@ -161,7 +175,13 @@ def home(request):
         if gc.council_types.exists():
             councils = councils.filter(council_type__in=gc.council_types.all())
         value = 0
+        prev_value = 0
         years = [gc.year] if gc.year else all_years
+        prev_year = None
+        if gc.year:
+            label = previous_year_label(gc.year.label)
+            if label:
+                prev_year = FinancialYear.objects.filter(label=label).first()
         for council in councils:
             for yr in years:
                 res = agent.run(council_slug=council.slug, year_label=yr.label)
@@ -169,6 +189,14 @@ def home(request):
                 if data and data.get("value") is not None:
                     try:
                         value += float(data["value"])
+                    except (TypeError, ValueError):
+                        pass
+            if prev_year:
+                res = agent.run(council_slug=council.slug, year_label=prev_year.label)
+                data = res.get(gc.counter.slug)
+                if data and data.get("value") is not None:
+                    try:
+                        prev_value += float(data["value"])
                     except (TypeError, ValueError):
                         pass
         # Use the group counter's formatting preferences when displaying
@@ -186,7 +214,7 @@ def home(request):
             "columns": 3,  # groups default to full width for now
             "factoids": get_factoids(
                 gc.counter.slug,
-                {"value": formatted, "raw": value},
+                {"value": formatted, "raw": value, "previous_raw": prev_value},
             ),
         })
 
@@ -263,6 +291,12 @@ def council_detail(request, slug):
         agent = CounterAgent()
         # Compute all counter values for this council/year using the agent
         values = agent.run(council_slug=slug, year_label=selected_year.label)
+        prev_values = {}
+        prev_label = previous_year_label(selected_year.label)
+        if prev_label:
+            prev_year = FinancialYear.objects.filter(label=prev_label).first()
+            if prev_year:
+                prev_values = agent.run(council_slug=slug, year_label=prev_year.label)
 
         # Build a lookup of overrides so we know which counters are enabled or
         # disabled specifically for this council.
@@ -288,6 +322,7 @@ def council_detail(request, slug):
             if not enabled:
                 continue
             result = values.get(counter.slug, {})
+            prev = prev_values.get(counter.slug, {}) if prev_values else {}
             item = {
                 "counter": counter,
                 "value": result.get("value"),
@@ -295,7 +330,11 @@ def council_detail(request, slug):
                 "error": result.get("error"),
                 "factoids": get_factoids(
                     counter.slug,
-                    {"value": result.get("formatted"), "raw": result.get("value")},
+                    {
+                        "value": result.get("formatted"),
+                        "raw": result.get("value"),
+                        "previous_raw": prev.get("value"),
+                    },
                 ),
             }
             if counter.headline:
@@ -877,6 +916,7 @@ def preview_factoid(request):
     council_slug = request.GET.get("council")
     year_label = request.GET.get("year")
     text = request.GET.get("text", "")
+    ftype = request.GET.get("type", "")
 
     if not (counter_slug and council_slug and year_label and text):
         return JsonResponse({"error": "Missing data"}, status=400)
@@ -895,11 +935,26 @@ def preview_factoid(request):
     if not result or result.get("formatted") is None:
         return JsonResponse({"error": "No data"}, status=400)
 
+    value_str = result.get("formatted")
+    if ftype == "percent_change":
+        prev_label = previous_year_label(year.label)
+        if prev_label:
+            prev_year = FinancialYear.objects.filter(label=prev_label).first()
+            if prev_year:
+                prev_values = agent.run(council_slug=council_slug, year_label=prev_year.label)
+                prev = prev_values.get(counter_slug)
+                try:
+                    if prev and prev.get("value") not in (None, 0):
+                        change = (float(result.get("value")) - float(prev.get("value"))) / float(prev.get("value")) * 100
+                        value_str = f"{change:.1f}%"
+                except Exception:
+                    pass
+
     class SafeDict(dict):
         def __missing__(self, key):
             return "{" + key + "}"
 
-    rendered = text.format_map(SafeDict(value=result.get("formatted")))
+    rendered = text.format_map(SafeDict(value=value_str))
     return JsonResponse({"text": rendered})
 
 

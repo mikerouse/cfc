@@ -6,6 +6,15 @@ import random
 from .models import Factoid
 
 
+def previous_year_label(label: str) -> Optional[str]:
+    """Return the previous financial year label if parsable."""
+    try:
+        base = int(str(label).split("/")[0])
+    except (TypeError, ValueError):
+        return None
+    return str(base - 1)
+
+
 def get_factoids(counter_slug: str, context: Optional[Dict[str, Any]] = None) -> List[Dict[str, str]]:
     """Return factoids linked to the given counter slug.
 
@@ -38,8 +47,20 @@ def get_factoids(counter_slug: str, context: Optional[Dict[str, Any]] = None) ->
             def __missing__(self, key):
                 return "{" + key + "}"
 
-        safe = SafeDict(**context)
         for item in data:
+            safe = SafeDict(**context)
+            if (
+                item.get("factoid_type") == "percent_change"
+                and context.get("previous_raw") not in (None, 0)
+                and context.get("raw") not in (None, "")
+            ):
+                try:
+                    current = float(context.get("raw"))
+                    prev = float(context.get("previous_raw"))
+                    change = (current - prev) / prev * 100
+                    safe["value"] = f"{change:.1f}%"
+                except Exception:
+                    pass
             item["text"] = item["text"].format_map(safe)
 
     random.shuffle(data)

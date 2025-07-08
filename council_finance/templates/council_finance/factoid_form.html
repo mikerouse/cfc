@@ -70,6 +70,7 @@ async function updatePreview(){
     url.searchParams.append('counter', counter);
     url.searchParams.append('council', document.getElementById('preview-council').value);
     url.searchParams.append('year', document.getElementById('preview-year').value);
+    url.searchParams.append('type', typeField.value);
     url.searchParams.append('text', textField.value);
     try{
         const resp = await fetch(url, {headers:{'X-Requested-With':'XMLHttpRequest'}});
