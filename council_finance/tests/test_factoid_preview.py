@@ -49,3 +49,35 @@ class FactoidPreviewTests(TestCase):
         )
         self.assertEqual(resp.status_code, 200)
         self.assertIn("10.0%", resp.json().get("text", ""))
+
+    def test_no_previous_data_error(self):
+        """An error should be returned when prior year data is missing."""
+        url = reverse("preview_factoid")
+        resp = self.client.get(
+            url,
+            {
+                "counter": self.counter.slug,
+                "council": self.council.slug,
+                "year": self.prev_year.label,
+                "type": "percent_change",
+                "text": self.factoid_text,
+            },
+        )
+        self.assertEqual(resp.status_code, 400)
+        self.assertEqual(resp.json().get("error"), "No previous data to compare")
+
+    def test_no_current_data_error(self):
+        year_next = FinancialYear.objects.create(label="2026")
+        url = reverse("preview_factoid")
+        resp = self.client.get(
+            url,
+            {
+                "counter": self.counter.slug,
+                "council": self.council.slug,
+                "year": year_next.label,
+                "type": "percent_change",
+                "text": self.factoid_text,
+            },
+        )
+        self.assertEqual(resp.status_code, 400)
+        self.assertEqual(resp.json().get("error"), "No data for the selected year")

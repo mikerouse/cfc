@@ -41,3 +41,33 @@ class FactoidPercentChangeTest(TestCase):
             {"raw": 110, "previous_raw": 100},
         )
         self.assertEqual(facts[0]["text"], "10.0% change")
+
+    def test_icon_assigned(self):
+        facts = get_factoids(
+            "debt",
+            {"raw": 90, "previous_raw": 100},
+        )
+        self.assertEqual(facts[0]["icon"], "fa-chevron-down text-red-600")
+
+    def test_handles_zero_previous(self):
+        """When there is no previous value the function should return 0%."""
+        facts = get_factoids(
+            "debt",
+            {"raw": 90, "previous_raw": 0},
+        )
+        self.assertEqual(facts[0]["text"], "0% change")
+
+    def test_skips_when_current_missing(self):
+        """Factoids should be omitted if the current year's data is missing."""
+        facts = get_factoids(
+            "debt",
+            {"raw": None, "previous_raw": 100},
+        )
+        self.assertEqual(facts, [])
+
+    def test_skips_when_previous_missing(self):
+        facts = get_factoids(
+            "debt",
+            {"raw": 120, "previous_raw": None},
+        )
+        self.assertEqual(facts, [])

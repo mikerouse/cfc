@@ -707,7 +707,9 @@ def counter_definition_form(request, slug=None):
 
     # For preview dropdown: all councils and all years
     councils = Council.objects.all().order_by("name")
-    years = FinancialYear.objects.order_by("-label")
+    years = list(FinancialYear.objects.order_by("-label"))
+    for y in years:
+        y.display_label = "Year to Date" if y.label.lower() == "general" else y.label
     preview_council_slug = request.GET.get("preview_council") or (
         councils[0].slug if councils else None
     )
@@ -939,26 +941,33 @@ def preview_factoid(request):
     if not counter:
         return JsonResponse({"error": "Invalid counter"}, status=400)
 
+    if not FigureSubmission.objects.filter(council__slug=council_slug, year=year).exists():
+        return JsonResponse({"error": "No data for the selected year"}, status=400)
+
     agent = CounterAgent()
     values = agent.run(council_slug=council_slug, year_label=year.label)
     result = values.get(counter.slug)
-    if not result or result.get("formatted") is None:
-        return JsonResponse({"error": "No data"}, status=400)
+    if not result or result.get("value") in (None, ""):
+        return JsonResponse({"error": "No data for the selected year"}, status=400)
 
     value_str = result.get("formatted")
     if ftype == "percent_change":
         prev_label = previous_year_label(year.label)
+        prev_value = None
         if prev_label:
             prev_year = FinancialYear.objects.filter(label=prev_label).first()
             if prev_year:
                 prev_values = agent.run(council_slug=council_slug, year_label=prev_year.label)
                 prev = prev_values.get(counter.slug)
-                try:
-                    if prev and prev.get("value") not in (None, 0):
-                        change = (float(result.get("value")) - float(prev.get("value"))) / float(prev.get("value")) * 100
-                        value_str = f"{change:.1f}%"
-                except Exception:
-                    pass
+                if prev:
+                    prev_value = prev.get("value")
+        if prev_value in (None, ""):
+            return JsonResponse({"error": "No previous data to compare"}, status=400)
+        try:
+            change = (float(result.get("value")) - float(prev_value)) / float(prev_value) * 100
+            value_str = f"{change:.1f}%"
+        except Exception:
+            return JsonResponse({"error": "No previous data to compare"}, status=400)
 
     class SafeDict(dict):
         def __missing__(self, key):
@@ -1590,7 +1599,9 @@ def factoid_form(request, slug=None):
     factoid = get_object_or_404(Factoid, slug=slug) if slug else None
     form = FactoidForm(request.POST or None, instance=factoid)
     councils = Council.objects.order_by("name")
-    years = FinancialYear.objects.order_by("-label")
+    years = list(FinancialYear.objects.order_by("-label"))
+    for y in years:
+        y.display_label = "Year to Date" if y.label.lower() == "general" else y.label
     if request.method == "POST" and form.is_valid():
         form.save()
         messages.success(request, "Factoid saved.")
