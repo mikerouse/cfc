@@ -155,5 +155,42 @@ class ContributeQueueTests(TestCase):
         self.assertContains(resp, "http://q.com")
 
     def test_list_value_rendered(self):
-        resp = self.client.get(reverse("contribute"))
-        self.assertContains(resp, "County")
+        resp = self.client.get(reverse("contribute"))        self.assertContains(resp, "County")
+
+
+class SubmissionPointTests(TestCase):
+    def setUp(self):
+        self.user = get_user_model().objects.create_user(
+            username="spoints", email="s@example.com", password="pw"
+        )
+        self.council = Council.objects.create(name="Points", slug="points")
+        self.field, _ = DataField.objects.get_or_create(slug="council_website", defaults={"name": "Website"})
+        self.client.login(username="spoints", password="pw")
+
+    def submit(self):
+        return self.client.post(
+            reverse("submit_contribution"),
+            {"council": "points", "field": "council_website", "value": "http://x.com"},
+            HTTP_X_REQUESTED_WITH="XMLHttpRequest",
+        )
+
+    def test_points_awarded_once_per_period(self):
+        self.submit()
+        self.user.profile.refresh_from_db()
+        self.assertEqual(self.user.profile.points, 1)
+
+        c = Contribution.objects.latest("id")
+        from django.utils import timezone
+        from datetime import timedelta
+        c.created = timezone.now() - timedelta(days=1)
+        c.save()
+
+        self.submit()
+        self.user.profile.refresh_from_db()
+        self.assertEqual(self.user.profile.points, 1)
+
+        # Move both contributions outside the 3 week window
+        Contribution.objects.all().update(created=timezone.now() - timedelta(days=22))
+        self.submit()
+        self.user.profile.refresh_from_db()
+        self.assertEqual(self.user.profile.points, 2)

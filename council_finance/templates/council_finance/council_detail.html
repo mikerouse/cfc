@@ -484,45 +484,23 @@ toggleBtn.addEventListener('click', () => {
 </div>
 {% endif %}
 {% comment %}
-When in edit mode show a table with all recorded figures so users can
-propose corrections. Each row posts to the contribution endpoint which
-handles moderation and logging.
+When in edit mode users can update figures for a specific year. The
+table loads via AJAX when the year selector changes so we always edit
+the correct records.
 {% endcomment %}
 {% if tab == 'edit' %}
 <h2 class="text-xl font-semibold mt-6">Edit Figures</h2>
-<table class="min-w-full text-sm mt-2">
-    <thead class="bg-gray-100">
-        <tr>
-            <th class="px-2 py-1 text-left">Year</th>
-            <th class="px-2 py-1 text-left">Field</th>
-            <th class="px-2 py-1 text-left">Value</th>
-        </tr>
-    </thead>
-    <tbody>
-    {% for fig in figures %}
-        {% with key=fig.field.slug|add:'-'|add:fig.year.id %}
-        <tr class="border-b">
-            <td class="px-2 py-1">{{ fig.year.label }}</td>
-            <td class="px-2 py-1">{{ fig.field.name|capfirst }}</td>
-            <td class="px-2 py-1">
-                {% if key in pending_pairs %}
-                    <i class="fas fa-clock mr-1"></i>Pending confirmation
-                {% else %}
-                <form method="post" action="{% url 'submit_contribution' %}" class="flex gap-2">
-                    {% csrf_token %}
-                    <input type="hidden" name="council" value="{{ council.slug }}">
-                    <input type="hidden" name="field" value="{{ fig.field.slug }}">
-                    <input type="hidden" name="year" value="{{ fig.year.id }}">
-                    <input type="text" name="value" value="{{ fig.value }}" class="border rounded p-1 flex-1" data-num-input>
-                    <button type="submit" class="bg-blue-600 text-white px-2 py-1 rounded">Submit</button>
-                </form>
-                {% endif %}
-            </td>
-        </tr>
-        {% endwith %}
-    {% endfor %}
-    </tbody>
-</table>
+<div class="mt-2">
+    <label for="edit-year-select" class="sr-only">Financial year</label>
+    <select id="edit-year-select" class="border rounded px-2 py-1">
+        {% for y in edit_years %}
+            <option value="{{ y.label }}" {% if y.label == edit_selected_year.label %}selected{% endif %}>{{ y.display }}</option>
+        {% endfor %}
+    </select>
+</div>
+<div id="edit-table-container" class="mt-2">
+    {% include 'council_finance/edit_figures_table.html' with figures=edit_figures council=council pending_pairs=pending_pairs %}
+</div>
 {% endif %}
 <!-- TODO: Add a buttons for JSON and XLS/CSV exports of all data for this council for the selected financial year -->
 {% if tab == 'legacy' and figures %}

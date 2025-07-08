@@ -48,6 +48,11 @@ urlpatterns = [
         name="council_counters",
     ),
     path(
+        "councils/<slug:slug>/edit-table/",
+        views.edit_figures_table,
+        name="edit_figures_table",
+    ),
+    path(
         "councils/<slug:slug>/log/",
         views.council_change_log,
         name="council_change_log",
