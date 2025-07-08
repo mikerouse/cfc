@@ -912,26 +912,36 @@ def preview_factoid(request):
     from .agents.counter_agent import CounterAgent
     from .models import Council, FinancialYear, CounterDefinition
 
-    counter_slug = request.GET.get("counter")
+    # ``counter`` may be provided as a slug or primary key. Form widgets use
+    # primary keys by default while JavaScript previews sometimes pass slugs.
+    # Accept either format for convenience.
+    counter_value = request.GET.get("counter")
     council_slug = request.GET.get("council")
     year_label = request.GET.get("year")
     text = request.GET.get("text", "")
     ftype = request.GET.get("type", "")
 
-    if not (counter_slug and council_slug and year_label and text):
+    if not (counter_value and council_slug and year_label and text):
         return JsonResponse({"error": "Missing data"}, status=400)
 
     year = FinancialYear.objects.filter(label=year_label).first()
     if not year:
         return JsonResponse({"error": "Invalid year"}, status=400)
 
-    counter = CounterDefinition.objects.filter(slug=counter_slug).first()
+    counter = CounterDefinition.objects.filter(slug=counter_value).first()
+    if not counter:
+        # Fall back to lookup by primary key so the preview works when the form
+        # submits IDs.
+        try:
+            counter = CounterDefinition.objects.filter(pk=int(counter_value)).first()
+        except (TypeError, ValueError):
+            counter = None
     if not counter:
         return JsonResponse({"error": "Invalid counter"}, status=400)
 
     agent = CounterAgent()
     values = agent.run(council_slug=council_slug, year_label=year.label)
-    result = values.get(counter_slug)
+    result = values.get(counter.slug)
     if not result or result.get("formatted") is None:
         return JsonResponse({"error": "No data"}, status=400)
 
@@ -942,7 +952,7 @@ def preview_factoid(request):
             prev_year = FinancialYear.objects.filter(label=prev_label).first()
             if prev_year:
                 prev_values = agent.run(council_slug=council_slug, year_label=prev_year.label)
-                prev = prev_values.get(counter_slug)
+                prev = prev_values.get(counter.slug)
                 try:
                     if prev and prev.get("value") not in (None, 0):
                         change = (float(result.get("value")) - float(prev.get("value"))) / float(prev.get("value")) * 100
