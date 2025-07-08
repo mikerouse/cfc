@@ -14,6 +14,7 @@ from .contribution import Contribution
 from .data_change_log import DataChangeLog
 from .rejection_log import RejectionLog
 from .blocked_ip import BlockedIP
+from .verified_ip import VerifiedIP
 from .user_follow import UserFollow
 from .pending_profile_change import PendingProfileChange
 from .notification import Notification
@@ -41,6 +42,7 @@ __all__ = [
     'DataChangeLog',
     'RejectionLog',
     'BlockedIP',
+    'VerifiedIP',
     'CouncilList',
     'CounterDefinition',
     'CouncilCounter',

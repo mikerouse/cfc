@@ -1327,8 +1327,29 @@ def submit_contribution(request):
         )
 
     profile = request.user.profile
-    # Submissions from tier 3+ skip moderation
-    status = "approved" if profile.tier.level >= 3 else "pending"
+    # Submissions from tier 3+ skip moderation entirely. Otherwise check
+    # whether the user's confirmed profile and history meet the auto-approval
+    # thresholds configured via ``SiteSetting``.
+    status = "approved"
+    if profile.tier.level < 3:
+        min_ips = int(
+            SiteSetting.get(
+                "auto_approve_min_verified_ips",
+                settings.AUTO_APPROVE_MIN_VERIFIED_IPS,
+            )
+        )
+        min_approved = int(
+            SiteSetting.get(
+                "auto_approve_min_approved",
+                settings.AUTO_APPROVE_MIN_APPROVED,
+            )
+        )
+        if not (
+            profile.email_confirmed
+            and profile.verified_ip_count >= min_ips
+            and profile.approved_submission_count >= min_approved
+        ):
+            status = "pending"
 
     Contribution.objects.create(
         user=request.user,
@@ -1454,6 +1475,22 @@ def _apply_contribution(contribution, user):
         new_value=contribution.value,
         approved_by=user,
     )
+
+    # Update contributor stats once a change is successfully recorded. The
+    # ``approved_submission_count`` tracks how many edits moderators have
+    # accepted. ``verified_ip_count`` increments when a new IP address is
+    # associated with an approved contribution.
+    profile = contribution.user.profile
+    from .models import VerifiedIP
+
+    if contribution.ip_address:
+        _, created = VerifiedIP.objects.get_or_create(
+            user=contribution.user, ip_address=contribution.ip_address
+        )
+        if created:
+            profile.verified_ip_count += 1
+    profile.approved_submission_count += 1
+    profile.save()
 
 
 @login_required
