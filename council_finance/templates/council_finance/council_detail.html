@@ -483,9 +483,11 @@ toggleBtn.addEventListener('click', () => {
     {% endfor %}
 </div>
 {% endif %}
-{# When in edit mode show a table with all recorded figures so users can
-   propose corrections. Each row posts to the contribution endpoint which
-   handles moderation and logging. #}
+{% comment %}
+When in edit mode show a table with all recorded figures so users can
+propose corrections. Each row posts to the contribution endpoint which
+handles moderation and logging.
+{% endcomment %}
 {% if tab == 'edit' %}
 <h2 class="text-xl font-semibold mt-6">Edit Figures</h2>
 <table class="min-w-full text-sm mt-2">
@@ -506,15 +508,12 @@ toggleBtn.addEventListener('click', () => {
                 {% if key in pending_pairs %}
                     <i class="fas fa-clock mr-1"></i>Pending confirmation
                 {% else %}
-                {# Submit the updated figure as a contribution. The server
-                   decides whether it should be auto-approved or queued for
-                   review based on the user's trust level. #}
                 <form method="post" action="{% url 'submit_contribution' %}" class="flex gap-2">
                     {% csrf_token %}
                     <input type="hidden" name="council" value="{{ council.slug }}">
                     <input type="hidden" name="field" value="{{ fig.field.slug }}">
                     <input type="hidden" name="year" value="{{ fig.year.id }}">
-                    <input type="text" name="value" value="{{ fig.value }}" class="border rounded p-1 flex-1">
+                    <input type="text" name="value" value="{{ fig.value }}" class="border rounded p-1 flex-1" data-num-input>
                     <button type="submit" class="bg-blue-600 text-white px-2 py-1 rounded">Submit</button>
                 </form>
                 {% endif %}
