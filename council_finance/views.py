@@ -332,6 +332,15 @@ def council_detail(request, slug):
                 "field__slug", flat=True
             )
         ),
+        # Keys of the form "slug-year_id" indicating pending contributions
+        # for specific figure/year pairs. This allows the edit interface to
+        # disable inputs when a submission is awaiting moderation.
+        "pending_pairs": set(
+            f"{slug}-{year_id or 'none'}"
+            for slug, year_id in Contribution.objects.filter(
+                council=council, status="pending"
+            ).values_list("field__slug", "year_id")
+        ),
     }
     if tab == "edit":
         from .models import CouncilType
