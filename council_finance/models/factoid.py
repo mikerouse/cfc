@@ -13,7 +13,9 @@ class Factoid(models.Model):
     ]
 
     name = models.CharField(max_length=100)
-    slug = models.SlugField(unique=True)
+    # Allow blank so forms can auto-generate the slug on save. Existing
+    # records without a slug are fixed via a data migration.
+    slug = models.SlugField(unique=True, blank=True)
     factoid_type = models.CharField(max_length=20, choices=FACTOID_TYPES)
     text = models.CharField(max_length=255)
     counters = models.ManyToManyField(CounterDefinition, blank=True)

@@ -348,6 +348,10 @@ class FactoidForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        # Allow slug to be optional so the model generates it automatically.
+        if "slug" in self.fields:
+            self.fields["slug"].required = False
+
         # Apply Tailwind classes to inputs and set up initial default text.
         for name, field in self.fields.items():
             if isinstance(field.widget, forms.CheckboxInput):
