@@ -1,10 +1,17 @@
 // Helper that displays formatted values next to numeric inputs so
 // users can easily confirm large figures (in thousands, millions, etc.).
-function attachNumberHelper(input) {
+function attachNumberHelper(input, container) {
     if (!input) return;
-    const span = document.createElement('span');
-    span.className = 'ml-2 text-gray-500 text-sm';
-    input.after(span);
+    const span = container || document.createElement('span');
+    // When no container is provided the helper appears immediately
+    // after the input to mimic the original behaviour. Otherwise it
+    // uses the supplied container element, useful for table layouts.
+    if (!container) {
+        span.className = 'ml-2 text-gray-500 text-sm';
+        input.after(span);
+    } else {
+        span.classList.add('text-gray-500', 'text-sm');
+    }
     function update(val) {
         const num = Number(val.replace(/,/g, ''));
         if (isNaN(num)) { span.textContent = ''; return; }
@@ -26,3 +33,4 @@ document.addEventListener('DOMContentLoaded', () => {
 
 // Expose the helper for manual use if needed.
 window.attachNumberHelper = attachNumberHelper;
+
