@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block title %}Factoids - Council Finance Counters{% endblock %}
+{% block content %}
+<h1 class="text-2xl font-bold mb-4">Factoids</h1>
+<p class="mb-4">Manage short snippets shown beneath counters.</p>
+<div class="mb-4 text-right">
+    <a href="{% url 'factoid_add' %}" class="bg-blue-600 text-white px-4 py-1 rounded">Add factoid</a>
+</div>
+<table class="min-w-full bg-white border">
+    <thead>
+        <tr>
+            <th class="border px-2 py-1 text-left">Name</th>
+            <th class="border px-2 py-1">Slug</th>
+            <th class="border px-2 py-1">Type</th>
+            <th class="border px-2 py-1">Actions</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for f in factoids %}
+        <tr class="odd:bg-gray-50">
+            <td class="border px-2 py-1"><a href="{% url 'factoid_edit' f.slug %}" class="text-blue-600 underline">{{ f.name }}</a></td>
+            <td class="border px-2 py-1 text-center">{{ f.slug }}</td>
+            <td class="border px-2 py-1 text-center">{{ f.get_factoid_type_display }}</td>
+            <td class="border px-2 py-1 text-center">
+                <a href="{% url 'factoid_edit' f.slug %}" class="text-blue-600 underline">Edit</a>
+                {% if user.is_superuser or user.profile.tier.level >= 5 %}
+                | <a href="{% url 'factoid_delete' f.slug %}" class="text-red-600 underline">Delete</a>
+                {% endif %}
+            </td>
+        </tr>
+        {% empty %}
+        <tr>
+            <td class="border px-2 py-1 text-center" colspan="4">No factoids defined yet.</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endblock %}

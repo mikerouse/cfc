@@ -31,6 +31,7 @@ from .forms import (
     GroupCounterForm,
     DataFieldForm,
     ProfileExtraForm,
+    FactoidForm,
 )
 from django.conf import settings
 
@@ -38,7 +39,7 @@ from django.conf import settings
 MANAGEMENT_TIER = 4
 
 from .models import DataField
-from .factoids import get_factoids
+from .factoids import get_factoids, previous_year_label
 from .models import (
     Council,
     FinancialYear,
@@ -52,6 +53,7 @@ from .models import (
     SiteCounter,
     GroupCounter,
     SiteSetting,
+    Factoid,
     TrustTier,
     Contribution,
     DataChangeLog,
@@ -121,7 +123,13 @@ def home(request):
     all_years = list(FinancialYear.objects.order_by("-label"))
     for sc in SiteCounter.objects.filter(promote_homepage=True):
         value = 0
+        prev_value = 0
         years = [sc.year] if sc.year else all_years
+        prev_year = None
+        if sc.year:
+            label = previous_year_label(sc.year.label)
+            if label:
+                prev_year = FinancialYear.objects.filter(label=label).first()
         for council in Council.objects.all():
             for yr in years:
                 res = agent.run(council_slug=council.slug, year_label=yr.label)
@@ -129,6 +137,14 @@ def home(request):
                 if data and data.get("value") is not None:
                     try:
                         value += float(data["value"])
+                    except (TypeError, ValueError):
+                        pass
+            if prev_year:
+                res = agent.run(council_slug=council.slug, year_label=prev_year.label)
+                data = res.get(sc.counter.slug)
+                if data and data.get("value") is not None:
+                    try:
+                        prev_value += float(data["value"])
                     except (TypeError, ValueError):
                         pass
         # Format the total using the settings from the SiteCounter instance
@@ -144,7 +160,10 @@ def home(request):
             "friendly_format": sc.friendly_format,
             "explanation": sc.explanation,
             "columns": sc.columns,
-            "factoids": get_factoids(sc.counter.slug),
+            "factoids": get_factoids(
+                sc.counter.slug,
+                {"value": formatted, "raw": value, "previous_raw": prev_value},
+            ),
         })
 
     for gc in GroupCounter.objects.filter(promote_homepage=True):
@@ -156,7 +175,13 @@ def home(request):
         if gc.council_types.exists():
             councils = councils.filter(council_type__in=gc.council_types.all())
         value = 0
+        prev_value = 0
         years = [gc.year] if gc.year else all_years
+        prev_year = None
+        if gc.year:
+            label = previous_year_label(gc.year.label)
+            if label:
+                prev_year = FinancialYear.objects.filter(label=label).first()
         for council in councils:
             for yr in years:
                 res = agent.run(council_slug=council.slug, year_label=yr.label)
@@ -164,6 +189,14 @@ def home(request):
                 if data and data.get("value") is not None:
                     try:
                         value += float(data["value"])
+                    except (TypeError, ValueError):
+                        pass
+            if prev_year:
+                res = agent.run(council_slug=council.slug, year_label=prev_year.label)
+                data = res.get(gc.counter.slug)
+                if data and data.get("value") is not None:
+                    try:
+                        prev_value += float(data["value"])
                     except (TypeError, ValueError):
                         pass
         # Use the group counter's formatting preferences when displaying
@@ -179,7 +212,10 @@ def home(request):
             "friendly_format": gc.friendly_format,
             "explanation": "",  # groups currently lack custom explanations
             "columns": 3,  # groups default to full width for now
-            "factoids": get_factoids(gc.counter.slug),
+            "factoids": get_factoids(
+                gc.counter.slug,
+                {"value": formatted, "raw": value, "previous_raw": prev_value},
+            ),
         })
 
     context = {
@@ -255,6 +291,12 @@ def council_detail(request, slug):
         agent = CounterAgent()
         # Compute all counter values for this council/year using the agent
         values = agent.run(council_slug=slug, year_label=selected_year.label)
+        prev_values = {}
+        prev_label = previous_year_label(selected_year.label)
+        if prev_label:
+            prev_year = FinancialYear.objects.filter(label=prev_label).first()
+            if prev_year:
+                prev_values = agent.run(council_slug=slug, year_label=prev_year.label)
 
         # Build a lookup of overrides so we know which counters are enabled or
         # disabled specifically for this council.
@@ -280,12 +322,20 @@ def council_detail(request, slug):
             if not enabled:
                 continue
             result = values.get(counter.slug, {})
+            prev = prev_values.get(counter.slug, {}) if prev_values else {}
             item = {
                 "counter": counter,
                 "value": result.get("value"),
                 "formatted": result.get("formatted"),
                 "error": result.get("error"),
-                "factoids": get_factoids(counter.slug),
+                "factoids": get_factoids(
+                    counter.slug,
+                    {
+                        "value": result.get("formatted"),
+                        "raw": result.get("value"),
+                        "previous_raw": prev.get("value"),
+                    },
+                ),
             }
             if counter.headline:
                 head_list.append(item)
@@ -853,6 +903,69 @@ def preview_aggregate_counter(request):
     # Using the dummy object lets us preview arbitrary settings.
     formatted = CounterDefinition.format_value(dummy, total)
     return JsonResponse({"value": total, "formatted": formatted})
+
+
+@login_required
+@require_GET
+def preview_factoid(request):
+    """Return the rendered factoid text for a counter, council and year."""
+    from .agents.counter_agent import CounterAgent
+    from .models import Council, FinancialYear, CounterDefinition
+
+    # ``counter`` may be provided as a slug or primary key. Form widgets use
+    # primary keys by default while JavaScript previews sometimes pass slugs.
+    # Accept either format for convenience.
+    counter_value = request.GET.get("counter")
+    council_slug = request.GET.get("council")
+    year_label = request.GET.get("year")
+    text = request.GET.get("text", "")
+    ftype = request.GET.get("type", "")
+
+    if not (counter_value and council_slug and year_label and text):
+        return JsonResponse({"error": "Missing data"}, status=400)
+
+    year = FinancialYear.objects.filter(label=year_label).first()
+    if not year:
+        return JsonResponse({"error": "Invalid year"}, status=400)
+
+    counter = CounterDefinition.objects.filter(slug=counter_value).first()
+    if not counter:
+        # Fall back to lookup by primary key so the preview works when the form
+        # submits IDs.
+        try:
+            counter = CounterDefinition.objects.filter(pk=int(counter_value)).first()
+        except (TypeError, ValueError):
+            counter = None
+    if not counter:
+        return JsonResponse({"error": "Invalid counter"}, status=400)
+
+    agent = CounterAgent()
+    values = agent.run(council_slug=council_slug, year_label=year.label)
+    result = values.get(counter.slug)
+    if not result or result.get("formatted") is None:
+        return JsonResponse({"error": "No data"}, status=400)
+
+    value_str = result.get("formatted")
+    if ftype == "percent_change":
+        prev_label = previous_year_label(year.label)
+        if prev_label:
+            prev_year = FinancialYear.objects.filter(label=prev_label).first()
+            if prev_year:
+                prev_values = agent.run(council_slug=council_slug, year_label=prev_year.label)
+                prev = prev_values.get(counter.slug)
+                try:
+                    if prev and prev.get("value") not in (None, 0):
+                        change = (float(result.get("value")) - float(prev.get("value"))) / float(prev.get("value")) * 100
+                        value_str = f"{change:.1f}%"
+                except Exception:
+                    pass
+
+    class SafeDict(dict):
+        def __missing__(self, key):
+            return "{" + key + "}"
+
+    rendered = text.format_map(SafeDict(value=value_str))
+    return JsonResponse({"text": rendered})
 
 
 @login_required
@@ -1458,6 +1571,50 @@ def field_form(request, slug=None):
         messages.success(request, "Field saved.")
         return redirect("field_list")
     return render(request, "council_finance/field_form.html", {"form": form})
+
+
+@login_required
+def factoid_list(request):
+    """List all factoids for management."""
+    if not request.user.is_superuser and request.user.profile.tier.level < MANAGEMENT_TIER:
+        raise Http404()
+    factoids = Factoid.objects.all()
+    return render(request, "council_finance/factoid_list.html", {"factoids": factoids})
+
+
+@login_required
+def factoid_form(request, slug=None):
+    """Create or edit a factoid."""
+    if not request.user.is_superuser and request.user.profile.tier.level < MANAGEMENT_TIER:
+        raise Http404()
+    factoid = get_object_or_404(Factoid, slug=slug) if slug else None
+    form = FactoidForm(request.POST or None, instance=factoid)
+    councils = Council.objects.order_by("name")
+    years = FinancialYear.objects.order_by("-label")
+    if request.method == "POST" and form.is_valid():
+        form.save()
+        messages.success(request, "Factoid saved.")
+        return redirect("factoid_list")
+    return render(
+        request,
+        "council_finance/factoid_form.html",
+        {"form": form, "councils": councils, "years": years},
+    )
+
+
+@login_required
+def factoid_delete(request, slug):
+    """Remove a factoid. Only available to God Mode admins."""
+
+    # God Mode corresponds to trust tier level 5. Superusers automatically
+    # bypass the tier requirement which allows emergency cleanup of data.
+    if not request.user.is_superuser and request.user.profile.tier.level < 5:
+        raise Http404()
+
+    factoid = get_object_or_404(Factoid, slug=slug)
+    factoid.delete()
+    messages.success(request, "Factoid deleted.")
+    return redirect("factoid_list")
 
 
 @login_required
