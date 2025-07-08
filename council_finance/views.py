@@ -1300,9 +1300,20 @@ def submit_contribution(request):
     value = request.POST.get("value", "").strip()
 
     # Determine client IP for logging and blocking.
-    ip = request.META.get("HTTP_X_FORWARDED_FOR", "").split(",")[
-        0
-    ].strip() or request.META.get("REMOTE_ADDR")
+    # When Django is configured to respect proxy headers we trust the first
+    # address in ``HTTP_X_FORWARDED_FOR``.  This header should only be
+    # accepted from a properly configured chain of trusted proxies.  In
+    # environments without a proxy (or when ``USE_X_FORWARDED_HOST`` is
+    # False) we fall back to ``REMOTE_ADDR`` to avoid spoofing.
+    if settings.USE_X_FORWARDED_HOST:
+        forwarded_for = request.META.get("HTTP_X_FORWARDED_FOR", "")
+        ip = forwarded_for.split(",")[0].strip() if forwarded_for else None
+    else:
+        forwarded_for = None
+        ip = None
+
+    if not ip:
+        ip = request.META.get("REMOTE_ADDR")
     if BlockedIP.objects.filter(ip_address=ip).exists():
         return JsonResponse({"error": "blocked"}, status=403)
 
