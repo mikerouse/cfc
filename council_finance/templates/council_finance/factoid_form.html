@@ -31,7 +31,7 @@
             <span class="text-sm text-gray-600">Year</span>
             <select id="preview-year" class="border rounded px-2 py-1">
                 {% for y in years %}
-                    <option value="{{ y.label }}">{{ y.label }}</option>
+                    <option value="{{ y.label }}">{{ y.display_label }}</option>
                 {% endfor %}
             </select>
         </div>

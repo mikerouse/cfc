@@ -65,17 +65,26 @@ def get_factoids(counter_slug: str, context: Optional[Dict[str, Any]] = None) ->
             def __missing__(self, key):
                 return "{" + key + "}"
 
+        filtered = []
         for item in data:
             safe = SafeDict(**context)
             if item.get("factoid_type") == "percent_change":
-                # ``raw`` values are numbers from counters while ``previous_raw``
-                # holds the prior year's figure. We coerce both to floats so the
-                # percentage can be calculated reliably.
+                # Skip percent change factoids when the required numeric values
+                # are missing. Returning ``filtered`` without this item ensures
+                # invalid factoids disappear from playlists.
+                if context.get("raw") in (None, ""):
+                    continue
+                if context.get("previous_raw") in (None, ""):
+                    continue
+
+                # ``raw`` values are numbers from counters while
+                # ``previous_raw`` holds the prior year's figure. We coerce both
+                # to floats so the percentage can be calculated reliably.
                 try:
-                    current = float(context.get("raw", 0))
-                    prev = float(context.get("previous_raw", 0))
+                    current = float(context.get("raw"))
+                    prev = float(context.get("previous_raw"))
                 except (TypeError, ValueError):
-                    current = prev = 0
+                    continue
 
                 if prev:
                     # Normal case: compute the percentage difference using the
@@ -89,13 +98,16 @@ def get_factoids(counter_slug: str, context: Optional[Dict[str, Any]] = None) ->
                     else:
                         item["icon"] = "fa-chevron-right text-gray-500"
                 else:
-                    # When no previous value exists (or is zero) we avoid a
-                    # division error and display ``0%`` with a neutral icon so
-                    # users can still understand the context.
+                    # ``prev`` may legitimately be ``0``. Avoid a divide-by-zero
+                    # and show ``0%`` with a neutral indicator.
                     safe["value"] = "0%"
                     item["icon"] = "fa-chevron-right text-gray-500"
 
+            item = item.copy()
             item["text"] = item["text"].format_map(safe)
+            filtered.append(item)
+
+        data = filtered
 
     random.shuffle(data)
     return data

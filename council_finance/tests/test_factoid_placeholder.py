@@ -16,6 +16,6 @@ class FactoidPlaceholderTest(TestCase):
         )
         factoid.counters.add(counter)
 
-        facts = get_factoids("debt", {"value": "5%"})
+        facts = get_factoids("debt", {"raw": 105, "previous_raw": 100})
         self.assertEqual(len(facts), 1)
-        self.assertEqual(facts[0]["text"], "5% compared")
+        self.assertEqual(facts[0]["text"], "5.0% compared")

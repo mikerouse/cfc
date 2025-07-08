@@ -97,7 +97,7 @@
         <span class="text-sm text-gray-600">Year</span>
         <select id="preview-year" class="border rounded px-2 py-1">
             {% for year in years %}
-                <option value="{{ year.label }}" {% if year.label == preview_year_label %}selected{% endif %}>{{ year.label }}</option>
+                <option value="{{ year.label }}" {% if year.label == preview_year_label %}selected{% endif %}>{{ year.display_label }}</option>
             {% endfor %}
         </select>
     </div>
