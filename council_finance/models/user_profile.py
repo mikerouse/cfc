@@ -80,3 +80,40 @@ class UserProfile(models.Model):
         if self.official_email_confirmed:
             completed += 1
         return int((completed / fields_total) * 100)
+
+    # --- Gamification helpers -------------------------------------------------
+
+    def level(self) -> int:
+        """Return the numeric level derived from ``points``.
+
+        Levels provide a simple progression system to reward active
+        contributors. The thresholds below can be tweaked without
+        requiring a database migration because they are computed on the
+        fly. A higher level means the user has made more approved
+        contributions.
+        """
+
+        # Ordered from highest to lowest so the first match is returned.
+        thresholds = [
+            (100, 5),
+            (50, 4),
+            (25, 3),
+            (10, 2),
+            (0, 1),
+        ]
+        for minimum, lvl in thresholds:
+            if self.points >= minimum:
+                return lvl
+        return 1
+
+    def badge(self) -> str:
+        """Human readable badge for the current :py:meth:`level`."""
+
+        badges = {
+            1: "Newcomer",
+            2: "Contributor",
+            3: "Enthusiast",
+            4: "Expert",
+            5: "Champion",
+        }
+        return badges.get(self.level(), "Newcomer")

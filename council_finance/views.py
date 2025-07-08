@@ -367,8 +367,17 @@ def council_change_log(request, slug):
 
 
 def leaderboards(request):
-    """Placeholder leaderboards page."""
-    return render(request, "council_finance/leaderboards.html")
+    """Display the top contributors ordered by points."""
+
+    # Fetch the highest scoring profiles and include the related user object
+    # so the template can reference usernames without additional queries.
+    top_profiles = (
+        UserProfile.objects.select_related("user")
+        .order_by("-points")[:20]
+    )
+
+    context = {"top_profiles": top_profiles}
+    return render(request, "council_finance/leaderboards.html", context)
 
 
 def my_lists(request):
