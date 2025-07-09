@@ -2573,19 +2573,19 @@ def activity_log_entries(request):
 
     paginator = Paginator(logs, 50)
     page = paginator.get_page(request.GET.get("page"))
-        data = [
-            {
-                "time": log.created.strftime("%Y-%m-%d %H:%M:%S"),
-                "user": log.user.username if log.user else "",
-                "council": log.council.name if log.council else "",
-                "page": log.page,
-                "activity": log.activity,
-                "button": log.button,
-                "action": log.action,
-                "request": log.request,
-                "response": log.response,
-                "extra": log.extra,
-            }
-            for log in page
-        ]
+    data = [
+        {
+            "time": log.created.strftime("%Y-%m-%d %H:%M:%S"),
+            "user": log.user.username if log.user else "",
+            "council": log.council.name if log.council else "",
+            "page": log.page,
+            "activity": log.activity,
+            "button": log.button,
+            "action": log.action,
+            "request": log.request,
+            "response": log.response,
+            "extra": log.extra,
+        }
+        for log in page
+    ]
     return JsonResponse({"results": data, "has_next": page.has_next()})
