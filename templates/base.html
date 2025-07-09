@@ -20,34 +20,16 @@
     <header class="bg-gray-800 text-white">
         <div class="max-w-7xl mx-auto flex flex-wrap items-center justify-between p-5">
             <a href="{% url 'home' %}" class="text-xl font-bold">Council Finance Counters</a>
-            <!-- Small screen menu toggle shown when the nav is collapsed -->
-            <button id="nav-toggle" class="sm:hidden ml-auto mr-2" aria-label="Toggle navigation">
-                <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
-                    <path d="M4 6h16M4 12h16M4 18h16"/>
-                </svg>
-            </button>
-            <nav id="main-nav" class="hidden w-full flex-col gap-4 mt-2 sm:flex sm:flex-row sm:gap-4 sm:items-center sm:w-auto sm:mt-0">
-                <a href="{% url 'home' %}" class="hover:underline">Home</a>
-                <a href="{% url 'leaderboards' %}" class="hover:underline">Leaderboards</a>
-                {% if user.is_authenticated %}
-                <a href="{% url 'my_lists' %}" class="hover:underline">My Lists</a>
-                {% endif %}
-                <a href="{% url 'following' %}" class="hover:underline">Following</a>
-                <a href="{% url 'contribute' %}" class="hover:underline">Contribute</a>
-                {% if user.is_authenticated %}
-                <a href="{% url 'profile' %}" class="hover:underline">My Profile</a>
-                {% else %}
-                <a href="{% url 'login' %}" class="hover:underline">Login/Register</a>
-                {% endif %}
-            </nav>
+            {# Primary navigation is now simplified to just search and icons. #}
             <!-- Search form to look up councils -->
             <div class="relative mt-2 sm:mt-0">
                 <form method="get" action="{% url 'home' %}">
-                    <input id="live-search-input" type="text" name="q" placeholder="find your council" class="rounded px-2 py-1 text-black w-full sm:w-48" autocomplete="off" />
+                    <input id="live-search-input" type="text" name="q" placeholder="find your council" class="rounded px-2 py-1 text-black w-72" autocomplete="off" />
                 </form>
                 <div id="live-search-results" class="absolute bg-white text-black border rounded w-full sm:w-48 mt-1 hidden z-50"></div>
             </div>
-            {% if user.is_authenticated%}
+            <div class="flex items-center gap-2">
+            {% if user.is_authenticated %}
             {% unread_count as unread_count %}
                 <div class="relative pt-2" id="notif-wrapper">
                     <button id="notif-toggle" class="ml-2" aria-label="Notifications">
@@ -83,28 +65,51 @@
                     </div>
                 </div>
             {% endif %}
+            <div class="relative pt-2" id="basket-wrapper">
+                <a href="{% url 'compare_basket' %}" aria-label="Comparison basket" class="relative block">
+                    <svg class="w-6 h-6 fill-current" viewBox="0 0 24 24">
+                        <path d="M6 6h15l-1.5 9h-12zM5 6l-1 2h2l.6-1.2L7 6H5zM9 21a1 1 0 100-2 1 1 0 000 2zm8 0a1 1 0 100-2 1 1 0 000 2z"/>
+                    </svg>
+                    {% if compare_count %}
+                    <span id="basket-count" class="absolute -top-1 -right-1 bg-red-600 text-white text-xs rounded-full px-1">{{ compare_count }}</span>
+                    {% else %}
+                    <span id="basket-count" class="hidden absolute -top-1 -right-1 bg-red-600 text-white text-xs rounded-full px-1"></span>
+                    {% endif %}
+                </a>
+            </div>
+            </div>
         </div>
-        {% if user.is_superuser or user.profile.tier.level|default:0 >= 4 %}
-        {# Secondary navigation bar for admin-only links #}
         <div class="bg-gray-700 p-3">
-            <nav class="max-w-7xl mx-auto flex gap-4 p-2 pl-5">
-                <span class="text-gray-300">Admin</span>
-                <a href="{% url 'admin:index' %}" class="hover:underline">Django Admin</a>
+            <nav class="max-w-7xl mx-auto flex flex-wrap gap-4 p-2 pl-5">
+                <a href="{% url 'home' %}" class="hover:underline">Home</a>
+                <a href="{% url 'leaderboards' %}" class="hover:underline">Leaderboards</a>
+                {% if user.is_authenticated %}
+                <a href="{% url 'my_lists' %}" class="hover:underline">My Lists</a>
+                {% endif %}
+                <a href="{% url 'following' %}" class="hover:underline">Following</a>
+                <a href="{% url 'contribute' %}" class="hover:underline">Contribute</a>
+                {% if user.is_authenticated %}
+                <a href="{% url 'profile' %}" class="hover:underline">My Profile</a>
+                {% else %}
+                <a href="{% url 'login' %}" class="hover:underline">Login/Register</a>
+                {% endif %}
+                {% if user.is_superuser or user.profile.tier.level|default:0 >= 4 %}
                 <a href="{% url 'counter_definitions' %}" class="hover:underline">Counters</a>
                 <a href="{% url 'factoid_list' %}" class="hover:underline">Factoids</a>
                 <a href="{% url 'field_list' %}" class="hover:underline">Fields Manager</a>
-                {# Superadmins can always access God Mode regardless of tier. #}
-                {% if user.is_superuser or user.profile.tier.level >= 5 %}
+                {% endif %}
+                {% if user.is_superuser or user.profile.tier.level|default:0 >= 5 %}
+                <a href="{% url 'admin:index' %}" class="hover:underline">Django Admin</a>
                 <a href="{% url 'god_mode' %}" class="hover:underline">God Mode</a>
                 {% endif %}
             </nav>
         </div>
-        {% endif %}
     </header>
     <!-- Shared helpers for live search and numeric entry formatting -->
     <script src="{% static 'js/live_search.js' %}"></script>
     <script src="{% static 'js/number_helper.js' %}"></script>
     <script src="{% static 'js/edit_figures.js' %}"></script>
+    <script src="{% static 'js/comparison_basket.js' %}"></script>
     <script>
     const toggle = document.getElementById('notif-toggle');
     if (toggle) {

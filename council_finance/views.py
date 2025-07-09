@@ -1675,6 +1675,147 @@ def list_metric(request, list_id):
     return JsonResponse({"values": values, "total": total})
 
 
+def add_to_compare(request, slug):
+    """Add a council slug to the comparison basket stored in the session."""
+    if request.method != "POST":
+        return HttpResponseBadRequest("POST required")
+    basket = request.session.get("compare_basket", [])
+    if slug not in basket:
+        basket.append(slug)
+        basket = basket[:6]
+        request.session["compare_basket"] = basket
+    return JsonResponse({"count": len(basket)})
+
+
+def remove_from_compare(request, slug):
+    """Remove a council from the session comparison basket."""
+    if request.method != "POST":
+        return HttpResponseBadRequest("POST required")
+    basket = request.session.get("compare_basket", [])
+    if slug in basket:
+        basket.remove(slug)
+        request.session["compare_basket"] = basket
+    return JsonResponse({"count": len(basket)})
+
+
+def compare_row(request):
+    """Return a single table row of comparison data for AJAX."""
+    if request.headers.get("X-Requested-With") != "XMLHttpRequest":
+        return HttpResponseBadRequest("XHR required")
+    slug = request.GET.get("field")
+    if not slug:
+        return HttpResponseBadRequest("field required")
+    field = DataField.objects.filter(slug=slug).first()
+    if not field:
+        return HttpResponseBadRequest("invalid field")
+    councils = Council.objects.filter(slug__in=request.session.get("compare_basket", []))
+    values = []
+    numeric = []
+    for c in councils:
+        if slug == "council_type":
+            values.append(c.council_type.name if c.council_type else "")
+        else:
+            fs = (
+                FigureSubmission.objects.filter(council=c, field=field)
+                .order_by("-year__label")
+                .first()
+            )
+            if fs:
+                values.append(field.display_value(fs.value))
+                try:
+                    numeric.append(float(fs.value))
+                except (TypeError, ValueError):
+                    numeric.append(None)
+            else:
+                values.append("")
+                numeric.append(None)
+
+    summary = None
+    if field.content_type in {"monetary", "integer"} and any(v is not None for v in numeric):
+        valid = [v for v in numeric if v is not None]
+        total = sum(valid)
+        average = total / len(valid)
+        max_idx = valid.index(max(valid))
+        min_idx = valid.index(min(valid))
+        summary = {
+            "total": field.display_value(total),
+            "average": field.display_value(average),
+            "highest": councils[max_idx].name,
+            "lowest": councils[min_idx].name,
+        }
+
+    return render(
+        request,
+        "council_finance/compare_row.html",
+        {"field": field, "values": values, "summary": summary},
+    )
+
+
+def compare_basket(request):
+    """Display the user's current comparison basket."""
+    slugs = request.session.get("compare_basket", [])
+    councils = list(Council.objects.filter(slug__in=slugs).order_by("name"))
+    selected = request.session.get("compare_fields", [])
+    if request.method == "POST" and request.user.is_authenticated and "save_list" in request.POST:
+        form = CouncilListForm(request.POST)
+        if form.is_valid():
+            lst = form.save(commit=False)
+            lst.user = request.user
+            lst.save()
+            lst.councils.set(councils)
+            messages.success(request, "List saved")
+            return redirect("my_lists")
+    else:
+        form = CouncilListForm()
+    fields = DataField.objects.filter(slug__in=["council_type", "population"] + selected)
+    rows = []
+    for field in fields:
+        vals = []
+        numeric = []
+        for c in councils:
+            if field.slug == "council_type":
+                vals.append(c.council_type.name if c.council_type else "")
+            else:
+                fs = (
+                    FigureSubmission.objects.filter(council=c, field=field)
+                    .order_by("-year__label")
+                    .first()
+                )
+                if fs:
+                    vals.append(field.display_value(fs.value))
+                    try:
+                        numeric.append(float(fs.value))
+                    except (TypeError, ValueError):
+                        numeric.append(None)
+                else:
+                    vals.append("")
+                    numeric.append(None)
+
+        summary = None
+        if field.content_type in {"monetary", "integer"} and any(n is not None for n in numeric):
+            valid = [n for n in numeric if n is not None]
+            total = sum(valid)
+            average = total / len(valid)
+            max_idx = valid.index(max(valid))
+            min_idx = valid.index(min(valid))
+            summary = {
+                "total": field.display_value(total),
+                "average": field.display_value(average),
+                "highest": councils[max_idx].name,
+                "lowest": councils[min_idx].name,
+            }
+
+        rows.append({"field": field, "values": vals, "summary": summary})
+    field_choices = DataField.objects.exclude(slug__in=["council_type", "population"] + selected)
+    context = {
+        "councils": councils,
+        "rows": rows,
+        "field_choices": field_choices,
+        "form": form,
+    }
+    return render(request, "council_finance/comparison_basket.html", context)
+
+
 @login_required
 def edit_figures_table(request, slug):
     """Return the edit table HTML for a specific year."""

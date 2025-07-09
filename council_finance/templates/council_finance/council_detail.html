@@ -10,6 +10,7 @@
   <button id="follow-btn" class="mb-2 bg-blue-600 text-white px-2 py-1 rounded" data-following="{{ is_following|yesno:'true,false' }}" data-slug="{{ council.slug }}">
     {% if is_following %}Unfollow{% else %}Follow{% endif %}
   </button>
+  <button id="compare-btn" class="mb-2 bg-purple-600 text-white px-2 py-1 rounded" data-slug="{{ council.slug }}">Compare</button>
 {% endif %}
 <div class="council-meta-in-header flex flex-row items-center gap-4 text-gray-500 text-sm mb-2">
   <div class="council-type-in-header">

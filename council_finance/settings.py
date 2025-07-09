@@ -55,6 +55,7 @@ TEMPLATES = [
                 "django.contrib.messages.context_processors.messages",
                 # Provide the chosen Google font to every template.
                 "council_finance.context_processors.font_family",
+                "council_finance.context_processors.compare_count",
             ],
         },
     },
