@@ -193,4 +193,5 @@ class SubmissionPointTests(TestCase):
         # Move both contributions outside the 3 week window
         Contribution.objects.all().update(created=timezone.now() - timedelta(days=22))
         self.submit()
-        self.user.profile.refresh_from_db()        self.assertEqual(self.user.profile.points, 2)
+        self.user.profile.refresh_from_db()
+        self.assertEqual(self.user.profile.points, 2)

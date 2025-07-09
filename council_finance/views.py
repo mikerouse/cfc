@@ -121,9 +121,41 @@ def home(request):
     # Import here to keep the view lightweight if the home page is cached.
     from .models import SiteCounter, GroupCounter
     from django.core.cache import cache
+    from council_finance.agents.site_totals_agent import SiteTotalsAgent
 
     all_years = list(FinancialYear.objects.order_by("-label"))
-    # Pull pre-computed totals from the cache for each promoted site counter.
+    missing_cache = False
+
+    # First pass to detect missing cache entries. The totals are normally
+    # populated by ``SiteTotalsAgent`` via a scheduled task. When the cache is
+    # cold (for example on a fresh install) we compute the values on demand so
+    # visitors never see zeroed counters.
+    for sc in SiteCounter.objects.filter(promote_homepage=True):
+        year_label = sc.year.label if sc.year else "all"
+        # A ``None`` return signals the agent hasn't cached this total yet.
+        if cache.get(f"counter_total:{sc.slug}:{year_label}") is None:
+            missing_cache = True
+        if sc.year and cache.get(f"counter_total:{sc.slug}:{year_label}:prev") is None:
+            missing_cache = True
+    for gc in GroupCounter.objects.filter(promote_homepage=True):
+        year_label = gc.year.label if gc.year else "all"
+        # Group counters may be restricted to a subset of councils. We still
+        # check whether the cached aggregates exist before rendering.
+        if cache.get(f"counter_total:{gc.slug}:{year_label}") is None:
+            missing_cache = True
+        if gc.year and cache.get(f"counter_total:{gc.slug}:{year_label}:prev") is None:
+            missing_cache = True
+
+    # When any counter total is missing, compute them all so visitors always see
+    # up to date figures even if the background task failed to run.
+    if missing_cache:
+        # Run the agent synchronously so the cache is filled before rendering
+        # the page. This means the first visitor after a deployment may trigger
+        # a slight delay, but subsequent requests will hit the cache.
+        SiteTotalsAgent().run()
+
+    # Now build the list of promoted counters using the cached totals. This may
+    # happen after the agent has populated the cache above.
     for sc in SiteCounter.objects.filter(promote_homepage=True):
         year_label = sc.year.label if sc.year else "all"
         value = cache.get(f"counter_total:{sc.slug}:{year_label}", 0)
