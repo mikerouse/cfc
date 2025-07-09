@@ -16,6 +16,10 @@ class ActivityLog(models.Model):
     activity = models.CharField(max_length=100)
     button = models.CharField(max_length=100, blank=True)
     action = models.CharField(max_length=100, blank=True)
+    # Store a very small representation of the request, typically the HTTP
+    # method or a short JSON payload. Keeping this short avoids filling the
+    # database with large bodies while still helping debugging.
+    request = models.CharField(max_length=255, blank=True)
     response = models.CharField(max_length=255, blank=True)
     extra = models.TextField(blank=True)
     created = models.DateTimeField(auto_now_add=True)
