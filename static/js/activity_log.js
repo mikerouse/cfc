@@ -18,6 +18,8 @@
         data.results.forEach(row => {
           const tr = document.createElement('tr');
           tr.className = 'odd:bg-gray-50';
+          // Each row also includes a JSON representation so that admins
+          // can easily copy a machine-readable log entry.
           tr.innerHTML = `
             <td class="border px-2 py-1">${row.time}</td>
             <td class="border px-2 py-1">${row.user}</td>
@@ -28,7 +30,8 @@
             <td class="border px-2 py-1">${row.action}</td>
             <td class="border px-2 py-1">${row.request}</td>
             <td class="border px-2 py-1">${row.response}</td>
-            <td class="border px-2 py-1">${row.extra}</td>`;
+            <td class="border px-2 py-1">${row.extra}</td>
+            <td class="border px-2 py-1 whitespace-pre-wrap text-xs">${row.json}</td>`;
           tableBody.appendChild(tr);
         });
       });

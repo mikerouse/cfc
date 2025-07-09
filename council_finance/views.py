@@ -90,11 +90,38 @@ def log_activity(
 ):
     """Helper to store troubleshooting events."""
     import json
+    import inspect
 
-    if isinstance(extra, dict):
-        extra = json.dumps(extra, ensure_ascii=False)
-    elif extra is None:
-        extra = ""
+    # Build a dictionary describing the context of the call so that
+    # downstream analysis tools can more easily pinpoint where the
+    # action originated. This includes the calling module, function and
+    # any class name if ``log_activity`` was called inside a method.
+    if isinstance(extra, dict) or extra is None:
+        extra_data = extra or {}
+    else:
+        # If a string was supplied, try to decode it as JSON; otherwise
+        # store it under the ``note`` key.
+        try:
+            extra_data = json.loads(extra)
+        except Exception:
+            extra_data = {"note": str(extra)}
+
+    frame = inspect.currentframe()
+    if frame and frame.f_back:
+        caller = frame.f_back
+        module = caller.f_globals.get("__name__")
+        func = caller.f_code.co_name
+        cls = None
+        if "self" in caller.f_locals:
+            cls = caller.f_locals["self"].__class__.__name__
+        extra_data.update({
+            "module": module,
+            "function": func,
+        })
+        if cls:
+            extra_data["class"] = cls
+
+    extra = json.dumps(extra_data, ensure_ascii=False)
 
     # Request data defaults to the HTTP method for quick reference. The caller
     # can supply a short string or dict to capture more detail when needed.
@@ -2560,6 +2587,8 @@ def activity_log_entries(request):
     if not request.user.is_superuser and request.user.profile.tier.level < 5:
         raise Http404()
 
+    import json
+
     logs = ActivityLog.objects.select_related("user", "council").order_by("-created")
     q = request.GET.get("q")
     if q:
@@ -2573,8 +2602,9 @@ def activity_log_entries(request):
 
     paginator = Paginator(logs, 50)
     page = paginator.get_page(request.GET.get("page"))
-    data = [
-        {
+    data = []
+    for log in page:
+        row = {
             "time": log.created.strftime("%Y-%m-%d %H:%M:%S"),
             "user": log.user.username if log.user else "",
             "council": log.council.name if log.council else "",
@@ -2586,6 +2616,9 @@ def activity_log_entries(request):
             "response": log.response,
             "extra": log.extra,
         }
-        for log in page
-    ]
+        # Provide a complete JSON blob for easy copying. This includes
+        # the same fields shown in the table so that an external tool can
+        # ingest a single object per log entry.
+        row["json"] = json.dumps(row, ensure_ascii=False)
+        data.append(row)
     return JsonResponse({"results": data, "has_next": page.has_next()})
