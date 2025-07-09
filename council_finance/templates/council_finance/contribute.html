@@ -5,8 +5,15 @@
 <div class="space-y-6">
     <section>
         <h2 class="text-xl font-semibold mb-2">Missing Characteristics</h2>
-        <input id="missing-characteristic-search" type="text" placeholder="Search..." class="border rounded px-2 py-1 mb-2" />
-        <div id="missing-characteristic-data-container" data-type="missing" data-category="characteristic" data-page="1" data-order="council">
+        <div class="flex items-center gap-2 mb-2">
+            <input id="missing-characteristic-search" type="text" placeholder="Search..." class="border rounded px-2 py-1" />
+            <select id="missing-characteristic-size" class="border rounded px-2 py-1">
+                <option value="25">25</option>
+                <option value="50" selected>50</option>
+                <option value="100">100</option>
+            </select>
+        </div>
+        <div id="missing-characteristic-data-container" data-type="missing" data-category="characteristic" data-page="1" data-order="council" data-page-size="50">
             {% include 'council_finance/data_issues_table.html' with page_obj=missing_characteristic_page paginator=missing_characteristic_paginator issue_type='missing' show_year=False %}
         </div>
     </section>
@@ -91,6 +98,23 @@
   </form>
 </div>
 
+<!-- Modal for adding a missing characteristic value -->
+<div id="add-value-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+  <form method="post" id="add-value-form" action="{% url 'submit_contribution' %}" class="bg-white p-4 rounded shadow">
+    {% csrf_token %}
+    <input type="hidden" name="council" id="add-council">
+    <input type="hidden" name="field" id="add-field">
+    <input type="hidden" name="year" id="add-year">
+    <label class="block mb-2">Value
+      <input type="text" name="value" id="add-value" class="border p-2 w-full" />
+    </label>
+    <div class="text-right space-x-2">
+      <button type="submit" class="bg-green-600 text-white px-4 py-1 rounded">Submit</button>
+      <button type="button" id="add-cancel" class="px-4 py-1 border rounded">Cancel</button>
+    </div>
+  </form>
+</div>
+
 <!-- Modal used when rejecting a contribution -->
 <div id="reject-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
   <form method="post" id="reject-form" class="bg-white p-4 rounded shadow">
@@ -136,6 +160,25 @@ document.getElementById('reject-cancel').addEventListener('click', () => {
 document.getElementById('reject-reason').addEventListener('change', function() {
   document.getElementById('reject-details').classList.toggle('hidden', this.value !== 'other');
 });
+
+function setupAddButtons() {
+  document.querySelectorAll('.add-value-btn').forEach(btn => {
+    btn.addEventListener('click', e => {
+      e.preventDefault();
+      document.getElementById('add-council').value = btn.dataset.council;
+      document.getElementById('add-field').value = btn.dataset.field;
+      document.getElementById('add-year').value = btn.dataset.year || '';
+      document.getElementById('add-value').value = '';
+      document.getElementById('add-value-modal').classList.remove('hidden');
+    });
+  });
+}
+document.getElementById('add-cancel').addEventListener('click', () => {
+  document.getElementById('add-value-modal').classList.add('hidden');
+});
+// Called initially and after AJAX loads
+document.addEventListener('issueTableUpdated', setupAddButtons);
+setupAddButtons();
 
 // Confirm moderation actions are present for debugging purposes.
 document.addEventListener('DOMContentLoaded', () => {

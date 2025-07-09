@@ -41,3 +41,16 @@ class DataIssuesApiTests(TestCase):
         url = reverse("data_issues_table") + "?type=missing&category=characteristic"
         resp = self.client.get(url, HTTP_X_REQUESTED_WITH="XMLHttpRequest")
         self.assertIn("HQ", resp.json()["html"])
+
+    def test_page_size_parameter(self):
+        url = reverse("data_issues_table") + "?type=missing&page_size=10"
+        resp = self.client.get(url, HTTP_X_REQUESTED_WITH="XMLHttpRequest")
+        self.assertIn("Page 1 of 6", resp.json()["html"])
+
+    def test_sort_by_field(self):
+        field_a = DataField.objects.create(name="Alpha", slug="alpha")
+        DataIssue.objects.create(council=self.council, field=field_a, year=self.year, issue_type="missing")
+        url = reverse("data_issues_table") + "?type=missing&order=field&dir=asc"
+        resp = self.client.get(url, HTTP_X_REQUESTED_WITH="XMLHttpRequest")
+        html = resp.json()["html"]
+        self.assertLess(html.index("Alpha"), html.index("Stuff0"))

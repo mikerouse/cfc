@@ -6,6 +6,7 @@
 function setupIssueTable(containerId) {
     const container = document.getElementById(`${containerId}-data-container`);
     const searchInput = document.getElementById(`${containerId}-search`);
+    const sizeInput = document.getElementById(`${containerId}-size`);
     if (!container) return;
     // Each container stores the ``type`` (missing or suspicious) and optional
     // ``category`` so the AJAX endpoint can filter appropriately.
@@ -18,8 +19,9 @@ function setupIssueTable(containerId) {
         const order = params.order || container.dataset.order || 'council';
         const dir = params.dir || container.dataset.dir || 'asc';
         const page = params.page || container.dataset.page || 1;
+        const pageSize = params.pageSize || container.dataset.pageSize || (sizeInput ? sizeInput.value : 50);
         const q = searchInput.value.trim();
-        let url = `/contribute/issues/?type=${type}&page=${page}&order=${order}&dir=${dir}`;
+        let url = `/contribute/issues/?type=${type}&page=${page}&order=${order}&dir=${dir}&page_size=${pageSize}`;
         if (category) url += `&category=${category}`;
         if (q) url += `&q=${encodeURIComponent(q)}`;
         const resp = await fetch(url, {headers: {'X-Requested-With': 'XMLHttpRequest'}});
@@ -28,7 +30,9 @@ function setupIssueTable(containerId) {
         container.dataset.order = order;
         container.dataset.dir = dir;
         container.dataset.page = page;
+        container.dataset.pageSize = pageSize;
         attachHandlers();
+        document.dispatchEvent(new Event('issueTableUpdated'));
     }
 
     function attachHandlers() {
@@ -51,6 +55,12 @@ function setupIssueTable(containerId) {
         clearTimeout(timer);
         timer = setTimeout(() => load({page: 1}), 300);
     });
+
+    if (sizeInput) {
+        sizeInput.addEventListener('change', () => {
+            load({page: 1, pageSize: sizeInput.value});
+        });
+    }
 
     attachHandlers();
 }

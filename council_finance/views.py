@@ -677,7 +677,8 @@ def data_issues_table(request):
         qs = qs.filter(Q(council__name__icontains=search) | Q(field__name__icontains=search))
     qs = qs.order_by(order_by)
 
-    paginator = Paginator(qs, 50)
+    page_size = int(request.GET.get("page_size", 50))
+    paginator = Paginator(qs, page_size)
     page = paginator.get_page(request.GET.get("page"))
 
     show_year = not (issue_type == "missing" and category == "characteristic")
