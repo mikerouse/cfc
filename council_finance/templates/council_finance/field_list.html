@@ -6,35 +6,72 @@
 <div class="mb-4 text-right">
     <a href="{% url 'field_add' %}" class="bg-blue-600 text-white px-4 py-1 rounded">Add field</a>
 </div>
-<table class="min-w-full bg-white border">
-    <thead>
-        <tr>
-            <th class="border px-2 py-1 text-left">Name</th>
-            <th class="border px-2 py-1">Slug</th>
-            <th class="border px-2 py-1">Category</th>
-            <th class="border px-2 py-1">Council Types</th>
-            <th class="border px-2 py-1">Actions</th>
-        </tr>
-    </thead>
-    <tbody>
-        {% for f in fields %}
-        <tr class="odd:bg-gray-50">
-            <td class="border px-2 py-1"><a href="{% url 'field_edit' f.slug %}" class="text-blue-600 underline">{{ f.name }}</a></td>
-            <td class="border px-2 py-1 text-center">{{ f.slug }}</td>
-            <td class="border px-2 py-1 text-center">{{ f.get_category_display }}</td>
-            <td class="border px-2 py-1 text-center">{{ f.display_council_types }}</td>
-            <td class="border px-2 py-1 text-center">
-                <a href="{% url 'field_edit' f.slug %}" class="text-blue-600 underline">Edit</a>
-                {% if not f.is_protected %}
-                | <a href="{% url 'field_delete' f.slug %}" class="text-red-600 underline">Delete</a>
-                {% endif %}
-            </td>
-        </tr>
-        {% empty %}
-        <tr>
-            <td class="border px-2 py-1 text-center" colspan="5">No fields defined yet.</td>
-        </tr>
-        {% endfor %}
-    </tbody>
-</table>
+
+{# Tab navigation listing the available field categories. First tab is active by default. #}
+<div class="mb-4 border-b" id="field-tabs">
+    {% for slug, label in categories %}
+    <button data-tab="{{ slug }}" class="tab-btn px-4 py-2 -mb-px border-b-2 {% if forloop.first %}border-blue-600 text-blue-600{% else %}border-transparent{% endif %}">
+        {{ label }}
+    </button>
+    {% endfor %}
+</div>
+
+{# Each category gets its own table wrapped in a div that toggles via JavaScript. #}
+{% for slug, label in categories %}
+<div data-content="{{ slug }}" class="tab-content {% if not forloop.first %}hidden{% endif %}">
+    <table class="min-w-full bg-white border mb-6">
+        <thead>
+            <tr>
+                <th class="border px-2 py-1 text-left">Name</th>
+                <th class="border px-2 py-1">Slug</th>
+                <th class="border px-2 py-1">Council Types</th>
+                <th class="border px-2 py-1">Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for f in fields_by_category[slug] %}
+            <tr class="odd:bg-gray-50">
+                <td class="border px-2 py-1"><a href="{% url 'field_edit' f.slug %}" class="text-blue-600 underline">{{ f.name }}</a></td>
+                <td class="border px-2 py-1 text-center">{{ f.slug }}</td>
+                <td class="border px-2 py-1 text-center">{{ f.display_council_types }}</td>
+                <td class="border px-2 py-1 text-center">
+                    <a href="{% url 'field_edit' f.slug %}" class="text-blue-600 underline">Edit</a>
+                    {% if not f.is_protected %}
+                    | <a href="{% url 'field_delete' f.slug %}" class="text-red-600 underline">Delete</a>
+                    {% endif %}
+                </td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td class="border px-2 py-1 text-center" colspan="4">No fields defined yet.</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endfor %}
+
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+// Basic tab handler toggles the active table when a tab is clicked. Each button
+// uses a data attribute to identify the related content block.
+document.querySelectorAll('#field-tabs .tab-btn').forEach((btn) => {
+    btn.addEventListener('click', () => {
+        // Remove styling from the previously active tab and hide its content
+        document.querySelectorAll('#field-tabs .tab-btn').forEach((b) => {
+            b.classList.remove('border-blue-600', 'text-blue-600');
+            b.classList.add('border-transparent');
+        });
+        document.querySelectorAll('.tab-content').forEach((el) => el.classList.add('hidden'));
+
+        // Show the associated content and highlight the clicked tab
+        const target = btn.getAttribute('data-tab');
+        btn.classList.add('border-blue-600', 'text-blue-600');
+        btn.classList.remove('border-transparent');
+        document.querySelector(`.tab-content[data-content="${target}"]`).classList.remove('hidden');
+    });
+});
+</script>
 {% endblock %}
