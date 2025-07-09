@@ -18,6 +18,9 @@ CHARACTERISTIC_SLUGS = {
     # Location of the council headquarters doesn't change per year and is
     # needed to provide context for visitors.
     "council_location",
+    # The number of elected councillors is a structural fact about a council
+    # rather than a yearly statistic so this slug must remain consistent.
+    "elected_members",
 }
 
 # Backwards compatibility constant - older modules import PROTECTED_SLUGS

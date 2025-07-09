@@ -2,14 +2,25 @@ from django.test import TestCase
 from django.urls import reverse
 from django.contrib.auth import get_user_model
 
-from council_finance.models import DataField
+from django.core.management import call_command
+
+from council_finance.models import (
+    DataField,
+    Council,
+    FinancialYear,
+    DataIssue,
+)
 
 class CharacteristicFieldTests(TestCase):
     def test_protected_slug_sets_category(self):
-        field, _ = DataField.objects.get_or_create(
-            slug="council_website", defaults={"name": "Website"}
-        )
-        self.assertEqual(field.category, "characteristic")
+        """Any known characteristic slug should default to the characteristic
+        category when created."""
+
+        for slug in ["council_website", "elected_members"]:
+            field, _ = DataField.objects.get_or_create(
+                slug=slug, defaults={"name": slug.replace("_", " ").title()}
+            )
+            self.assertEqual(field.category, "characteristic")
 
 class CharacteristicTabTests(TestCase):
     def setUp(self):
@@ -22,3 +33,20 @@ class CharacteristicTabTests(TestCase):
         self.client.login(username="admin", password="pw")
         resp = self.client.get(reverse("field_list"))
         self.assertContains(resp, "Characteristics")
+
+
+class YearlessCharacteristicTests(TestCase):
+    """Verify missing-data checks treat characteristics as yearless."""
+
+    def test_missing_issue_created_once(self):
+        year1 = FinancialYear.objects.create(label="2023/24")
+        year2 = FinancialYear.objects.create(label="2024/25")
+        council = Council.objects.create(name="Solo", slug="solo")
+        field = DataField.objects.create(name="HQ", slug="council_location")
+
+        # Trigger data quality assessment without any submissions present.
+        call_command("assess_data_issues")
+
+        issues = DataIssue.objects.filter(council=council, field=field)
+        self.assertEqual(issues.count(), 1)
+        self.assertIsNone(issues.first().year_id)

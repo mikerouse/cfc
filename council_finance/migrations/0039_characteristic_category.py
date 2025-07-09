@@ -7,6 +7,7 @@ CHARACTERISTIC_SLUGS = [
     "households",
     "council_website",
     "council_location",
+    "elected_members",
 ]
 
 def assign_characteristic_category(apps, schema_editor):
