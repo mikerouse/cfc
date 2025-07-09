@@ -25,7 +25,7 @@ async function loadEditTable(year) {
 }
 
 function enhanceEditForms() {
-    document.querySelectorAll('#edit-table-container form.edit-fig-form').forEach(form => {
+    document.querySelectorAll('#edit-table-container form.edit-fig-form, #char-table-container form.edit-fig-form').forEach(form => {
         form.addEventListener('submit', async e => {
             e.preventDefault();
             const data = new FormData(form);
@@ -37,7 +37,7 @@ function enhanceEditForms() {
             }
         });
     });
-    document.querySelectorAll('#edit-table-container [data-num-input]').forEach(inp => {
+    document.querySelectorAll('#edit-table-container [data-num-input], #char-table-container [data-num-input]').forEach(inp => {
         const helper = inp.closest('tr').querySelector('.num-helper');
         attachNumberHelper(inp, helper);
     });
@@ -49,5 +49,6 @@ document.addEventListener('DOMContentLoaded', () => {
         sel.addEventListener('change', () => loadEditTable(sel.value));
         loadEditTable(sel.value);
     }
+    enhanceEditForms();
 });
 

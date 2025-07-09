@@ -396,6 +396,37 @@ def council_detail(request, slug):
         
     edit_figures = figures.filter(year=edit_selected_year) if edit_selected_year else figures.none()
 
+    # Characteristic values apply across all years. Fetch the latest submission
+    # for each field so the edit interface shows a single row rather than
+    # repeating the value for every year.
+    characteristic_figures = []
+    if tab == "edit":
+        char_fields = DataField.objects.filter(category="characteristic")
+        if council.council_type_id:
+            char_fields = char_fields.filter(
+                Q(council_types__isnull=True) | Q(council_types=council.council_type)
+            )
+        else:
+            char_fields = char_fields.filter(council_types__isnull=True)
+        char_fields = char_fields.distinct()
+
+        latest = {}
+        for fs in (
+            FigureSubmission.objects.filter(council=council, field__in=char_fields)
+            .select_related("field", "year")
+            .order_by("field_id", "-year__label")
+        ):
+            # ``setdefault`` keeps the first instance for each field which is
+            # the newest thanks to the ordering above.
+            latest.setdefault(fs.field_id, fs)
+
+        default_year = FinancialYear.objects.order_by("-label").first()
+        for field in char_fields.order_by("name"):
+            fs = latest.get(field.id)
+            if not fs:
+                fs = FigureSubmission(council=council, year=default_year, field=field, value="")
+            characteristic_figures.append(fs)
+
     context = {
         "council": council,
         "figures": figures,
@@ -409,6 +440,7 @@ def council_detail(request, slug):
         "edit_years": edit_years,
         "edit_selected_year": edit_selected_year,
         "edit_figures": edit_figures,
+        "characteristic_figures": characteristic_figures,
         # Set of field slugs with pending contributions so the template
         # can show a "pending confirmation" notice in place of the form.
         "pending_slugs": set(
@@ -1978,7 +2010,7 @@ def edit_figures_table(request, slug):
     # Fetch all field definitions relevant to this council. Existing figure
     # submissions are loaded into a map so we can include blank rows for
     # missing data, allowing users to provide new figures.
-    fields = DataField.objects.all()
+    fields = DataField.objects.exclude(category="characteristic")
     if council.council_type_id:
         fields = fields.filter(
             Q(council_types__isnull=True) | Q(council_types=council.council_type)
@@ -1989,7 +2021,9 @@ def edit_figures_table(request, slug):
 
     existing = {
         (fs.field_id): fs
-        for fs in FigureSubmission.objects.filter(council=council, year=year).select_related("field", "year")
+        for fs in FigureSubmission.objects.filter(council=council, year=year)
+        .exclude(field__category="characteristic")
+        .select_related("field", "year")
     }
     figures = []
     for field in fields.order_by("name"):
