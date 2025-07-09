@@ -3,6 +3,8 @@
 {% load static notifications %}
 <head>
     <meta charset="utf-8">
+    <!-- Ensure responsive behaviour on mobile devices -->
+    <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>{% block title %}Council Finance Counters{% endblock %}</title>
     <!-- Use Tailwind via CDN for quick styling -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -18,7 +20,13 @@
     <header class="bg-gray-800 text-white">
         <div class="max-w-7xl mx-auto flex flex-wrap items-center justify-between p-5">
             <a href="{% url 'home' %}" class="text-xl font-bold">Council Finance Counters</a>
-            <nav class="flex flex-wrap gap-4 items-center">
+            <!-- Small screen menu toggle shown when the nav is collapsed -->
+            <button id="nav-toggle" class="sm:hidden ml-auto mr-2" aria-label="Toggle navigation">
+                <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M4 6h16M4 12h16M4 18h16"/>
+                </svg>
+            </button>
+            <nav id="main-nav" class="hidden w-full flex-col gap-4 mt-2 sm:flex sm:flex-row sm:gap-4 sm:items-center sm:w-auto sm:mt-0">
                 <a href="{% url 'home' %}" class="hover:underline">Home</a>
                 <a href="{% url 'leaderboards' %}" class="hover:underline">Leaderboards</a>
                 {% if user.is_authenticated %}
@@ -35,9 +43,9 @@
             <!-- Search form to look up councils -->
             <div class="relative mt-2 sm:mt-0">
                 <form method="get" action="{% url 'home' %}">
-                    <input id="live-search-input" type="text" name="q" placeholder="find your council" class="rounded px-2 py-1 text-black w-48" autocomplete="off" />
+                    <input id="live-search-input" type="text" name="q" placeholder="find your council" class="rounded px-2 py-1 text-black w-full sm:w-48" autocomplete="off" />
                 </form>
-                <div id="live-search-results" class="absolute bg-white text-black border rounded w-48 mt-1 hidden z-50"></div>
+                <div id="live-search-results" class="absolute bg-white text-black border rounded w-full sm:w-48 mt-1 hidden z-50"></div>
             </div>
             {% if user.is_authenticated%}
             {% unread_count as unread_count %}
@@ -128,6 +136,15 @@
         document.getElementById('live-search-input'),
         document.getElementById('live-search-results')
     );
+
+    // Toggle navigation visibility on small screens
+    const navToggle = document.getElementById('nav-toggle');
+    const mainNav = document.getElementById('main-nav');
+    if (navToggle && mainNav) {
+        navToggle.addEventListener('click', () => {
+            mainNav.classList.toggle('hidden');
+        });
+    }
     </script>
 
     {# Display one-off messages generated via Django's messages framework. #}

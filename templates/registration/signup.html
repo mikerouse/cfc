@@ -1,20 +1,10 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="utf-8">
-    <title>Sign up</title>
-    <style>
-        body { font-family: sans-serif; max-width: 600px; margin: auto; padding: 2em; }
-        form { display: flex; flex-direction: column; gap: 1em; }
-        label { font-weight: bold; }
-    </style>
-</head>
-<body>
-    <h1>Create an account</h1>
-    <form method="post">
-        {% csrf_token %}
-        {{ form.as_p }}
-        <input type="submit" value="Sign up">
-    </form>
-</body>
-</html>
+{% extends "base.html" %}
+{% block title %}Sign up - Council Finance Counters{% endblock %}
+{% block content %}
+<h1 class="text-2xl font-bold mb-4">Create an account</h1>
+<form method="post" class="space-y-4">
+    {% csrf_token %}
+    {{ form.as_p }}
+    <input type="submit" value="Sign up" class="bg-blue-600 text-white px-4 py-1 rounded">
+</form>
+{% endblock %}
