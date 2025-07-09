@@ -370,7 +370,9 @@ def council_detail(request, slug):
         if slug == "population":
             if council.latest_population is not None:
                 display = field.display_value(str(council.latest_population))
-                meta_values.append({"field": field, "value": display})
+            else:
+                display = "No data"
+            meta_values.append({"field": field, "value": display})
             continue
         fs = (
             FigureSubmission.objects.filter(council=council, field=field)
@@ -378,7 +380,10 @@ def council_detail(request, slug):
             .first()
         )
         if fs:
-            meta_values.append({"field": field, "value": field.display_value(fs.value)})
+            display = field.display_value(fs.value)
+        else:
+            display = "No data"
+        meta_values.append({"field": field, "value": display})
 
     is_following = False
     if request.user.is_authenticated:
@@ -1877,16 +1882,31 @@ def edit_figures_table(request, slug):
     if not year:
         year = FinancialYear.objects.order_by("-label").first()
 
-    figures = FigureSubmission.objects.filter(council=council, year=year).select_related("field", "year")
+    # Fetch all field definitions relevant to this council. Existing figure
+    # submissions are loaded into a map so we can include blank rows for
+    # missing data, allowing users to provide new figures.
+    fields = DataField.objects.all()
     if council.council_type_id:
-        figures = figures.filter(
-            Q(field__council_types__isnull=True) | Q(field__council_types=council.council_type)
+        fields = fields.filter(
+            Q(council_types__isnull=True) | Q(council_types=council.council_type)
         )
     else:
-        figures = figures.filter(field__council_types__isnull=True)
+        fields = fields.filter(council_types__isnull=True)
+    fields = fields.distinct()
+
+    existing = {
+        (fs.field_id): fs
+        for fs in FigureSubmission.objects.filter(council=council, year=year).select_related("field", "year")
+    }
+    figures = []
+    for field in fields.order_by("name"):
+        fs = existing.get(field.id)
+        if not fs:
+            fs = FigureSubmission(council=council, year=year, field=field, value="")
+        figures.append(fs)
 
     context = {
-        "figures": figures.order_by("field__name"),
+        "figures": figures,
         "council": council,
         "pending_pairs": set(
             f"{slug}-{y or 'none'}"

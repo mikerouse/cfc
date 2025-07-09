@@ -101,3 +101,14 @@ class CouncilCountersTest(TestCase):
         resp = self.client.get(url, {"year": "2024"})
         self.assertEqual(resp.status_code, 200)
         self.assertTrue(resp.json()["counters"]["debt"]["headline"])
+
+    def test_missing_figure_returns_no_data(self):
+        """When no figure exists the counter should indicate missing data."""
+        FigureSubmission.objects.all().delete()
+        self.counter.show_by_default = True
+        self.counter.save()
+        url = reverse("council_counters", args=["test"])
+        resp = self.client.get(url, {"year": "2024"})
+        data = resp.json()["counters"]["debt"]
+        self.assertIsNone(data["value"])
+        self.assertEqual(data["formatted"], "No data")

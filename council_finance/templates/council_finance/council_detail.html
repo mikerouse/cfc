@@ -199,13 +199,15 @@
         <p class="text-sm text-gray-600">{{ item.counter.name }}</p>
         <p class="text-red-700 text-sm counter-error" {% if not item.error %}style="display:none"{% endif %}>{{ item.error }}</p>
         <p class="{% if item.counter.headline %}text-6xl{% else %}text-4xl{% endif %} font-bold counter-value"
+           {% if item.value is not None %}
            data-duration="{{ item.counter.duration }}"
            data-value="{{ item.value }}"
            data-formatted="{{ item.formatted }}"
+           {% endif %}
            data-precision="{{ item.counter.precision }}"
            data-show-currency="{{ item.counter.show_currency|yesno:'true,false' }}"
            data-friendly="{{ item.counter.friendly_format|yesno:'true,false' }}"
-           {% if item.error %}style="display:none"{% endif %}>0</p>
+           {% if item.error %}style="display:none"{% endif %}>{% if item.value is not None %}{{ item.formatted }}{% else %}No data{% endif %}</p>
         <p class="counter-factoid text-sm text-gray-600"></p>
         <p class="text-xs mt-1">{{ item.counter.explanation }}</p>
         {% with sid='factoids-'|add:item.counter.slug %}
@@ -298,8 +300,15 @@ async function loadCounters(year) {
       } else {
         if (errEl) { errEl.textContent = ''; errEl.style.display = 'none'; }
         if (valEl) {
-          valEl.dataset.value = info.value;
-          valEl.dataset.formatted = info.formatted;
+          if (info.value === null) {
+            valEl.removeAttribute('data-value');
+            valEl.removeAttribute('data-formatted');
+            valEl.textContent = 'No data';
+          } else {
+            valEl.dataset.value = info.value;
+            valEl.dataset.formatted = info.formatted;
+            valEl.textContent = '0';
+          }
           valEl.dataset.duration = info.duration;
           valEl.dataset.precision = info.precision;
           valEl.dataset.showCurrency = info.show_currency;

@@ -5,6 +5,11 @@ from council_finance.models import (
     FigureSubmission,
     CounterDefinition,
 )
+
+
+class MissingDataError(ValueError):
+    """Raised when a required figure is absent for a council/year."""
+    pass
 from django.db.models import Q
 import ast
 import operator
@@ -45,6 +50,9 @@ class CounterAgent(AgentBase):
 
         for f in figures:
             slug = f.field.slug
+            # Record slugs with empty or invalid values so we can surface a
+            # helpful "no data" message later.  Figures marked as needing
+            # population are treated the same as entirely missing entries.
             if f.needs_populating or f.value in (None, ""):
                 missing.add(slug)
                 continue
@@ -73,17 +81,11 @@ class CounterAgent(AgentBase):
                 if isinstance(node, ast.UnaryOp) and isinstance(node.op, ast.USub):
                     return -_eval(node.operand)
                 if isinstance(node, ast.Name):
-                    # If the value is missing, surface a helpful error so the
-                    # user knows which figure needs to be populated.
-                    if node.id in missing:
-                        raise ValueError(
-                            (
-                                "Counter failed - no %s figure is held for %s in %s. "
-                                "Please populate the figure from the council's official sources and try again."
-                            )
-                            % (node.id.replace('_', ' '), council.name, year.label)
-                        )
-                    return figure_map.get(node.id, 0)
+                    # When a figure is missing entirely return an explicit
+                    # error so callers can display "No data" instead of zero.
+                    if node.id in missing or node.id not in figure_map:
+                        raise MissingDataError(node.id)
+                    return figure_map[node.id]
                 raise ValueError("Unsupported expression element")
 
             tree = ast.parse(formula, mode="eval")
@@ -93,6 +95,15 @@ class CounterAgent(AgentBase):
         for counter in counters:
             try:
                 total = eval_formula(counter.formula)
+            except MissingDataError:
+                # No figure exists for this counter. Indicate lack of data so
+                # the UI can show an appropriate placeholder.
+                results[counter.slug] = {
+                    "value": None,
+                    "formatted": "No data",
+                    "error": None,
+                }
+                continue
             except ValueError as e:
                 results[counter.slug] = {"error": str(e)}
                 continue
