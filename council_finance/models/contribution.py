@@ -41,6 +41,8 @@ class Contribution(models.Model):
             return self.council.website or ""
         if self.field.slug == "council_type":
             return self.council.council_type_id or ""
+        if self.field.slug == "council_nation":
+            return self.council.council_nation_id or ""
         from .council import FigureSubmission
 
         fs = FigureSubmission.objects.filter(
@@ -54,5 +56,4 @@ class Contribution(models.Model):
         return self.field.display_value(self.old_value)
 
     @property
-    def display_new_value(self) -> str:
-        return self.field.display_value(self.value)
+    def display_new_value(self) -> str:        return self.field.display_value(self.value)

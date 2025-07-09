@@ -7,6 +7,7 @@ from .council import (
     ModerationLog,
 )
 from .council_type import CouncilType
+from .council_nation import CouncilNation
 from .field import DataField
 from .user_profile import UserProfile
 from .trust_tier import TrustTier
@@ -39,6 +40,7 @@ __all__ = [
     'WhistleblowerReport',
     'ModerationLog',
     'CouncilType',
+    'CouncilNation',
     'DataField',
     'UserProfile',
     'UserFollow',

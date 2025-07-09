@@ -18,6 +18,7 @@ from .models.council import (
 )
 from .models.council_type import CouncilType
 from .models.council_type import CouncilCapability
+from .models.council_nation import CouncilNation
 from .models.user_profile import UserProfile
 from .models.user_follow import UserFollow
 from .models.council_follow import CouncilFollow
@@ -86,6 +87,7 @@ admin.site.register(FigureSubmission)
 admin.site.register(DebtAdjustment)
 admin.site.register(WhistleblowerReport)
 admin.site.register(ModerationLog)
+admin.site.register(CouncilNation)
 class CouncilTypeAdmin(admin.ModelAdmin):
     list_display = ("name", "display_capabilities")
 
