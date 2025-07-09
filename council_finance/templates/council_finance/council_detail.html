@@ -518,6 +518,11 @@ the correct records.
 {% endcomment %}
 {% if tab == 'edit' %}
 <h2 class="text-xl font-semibold mt-6">Edit Figures</h2>
+<h3 class="text-lg font-semibold mt-2">Characteristics</h3>
+<div id="char-table-container" class="mt-2">
+    {% include 'council_finance/edit_characteristics_table.html' with figures=characteristic_figures council=council pending_slugs=pending_slugs %}
+</div>
+<h3 class="text-lg font-semibold mt-4">Financial Data</h3>
 <div class="mt-2">
     <label for="edit-year-select" class="sr-only">Financial year</label>
     <select id="edit-year-select" class="border rounded px-2 py-1">
