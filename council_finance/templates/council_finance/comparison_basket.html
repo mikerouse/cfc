@@ -4,7 +4,7 @@
 {% block content %}
 <h1 class="text-2xl font-bold mb-4">Comparison Basket</h1>
 {% if councils %}
-<p class="mb-2 text-sm text-gray-700">Choose fields to compare using the drop-down. Rows will appear instantly.</p>
+<p class="mb-2 text-sm text-gray-700">Choose fields to compare using the drop-down. Rows will appear instantly and you can scroll horizontally if needed.</p>
 <div class="mb-4">
   <label for="field-select" class="mr-2 font-semibold">Add field:</label>
   <select id="field-select" class="border rounded p-1">
@@ -18,20 +18,21 @@
 <table class="min-w-max text-sm border-collapse">
   <thead class="bg-gray-100">
     <tr>
-      <th class="px-4 py-2 sticky left-0 bg-gray-100 z-10"></th>
+      <th class="px-6 py-3 sticky left-0 bg-gray-100 z-10"></th>
       {% for c in councils %}
-      <th class="px-4 py-2 whitespace-nowrap">
+      <th class="px-6 py-3 whitespace-nowrap">
         <div class="flex items-center">
           <span>{{ c.name }}</span>
           <a href="#" class="remove-compare ml-2 text-red-600 underline text-xs" data-slug="{{ c.slug }}">remove</a>
         </div>
       </th>
       {% endfor %}
+      <th class="px-6 py-3">Summary</th>
     </tr>
   </thead>
   <tbody id="compare-rows">
     {% for row in rows %}
-    {% include 'council_finance/compare_row.html' with field=row.field values=row.values %}
+    {% include 'council_finance/compare_row.html' with field=row.field values=row.values summary=row.summary %}
     {% endfor %}
   </tbody>
 </table>

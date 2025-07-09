@@ -101,11 +101,13 @@ class DataField(models.Model):
     def display_value(self, value: str) -> str:
         """Return a human readable representation for a stored value.
 
-        List type fields store the primary key of the related model.
-        This helper fetches the object name so tables show something
-        meaningful instead of an ID. Other field types simply return
-        the value unchanged.
+        List type fields store the primary key of the related model. This helper
+        fetches the object name so tables show something meaningful instead of an
+        ID. Numeric types are formatted with thousand separators and currency
+        symbols so the comparison table looks neat and is easy to read.
         """
+
+        # For list type fields resolve the foreign key to a friendly name.
         if self.content_type == "list" and self.dataset_type:
             model = self.dataset_type.model_class()
             try:
@@ -113,6 +115,20 @@ class DataField(models.Model):
                 return str(obj)
             except (ValueError, model.DoesNotExist):
                 return value
+
+        # Monetary and integer fields are formatted consistently across the
+        # site. Any parsing errors fall back to the raw value so unexpected
+        # input doesn't crash templates.
+        if self.content_type in {"monetary", "integer"}:
+            try:
+                num = float(value)
+            except (TypeError, ValueError):
+                return value
+            if self.content_type == "monetary":
+                return f"£{num:,.0f}"
+            return f"{int(num):,}"
+
+        # For all other field types return the value unchanged.
         return value
 
     def display_council_types(self) -> str:

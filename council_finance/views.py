@@ -1711,6 +1711,7 @@ def compare_row(request):
         return HttpResponseBadRequest("invalid field")
     councils = Council.objects.filter(slug__in=request.session.get("compare_basket", []))
     values = []
+    numeric = []
     for c in councils:
         if slug == "council_type":
             values.append(c.council_type.name if c.council_type else "")
@@ -1720,8 +1721,35 @@ def compare_row(request):
                 .order_by("-year__label")
                 .first()
             )
-            values.append(field.display_value(fs.value) if fs else "")
-    return render(request, "council_finance/compare_row.html", {"field": field, "values": values})
+            if fs:
+                values.append(field.display_value(fs.value))
+                try:
+                    numeric.append(float(fs.value))
+                except (TypeError, ValueError):
+                    numeric.append(None)
+            else:
+                values.append("")
+                numeric.append(None)
+
+    summary = None
+    if field.content_type in {"monetary", "integer"} and any(v is not None for v in numeric):
+        valid = [v for v in numeric if v is not None]
+        total = sum(valid)
+        average = total / len(valid)
+        max_idx = valid.index(max(valid))
+        min_idx = valid.index(min(valid))
+        summary = {
+            "total": field.display_value(total),
+            "average": field.display_value(average),
+            "highest": councils[max_idx].name,
+            "lowest": councils[min_idx].name,
+        }
+
+    return render(
+        request,
+        "council_finance/compare_row.html",
+        {"field": field, "values": values, "summary": summary},
+    )
 
 
 def compare_basket(request):
@@ -1740,10 +1768,11 @@ def compare_basket(request):
             return redirect("my_lists")
     else:
         form = CouncilListForm()
-    fields = DataField.objects.filter(slug__in=["council_type"] + selected)
+    fields = DataField.objects.filter(slug__in=["council_type", "population"] + selected)
     rows = []
     for field in fields:
         vals = []
+        numeric = []
         for c in councils:
             if field.slug == "council_type":
                 vals.append(c.council_type.name if c.council_type else "")
@@ -1753,9 +1782,32 @@ def compare_basket(request):
                     .order_by("-year__label")
                     .first()
                 )
-                vals.append(field.display_value(fs.value) if fs else "")
-        rows.append({"field": field, "values": vals})
-    field_choices = DataField.objects.exclude(slug__in=["council_type"] + selected)
+                if fs:
+                    vals.append(field.display_value(fs.value))
+                    try:
+                        numeric.append(float(fs.value))
+                    except (TypeError, ValueError):
+                        numeric.append(None)
+                else:
+                    vals.append("")
+                    numeric.append(None)
+
+        summary = None
+        if field.content_type in {"monetary", "integer"} and any(n is not None for n in numeric):
+            valid = [n for n in numeric if n is not None]
+            total = sum(valid)
+            average = total / len(valid)
+            max_idx = valid.index(max(valid))
+            min_idx = valid.index(min(valid))
+            summary = {
+                "total": field.display_value(total),
+                "average": field.display_value(average),
+                "highest": councils[max_idx].name,
+                "lowest": councils[min_idx].name,
+            }
+
+        rows.append({"field": field, "values": vals, "summary": summary})
+    field_choices = DataField.objects.exclude(slug__in=["council_type", "population"] + selected)
     context = {
         "councils": councils,
         "rows": rows,
