@@ -596,8 +596,14 @@ def following(request):
 
 def contribute(request):
     """Show contribution dashboard with various queues."""
-    queue = Contribution.objects.filter(status="pending").select_related(
-        "council", "field", "user"
+    from .models import DataIssue
+
+    # Rows for contributors to help fill gaps in the dataset.
+    queue = DataIssue.objects.filter(issue_type="missing").select_related(
+        "council", "field", "year"
+    )
+    suspicious = DataIssue.objects.filter(issue_type="suspicious").select_related(
+        "council", "field", "year"
     )
     my_contribs = (
         Contribution.objects.filter(user=request.user).select_related(
@@ -609,7 +615,7 @@ def contribute(request):
     return render(
         request,
         "council_finance/contribute.html",
-        {"queue": queue, "my_contribs": my_contribs},
+        {"queue": queue, "suspicious": suspicious, "my_contribs": my_contribs},
     )
 
 
@@ -2123,6 +2129,13 @@ def god_mode(request):
             updated = reconcile_populations()
             messages.success(request, f"Reconciled {updated} population figures")
             logger.info("Population reconciliation triggered by %s", request.user.username)
+            return redirect("god_mode")
+        if "assess_issues" in request.POST:
+            from .data_quality import assess_data_issues
+
+            total = assess_data_issues()
+            messages.success(request, f"Identified {total} data issues")
+            logger.info("Data issue assessment run by %s", request.user.username)
             return redirect("god_mode")
         if "delete" in request.POST:
             ids = request.POST.getlist("ids")
