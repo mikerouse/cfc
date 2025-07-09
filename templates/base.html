@@ -74,6 +74,18 @@
                         </div>
                     </div>
                 </div>
+                <div class="relative pt-2 ml-2" id="basket-wrapper">
+                    <a href="{% url 'compare_basket' %}" aria-label="Comparison basket" class="relative block">
+                        <svg class="w-6 h-6 fill-current" viewBox="0 0 24 24">
+                            <path d="M6 6h15l-1.5 9h-12zM5 6l-1 2h2l.6-1.2L7 6H5zM9 21a1 1 0 100-2 1 1 0 000 2zm8 0a1 1 0 100-2 1 1 0 000 2z"/>
+                        </svg>
+                        {% if compare_count %}
+                        <span id="basket-count" class="absolute -top-1 -right-1 bg-red-600 text-white text-xs rounded-full px-1">{{ compare_count }}</span>
+                        {% else %}
+                        <span id="basket-count" class="hidden absolute -top-1 -right-1 bg-red-600 text-white text-xs rounded-full px-1"></span>
+                        {% endif %}
+                    </a>
+                </div>
             {% endif %}
         </div>
         {% if user.is_superuser or user.profile.tier.level|default:0 >= 4 %}
@@ -97,6 +109,7 @@
     <script src="{% static 'js/live_search.js' %}"></script>
     <script src="{% static 'js/number_helper.js' %}"></script>
     <script src="{% static 'js/edit_figures.js' %}"></script>
+    <script src="{% static 'js/comparison_basket.js' %}"></script>
     <script>
     const toggle = document.getElementById('notif-toggle');
     if (toggle) {

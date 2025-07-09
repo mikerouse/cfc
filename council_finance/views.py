@@ -1676,6 +1676,95 @@ def list_metric(request, list_id):
     return JsonResponse({"values": values, "total": total})
 
 
+def add_to_compare(request, slug):
+    """Add a council slug to the comparison basket stored in the session."""
+    if request.method != "POST":
+        return HttpResponseBadRequest("POST required")
+    basket = request.session.get("compare_basket", [])
+    if slug not in basket:
+        basket.append(slug)
+        basket = basket[:6]
+        request.session["compare_basket"] = basket
+    return JsonResponse({"count": len(basket)})
+
+
+def remove_from_compare(request, slug):
+    """Remove a council from the session comparison basket."""
+    if request.method != "POST":
+        return HttpResponseBadRequest("POST required")
+    basket = request.session.get("compare_basket", [])
+    if slug in basket:
+        basket.remove(slug)
+        request.session["compare_basket"] = basket
+    return JsonResponse({"count": len(basket)})
+
+
+def compare_row(request):
+    """Return a single table row of comparison data for AJAX."""
+    if request.headers.get("X-Requested-With") != "XMLHttpRequest":
+        return HttpResponseBadRequest("XHR required")
+    slug = request.GET.get("field")
+    if not slug:
+        return HttpResponseBadRequest("field required")
+    field = DataField.objects.filter(slug=slug).first()
+    if not field:
+        return HttpResponseBadRequest("invalid field")
+    councils = Council.objects.filter(slug__in=request.session.get("compare_basket", []))
+    values = []
+    for c in councils:
+        if slug == "council_type":
+            values.append(c.council_type.name if c.council_type else "")
+        else:
+            fs = (
+                FigureSubmission.objects.filter(council=c, field=field)
+                .order_by("-year__label")
+                .first()
+            )
+            values.append(field.display_value(fs.value) if fs else "")
+    return render(request, "council_finance/compare_row.html", {"field": field, "values": values})
+
+
+def compare_basket(request):
+    """Display the user's current comparison basket."""
+    slugs = request.session.get("compare_basket", [])
+    councils = list(Council.objects.filter(slug__in=slugs).order_by("name"))
+    selected = request.session.get("compare_fields", [])
+    if request.method == "POST" and request.user.is_authenticated and "save_list" in request.POST:
+        form = CouncilListForm(request.POST)
+        if form.is_valid():
+            lst = form.save(commit=False)
+            lst.user = request.user
+            lst.save()
+            lst.councils.set(councils)
+            messages.success(request, "List saved")
+            return redirect("my_lists")
+    else:
+        form = CouncilListForm()
+    fields = DataField.objects.filter(slug__in=["council_type"] + selected)
+    rows = []
+    for field in fields:
+        vals = []
+        for c in councils:
+            if field.slug == "council_type":
+                vals.append(c.council_type.name if c.council_type else "")
+            else:
+                fs = (
+                    FigureSubmission.objects.filter(council=c, field=field)
+                    .order_by("-year__label")
+                    .first()
+                )
+                vals.append(field.display_value(fs.value) if fs else "")
+        rows.append({"field": field, "values": vals})
+    field_choices = DataField.objects.exclude(slug__in=["council_type"] + selected)
+    context = {
+        "councils": councils,
+        "rows": rows,
+        "field_choices": field_choices,
+        "form": form,
+    }
+    return render(request, "council_finance/comparison_basket.html", context)
+
+
 @login_required
 def edit_figures_table(request, slug):
     """Return the edit table HTML for a specific year."""
