@@ -23,7 +23,8 @@
             {% if issue_type == 'missing' and not show_year %}
             <td class="px-2 py-1">
                 <button type="button" class="add-value-btn bg-blue-600 text-white px-2 py-1 rounded"
-                        data-council="{{ d.council.slug }}" data-field="{{ d.field.slug }}" data-url="{% url 'submit_contribution' %}">
+                        data-council="{{ d.council.slug }}" data-field="{{ d.field.slug }}" data-url="{% url 'submit_contribution' %}"
+                        data-content-type="{{ d.field.content_type }}" data-dataset-type="{{ d.field.dataset_type_id }}">
                     Add &amp; Earn Points
                 </button>
             </td>

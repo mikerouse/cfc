@@ -15,6 +15,7 @@ from django.utils.crypto import get_random_string
 from django.core.paginator import Paginator
 from django.template.loader import render_to_string
 from django.urls import reverse
+from django.views.decorators.http import require_GET
 import csv
 import hashlib
 
@@ -89,6 +90,27 @@ def search_councils(request):
         Q(name__icontains=query) | Q(slug__icontains=query)
     ).values("name", "slug")[:10]
     return JsonResponse(list(results), safe=False)
+
+
+@require_GET
+def list_field_options(request, slug):
+    """Return selectable options for a list type field."""
+    # The contribution modal needs to populate a drop-down when a
+    # characteristic is backed by another dataset (e.g. council type).
+    # This small API provides the ID/name pairs used to build that menu.
+    from .models import DataField
+
+    try:
+        field = DataField.objects.get(slug=slug)
+    except DataField.DoesNotExist:
+        return JsonResponse({"error": "not_found"}, status=404)
+
+    if field.content_type != "list" or not field.dataset_type:
+        return JsonResponse({"error": "invalid"}, status=400)
+
+    model = field.dataset_type.model_class()
+    options = list(model.objects.values("id", "name"))
+    return JsonResponse({"options": options})
 
 
 def home(request):
