@@ -64,75 +64,7 @@
   <a href="#" class="underline">Click here to watch our video guide on how to find these documents.</a>
 </p>
 {% endif %}
-<div class="text-center space-y-1 mb-4">
-  {# Show the council's website or an input when editing #}
-  {% if tab == 'edit' %}
-    {% if 'council_website' in pending_slugs %}
-    <div class="mb-2">
-      <i class="fas fa-clock mr-1"></i>Website pending confirmation
-    </div>
-    {% else %}
-    <form id="field-council_website" method="post" action="{% url 'submit_contribution' %}" class="mb-2 {% if focus == 'council_website' %}bg-yellow-50 border border-yellow-300 p-2 rounded{% endif %}">
-      {% csrf_token %}
-      <input type="hidden" name="council" value="{{ council.slug }}">
-      <input type="hidden" name="field" value="council_website">
-      <label class="block font-medium">Website address</label>
-      <input type="url" name="value" value="{{ council.website }}" class="border rounded p-1 w-full">
-      <button type="submit" class="mt-1 bg-blue-600 text-white px-2 py-1 rounded">Submit</button>
-    </form>
-    {% endif %}
-  {% else %}
 
-  {% endif %}
-  {# Display the council type or edit drop-down #}
-  {% if tab == 'edit' %}
-    {% if 'council_type' in pending_slugs %}
-    <div class="mb-2">
-      <i class="fas fa-clock mr-1"></i>Council type pending confirmation
-    </div>
-    {% else %}
-    <form id="field-council_type" method="post" action="{% url 'submit_contribution' %}" class="mb-2 {% if focus == 'council_type' %}bg-yellow-50 border border-yellow-300 p-2 rounded{% endif %}">
-      {% csrf_token %}
-      <input type="hidden" name="council" value="{{ council.slug }}">
-      <input type="hidden" name="field" value="council_type">
-      <label class="block font-medium">Council type</label>
-      <select name="value" class="border rounded p-1 w-full">
-        <option value="">---------</option>
-        {% for ct in council_types %}
-        <option value="{{ ct.id }}" {% if council.council_type_id == ct.id %}selected{% endif %}>{{ ct.name }}</option>
-        {% endfor %}
-      </select>
-      <button type="submit" class="mt-1 bg-blue-600 text-white px-2 py-1 rounded">Submit</button>
-    </form>
-    {% endif %}
-    {% else %}
-    
-    {% endif %}
-  {# Council nation drop-down #}
-  {% if tab == 'edit' %}
-    {% if 'council_nation' in pending_slugs %}
-    <div class="mb-2">
-      <i class="fas fa-clock mr-1"></i>Council nation pending confirmation
-    </div>
-    {% else %}
-    <form id="field-council_nation" method="post" action="{% url 'submit_contribution' %}" class="mb-2 {% if focus == 'council_nation' %}bg-yellow-50 border border-yellow-300 p-2 rounded{% endif %}">
-      {% csrf_token %}
-      <input type="hidden" name="council" value="{{ council.slug }}">
-      <input type="hidden" name="field" value="council_nation">
-      <label class="block font-medium">Council nation</label>
-      <select name="value" class="border rounded p-1 w-full">
-        <option value="">---------</option>
-        {% for n in council_nations %}
-        <option value="{{ n.id }}" {% if council.council_nation_id == n.id %}selected{% endif %}>{{ n.name }}</option>
-        {% endfor %}
-      </select>
-      <button type="submit" class="mt-1 bg-blue-600 text-white px-2 py-1 rounded">Submit</button>
-    </form>
-    {% endif %}
-  {% else %}
-
-  {% endif %}
-  </div>
   {% if tab != 'edit' %}
 <div class="mt-2 flex flex-col sm:flex-row items-center gap-4 justify-between">
   <div class="flex-1 flex items-center">
@@ -556,7 +488,7 @@ the correct records.
 <h2 class="text-xl font-semibold mt-6">Edit Figures</h2>
 <h3 class="text-lg font-semibold mt-2">Characteristics</h3>
 <div id="char-table-container" class="mt-2">
-    {% include 'council_finance/edit_characteristics_table.html' with figures=characteristic_figures council=council pending_slugs=pending_slugs %}
+    {% include 'council_finance/data_issues_table.html' with page_obj=missing_characteristic_page paginator=missing_characteristic_paginator issue_type='missing' show_year=False %}
 </div>
 <h3 class="text-lg font-semibold mt-4">Financial Data</h3>
 <div class="mt-2">
