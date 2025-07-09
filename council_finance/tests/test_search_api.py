@@ -1,7 +1,6 @@
 from django.test import TestCase
 from django.urls import reverse
-import django
-django.setup()
+# pytest-django sets up Django for tests automatically
 
 class SearchApiTests(TestCase):
     def setUp(self):

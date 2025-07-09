@@ -1,7 +1,7 @@
 from django.test import TestCase
 from django.urls import reverse
-import django
-django.setup()
+# django.setup() isn't needed when running tests with pytest-django
+
 
 from council_finance.models import Council, FinancialYear, DataField, FigureSubmission
 

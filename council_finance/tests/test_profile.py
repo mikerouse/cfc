@@ -1,8 +1,7 @@
 from django.contrib.auth import get_user_model
 from django.test import TestCase
 from django.urls import reverse
-import django
-django.setup()
+# django.setup() is unnecessary under pytest-django
 
 from unittest.mock import patch
 

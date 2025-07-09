@@ -1,8 +1,7 @@
 from django.contrib.auth import get_user_model
 from django.test import TestCase
 from django.urls import reverse
-import django
-django.setup()
+# pytest-django configures Django; explicit setup is unnecessary
 
 from council_finance.models import CouncilList, Council
 
