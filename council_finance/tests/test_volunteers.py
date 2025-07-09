@@ -265,3 +265,17 @@ class CouncilNationTests(TestCase):
         self.assertEqual(resp.json()["status"], "approved")
         self.council.refresh_from_db()
         self.assertEqual(self.council.council_nation, self.nation)
+
+    def test_debug_log_recorded(self):
+        self.client.post(
+            reverse("submit_contribution"),
+            {"council": "nation", "field": "council_nation", "value": str(self.nation.id)},
+            HTTP_X_REQUESTED_WITH="XMLHttpRequest",
+        )
+        from council_finance.models import ActivityLog
+
+        logs = ActivityLog.objects.filter(activity="apply_contribution", log_type="debug")
+        self.assertTrue(
+            logs.filter(action__icontains="nation").exists(),
+            "Debug log for nation change missing",
+        )

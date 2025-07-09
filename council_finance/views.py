@@ -2033,7 +2033,9 @@ def _apply_contribution(contribution, user, request=None):
     field = contribution.field
     council = contribution.council
 
-    # Debug logging so the activity log shows each step of the process.
+    # Debug logging so the activity log shows each step of the process. This
+    # helps diagnose issues when a contribution does not appear to apply
+    # correctly from the UI.
     if request:
         log_activity(
             request,
@@ -2049,12 +2051,39 @@ def _apply_contribution(contribution, user, request=None):
     if field.slug == "council_website":
         council.website = contribution.value
         council.save()
+        if request:
+            log_activity(
+                request,
+                council=council,
+                activity="apply_contribution",
+                log_type="debug",
+                action="set website",
+                extra={"new": contribution.value},
+            )
     elif field.slug == "council_type":
         council.council_type_id = contribution.value or None
         council.save()
+        if request:
+            log_activity(
+                request,
+                council=council,
+                activity="apply_contribution",
+                log_type="debug",
+                action="set type",
+                extra={"new": contribution.value},
+            )
     elif field.slug == "council_nation":
         council.council_nation_id = contribution.value or None
         council.save()
+        if request:
+            log_activity(
+                request,
+                council=council,
+                activity="apply_contribution",
+                log_type="debug",
+                action="set nation",
+                extra={"new": contribution.value},
+            )
     else:
         FigureSubmission.objects.update_or_create(
             council=council,
@@ -2072,6 +2101,15 @@ def _apply_contribution(contribution, user, request=None):
         new_value=contribution.value,
         approved_by=user,
     )
+    if request:
+        log_activity(
+            request,
+            council=council,
+            activity="apply_contribution",
+            log_type="debug",
+            action="record change",
+            extra={"old": old_value, "new": contribution.value},
+        )
 
     # Update contributor stats once a change is successfully recorded. The
     # ``approved_submission_count`` tracks how many edits moderators have
@@ -2088,6 +2126,18 @@ def _apply_contribution(contribution, user, request=None):
             profile.verified_ip_count += 1
     profile.approved_submission_count += 1
     profile.save()
+    if request:
+        log_activity(
+            request,
+            council=council,
+            activity="apply_contribution",
+            log_type="debug",
+            action="update profile",
+            extra={
+                "verified": profile.verified_ip_count,
+                "approved": profile.approved_submission_count,
+            },
+        )
 
     log_activity(
         request,
