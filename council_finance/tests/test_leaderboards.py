@@ -1,9 +1,7 @@
 from django.test import TestCase
 from django.urls import reverse
 from django.contrib.auth import get_user_model
-
-import django
-django.setup()
+# django.setup() is handled by pytest-django when tests run
 
 from council_finance.models import UserProfile
 
