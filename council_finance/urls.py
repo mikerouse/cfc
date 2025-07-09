@@ -130,4 +130,5 @@ urlpatterns = [
         name="factoid_delete",
     ),
     path("god-mode/", views.god_mode, name="god_mode"),
+    path("god-mode/activity-log/", views.activity_log_entries, name="activity_log_entries"),
 ]

@@ -31,6 +31,7 @@ from .council_update import (
     CouncilUpdateLike,
     CouncilUpdateComment,
 )
+from .activity_log import ActivityLog
 
 __all__ = [
     'Council',
@@ -64,4 +65,5 @@ __all__ = [
     'Factoid',
     'DataIssue',
     'SiteSetting',
+    'ActivityLog',
 ]

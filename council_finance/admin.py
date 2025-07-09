@@ -41,6 +41,7 @@ from .models import DataField
 from .models.field import CHARACTERISTIC_SLUGS, PROTECTED_SLUGS
 from .models.counter import CounterDefinition, CouncilCounter
 from .models.setting import SiteSetting
+from .models.activity_log import ActivityLog
 
 
 class CouncilAdmin(admin.ModelAdmin):
@@ -146,3 +147,4 @@ admin.site.register(CounterDefinition, CounterDefinitionAdmin)
 admin.site.register(CouncilCounter)
 admin.site.register(SiteSetting)
 admin.site.register(CouncilCapability)
+admin.site.register(ActivityLog)
