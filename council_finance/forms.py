@@ -7,7 +7,10 @@ from .models import CouncilList, Council
 from .models import CounterDefinition, DataField
 from .models.site_counter import SiteCounter, GroupCounter
 from .models.factoid import Factoid
-from .models.field import PROTECTED_SLUGS
+# ``CHARACTERISTIC_SLUGS`` identifies slugs which represent council
+# characteristics.  Their identifiers are fixed so forms prevent accidental
+# renaming.
+from .models.field import CHARACTERISTIC_SLUGS, PROTECTED_SLUGS
 from django.contrib.contenttypes.models import ContentType
 
 
@@ -170,8 +173,8 @@ class DataFieldForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        # Prevent editing the slug of protected fields so managers can't rename
-        # important built-in definitions. The value itself can still change.
+        # Prevent editing the slug of characteristic fields so managers can't
+        # rename these core identifiers. The values themselves remain editable.
         if "slug" in self.fields and self.instance and self.instance.pk and self.instance.slug in PROTECTED_SLUGS:
             self.fields["slug"].disabled = True
         # Populate the council type choices dynamically so any new types appear

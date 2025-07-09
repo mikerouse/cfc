@@ -96,7 +96,7 @@
                 {% if user.is_superuser or user.profile.tier.level|default:0 >= 4 %}
                 <a href="{% url 'counter_definitions' %}" class="hover:underline">Counters</a>
                 <a href="{% url 'factoid_list' %}" class="hover:underline">Factoids</a>
-                <a href="{% url 'field_list' %}" class="hover:underline">Fields Manager</a>
+                <a href="{% url 'field_list' %}" class="hover:underline">Fields &amp; Characteristics</a>
                 {% endif %}
                 {% if user.is_superuser or user.profile.tier.level|default:0 >= 5 %}
                 <a href="{% url 'admin:index' %}" class="hover:underline">Django Admin</a>

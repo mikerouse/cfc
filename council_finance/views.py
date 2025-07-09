@@ -2039,7 +2039,7 @@ def council_counters(request, slug):
 
 @login_required
 def field_list(request):
-    """List all data fields for management."""
+    """List all data fields and council characteristics for management."""
     if not request.user.is_superuser and request.user.profile.tier.level < MANAGEMENT_TIER:
         raise Http404()
     # Split fields by category so the template can render a tab for each

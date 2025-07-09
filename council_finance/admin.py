@@ -34,7 +34,10 @@ from .forms import (
     CounterDefinitionForm,
 )
 from .models import DataField
-from .models.field import PROTECTED_SLUGS
+# Import both aliases for clarity.  ``CHARACTERISTIC_SLUGS`` is the new name
+# representing immutable council attributes, while ``PROTECTED_SLUGS`` is kept
+# for backwards compatibility across the codebase.
+from .models.field import CHARACTERISTIC_SLUGS, PROTECTED_SLUGS
 from .models.counter import CounterDefinition, CouncilCounter
 from .models.setting import SiteSetting
 

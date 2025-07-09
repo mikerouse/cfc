@@ -3,22 +3,26 @@ from django.core.exceptions import ValidationError
 from django.contrib.contenttypes.models import ContentType
 
 
-# Slugs listed here are considered immutable. Staff can update the value
-# associated with these fields but should never rename or remove them
-# because other parts of the system rely on these identifiers.
-PROTECTED_SLUGS = {
+# Built in slugs that represent core facts about a council. These are
+# effectively characteristics rather than yearly figures.  The values
+# may change but the slugs themselves are fixed so other parts of the
+# application can reliably reference them.
+CHARACTERISTIC_SLUGS = {
     "council_type",
     "council_name",
     "population",
     "households",
-    # Each council should always have a website address recorded, so this
-    # field is protected to prevent accidental removal.
+    # Each council should always have a website address recorded so the
+    # site can link directly to their homepage.
     "council_website",
-    # The location of the council's headquarters does not change each
-    # financial year and is required for context. Treat it as immutable
-    # so submissions span all years without duplication.
+    # Location of the council headquarters doesn't change per year and is
+    # needed to provide context for visitors.
     "council_location",
 }
+
+# Backwards compatibility constant - older modules import PROTECTED_SLUGS
+# when determining immutable fields.  It now simply aliases the new name.
+PROTECTED_SLUGS = CHARACTERISTIC_SLUGS
 
 class DataField(models.Model):
     """Definition of a figure/field that can be populated for each council."""
@@ -29,6 +33,10 @@ class DataField(models.Model):
         ("income", "Income"),
         ("spending", "Spending"),
         ("general", "General"),
+        # New category used for council characteristics such as website or
+        # address. These values apply across all years and are typically
+        # sourced directly from the authority rather than a financial return.
+        ("characteristic", "Characteristics"),
         ("calculated", "Calculated"),
     ]
 
@@ -91,6 +99,11 @@ class DataField(models.Model):
             original = DataField.objects.get(pk=self.pk)
             if original.slug in PROTECTED_SLUGS and original.slug != self.slug:
                 raise ValidationError("This field's slug is protected and cannot be changed.")
+        # When saving a known characteristic ensure it lives in the
+        # ``characteristic`` category so management screens group these
+        # values separately from yearly financial fields.
+        if self.slug in CHARACTERISTIC_SLUGS:
+            self.category = "characteristic"
         super().save(*args, **kwargs)
 
     def delete(self, *args, **kwargs):
