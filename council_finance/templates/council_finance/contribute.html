@@ -4,53 +4,18 @@
 <h1 class="text-2xl font-bold mb-4">Contribute Data</h1>
 <div class="space-y-6">
     <section>
-        <h2 class="text-xl font-semibold mb-2">Contribution Queue</h2>
-        {% if queue %}
-        {# Add an ID for styling and JS hooks later #}
-        <table id="contribution-queue" class="min-w-full border divide-y divide-gray-200">
-            <thead class="bg-gray-100">
-                <tr>
-                    <th class="px-3 py-2 text-left">ID</th>
-                    <th class="px-2 py-1 text-left">Council</th>
-                    <th class="px-2 py-1 text-left">Field</th>
-                    <th class="px-2 py-1 text-left">Change</th>
-                    <th class="px-2 py-1 text-left">Submitted By</th>
-                    <th class="px-2 py-1 text-left">Date</th>
-                    {# Superusers can moderate contributions regardless of tier #}
-                    {% if user.is_superuser or user.is_authenticated and user.profile.tier.level >= 3 %}
-                    <th class="px-2 py-1 text-left">Actions</th>
-                    {% endif %}
-                </tr>
-            </thead>
-            <tbody>
-            {% for c in queue %}
-                <tr class="border-b">
-                    <td class="px-3 py-2 text-sm">{{ c.id }}</td>
-                    <td class="px-2 py-1 flex items-center">
-                        <span class="w-5 h-5 rounded-full bg-gray-300 mr-2"></span>
-                        <a href="{% url 'council_detail' c.council.slug %}" class="text-blue-700 hover:underline">{{ c.council.name }}</a>
-                    </td>
-                    <td class="px-2 py-1">{{ c.field.name }}</td>
-                    <td class="px-2 py-1">{{ c.display_old_value }} <span class="mx-1">&rarr;</span> {{ c.display_new_value }}</td>
-                    <td class="px-2 py-1">{{ c.user.username }}</td>
-                    <td class="px-2 py-1">{{ c.created|date:"Y-m-d H:i" }}</td>
-                    {% if user.is_superuser or user.is_authenticated and user.profile.tier.level >= 3 %}
-                    <td class="px-2 py-1 space-x-2">
-                        <form method="post" action="{% url 'review_contribution' c.id 'approve' %}" class="inline">
-                            {% csrf_token %}
-                            <button class="text-green-600" aria-label="Approve"><i class="fas fa-check"></i></button>
-                        </form>
-                        <button class="edit-btn text-blue-600" data-url="{% url 'review_contribution' c.id 'edit' %}" data-value="{{ c.value }}" aria-label="Edit"><i class="fas fa-edit"></i></button>
-                        <button class="reject-btn text-red-600" data-url="{% url 'review_contribution' c.id 'reject' %}" aria-label="Reject"><i class="fas fa-times"></i></button>
-                    </td>
-                    {% endif %}
-                </tr>
-            {% endfor %}
-            </tbody>
-        </table>
-        {% else %}
-        <p>No pending contributions.</p>
-        {% endif %}
+        <h2 class="text-xl font-semibold mb-2">Missing Data</h2>
+        <input id="missing-search" type="text" placeholder="Search..." class="border rounded px-2 py-1 mb-2" />
+        <div id="missing-data-container" data-type="missing" data-page="1" data-order="council">
+            {% include 'council_finance/data_issues_table.html' with page_obj=missing_page paginator=missing_paginator issue_type='missing' %}
+        </div>
+    </section>
+    <section>
+        <h2 class="text-xl font-semibold mb-2">Suspicious Data</h2>
+        <input id="suspicious-search" type="text" placeholder="Search..." class="border rounded px-2 py-1 mb-2" />
+        <div id="suspicious-data-container" data-type="suspicious" data-page="1" data-order="council">
+            {% include 'council_finance/data_issues_table.html' with page_obj=suspicious_page paginator=suspicious_paginator issue_type='suspicious' %}
+        </div>
     </section>
     <section>
         <h2 class="text-xl font-semibold mb-2">My Contributions</h2>

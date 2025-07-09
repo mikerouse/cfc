@@ -77,6 +77,7 @@ urlpatterns = [
     path("updates/<int:update_id>/like/", views.like_update, name="like_update"),
     path("updates/<int:update_id>/comment/", views.comment_update, name="comment_update"),
     path("contribute/", views.contribute, name="contribute"),
+    path("contribute/issues/", views.data_issues_table, name="data_issues_table"),
     path("contribute/submit/", views.submit_contribution, name="submit_contribution"),
     path("contribute/<int:pk>/<str:action>/", views.review_contribution, name="review_contribution"),
     path("submit/", views.contribute),

@@ -146,17 +146,13 @@ class ContributeQueueTests(TestCase):
             value=str(self.ct.id),
         )
 
-    def test_queue_table_renders(self):
-        resp = self.client.get(reverse("contribute"))
-        self.assertContains(resp, "Queue")
+    def test_missing_data_section_shows(self):
+        from council_finance.models import DataIssue
 
-    def test_queue_displays_human_value(self):
+        DataIssue.objects.create(council=self.council, field=self.field, issue_type="missing")
         resp = self.client.get(reverse("contribute"))
-        self.assertContains(resp, "http://q.com")
-
-    def test_list_value_rendered(self):
-        resp = self.client.get(reverse("contribute"))
-        self.assertContains(resp, "County")
+        self.assertContains(resp, "Missing Data")
+        self.assertContains(resp, self.council.name)
 
 
 class SubmissionPointTests(TestCase):
