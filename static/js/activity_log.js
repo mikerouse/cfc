@@ -26,7 +26,7 @@
             <td class="border px-2 py-1">${row.council}</td>
             <td class="border px-2 py-1">${row.page}</td>
             <td class="border px-2 py-1">${row.activity}</td>
-            <td class="border px-2 py-1">${row.button}</td>
+            <td class="border px-2 py-1">${row.log_type}</td>
             <td class="border px-2 py-1">${row.action}</td>
             <td class="border px-2 py-1">${row.request}</td>
             <td class="border px-2 py-1">${row.response}</td>

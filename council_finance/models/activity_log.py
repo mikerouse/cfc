@@ -12,9 +12,14 @@ class ActivityLog(models.Model):
     council = models.ForeignKey(
         Council, on_delete=models.SET_NULL, null=True, blank=True
     )
+    LOG_TYPES = [
+        ("user", "User Activity"),
+        ("debug", "Function Debug"),
+    ]
+
     page = models.CharField(max_length=100)
     activity = models.CharField(max_length=100)
-    button = models.CharField(max_length=100, blank=True)
+    log_type = models.CharField(max_length=20, choices=LOG_TYPES, default="user")
     action = models.CharField(max_length=100, blank=True)
     # Store a very small representation of the request, typically the HTTP
     # method or a short JSON payload. Keeping this short avoids filling the

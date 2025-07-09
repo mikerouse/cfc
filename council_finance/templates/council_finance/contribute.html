@@ -229,9 +229,12 @@ document.getElementById('add-value-form').addEventListener('submit', async e => 
   showMessage(out.message || 'Submitted');
   document.getElementById('add-value-modal').classList.add('hidden');
   if (window.currentAddBtn) {
-    // Replace the button cell with a pending note so the table reflects
-    // the contribution without needing a full reload.
-    window.currentAddBtn.parentElement.innerHTML = '<i class="fas fa-clock mr-1"></i>Pending confirmation';
+    // Update the table so the user sees immediate feedback.
+    if (out.status === 'approved') {
+      window.currentAddBtn.parentElement.textContent = 'Added';
+    } else {
+      window.currentAddBtn.parentElement.innerHTML = '<i class="fas fa-clock mr-1"></i>Pending confirmation';
+    }
     window.currentAddBtn = null;
   }
 });

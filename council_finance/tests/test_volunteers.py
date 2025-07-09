@@ -46,8 +46,9 @@ class ContributionApprovalTests(TestCase):
             {"council": "test", "field": "council_website", "value": "http://a.com"},
             HTTP_X_REQUESTED_WITH="XMLHttpRequest",
         )
-        self.assertEqual(response.json()["status"], "pending")
-        self.assertEqual(Contribution.objects.first().status, "pending")
+        # Characteristic fields are auto-approved regardless of tier
+        self.assertEqual(response.json()["status"], "approved")
+        self.assertEqual(Contribution.objects.first().status, "approved")
 
     def test_high_tier_auto_approved(self):
         self.user.profile.tier = self.tier3
@@ -90,7 +91,7 @@ class ContributionApprovalTests(TestCase):
             {"council": "test", "field": "council_website", "value": "http://e.com"},
             HTTP_X_REQUESTED_WITH="XMLHttpRequest",
         )
-        self.assertEqual(resp.json()["status"], "pending")
+        self.assertEqual(resp.json()["status"], "approved")
 
     def test_standard_post_redirects(self):
         self.client.login(username="contrib", password="pass123")
@@ -100,8 +101,8 @@ class ContributionApprovalTests(TestCase):
             follow=True,
         )
         msgs = list(resp.context["messages"])
-        self.assertTrue(any("queued" in str(m) for m in msgs))
-        self.assertContains(resp, "Website pending confirmation")
+        self.assertTrue(any("accepted" in str(m) for m in msgs))
+        self.assertNotContains(resp, "pending confirmation")
 
 
 class EditTabTests(TestCase):
@@ -243,3 +244,24 @@ class CharacteristicPointsTests(TestCase):
         )
         self.user.profile.refresh_from_db()
         self.assertEqual(self.user.profile.points, 2)
+
+class CouncilNationTests(TestCase):
+    def setUp(self):
+        self.user = get_user_model().objects.create_user(
+            username="nation", email="n@example.com", password="pw"
+        )
+        self.council = Council.objects.create(name="NationTest", slug="nation")
+        from council_finance.models.council_nation import CouncilNation
+        self.nation, _ = CouncilNation.objects.get_or_create(name="Scotland")
+        self.field = DataField.objects.get(slug="council_nation")
+        self.client.login(username="nation", password="pw")
+
+    def test_council_nation_auto_applied(self):
+        resp = self.client.post(
+            reverse("submit_contribution"),
+            {"council": "nation", "field": "council_nation", "value": str(self.nation.id)},
+            HTTP_X_REQUESTED_WITH="XMLHttpRequest",
+        )
+        self.assertEqual(resp.json()["status"], "approved")
+        self.council.refresh_from_db()
+        self.assertEqual(self.council.council_nation, self.nation)

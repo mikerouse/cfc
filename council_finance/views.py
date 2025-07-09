@@ -82,7 +82,7 @@ def log_activity(
     *,
     council=None,
     activity="",
-    button="",
+    log_type="user",
     action="",
     request_data=None,
     response="",
@@ -136,7 +136,7 @@ def log_activity(
         council=council,
         page=request.path,
         activity=activity,
-        button=button,
+        log_type=log_type,
         action=action,
         request=request_data,
         response=response,
@@ -968,7 +968,7 @@ def site_counter_form(request, slug=None):
         log_activity(
             request,
             activity="counter_site",
-            button="save",
+            log_type="user",
             action=slug or "new",
             response="saved",
         )
@@ -997,7 +997,7 @@ def group_counter_form(request, slug=None):
         log_activity(
             request,
             activity="counter_group",
-            button="save",
+            log_type="user",
             action=slug or "new",
             response="saved",
         )
@@ -1044,7 +1044,7 @@ def counter_definition_form(request, slug=None):
         log_activity(
             request,
             activity="counter_definition",
-            button="save",
+            log_type="user",
             action=slug or "new",
             response="saved",
         )
@@ -1325,7 +1325,7 @@ def profile_view(request):
             log_activity(
                 request,
                 activity="profile_preference",
-                button="font",
+                log_type="user",
                 action=profile.preferred_font,
                 response="saved",
             )
@@ -1339,7 +1339,7 @@ def profile_view(request):
                 log_activity(
                     request,
                     activity="profile_tier",
-                    button="set",
+                    log_type="user",
                     action=str(tier.id),
                     response="saved",
                 )
@@ -1351,7 +1351,7 @@ def profile_view(request):
             log_activity(
                 request,
                 activity="profile_visibility",
-                button="set",
+                log_type="user",
                 action=profile.visibility,
                 response="saved",
             )
@@ -1381,7 +1381,7 @@ def profile_view(request):
             log_activity(
                 request,
                 activity="profile_change",
-                button="request",
+                log_type="user",
                 action="details",
                 response="email_sent",
             )
@@ -1393,7 +1393,7 @@ def profile_view(request):
                 log_activity(
                     request,
                     activity="profile_extra",
-                    button="save",
+                    log_type="user",
                     action="extra",
                     response="saved",
                 )
@@ -1573,7 +1573,7 @@ def add_favourite(request):
             request,
             council=council,
             activity="favourite",
-            button="add",
+            log_type="user",
             action=f"slug={slug}",
             response="ok",
         )
@@ -1625,7 +1625,7 @@ def remove_favourite(request):
             request,
             council=council,
             activity="favourite",
-            button="remove",
+            log_type="user",
             action=f"slug={slug}",
             response="ok",
         )
@@ -1648,7 +1648,7 @@ def add_to_list(request, list_id):
             request,
             council=council,
             activity="list_add",
-            button="add",
+            log_type="user",
             action=f"list={list_id}",
             response="ok",
         )
@@ -1671,7 +1671,7 @@ def remove_from_list(request, list_id):
             request,
             council=council,
             activity="list_remove",
-            button="remove",
+            log_type="user",
             action=f"list={list_id}",
             response="ok",
         )
@@ -1698,7 +1698,7 @@ def move_between_lists(request):
             request,
             council=council,
             activity="list_move",
-            button="move",
+            log_type="user",
             action=f"from={from_id}&to={to_id}",
             response="ok",
         )
@@ -1868,7 +1868,7 @@ def submit_contribution(request):
         request,
         council=council,
         activity="submit_contribution",
-        button="submit",
+        log_type="user",
         action=f"field={field.slug}&year={year.id if year else ''}",
         response=status,
         extra={"value": value},
@@ -1954,7 +1954,7 @@ def review_contribution(request, pk, action):
             request,
             council=contrib.council,
             activity="review_contribution",
-            button="approve",
+            log_type="user",
             action=f"id={pk}",
             response="approved",
             extra={"value": contrib.value},
@@ -1983,7 +1983,7 @@ def review_contribution(request, pk, action):
             request,
             council=contrib.council,
             activity="review_contribution",
-            button="reject",
+            log_type="user",
             action=f"id={pk}",
             response="rejected",
             extra={"reason": reason, "value": contrib.value},
@@ -2019,7 +2019,7 @@ def review_contribution(request, pk, action):
             request,
             council=contrib.council,
             activity="review_contribution",
-            button="edit",
+            log_type="user",
             action=f"id={pk}",
             response="edited",
             extra={"value": contrib.value},
@@ -2032,6 +2032,17 @@ def _apply_contribution(contribution, user, request=None):
     """Persist an approved contribution and log the change."""
     field = contribution.field
     council = contribution.council
+
+    # Debug logging so the activity log shows each step of the process.
+    if request:
+        log_activity(
+            request,
+            council=council,
+            activity="apply_contribution",
+            log_type="debug",
+            action=f"start field={field.slug}",
+            extra={"value": contribution.value},
+        )
 
     old_value = contribution.old_value
 
@@ -2082,7 +2093,7 @@ def _apply_contribution(contribution, user, request=None):
         request,
         council=council,
         activity="apply_contribution",
-        button="auto" if user == contribution.user else "moderator",
+        log_type="user" if user == contribution.user else "moderator",
         action=f"field={field.slug}&year={contribution.year_id}",
         response="applied",
         extra={"old": old_value, "new": contribution.value},
@@ -2410,7 +2421,7 @@ def field_form(request, slug=None):
         log_activity(
             request,
             activity="field_form",
-            button="save",
+            log_type="user",
             action=slug or "new",
             response="saved",
         )
@@ -2444,7 +2455,7 @@ def factoid_form(request, slug=None):
         log_activity(
             request,
             activity="factoid_form",
-            button="save",
+            log_type="user",
             action=slug or "new",
             response="saved",
         )
@@ -2470,7 +2481,7 @@ def factoid_delete(request, slug):
     log_activity(
         request,
         activity="factoid_delete",
-        button="delete",
+        log_type="user",
         action=f"slug={slug}",
         response="deleted",
     )
@@ -2491,7 +2502,7 @@ def field_delete(request, slug):
         log_activity(
             request,
             activity="field_delete",
-            button="delete",
+            log_type="user",
             action=f"slug={slug}",
             response="deleted",
         )
@@ -2610,7 +2621,7 @@ def activity_log_entries(request):
             "council": log.council.name if log.council else "",
             "page": log.page,
             "activity": log.activity,
-            "button": log.button,
+            "log_type": log.log_type,
             "action": log.action,
             "request": log.request,
             "response": log.response,
