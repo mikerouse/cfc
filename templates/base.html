@@ -99,8 +99,8 @@
                 <a href="{% url 'field_list' %}" class="hover:underline">Fields &amp; Characteristics</a>
                 {% endif %}
                 {% if user.is_superuser or user.profile.tier.level|default:0 >= 5 %}
-                <a href="{% url 'admin:index' %}" class="hover:underline">Django Admin</a>
                 <a href="{% url 'god_mode' %}" class="hover:underline">God Mode</a>
+                <a href="{% url 'admin:index' %}" class="hover:underline">Admin</a>
                 {% endif %}
             </nav>
         </div>
