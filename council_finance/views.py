@@ -1915,8 +1915,17 @@ def field_list(request):
     """List all data fields for management."""
     if not request.user.is_superuser and request.user.profile.tier.level < MANAGEMENT_TIER:
         raise Http404()
-    fields = DataField.objects.all()
-    return render(request, "council_finance/field_list.html", {"fields": fields})
+    # Split fields by category so the template can render a tab for each
+    # category. Ordering by name keeps the list predictable within each tab.
+    fields_by_category = {
+        slug: DataField.objects.filter(category=slug).order_by("name")
+        for slug, _ in DataField.FIELD_CATEGORIES
+    }
+    context = {
+        "categories": DataField.FIELD_CATEGORIES,
+        "fields_by_category": fields_by_category,
+    }
+    return render(request, "council_finance/field_list.html", context)
 
 
 @login_required
