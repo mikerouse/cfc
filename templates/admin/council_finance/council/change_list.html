@@ -1,8 +1,0 @@
-{% extends "admin/change_list.html" %}
-{# Add an Import JSON button so staff can upload council data #}
-{% block object-tools-items %}
-    {{ block.super }}
-    <li>
-        <a href="{% url 'admin:council_finance_council_import' %}" class="addlink">Import JSON</a>
-    </li>
-{% endblock %}

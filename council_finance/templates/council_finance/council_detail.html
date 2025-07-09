@@ -40,11 +40,8 @@
 </div>
 <div class="mb-4 border-b text-center">
   <nav class="inline-flex gap-4">
-    <a href="{% url 'council_detail' council.slug %}" class="py-2 px-4 border-b-2 {% if tab != 'edit' and tab != 'legacy' %}border-blue-600 font-semibold{% else %}border-transparent{% endif %}">View</a>
+    <a href="{% url 'council_detail' council.slug %}" class="py-2 px-4 border-b-2 {% if tab != 'edit' %}border-blue-600 font-semibold{% else %}border-transparent{% endif %}">View</a>
     <a href="{% url 'council_detail' council.slug %}?tab=edit" class="py-2 px-4 border-b-2 {% if tab == 'edit' %}border-blue-600 font-semibold{% else %}border-transparent{% endif %}">Edit</a>
-    {% if user.is_superuser or user.profile.tier.level >= 5 %}
-    <a href="{% url 'council_detail' council.slug %}?tab=legacy" class="py-2 px-4 border-b-2 {% if tab == 'legacy' %}border-blue-600 font-semibold{% else %}border-transparent{% endif %}">Legacy Data</a>
-    {% endif %}
     <a href="{% url 'council_change_log' council.slug %}" class="py-2 px-4 border-b-2 {% if tab == 'log' %}border-blue-600 font-semibold{% else %}border-transparent{% endif %}">Log</a>
   </nav>
 </div>
@@ -494,7 +491,7 @@ if(followBtn){
   });
 }
 </script>
-{% if meta_values and tab != 'legacy' %}
+{% if meta_values %}
 <div id="meta-zone" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 my-6">
     {% for m in meta_values %}
     <div class="bg-green-50 p-6 rounded shadow text-center">
@@ -522,23 +519,6 @@ the correct records.
 <div id="edit-table-container" class="mt-2">
     {% include 'council_finance/edit_figures_table.html' with figures=edit_figures council=council pending_pairs=pending_pairs %}
 </div>
-{% endif %}
-<!-- TODO: Add a buttons for JSON and XLS/CSV exports of all data for this council for the selected financial year -->
-{% if tab == 'legacy' and figures %}
-<table class="min-w-full text-sm mt-6">
-    <thead class="bg-gray-100">
-        <tr><th class="px-2 py-1 text-left">Year</th><th class="px-2 py-1 text-left">Field</th><th class="px-2 py-1 text-left">Value</th></tr>
-    </thead>
-    <tbody>
-    {% for fig in figures %}
-        <tr class="border-b">
-            <td class="px-2 py-1">{{ fig.year.label }}</td>
-            <td class="px-2 py-1">{{ fig.field.name|capfirst }}</td>
-            <td class="px-2 py-1">{{ fig.display_value }}</td>
-        </tr>
-    {% endfor %}
-    </tbody>
-</table>
 {% endif %}
 <p class="mt-4"><a href="{% url 'council_list' %}" class="text-blue-700 hover:underline">Back to all councils</a></p>
 {% endblock %}

@@ -1,16 +1,17 @@
 from django.test import TestCase
 from django.urls import reverse
-from django.core.management import call_command
 import django
 django.setup()
 
-from council_finance.models import Council
+from council_finance.models import Council, FinancialYear, DataField, FigureSubmission
 
 
 class HomeViewTest(TestCase):
     def setUp(self):
-        # Load sample councils so the home view has data
-        call_command('runagent', 'ImporterAgent', '--source', 'councils-migration.json')
+        field = DataField.objects.create(name="Total Debt", slug="total_debt")
+        year = FinancialYear.objects.create(label="2024")
+        self.council = Council.objects.create(name="Worthing Borough Council", slug="worthing")
+        FigureSubmission.objects.create(council=self.council, year=year, field=field, value="1")
 
     def test_home_page_renders(self):
         response = self.client.get(reverse('home'))

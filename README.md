@@ -36,18 +36,9 @@ python manage.py runserver
 
 You can then access the admin at `http://localhost:8000/admin/` using the credentials created above.
 
-## Importing legacy council data
+## Adding councils and figures
 
-Staff members can upload a JSON export from the legacy plugin directly in the
-Django admin. Navigate to **Councils** in the admin and use the “Import JSON”
-button at the top-right of the change list. After uploading the file you will be
-prompted to map the plugin’s fields onto the new system. Large imports proceed
-asynchronously with a progress readout. The file `councils-migration.json`
-provides an example of the expected format.
-
-Council types are editable via a dedicated model in the admin. Use the
-**Council Types** section to add new entries which then appear as options in the
-drop-down on each council form.
+Create councils, fields and financial years directly in the Django admin. Figures can be entered manually or populated with custom scripts using the standard models.
 
 ## Animated Counters
 
