@@ -1,0 +1,36 @@
+{% load static %}
+<table class="min-w-full border divide-y divide-gray-200 issues-table" data-type="{{ issue_type }}">
+    <thead class="bg-gray-100">
+        <tr>
+            <th class="px-2 py-1 text-left sortable" data-sort="council">Council</th>
+            <th class="px-2 py-1 text-left sortable" data-sort="field">Field</th>
+            <th class="px-2 py-1 text-left sortable" data-sort="year">Year</th>
+            {% if issue_type == 'suspicious' %}
+            <th class="px-2 py-1 text-left sortable" data-sort="value">Value</th>
+            {% endif %}
+        </tr>
+    </thead>
+    <tbody>
+    {% for d in page_obj %}
+        <tr class="border-b">
+            <td class="px-2 py-1"><a href="{% url 'council_detail' d.council.slug %}?tab=edit&year={{ d.year }}" class="underline">{{ d.council.name }}</a></td>
+            <td class="px-2 py-1">{{ d.field.name }}</td>
+            <td class="px-2 py-1">{{ d.year }}</td>
+            {% if issue_type == 'suspicious' %}
+            <td class="px-2 py-1">{{ d.value }}</td>
+            {% endif %}
+        </tr>
+    {% empty %}
+        <tr><td class="px-2 py-1 text-center" colspan="{% if issue_type == 'suspicious' %}4{% else %}3{% endif %}">No data issues.</td></tr>
+    {% endfor %}
+    </tbody>
+</table>
+<div class="flex justify-between text-sm mt-2">
+    {% if page_obj.has_previous %}
+    <button type="button" class="issues-page underline" data-page="{{ page_obj.previous_page_number }}">Prev</button>
+    {% else %}<span></span>{% endif %}
+    <span>Page {{ page_obj.number }} of {{ paginator.num_pages }}</span>
+    {% if page_obj.has_next %}
+    <button type="button" class="issues-page underline" data-page="{{ page_obj.next_page_number }}">Next</button>
+    {% else %}<span></span>{% endif %}
+</div>

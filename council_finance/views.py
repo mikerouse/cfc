@@ -13,6 +13,7 @@ from django.contrib.auth.hashers import make_password
 from django.contrib.auth import login
 from django.utils.crypto import get_random_string
 from django.core.paginator import Paginator
+from django.template.loader import render_to_string
 from django.urls import reverse
 import csv
 import hashlib
@@ -597,14 +598,26 @@ def following(request):
 def contribute(request):
     """Show contribution dashboard with various queues."""
     from .models import DataIssue
+    from django.core.paginator import Paginator
 
-    # Rows for contributors to help fill gaps in the dataset.
-    queue = DataIssue.objects.filter(issue_type="missing").select_related(
-        "council", "field", "year"
+    # Load the first page of each issue type. The remaining pages can be
+    # requested via AJAX so initial load time stays reasonable even when the
+    # dataset contains thousands of records.
+    missing_qs = (
+        DataIssue.objects.filter(issue_type="missing")
+        .select_related("council", "field", "year")
+        .order_by("council__name")
     )
-    suspicious = DataIssue.objects.filter(issue_type="suspicious").select_related(
-        "council", "field", "year"
+    suspicious_qs = (
+        DataIssue.objects.filter(issue_type="suspicious")
+        .select_related("council", "field", "year")
+        .order_by("council__name")
     )
+
+    missing_paginator = Paginator(missing_qs, 50)
+    suspicious_paginator = Paginator(suspicious_qs, 50)
+    missing_page = missing_paginator.get_page(1)
+    suspicious_page = suspicious_paginator.get_page(1)
     my_contribs = (
         Contribution.objects.filter(user=request.user).select_related(
             "council", "field"
@@ -615,8 +628,49 @@ def contribute(request):
     return render(
         request,
         "council_finance/contribute.html",
-        {"queue": queue, "suspicious": suspicious, "my_contribs": my_contribs},
+        {
+            "missing_page": missing_page,
+            "missing_paginator": missing_paginator,
+            "suspicious_page": suspicious_page,
+            "suspicious_paginator": suspicious_paginator,
+            "my_contribs": my_contribs,
+        },
     )
+
+
+def data_issues_table(request):
+    """Return a page of data issues as HTML for the contribute tables."""
+    if request.headers.get("X-Requested-With") != "XMLHttpRequest":
+        return HttpResponseBadRequest("XHR required")
+
+    from .models import DataIssue
+
+    issue_type = request.GET.get("type")
+    if issue_type not in {"missing", "suspicious"}:
+        return HttpResponseBadRequest("invalid type")
+
+    search = request.GET.get("q", "").strip()
+    order = request.GET.get("order", "council")
+    direction = request.GET.get("dir", "asc")
+    allowed = {"council": "council__name", "field": "field__name", "year": "year__label", "value": "value"}
+    order_by = allowed.get(order, "council__name")
+    if direction == "desc":
+        order_by = f"-{order_by}"
+
+    qs = DataIssue.objects.filter(issue_type=issue_type).select_related("council", "field", "year")
+    if search:
+        qs = qs.filter(Q(council__name__icontains=search) | Q(field__name__icontains=search))
+    qs = qs.order_by(order_by)
+
+    paginator = Paginator(qs, 50)
+    page = paginator.get_page(request.GET.get("page"))
+
+    html = render_to_string(
+        "council_finance/data_issues_table.html",
+        {"page_obj": page, "paginator": paginator, "issue_type": issue_type},
+        request=request,
+    )
+    return JsonResponse({"html": html})
 
 
 def my_profile(request):

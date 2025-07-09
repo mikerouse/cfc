@@ -5,55 +5,17 @@
 <div class="space-y-6">
     <section>
         <h2 class="text-xl font-semibold mb-2">Missing Data</h2>
-        {% if queue %}
-        <table id="missing-data" class="min-w-full border divide-y divide-gray-200">
-            <thead class="bg-gray-100">
-                <tr>
-                    <th class="px-2 py-1 text-left">Council</th>
-                    <th class="px-2 py-1 text-left">Field</th>
-                    <th class="px-2 py-1 text-left">Year</th>
-                </tr>
-            </thead>
-            <tbody>
-            {% for d in queue %}
-                <tr class="border-b">
-                    <td class="px-2 py-1"><a href="{% url 'council_detail' d.council.slug %}?tab=edit&year={{ d.year }}" class="underline">{{ d.council.name }}</a></td>
-                    <td class="px-2 py-1">{{ d.field.name }}</td>
-                    <td class="px-2 py-1">{{ d.year }}</td>
-                </tr>
-            {% endfor %}
-            </tbody>
-        </table>
-        {% else %}
-        <p>No data gaps found.</p>
-        {% endif %}
+        <input id="missing-search" type="text" placeholder="Search..." class="border rounded px-2 py-1 mb-2" />
+        <div id="missing-data-container" data-type="missing" data-page="1" data-order="council">
+            {% include 'council_finance/data_issues_table.html' with page_obj=missing_page paginator=missing_paginator issue_type='missing' %}
+        </div>
     </section>
     <section>
         <h2 class="text-xl font-semibold mb-2">Suspicious Data</h2>
-        {% if suspicious %}
-        <table id="suspicious-data" class="min-w-full border divide-y divide-gray-200">
-            <thead class="bg-gray-100">
-                <tr>
-                    <th class="px-2 py-1 text-left">Council</th>
-                    <th class="px-2 py-1 text-left">Field</th>
-                    <th class="px-2 py-1 text-left">Year</th>
-                    <th class="px-2 py-1 text-left">Value</th>
-                </tr>
-            </thead>
-            <tbody>
-            {% for d in suspicious %}
-                <tr class="border-b">
-                    <td class="px-2 py-1"><a href="{% url 'council_detail' d.council.slug %}?tab=edit&year={{ d.year }}" class="underline">{{ d.council.name }}</a></td>
-                    <td class="px-2 py-1">{{ d.field.name }}</td>
-                    <td class="px-2 py-1">{{ d.year }}</td>
-                    <td class="px-2 py-1">{{ d.value }}</td>
-                </tr>
-            {% endfor %}
-            </tbody>
-        </table>
-        {% else %}
-        <p>No suspicious values.</p>
-        {% endif %}
+        <input id="suspicious-search" type="text" placeholder="Search..." class="border rounded px-2 py-1 mb-2" />
+        <div id="suspicious-data-container" data-type="suspicious" data-page="1" data-order="council">
+            {% include 'council_finance/data_issues_table.html' with page_obj=suspicious_page paginator=suspicious_paginator issue_type='suspicious' %}
+        </div>
     </section>
     <section>
         <h2 class="text-xl font-semibold mb-2">My Contributions</h2>
