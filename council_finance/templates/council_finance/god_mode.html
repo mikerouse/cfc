@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load static %}
 {% block title %}God Mode - Council Finance Counters{% endblock %}
 {% block content %}
 <h1 class="text-2xl font-bold mb-4">Rejection Log</h1>
@@ -59,6 +60,25 @@
   </table>
   <button name="delete" value="1" class="bg-red-600 text-white px-4 py-1 rounded">Delete Selected</button>
 </form>
+
+<h2 class="text-xl font-bold mb-2 mt-8">Activity Log</h2>
+<input id="activity-search" type="text" class="border px-2 py-1 mb-2" placeholder="Search..." />
+<table class="min-w-full bg-white border mb-4">
+  <thead>
+    <tr>
+      <th class="border px-2 py-1">Time</th>
+      <th class="border px-2 py-1">User</th>
+      <th class="border px-2 py-1">Council</th>
+      <th class="border px-2 py-1">Page</th>
+      <th class="border px-2 py-1">Activity</th>
+      <th class="border px-2 py-1">Button</th>
+      <th class="border px-2 py-1">Action</th>
+      <th class="border px-2 py-1">Response</th>
+      <th class="border px-2 py-1">Extra</th>
+    </tr>
+  </thead>
+  <tbody id="activity-log-body"></tbody>
+</table>
 <script>
 const checkAll = document.getElementById('check-all');
 if (checkAll) {
@@ -72,4 +92,5 @@ document.addEventListener('DOMContentLoaded', () => {
   console.log('God Mode loaded with', document.querySelectorAll('tbody tr').length, 'log rows');
 });
 </script>
+<script src="{% static 'js/activity_log.js' %}"></script>
 {% endblock %}

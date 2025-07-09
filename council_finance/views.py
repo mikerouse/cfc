@@ -69,9 +69,39 @@ from .models import (
     # RejectionLog is used in the God Mode admin view for moderating
     # contribution rejections and IP blocks.
     RejectionLog,
+    ActivityLog,
 )
 
 from datetime import date
+
+
+def log_activity(
+    request,
+    *,
+    council=None,
+    activity="",
+    button="",
+    action="",
+    response="",
+    extra=None,
+):
+    """Helper to store troubleshooting events."""
+    import json
+
+    if isinstance(extra, dict):
+        extra = json.dumps(extra, ensure_ascii=False)
+    elif extra is None:
+        extra = ""
+    ActivityLog.objects.create(
+        user=request.user if getattr(request, "user", None) and request.user.is_authenticated else None,
+        council=council,
+        page=request.path,
+        activity=activity,
+        button=button,
+        action=action,
+        response=response,
+        extra=extra,
+    )
 
 
 def current_financial_year_label() -> str:
@@ -1668,10 +1698,19 @@ def submit_contribution(request):
         status=status,
         ip_address=ip,
     )
+    log_activity(
+        request,
+        council=council,
+        activity="submit_contribution",
+        button="submit",
+        action=f"field={field.slug}&year={year.id if year else ''}",
+        response=status,
+        extra={"value": value},
+    )
     if status == "approved":
         # Immediately apply the change so followers see the update straight away.
         try:
-            _apply_contribution(contrib, request.user)
+            _apply_contribution(contrib, request.user, request)
         except Exception as exc:  # Defensive: avoid 500s during auto-apply
             logger.exception("Failed to apply contribution %s", contrib.id)
             status = "pending"
@@ -1742,9 +1781,18 @@ def review_contribution(request, pk, action):
         return HttpResponseBadRequest("permission denied")
 
     if action == "approve" and request.method == "POST":
-        _apply_contribution(contrib, request.user)
+        _apply_contribution(contrib, request.user, request)
         contrib.status = "approved"
         contrib.save()
+        log_activity(
+            request,
+            council=contrib.council,
+            activity="review_contribution",
+            button="approve",
+            action=f"id={pk}",
+            response="approved",
+            extra={"value": contrib.value},
+        )
         # Reward characteristic data a bit more to encourage its collection.
         points = 3 if contrib.field.category == "characteristic" else 2
         profile = contrib.user.profile
@@ -1765,6 +1813,15 @@ def review_contribution(request, pk, action):
             return HttpResponseBadRequest("reason required")
         contrib.status = "rejected"
         contrib.save()
+        log_activity(
+            request,
+            council=contrib.council,
+            activity="review_contribution",
+            button="reject",
+            action=f"id={pk}",
+            response="rejected",
+            extra={"reason": reason, "value": contrib.value},
+        )
         from .models import RejectionLog
 
         RejectionLog.objects.create(
@@ -1792,11 +1849,20 @@ def review_contribution(request, pk, action):
             contrib.user,
             "Your contribution was edited by a moderator",
         )
+        log_activity(
+            request,
+            council=contrib.council,
+            activity="review_contribution",
+            button="edit",
+            action=f"id={pk}",
+            response="edited",
+            extra={"value": contrib.value},
+        )
         return redirect("contribute")
     return redirect("contribute")
 
 
-def _apply_contribution(contribution, user):
+def _apply_contribution(contribution, user, request=None):
     """Persist an approved contribution and log the change."""
     field = contribution.field
     council = contribution.council
@@ -1845,6 +1911,16 @@ def _apply_contribution(contribution, user):
             profile.verified_ip_count += 1
     profile.approved_submission_count += 1
     profile.save()
+
+    log_activity(
+        request,
+        council=council,
+        activity="apply_contribution",
+        button="auto" if user == contribution.user else "moderator",
+        action=f"field={field.slug}&year={contribution.year_id}",
+        response="applied",
+        extra={"old": old_value, "new": contribution.value},
+    )
 
 
 @login_required
@@ -2211,6 +2287,13 @@ def factoid_delete(request, slug):
 
     factoid = get_object_or_404(Factoid, slug=slug)
     factoid.delete()
+    log_activity(
+        request,
+        activity="factoid_delete",
+        button="delete",
+        action=f"slug={slug}",
+        response="deleted",
+    )
     messages.success(request, "Factoid deleted.")
     return redirect("factoid_list")
 
@@ -2225,6 +2308,13 @@ def field_delete(request, slug):
         messages.error(request, "This field cannot be deleted.")
     else:
         field.delete()
+        log_activity(
+            request,
+            activity="field_delete",
+            button="delete",
+            action=f"slug={slug}",
+            response="deleted",
+        )
         messages.success(request, "Field deleted.")
     return redirect("field_list")
 
@@ -2306,4 +2396,41 @@ def god_mode(request):
         return redirect("god_mode")
 
     logs = RejectionLog.objects.select_related("council", "field", "reviewed_by")[:200]
-    return render(request, "council_finance/god_mode.html", {"logs": logs})
+    activity_logs = ActivityLog.objects.select_related("user", "council")[:200]
+    context = {"logs": logs, "activity_logs": activity_logs}
+    return render(request, "council_finance/god_mode.html", context)
+
+
+@login_required
+def activity_log_entries(request):
+    """Return ActivityLog rows in JSON for live updates."""
+    if not request.user.is_superuser and request.user.profile.tier.level < 5:
+        raise Http404()
+
+    logs = ActivityLog.objects.select_related("user", "council").order_by("-created")
+    q = request.GET.get("q")
+    if q:
+        logs = logs.filter(
+            Q(activity__icontains=q)
+            | Q(page__icontains=q)
+            | Q(action__icontains=q)
+            | Q(response__icontains=q)
+        )
+
+    paginator = Paginator(logs, 50)
+    page = paginator.get_page(request.GET.get("page"))
+    data = [
+        {
+            "time": log.created.strftime("%Y-%m-%d %H:%M:%S"),
+            "user": log.user.username if log.user else "",
+            "council": log.council.name if log.council else "",
+            "page": log.page,
+            "activity": log.activity,
+            "button": log.button,
+            "action": log.action,
+            "response": log.response,
+            "extra": log.extra,
+        }
+        for log in page
+    ]
+    return JsonResponse({"results": data, "has_next": page.has_next()})
