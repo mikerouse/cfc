@@ -2,6 +2,7 @@
 {% block title %}Contribute - Council Finance Counters{% endblock %}
 {% block content %}
 <h1 class="text-2xl font-bold mb-4">Contribute Data</h1>
+<div id="contrib-msg" class="text-green-700 mb-4 hidden" role="status"></div>
 <div class="space-y-6">
     <section>
         <h2 class="text-xl font-semibold mb-2">Missing Characteristics</h2>
@@ -107,6 +108,7 @@
     <input type="hidden" name="year" id="add-year">
     <label class="block mb-2">Value
       <input type="text" name="value" id="add-value" class="border p-2 w-full" />
+      <select name="value" id="add-value-select" class="border p-2 w-full hidden"></select>
     </label>
     <div class="text-right space-x-2">
       <button type="submit" class="bg-green-600 text-white px-4 py-1 rounded">Submit</button>
@@ -165,10 +167,40 @@ function setupAddButtons() {
   document.querySelectorAll('.add-value-btn').forEach(btn => {
     btn.addEventListener('click', e => {
       e.preventDefault();
+      // Remember the button so we can update the row after submission.
+      window.currentAddBtn = btn;
       document.getElementById('add-council').value = btn.dataset.council;
       document.getElementById('add-field').value = btn.dataset.field;
       document.getElementById('add-year').value = btn.dataset.year || '';
-      document.getElementById('add-value').value = '';
+      const input = document.getElementById('add-value');
+      const select = document.getElementById('add-value-select');
+      input.value = '';
+      select.innerHTML = '';
+      input.classList.add('hidden');
+      select.classList.add('hidden');
+      input.disabled = false;
+      select.disabled = true;
+      if (btn.dataset.contentType === 'list' && btn.dataset.datasetType) {
+        // Linked list fields use a drop-down populated via AJAX so
+        // volunteers pick from valid options rather than typing free text.
+        fetch(`/fields/${btn.dataset.field}/options/`)
+          .then(resp => resp.json())
+          .then(data => {
+            data.options.forEach(opt => {
+              const option = document.createElement('option');
+              option.value = opt.id;
+              option.textContent = opt.name;
+              select.appendChild(option);
+            });
+            select.classList.remove('hidden');
+            select.disabled = false;
+          });
+      } else {
+        // URL fields trigger browser validation, everything else uses
+        // a standard text input.
+        input.type = btn.dataset.contentType === 'url' ? 'url' : 'text';
+        input.classList.remove('hidden');
+      }
       document.getElementById('add-value-modal').classList.remove('hidden');
     });
   });
@@ -179,6 +211,30 @@ document.getElementById('add-cancel').addEventListener('click', () => {
 // Called initially and after AJAX loads
 document.addEventListener('issueTableUpdated', setupAddButtons);
 setupAddButtons();
+
+// Submit the add value form via AJAX so the user stays on this page
+// rather than being redirected to the council detail view.
+document.getElementById('add-value-form').addEventListener('submit', async e => {
+  e.preventDefault();
+  const form = e.target;
+  const csrftoken = document.cookie.match('(^|;)\\s*csrftoken\\s*=\\s*([^;]+)');
+  const token = csrftoken ? csrftoken.pop() : '';
+  const data = new FormData(form);
+  const resp = await fetch(form.action, {
+    method: 'POST',
+    body: data,
+    headers: { 'X-CSRFToken': token, 'X-Requested-With': 'XMLHttpRequest' }
+  });
+  const out = await resp.json();
+  showMessage(out.message || 'Submitted');
+  document.getElementById('add-value-modal').classList.add('hidden');
+  if (window.currentAddBtn) {
+    // Replace the button cell with a pending note so the table reflects
+    // the contribution without needing a full reload.
+    window.currentAddBtn.parentElement.innerHTML = '<i class="fas fa-clock mr-1"></i>Pending confirmation';
+    window.currentAddBtn = null;
+  }
+});
 
 // Confirm moderation actions are present for debugging purposes.
 document.addEventListener('DOMContentLoaded', () => {
