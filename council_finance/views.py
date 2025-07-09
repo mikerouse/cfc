@@ -84,6 +84,7 @@ def log_activity(
     activity="",
     button="",
     action="",
+    request_data=None,
     response="",
     extra=None,
 ):
@@ -94,6 +95,15 @@ def log_activity(
         extra = json.dumps(extra, ensure_ascii=False)
     elif extra is None:
         extra = ""
+
+    # Request data defaults to the HTTP method for quick reference. The caller
+    # can supply a short string or dict to capture more detail when needed.
+    if request_data is None:
+        request_data = request.method
+    if isinstance(request_data, dict):
+        request_data = json.dumps(request_data, ensure_ascii=False)
+    elif request_data is None:
+        request_data = ""
     ActivityLog.objects.create(
         user=request.user if getattr(request, "user", None) and request.user.is_authenticated else None,
         council=council,
@@ -101,6 +111,7 @@ def log_activity(
         activity=activity,
         button=button,
         action=action,
+        request=request_data,
         response=response,
         extra=extra,
     )
@@ -927,6 +938,13 @@ def site_counter_form(request, slug=None):
     if request.method == "POST" and form.is_valid():
         form.save()
         messages.success(request, "Counter saved.")
+        log_activity(
+            request,
+            activity="counter_site",
+            button="save",
+            action=slug or "new",
+            response="saved",
+        )
         return redirect("site_counter_list")
     return render(
         request,
@@ -949,6 +967,13 @@ def group_counter_form(request, slug=None):
     if request.method == "POST" and form.is_valid():
         form.save()
         messages.success(request, "Counter saved.")
+        log_activity(
+            request,
+            activity="counter_group",
+            button="save",
+            action=slug or "new",
+            response="saved",
+        )
         return redirect("group_counter_list")
     return render(
         request,
@@ -989,6 +1014,13 @@ def counter_definition_form(request, slug=None):
     if request.method == "POST" and form.is_valid():
         form.save()
         messages.success(request, "Counter saved.")
+        log_activity(
+            request,
+            activity="counter_definition",
+            button="save",
+            action=slug or "new",
+            response="saved",
+        )
         return redirect("counter_definitions")
 
     context = {
@@ -1263,6 +1295,13 @@ def profile_view(request):
             profile.save()
             tab = "custom"
             messages.success(request, "Preferences saved.")
+            log_activity(
+                request,
+                activity="profile_preference",
+                button="font",
+                action=profile.preferred_font,
+                response="saved",
+            )
         elif user.is_superuser and "tier" in request.POST:
             # Allow superusers to switch tier for testing purposes.
             tier = TrustTier.objects.filter(id=request.POST.get("tier")).first()
@@ -1270,11 +1309,25 @@ def profile_view(request):
                 profile.tier = tier
                 profile.save()
                 messages.success(request, f"Tier changed to {tier.name}.")
+                log_activity(
+                    request,
+                    activity="profile_tier",
+                    button="set",
+                    action=str(tier.id),
+                    response="saved",
+                )
             tab = "custom"
         elif "visibility" in request.POST:
             profile.visibility = request.POST.get("visibility", profile.visibility)
             profile.save()
             messages.success(request, "Visibility updated.")
+            log_activity(
+                request,
+                activity="profile_visibility",
+                button="set",
+                action=profile.visibility,
+                response="saved",
+            )
         elif "change_details" in request.POST:
             token = get_random_string(32)
             PendingProfileChange.objects.create(
@@ -1298,11 +1351,25 @@ def profile_view(request):
                 user.email,
             )
             messages.info(request, "Check your email to confirm profile changes.")
+            log_activity(
+                request,
+                activity="profile_change",
+                button="request",
+                action="details",
+                response="email_sent",
+            )
         elif "update_extra" in request.POST:
             form = ProfileExtraForm(request.POST, instance=profile)
             if form.is_valid():
                 form.save()
                 messages.success(request, "Profile details saved.")
+                log_activity(
+                    request,
+                    activity="profile_extra",
+                    button="save",
+                    action="extra",
+                    response="saved",
+                )
 
     # List of accounts following the current user
     followers = UserFollow.objects.filter(target=user).select_related("follower")
@@ -1475,6 +1542,14 @@ def add_favourite(request):
     try:
         council = Council.objects.get(slug=slug)
         request.user.profile.favourites.add(council)
+        log_activity(
+            request,
+            council=council,
+            activity="favourite",
+            button="add",
+            action=f"slug={slug}",
+            response="ok",
+        )
         return JsonResponse({"status": "ok"})
     except Council.DoesNotExist:
         return JsonResponse({"error": "not found"}, status=400)
@@ -1519,6 +1594,14 @@ def remove_favourite(request):
     try:
         council = Council.objects.get(slug=slug)
         request.user.profile.favourites.remove(council)
+        log_activity(
+            request,
+            council=council,
+            activity="favourite",
+            button="remove",
+            action=f"slug={slug}",
+            response="ok",
+        )
         return JsonResponse({"status": "ok"})
     except Council.DoesNotExist:
         return JsonResponse({"error": "not found"}, status=400)
@@ -1534,6 +1617,14 @@ def add_to_list(request, list_id):
         council = Council.objects.get(slug=slug)
         target = request.user.council_lists.get(id=list_id)
         target.councils.add(council)
+        log_activity(
+            request,
+            council=council,
+            activity="list_add",
+            button="add",
+            action=f"list={list_id}",
+            response="ok",
+        )
         return JsonResponse({"status": "ok"})
     except (Council.DoesNotExist, CouncilList.DoesNotExist):
         return JsonResponse({"error": "invalid"}, status=400)
@@ -1549,6 +1640,14 @@ def remove_from_list(request, list_id):
         council = Council.objects.get(slug=slug)
         target = request.user.council_lists.get(id=list_id)
         target.councils.remove(council)
+        log_activity(
+            request,
+            council=council,
+            activity="list_remove",
+            button="remove",
+            action=f"list={list_id}",
+            response="ok",
+        )
         return JsonResponse({"status": "ok"})
     except (Council.DoesNotExist, CouncilList.DoesNotExist):
         return JsonResponse({"error": "invalid"}, status=400)
@@ -1568,6 +1667,14 @@ def move_between_lists(request):
             request.user.council_lists.get(id=from_id).councils.remove(council)
         if to_id:
             request.user.council_lists.get(id=to_id).councils.add(council)
+        log_activity(
+            request,
+            council=council,
+            activity="list_move",
+            button="move",
+            action=f"from={from_id}&to={to_id}",
+            response="ok",
+        )
         return JsonResponse({"status": "ok"})
     except (Council.DoesNotExist, CouncilList.DoesNotExist):
         return JsonResponse({"error": "invalid"}, status=400)
@@ -2273,6 +2380,13 @@ def field_form(request, slug=None):
     if request.method == "POST" and form.is_valid():
         form.save()
         messages.success(request, "Field saved.")
+        log_activity(
+            request,
+            activity="field_form",
+            button="save",
+            action=slug or "new",
+            response="saved",
+        )
         return redirect("field_list")
     return render(request, "council_finance/field_form.html", {"form": form})
 
@@ -2300,6 +2414,13 @@ def factoid_form(request, slug=None):
     if request.method == "POST" and form.is_valid():
         form.save()
         messages.success(request, "Factoid saved.")
+        log_activity(
+            request,
+            activity="factoid_form",
+            button="save",
+            action=slug or "new",
+            response="saved",
+        )
         return redirect("factoid_list")
     return render(
         request,
@@ -2446,23 +2567,25 @@ def activity_log_entries(request):
             Q(activity__icontains=q)
             | Q(page__icontains=q)
             | Q(action__icontains=q)
+            | Q(request__icontains=q)
             | Q(response__icontains=q)
         )
 
     paginator = Paginator(logs, 50)
     page = paginator.get_page(request.GET.get("page"))
-    data = [
-        {
-            "time": log.created.strftime("%Y-%m-%d %H:%M:%S"),
-            "user": log.user.username if log.user else "",
-            "council": log.council.name if log.council else "",
-            "page": log.page,
-            "activity": log.activity,
-            "button": log.button,
-            "action": log.action,
-            "response": log.response,
-            "extra": log.extra,
-        }
-        for log in page
-    ]
+        data = [
+            {
+                "time": log.created.strftime("%Y-%m-%d %H:%M:%S"),
+                "user": log.user.username if log.user else "",
+                "council": log.council.name if log.council else "",
+                "page": log.page,
+                "activity": log.activity,
+                "button": log.button,
+                "action": log.action,
+                "request": log.request,
+                "response": log.response,
+                "extra": log.extra,
+            }
+            for log in page
+        ]
     return JsonResponse({"results": data, "has_next": page.has_next()})
