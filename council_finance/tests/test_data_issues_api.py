@@ -32,3 +32,12 @@ class DataIssuesApiTests(TestCase):
         url = reverse("data_issues_table") + "?type=bad"
         resp = self.client.get(url, HTTP_X_REQUESTED_WITH="XMLHttpRequest")
         self.assertEqual(resp.status_code, 400)
+
+    def test_category_filter(self):
+        """Filtering by category should only return matching issues."""
+        char_field = DataField.objects.create(name="HQ", slug="council_location", category="characteristic")
+        DataIssue.objects.create(council=self.council, field=char_field, issue_type="missing")
+
+        url = reverse("data_issues_table") + "?type=missing&category=characteristic"
+        resp = self.client.get(url, HTTP_X_REQUESTED_WITH="XMLHttpRequest")
+        self.assertIn("HQ", resp.json()["html"])

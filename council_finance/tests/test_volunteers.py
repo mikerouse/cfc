@@ -151,8 +151,18 @@ class ContributeQueueTests(TestCase):
 
         DataIssue.objects.create(council=self.council, field=self.field, issue_type="missing")
         resp = self.client.get(reverse("contribute"))
-        self.assertContains(resp, "Missing Data")
+        self.assertContains(resp, "Missing Financial Data")
         self.assertContains(resp, self.council.name)
+
+    def test_characteristics_separate_table(self):
+        from council_finance.models import DataIssue
+
+        char_field = DataField.objects.create(name="HQ", slug="council_location", category="characteristic")
+        DataIssue.objects.create(council=self.council, field=char_field, issue_type="missing")
+
+        resp = self.client.get(reverse("contribute"))
+        self.assertContains(resp, "Missing Characteristics")
+        self.assertContains(resp, "HQ")
 
 
 class SubmissionPointTests(TestCase):
@@ -174,7 +184,7 @@ class SubmissionPointTests(TestCase):
     def test_points_awarded_once_per_period(self):
         self.submit()
         self.user.profile.refresh_from_db()
-        self.assertEqual(self.user.profile.points, 1)
+        self.assertEqual(self.user.profile.points, 2)
 
         c = Contribution.objects.latest("id")
         from django.utils import timezone
@@ -184,10 +194,29 @@ class SubmissionPointTests(TestCase):
 
         self.submit()
         self.user.profile.refresh_from_db()
-        self.assertEqual(self.user.profile.points, 1)
+        self.assertEqual(self.user.profile.points, 2)
 
         # Move both contributions outside the 3 week window
         Contribution.objects.all().update(created=timezone.now() - timedelta(days=22))
         self.submit()
+        self.user.profile.refresh_from_db()
+        self.assertEqual(self.user.profile.points, 4)
+
+
+class CharacteristicPointsTests(TestCase):
+    def setUp(self):
+        self.user = get_user_model().objects.create_user(
+            username="charpoints", email="c@example.com", password="pw"
+        )
+        self.council = Council.objects.create(name="Char", slug="char")
+        self.field = DataField.objects.create(name="HQ", slug="council_location", category="characteristic")
+        self.client.login(username="charpoints", password="pw")
+
+    def test_extra_points_for_characteristics(self):
+        self.client.post(
+            reverse("submit_contribution"),
+            {"council": "char", "field": "council_location", "value": "Town Hall"},
+            HTTP_X_REQUESTED_WITH="XMLHttpRequest",
+        )
         self.user.profile.refresh_from_db()
         self.assertEqual(self.user.profile.points, 2)

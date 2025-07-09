@@ -4,10 +4,17 @@
 <h1 class="text-2xl font-bold mb-4">Contribute Data</h1>
 <div class="space-y-6">
     <section>
-        <h2 class="text-xl font-semibold mb-2">Missing Data</h2>
-        <input id="missing-search" type="text" placeholder="Search..." class="border rounded px-2 py-1 mb-2" />
-        <div id="missing-data-container" data-type="missing" data-page="1" data-order="council">
-            {% include 'council_finance/data_issues_table.html' with page_obj=missing_page paginator=missing_paginator issue_type='missing' %}
+        <h2 class="text-xl font-semibold mb-2">Missing Characteristics</h2>
+        <input id="missing-characteristic-search" type="text" placeholder="Search..." class="border rounded px-2 py-1 mb-2" />
+        <div id="missing-characteristic-data-container" data-type="missing" data-category="characteristic" data-page="1" data-order="council">
+            {% include 'council_finance/data_issues_table.html' with page_obj=missing_characteristic_page paginator=missing_characteristic_paginator issue_type='missing' %}
+        </div>
+    </section>
+    <section>
+        <h2 class="text-xl font-semibold mb-2">Missing Financial Data</h2>
+        <input id="missing-financial-search" type="text" placeholder="Search..." class="border rounded px-2 py-1 mb-2" />
+        <div id="missing-financial-data-container" data-type="missing" data-category="financial" data-page="1" data-order="council">
+            {% include 'council_finance/data_issues_table.html' with page_obj=missing_financial_page paginator=missing_financial_paginator issue_type='missing' %}
         </div>
     </section>
     <section>

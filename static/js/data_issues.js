@@ -3,10 +3,14 @@
 // user can work through large issue lists without reloading
 // the entire page each time.
 
-function setupIssueTable(type) {
-    const searchInput = document.getElementById(`${type}-search`);
-    const container = document.getElementById(`${type}-data-container`);
+function setupIssueTable(containerId) {
+    const container = document.getElementById(`${containerId}-data-container`);
+    const searchInput = document.getElementById(`${containerId}-search`);
     if (!container) return;
+    // Each container stores the ``type`` (missing or suspicious) and optional
+    // ``category`` so the AJAX endpoint can filter appropriately.
+    const type = container.dataset.type;
+    const category = container.dataset.category;
 
     let timer;
 
@@ -16,6 +20,7 @@ function setupIssueTable(type) {
         const page = params.page || container.dataset.page || 1;
         const q = searchInput.value.trim();
         let url = `/contribute/issues/?type=${type}&page=${page}&order=${order}&dir=${dir}`;
+        if (category) url += `&category=${category}`;
         if (q) url += `&q=${encodeURIComponent(q)}`;
         const resp = await fetch(url, {headers: {'X-Requested-With': 'XMLHttpRequest'}});
         const data = await resp.json();
@@ -51,5 +56,5 @@ function setupIssueTable(type) {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
-    ['missing', 'suspicious'].forEach(setupIssueTable);
+    ['missing-financial', 'missing-characteristic', 'suspicious'].forEach(setupIssueTable);
 });

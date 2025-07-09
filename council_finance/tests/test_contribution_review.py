@@ -42,11 +42,11 @@ class ContributionReviewTests(TestCase):
         self.contrib.refresh_from_db()
         self.user.profile.refresh_from_db()
         self.assertEqual(self.contrib.status, "approved")
-        self.assertEqual(self.user.profile.points, 2)
+        self.assertEqual(self.user.profile.points, 3)
         note = Notification.objects.latest("id")
         self.assertIn(self.council.name, note.message)
         self.assertIn(self.field.name, note.message)
-        self.assertIn("2 points", note.message)
+        self.assertIn("3 points", note.message)
         self.assertEqual(DataChangeLog.objects.count(), 1)
 
     def test_edit_then_approve_two_points(self):
@@ -59,7 +59,7 @@ class ContributionReviewTests(TestCase):
             {}
         )
         self.user.profile.refresh_from_db()
-        self.assertEqual(self.user.profile.points, 2)
+        self.assertEqual(self.user.profile.points, 3)
 
     def test_reject_creates_log(self):
         self.client.post(
