@@ -418,36 +418,25 @@ def council_detail(request, slug):
         
     edit_figures = figures.filter(year=edit_selected_year) if edit_selected_year else figures.none()
 
-    # Characteristic values apply across all years. Fetch the latest submission
-    # for each field so the edit interface shows a single row rather than
-    # repeating the value for every year.
-    characteristic_figures = []
+    missing_characteristic_page = None
+    missing_characteristic_paginator = None
     if tab == "edit":
-        char_fields = DataField.objects.filter(category="characteristic")
-        if council.council_type_id:
-            char_fields = char_fields.filter(
-                Q(council_types__isnull=True) | Q(council_types=council.council_type)
+        from .models import DataIssue
+        from django.core.paginator import Paginator
+
+        # Pull any missing characteristic data for this council so the edit
+        # screen can reuse the generic table component.
+        missing_qs = (
+            DataIssue.objects.filter(
+                council=council,
+                field__category="characteristic",
+                issue_type="missing",
             )
-        else:
-            char_fields = char_fields.filter(council_types__isnull=True)
-        char_fields = char_fields.distinct()
-
-        latest = {}
-        for fs in (
-            FigureSubmission.objects.filter(council=council, field__in=char_fields)
-            .select_related("field", "year")
-            .order_by("field_id", "-year__label")
-        ):
-            # ``setdefault`` keeps the first instance for each field which is
-            # the newest thanks to the ordering above.
-            latest.setdefault(fs.field_id, fs)
-
-        default_year = FinancialYear.objects.order_by("-label").first()
-        for field in char_fields.order_by("name"):
-            fs = latest.get(field.id)
-            if not fs:
-                fs = FigureSubmission(council=council, year=default_year, field=field, value="")
-            characteristic_figures.append(fs)
+            .select_related("field")
+            .order_by("field__name")
+        )
+        missing_characteristic_paginator = Paginator(missing_qs, 50)
+        missing_characteristic_page = missing_characteristic_paginator.get_page(1)
 
     context = {
         "council": council,
@@ -462,7 +451,8 @@ def council_detail(request, slug):
         "edit_years": edit_years,
         "edit_selected_year": edit_selected_year,
         "edit_figures": edit_figures,
-        "characteristic_figures": characteristic_figures,
+        "missing_characteristic_page": missing_characteristic_page,
+        "missing_characteristic_paginator": missing_characteristic_paginator,
         # Set of field slugs with pending contributions so the template
         # can show a "pending confirmation" notice in place of the form.
         "pending_slugs": set(
@@ -481,11 +471,8 @@ def council_detail(request, slug):
         ),
         "is_following": is_following,
     }
-    if tab == "edit":
-        from .models import CouncilType, CouncilNation
-
-        context["council_types"] = CouncilType.objects.all()
-        context["council_nations"] = CouncilNation.objects.all()
+    # No extra context is required when editing since characteristic drop-downs
+    # were replaced by the missing-characteristics table.
 
     return render(request, "council_finance/council_detail.html", context)
 
@@ -1641,29 +1628,32 @@ def submit_contribution(request):
         )
 
     profile = request.user.profile
-    # Submissions from tier 3+ skip moderation entirely. Otherwise check
-    # whether the user's confirmed profile and history meet the auto-approval
-    # thresholds configured via ``SiteSetting``.
-    status = "approved"
-    if profile.tier.level < 3:
-        min_ips = int(
-            SiteSetting.get(
-                "auto_approve_min_verified_ips",
-                settings.AUTO_APPROVE_MIN_VERIFIED_IPS,
+    # Council characteristics are always auto-approved so they appear
+    # immediately on the site.  Financial figures still respect the
+    # normal auto-approval thresholds based on trust tier and history.
+    if field.category == "characteristic":
+        status = "approved"
+    else:
+        status = "approved"
+        if profile.tier.level < 3:
+            min_ips = int(
+                SiteSetting.get(
+                    "auto_approve_min_verified_ips",
+                    settings.AUTO_APPROVE_MIN_VERIFIED_IPS,
+                )
             )
-        )
-        min_approved = int(
-            SiteSetting.get(
-                "auto_approve_min_approved",
-                settings.AUTO_APPROVE_MIN_APPROVED,
+            min_approved = int(
+                SiteSetting.get(
+                    "auto_approve_min_approved",
+                    settings.AUTO_APPROVE_MIN_APPROVED,
+                )
             )
-        )
-        if not (
-            profile.email_confirmed
-            and profile.verified_ip_count >= min_ips
-            and profile.approved_submission_count >= min_approved
-        ):
-            status = "pending"
+            if not (
+                profile.email_confirmed
+                and profile.verified_ip_count >= min_ips
+                and profile.approved_submission_count >= min_approved
+            ):
+                status = "pending"
 
     contrib = Contribution.objects.create(
         user=request.user,
@@ -1675,6 +1665,14 @@ def submit_contribution(request):
         ip_address=ip,
     )
     if status == "approved":
+        # Immediately apply the change so followers see the update straight away.
+        _apply_contribution(contrib, request.user)
+        from .models import CouncilUpdate
+
+        CouncilUpdate.objects.create(
+            council=council,
+            message=f"{request.user.username} updated {field.name}",
+        )
         msg = "Contribution accepted"
     else:
         msg = "Contribution queued for approval"
