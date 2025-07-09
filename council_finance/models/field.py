@@ -14,6 +14,10 @@ PROTECTED_SLUGS = {
     # Each council should always have a website address recorded, so this
     # field is protected to prevent accidental removal.
     "council_website",
+    # The location of the council's headquarters does not change each
+    # financial year and is required for context. Treat it as immutable
+    # so submissions span all years without duplication.
+    "council_location",
 }
 
 class DataField(models.Model):

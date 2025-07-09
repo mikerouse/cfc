@@ -9,6 +9,11 @@ from .models import (
     FigureSubmission,
     DataIssue,
 )
+# Import the list of protected slugs so we know which fields apply across
+# all years. These fields are not repeated for each financial period and
+# therefore should only generate a single DataIssue with ``year`` set to
+# ``None`` if missing.
+from .models.field import PROTECTED_SLUGS
 
 
 def assess_data_issues() -> int:
@@ -19,6 +24,10 @@ def assess_data_issues() -> int:
     yearless_fields = set(
         FigureSubmission.objects.filter(year__isnull=True).values_list("field_id", flat=True)
     )
+    # Protected fields like "population" or "council_location" are intended to
+    # exist once for a council regardless of financial year. Include their IDs
+    # in the ``yearless_fields`` set so we don't generate per-year issues.
+    yearless_fields.update(df.id for df in fields if df.slug in PROTECTED_SLUGS)
     existing = {
         (fs.council_id, fs.field_id, fs.year_id): fs
         for fs in FigureSubmission.objects.all()
