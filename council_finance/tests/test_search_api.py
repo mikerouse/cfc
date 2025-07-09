@@ -1,12 +1,12 @@
 from django.test import TestCase
 from django.urls import reverse
-from django.core.management import call_command
 import django
 django.setup()
 
 class SearchApiTests(TestCase):
     def setUp(self):
-        call_command('runagent', 'ImporterAgent', '--source', 'councils-migration.json')
+        from council_finance.models import Council
+        Council.objects.create(name='Worthing Borough Council', slug='worthing')
 
     def test_live_search_requires_two_chars(self):
         response = self.client.get(reverse('search_councils'), {'q': 'a'})

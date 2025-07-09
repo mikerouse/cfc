@@ -23,3 +23,22 @@ class GodModeAccessTests(TestCase):
         self.client.login(username="boss", password="secret")
         resp = self.client.get(reverse("god_mode"))
         self.assertEqual(resp.status_code, 200)
+
+    def test_reconcile_button_updates_population(self):
+        """POSTing the reconcile button should refresh cached populations."""
+        self.client.login(username="boss", password="secret")
+
+        from council_finance.models import Council, DataField, FinancialYear, FigureSubmission
+
+        field, _ = DataField.objects.get_or_create(
+            slug="population", defaults={"name": "Population", "content_type": "integer"}
+        )
+        year = FinancialYear.objects.create(label="2024/25")
+        council = Council.objects.create(name="City Council", slug="city")
+        FigureSubmission.objects.create(council=council, year=year, field=field, value="123")
+        council.latest_population = None
+        council.save(update_fields=["latest_population"])
+
+        self.client.post(reverse("god_mode"), {"reconcile_population": "1"})
+        council.refresh_from_db()
+        self.assertEqual(council.latest_population, 123)

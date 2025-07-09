@@ -57,37 +57,6 @@ class ProfileExtraForm(forms.ModelForm):
             "employer_council": forms.Select(attrs={"class": "border rounded p-1 w-full"}),
             "official_email": forms.EmailInput(attrs={"class": "border rounded p-1 w-full"}),
         }
-
-
-# Simple upload form used by the Django admin to accept a JSON file.
-# The file is expected to match the structure exported by the
-# WordPress plugin (see `councils-migration.json`).
-class CouncilImportForm(forms.Form):
-    # Django handles temporary storage of uploaded files automatically.
-    # We only need the file object which will be read directly in the view.
-    json_file = forms.FileField(
-        help_text="Upload a JSON export containing councils and figures."
-    )
-
-
-class CouncilImportMappingForm(forms.Form):
-    """Allow admins to map JSON fields to internal figure names."""
-
-    def __init__(self, *args, available_fields=None, **kwargs):
-        # ``available_fields`` is a list of field names present in the uploaded
-        # JSON file. We dynamically create a ChoiceField for each so the admin
-        # can specify how it maps to our internal field names.
-        super().__init__(*args, **kwargs)
-        if available_fields:
-            field_choices = [(f.slug, f.slug) for f in DataField.objects.all()]
-            for field in available_fields:
-                self.fields[field] = forms.ChoiceField(
-                    label=f"Map '{field}' to",
-                    choices=[("", "-- ignore --")] + field_choices,
-                    required=False,
-                )
-
-
 class CouncilListForm(forms.ModelForm):
     """Create a simple list of councils."""
 
