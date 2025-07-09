@@ -155,7 +155,8 @@ class ContributeQueueTests(TestCase):
         self.assertContains(resp, "http://q.com")
 
     def test_list_value_rendered(self):
-        resp = self.client.get(reverse("contribute"))        self.assertContains(resp, "County")
+        resp = self.client.get(reverse("contribute"))
+        self.assertContains(resp, "County")
 
 
 class SubmissionPointTests(TestCase):

@@ -1,15 +1,14 @@
 from django.contrib.auth import get_user_model
 from django.test import TestCase
 from django.urls import reverse
-from django.core.management import call_command
 import django
 django.setup()
 
-from council_finance.models import CouncilList
+from council_finance.models import CouncilList, Council
 
 class MyListsTests(TestCase):
     def setUp(self):
-        call_command('runagent', 'ImporterAgent', '--source', 'councils-migration.json')
+        Council.objects.create(name='Worthing Borough Council', slug='worthing')
         self.user = get_user_model().objects.create_user(
             username='eve', email='eve@example.com', password='secret')
         # add a favourite

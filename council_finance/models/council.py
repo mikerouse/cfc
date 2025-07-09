@@ -11,6 +11,13 @@ class Council(models.Model):
     name = models.CharField(max_length=200)
     slug = models.SlugField(unique=True)
     website = models.URLField(blank=True)
+    # Store the most recent population figure so views don't repeatedly
+    # search figure submissions. Null is used when no figure exists.
+    latest_population = models.IntegerField(
+        null=True,
+        blank=True,
+        help_text="Latest population figure across all years",
+    )
     # Link to a CouncilType so the admin form can offer a drop-down list and
     # staff can manage available types.
     council_type = models.ForeignKey(
@@ -22,6 +29,27 @@ class Council(models.Model):
 
     def __str__(self):
         return self.name
+
+    def update_latest_population(self):
+        """Set ``latest_population`` based on the newest submitted figure."""
+        pop_field = DataField.objects.filter(slug="population").first()
+        if not pop_field:
+            self.latest_population = None
+        else:
+            latest = (
+                self.figuresubmission_set.filter(field=pop_field)
+                .select_related("year")
+                .order_by("-year__label")
+                .first()
+            )
+            if latest:
+                try:
+                    self.latest_population = int(float(latest.value))
+                except (TypeError, ValueError):
+                    self.latest_population = None
+            else:
+                self.latest_population = None
+        self.save(update_fields=["latest_population"])
 
 class FinancialYear(models.Model):
     """Represents a financial year label (e.g. 2023/24)."""
