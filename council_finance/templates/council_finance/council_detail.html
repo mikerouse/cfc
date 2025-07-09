@@ -138,15 +138,24 @@
             Copy Link
           </button>
           <script>
-            document.getElementById('share-link').addEventListener('click', () => {
-              const baseUrl = window.location.origin + window.location.pathname;
+            document.getElementById('share-link').addEventListener('click', async () => {
+              const endpoint = new URL('{% url "generate_share_link" council.slug %}', window.location.origin);
               const year = document.getElementById('year-select').value;
               const selectedCounters = Array.from(document.querySelectorAll('#counters-grid [data-counter]'))
                 .filter(el => el.style.display !== 'none')
                 .map(el => el.dataset.counter);
-              const params = new URLSearchParams({ year, counters: selectedCounters.join(',') });
-              const shareUrl = `${baseUrl}?${params.toString()}`;
-              document.getElementById('share-url').value = shareUrl;
+              endpoint.searchParams.set('year', year);
+              endpoint.searchParams.set('counters', selectedCounters.join(','));
+              endpoint.searchParams.set('precision', precisionSelect.value || '');
+              endpoint.searchParams.set('thousands', thousandsCheck.checked);
+              endpoint.searchParams.set('friendly', friendlyCheck.checked);
+              try {
+                const resp = await fetch(endpoint, {headers: {'X-Requested-With': 'XMLHttpRequest'}});
+                const data = await resp.json();
+                document.getElementById('share-url').value = data.url || '';
+              } catch (e) {
+                document.getElementById('share-url').value = 'Error generating link';
+              }
             });
             document.getElementById('copy-share-link').addEventListener('click', () => {
               const shareUrl = document.getElementById('share-url');
@@ -185,6 +194,7 @@
     {% endfor %}
 </div>
 {{ default_counter_slugs|json_script:"default-slugs" }}
+{% if share_data %}{{ share_data|json_script:"share-data" }}{% endif %}
 <script src="{% static 'js/countUp.umd.js' %}"></script>
 <style>
   .counter-factoid{max-height:0;overflow:hidden;transition:max-height 0.5s ease;}
@@ -312,6 +322,32 @@ const friendlyCheck = document.getElementById('friendly-check');
 let overridePrecision = localStorage.getItem(`precision_${councilSlug}`);
 let overrideThousands = localStorage.getItem(`thousands_${councilSlug}`);
 let overrideFriendly = localStorage.getItem(`friendly_${councilSlug}`);
+
+const shareEl = document.getElementById('share-data');
+let sharePrefs = null;
+if (shareEl) {
+  try { sharePrefs = JSON.parse(shareEl.textContent); } catch (e) { sharePrefs = null; }
+}
+if (sharePrefs) {
+  if (sharePrefs.precision !== undefined && sharePrefs.precision !== null) {
+    overridePrecision = sharePrefs.precision;
+    localStorage.setItem(`precision_${councilSlug}`, sharePrefs.precision);
+  }
+  if (sharePrefs.thousands !== undefined) {
+    overrideThousands = sharePrefs.thousands ? 'true' : 'false';
+    localStorage.setItem(`thousands_${councilSlug}`, overrideThousands);
+  }
+  if (sharePrefs.friendly !== undefined) {
+    overrideFriendly = sharePrefs.friendly ? 'true' : 'false';
+    localStorage.setItem(`friendly_${councilSlug}`, overrideFriendly);
+  }
+  if (Array.isArray(sharePrefs.counters)) {
+    localStorage.setItem(`counters_${councilSlug}`, JSON.stringify(sharePrefs.counters));
+  }
+  if (sharePrefs.year) {
+    document.getElementById('year-select').value = sharePrefs.year;
+  }
+}
 
 if (overridePrecision !== null) precisionSelect.value = overridePrecision;
 if (overrideThousands !== null) thousandsCheck.checked = overrideThousands === 'true';
