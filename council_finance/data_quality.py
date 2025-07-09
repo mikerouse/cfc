@@ -23,7 +23,11 @@ def assess_data_issues() -> int:
     """Rebuild the :class:`DataIssue` table by scanning current figures."""
     DataIssue.objects.all().delete()
     years = list(FinancialYear.objects.all())
-    fields = list(DataField.objects.all())
+    # ``council_name`` is stored directly on the :class:`Council` model and
+    # therefore should never appear as a missing DataIssue.  Exclude it from the
+    # scan entirely so users don't see a false positive in the contribution
+    # queue.
+    fields = [f for f in DataField.objects.all() if f.slug != "council_name"]
     yearless_fields = set(
         FigureSubmission.objects.filter(year__isnull=True).values_list("field_id", flat=True)
     )

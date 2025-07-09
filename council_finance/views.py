@@ -680,9 +680,15 @@ def data_issues_table(request):
     paginator = Paginator(qs, 50)
     page = paginator.get_page(request.GET.get("page"))
 
+    show_year = not (issue_type == "missing" and category == "characteristic")
     html = render_to_string(
         "council_finance/data_issues_table.html",
-        {"page_obj": page, "paginator": paginator, "issue_type": issue_type},
+        {
+            "page_obj": page,
+            "paginator": paginator,
+            "issue_type": issue_type,
+            "show_year": show_year,
+        },
         request=request,
     )
     return JsonResponse({"html": html})

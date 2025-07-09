@@ -50,3 +50,15 @@ class YearlessCharacteristicTests(TestCase):
         issues = DataIssue.objects.filter(council=council, field=field)
         self.assertEqual(issues.count(), 1)
         self.assertIsNone(issues.first().year_id)
+
+
+class CouncilNameExclusionTests(TestCase):
+    """Ensure the data quality check skips the ``council_name`` field."""
+
+    def test_no_issue_for_council_name(self):
+        Council.objects.create(name="Skip", slug="skip")
+        DataField.objects.get_or_create(name="Council Name", slug="council_name")
+
+        call_command("assess_data_issues")
+
+        self.assertFalse(DataIssue.objects.filter(field__slug="council_name").exists())

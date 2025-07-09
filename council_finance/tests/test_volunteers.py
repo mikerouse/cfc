@@ -164,6 +164,18 @@ class ContributeQueueTests(TestCase):
         self.assertContains(resp, "Missing Characteristics")
         self.assertContains(resp, "HQ")
 
+    def test_characteristics_table_has_no_year_column(self):
+        """The characteristics table should omit the year heading entirely."""
+        from council_finance.models import DataIssue
+
+        char_field = DataField.objects.create(name="HQ", slug="council_location", category="characteristic")
+        DataIssue.objects.create(council=self.council, field=char_field, issue_type="missing")
+
+        url = reverse("data_issues_table") + "?type=missing&category=characteristic"
+        resp = self.client.get(url, HTTP_X_REQUESTED_WITH="XMLHttpRequest")
+        html = resp.json()["html"]
+        self.assertNotIn("data-sort=\"year\"", html)
+
 
 class SubmissionPointTests(TestCase):
     def setUp(self):
