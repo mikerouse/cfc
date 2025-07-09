@@ -1900,6 +1900,13 @@ def god_mode(request):
         return response
 
     if request.method == "POST":
+        if "reconcile_population" in request.POST:
+            from .population import reconcile_populations
+
+            updated = reconcile_populations()
+            messages.success(request, f"Reconciled {updated} population figures")
+            logger.info("Population reconciliation triggered by %s", request.user.username)
+            return redirect("god_mode")
         if "delete" in request.POST:
             ids = request.POST.getlist("ids")
             RejectionLog.objects.filter(id__in=ids).delete()

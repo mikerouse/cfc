@@ -6,6 +6,10 @@
   <form method="get">
     <button name="export" value="csv" class="bg-blue-600 text-white px-4 py-1 rounded">Export CSV</button>
   </form>
+  <form method="post">
+    {% csrf_token %}
+    <button name="reconcile_population" value="1" class="bg-green-600 text-white px-4 py-1 rounded">Check &amp; Reconcile All Population Figures</button>
+  </form>
 </div>
 <form method="post">
   {% csrf_token %}

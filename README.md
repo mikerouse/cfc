@@ -40,6 +40,8 @@ You can then access the admin at `http://localhost:8000/admin/` using the creden
 
 Create councils, fields and financial years directly in the Django admin. Figures can be entered manually or populated with custom scripts using the standard models.
 When you add or edit a population figure for a council, the latest value is cached on the council record so views can display it quickly.
+Superusers can also manually refresh all cached population figures from the **God Mode** page using the
+"Check & Reconcile All Population Figures" button.
 
 ## Animated Counters
 
