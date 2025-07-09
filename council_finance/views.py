@@ -1,4 +1,5 @@
 from django.shortcuts import render, get_object_or_404, redirect
+import logging
 from django.http import (
     JsonResponse,
     HttpResponseBadRequest,
@@ -41,6 +42,9 @@ from django.conf import settings
 
 # Minimum trust tier level required to access management views.
 MANAGEMENT_TIER = 4
+
+# Logger used throughout this module for operational messages.
+logger = logging.getLogger(__name__)
 
 from .models import DataField
 from .factoids import get_factoids, previous_year_label
@@ -1666,14 +1670,23 @@ def submit_contribution(request):
     )
     if status == "approved":
         # Immediately apply the change so followers see the update straight away.
-        _apply_contribution(contrib, request.user)
-        from .models import CouncilUpdate
-
-        CouncilUpdate.objects.create(
-            council=council,
-            message=f"{request.user.username} updated {field.name}",
-        )
-        msg = "Contribution accepted"
+        try:
+            _apply_contribution(contrib, request.user)
+        except Exception as exc:  # Defensive: avoid 500s during auto-apply
+            logger.exception("Failed to apply contribution %s", contrib.id)
+            status = "pending"
+            contrib.status = "pending"
+            contrib.save(update_fields=["status"])
+        else:
+            from .models import CouncilUpdate
+            try:
+                CouncilUpdate.objects.create(
+                    council=council,
+                    message=f"{request.user.username} updated {field.name}",
+                )
+            except Exception:
+                logger.exception("Failed to create CouncilUpdate")
+        msg = "Contribution accepted" if status == "approved" else "Contribution queued for approval"
     else:
         msg = "Contribution queued for approval"
 
