@@ -155,7 +155,8 @@ class ContributeQueueTests(TestCase):
         self.assertContains(resp, "http://q.com")
 
     def test_list_value_rendered(self):
-        resp = self.client.get(reverse("contribute"))        self.assertContains(resp, "County")
+        resp = self.client.get(reverse("contribute"))
+        self.assertContains(resp, "County")
 
 
 class SubmissionPointTests(TestCase):
@@ -192,5 +193,4 @@ class SubmissionPointTests(TestCase):
         # Move both contributions outside the 3 week window
         Contribution.objects.all().update(created=timezone.now() - timedelta(days=22))
         self.submit()
-        self.user.profile.refresh_from_db()
-        self.assertEqual(self.user.profile.points, 2)
+        self.user.profile.refresh_from_db()        self.assertEqual(self.user.profile.points, 2)
