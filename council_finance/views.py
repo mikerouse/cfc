@@ -16,7 +16,9 @@ from django.utils.crypto import get_random_string
 from django.core.paginator import Paginator
 from django.template.loader import render_to_string
 from django.urls import reverse
+from django.core import signing
 from django.views.decorators.http import require_GET
+
 import csv
 import hashlib
 
@@ -312,6 +314,14 @@ def council_detail(request, slug):
     tab = request.GET.get("tab") or "view"
     focus = request.GET.get("focus", "")
 
+    share_token = request.GET.get("share")
+    share_data = None
+    if share_token:
+        try:
+            share_data = signing.loads(share_token)
+        except signing.BadSignature:
+            share_data = None
+
     # Pull all financial figures for this council so the template can
     # present them in an engaging way.
     # Only include figures relevant to this council's type. When a DataField
@@ -337,6 +347,11 @@ def council_detail(request, slug):
     selected_year = next(
         (y for y in years if y.label == default_label), years[0] if years else None
     )
+    if share_data and share_data.get("year"):
+        for y in years:
+            if y.label == share_data["year"]:
+                selected_year = y
+                break
     # Annotate display labels so the template can show the current year as
     # "Current Year to Date" without storing a separate field in the DB.
     current_label = current_financial_year_label()
@@ -504,6 +519,7 @@ def council_detail(request, slug):
             ).values_list("field__slug", "year_id")
         ),
         "is_following": is_following,
+        "share_data": share_data,
     }
     # No extra context is required when editing since characteristic drop-downs
     # were replaced by the missing-characteristics table.
@@ -990,8 +1006,8 @@ def counter_definition_form(request, slug=None):
     )
 
 
+
 # AJAX endpoint for previewing counter value for a council and formula
-from django.views.decorators.http import require_GET
 
 
 @login_required
@@ -1593,6 +1609,22 @@ def comment_update(request, update_id):
         return JsonResponse({"error": "empty"}, status=400)
     CouncilUpdateComment.objects.create(update=update, user=request.user, text=text)
     return JsonResponse({"status": "ok"})
+
+
+@require_GET
+def generate_share_link(request, slug):
+    """Return a signed URL capturing counter and display settings."""
+    council = get_object_or_404(Council, slug=slug)
+    data = {
+        "year": request.GET.get("year"),
+        "counters": request.GET.get("counters", "").split(",") if request.GET.get("counters") else [],
+        "precision": request.GET.get("precision"),
+        "thousands": request.GET.get("thousands") == "true",
+        "friendly": request.GET.get("friendly") == "true",
+    }
+    token = signing.dumps(data)
+    base = request.build_absolute_uri(reverse("council_detail", args=[council.slug]))
+    return JsonResponse({"url": f"{base}?share={token}"})
 
 
 @login_required

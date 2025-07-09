@@ -48,6 +48,11 @@ urlpatterns = [
         name="council_counters",
     ),
     path(
+        "councils/<slug:slug>/share/",
+        views.generate_share_link,
+        name="generate_share_link",
+    ),
+    path(
         "councils/<slug:slug>/edit-table/",
         views.edit_figures_table,
         name="edit_figures_table",
