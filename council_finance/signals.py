@@ -1,10 +1,9 @@
 from django.conf import settings
 from django.contrib.auth import get_user_model
-from django.db.models.signals import post_save
-from django.db.models.signals import pre_save
+from django.db.models.signals import post_save, pre_save, post_delete
 from django.dispatch import receiver
 
-from .models import UserProfile, TrustTier
+from .models import UserProfile, TrustTier, FigureSubmission
 from django.utils.crypto import get_random_string
 from .notifications import create_notification
 
@@ -40,3 +39,11 @@ def notify_tier_change(sender, instance, **kwargs):
             instance.user,
             f"Your trust tier is now {instance.tier.name}",
         )
+
+
+@receiver([post_save, post_delete], sender=FigureSubmission)
+def refresh_population_cache(sender, instance, **kwargs):
+    """Update the council's cached population figure."""
+    if instance.field.slug != "population":
+        return
+    instance.council.update_latest_population()

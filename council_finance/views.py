@@ -320,6 +320,11 @@ def council_detail(request, slug):
         field = DataField.objects.filter(slug=slug).first()
         if not field:
             continue
+        if slug == "population":
+            if council.latest_population is not None:
+                display = field.display_value(str(council.latest_population))
+                meta_values.append({"field": field, "value": display})
+            continue
         fs = (
             FigureSubmission.objects.filter(council=council, field=field)
             .order_by("-year__label")
@@ -427,23 +432,17 @@ def my_lists(request):
     favourites = profile.favourites.all()
     form = CouncilListForm()
 
-    # Latest year used when pulling population figures for display
-    latest_year = FinancialYear.objects.order_by("-label").first()
-    # Map of council_id -> numeric population value so we can sum totals
-    pop_values = {}
+    # Cached population figures avoid expensive per-request lookups.
+    councils = Council.objects.all()
+    # Map of council_id -> numeric value for sorting and totals
+    pop_values = {c.id: float(c.latest_population or 0) for c in councils}
     # Map of council_id -> display string used in templates
-    pop_display = {}
-    if latest_year:
-        pop_field = DataField.objects.filter(slug="population").first()
-        for fs in FigureSubmission.objects.filter(field=pop_field, year=latest_year):
-            try:
-                val = float(fs.value)
-            except (TypeError, ValueError):
-                val = 0
-            pop_values[fs.council_id] = val
-            # When we have a meaningful value show it, otherwise instruct that
-            # the figure still needs to be populated.
-            pop_display[fs.council_id] = int(val) if val else "Needs populating"
+    pop_display = {
+        c.id: int(c.latest_population)
+        if c.latest_population is not None
+        else "Needs populating"
+        for c in councils
+    }
 
     # Pre-calculate population totals for each list so the template can
     # display a summary row without additional queries.
