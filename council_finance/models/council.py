@@ -4,6 +4,7 @@ from django.db import models
 # independently in the admin. We import lazily to avoid circular imports
 # when Django loads models during migrations.
 from .council_type import CouncilType
+from .council_nation import CouncilNation
 from .field import DataField
 
 class Council(models.Model):
@@ -22,6 +23,14 @@ class Council(models.Model):
     # staff can manage available types.
     council_type = models.ForeignKey(
         CouncilType,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+    )
+    # Associate each council with a UK nation. Null/blank allow existing data
+    # to omit the field until populated via the admin interface.
+    council_nation = models.ForeignKey(
+        CouncilNation,
         on_delete=models.SET_NULL,
         null=True,
         blank=True,

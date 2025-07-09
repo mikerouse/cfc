@@ -9,6 +9,7 @@ from django.contrib.contenttypes.models import ContentType
 # application can reliably reference them.
 CHARACTERISTIC_SLUGS = {
     "council_type",
+    "council_nation",
     "council_name",
     "population",
     "households",

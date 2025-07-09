@@ -33,6 +33,9 @@ class DataChangeLog(models.Model):
         elif self.field.slug == "council_type":
             self.council.council_type_id = self.old_value or None
             self.council.save()
+        elif self.field.slug == "council_nation":
+            self.council.council_nation_id = self.old_value or None
+            self.council.save()
         else:
             FigureSubmission.objects.update_or_create(
                 council=self.council,

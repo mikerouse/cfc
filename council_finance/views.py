@@ -428,9 +428,10 @@ def council_detail(request, slug):
         "is_following": is_following,
     }
     if tab == "edit":
-        from .models import CouncilType
+        from .models import CouncilType, CouncilNation
 
         context["council_types"] = CouncilType.objects.all()
+        context["council_nations"] = CouncilNation.objects.all()
 
     return render(request, "council_finance/council_detail.html", context)
 
@@ -1742,6 +1743,9 @@ def _apply_contribution(contribution, user):
         council.save()
     elif field.slug == "council_type":
         council.council_type_id = contribution.value or None
+        council.save()
+    elif field.slug == "council_nation":
+        council.council_nation_id = contribution.value or None
         council.save()
     else:
         FigureSubmission.objects.update_or_create(
