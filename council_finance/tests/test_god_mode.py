@@ -56,7 +56,7 @@ class GodModeAccessTests(TestCase):
             DataIssue,
         )
 
-        field = DataField.objects.create(name="Location", slug="council_location")
+        field = DataField.objects.create(name="Location", slug="council_hq_post_code")
         council = Council.objects.create(name="Aberdeen City Council", slug="aberdeen")
         year = FinancialYear.objects.create(label="2024/25")
 

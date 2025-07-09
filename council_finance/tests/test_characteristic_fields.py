@@ -27,7 +27,7 @@ class CharacteristicTabTests(TestCase):
         self.superuser = get_user_model().objects.create_superuser(
             username="admin", email="a@example.com", password="pw"
         )
-        DataField.objects.create(name="Headquarters", slug="council_location")
+        DataField.objects.create(name="Headquarters", slug="council_hq_post_code")
 
     def test_tab_visible_in_manager(self):
         self.client.login(username="admin", password="pw")
@@ -42,7 +42,7 @@ class YearlessCharacteristicTests(TestCase):
         year1 = FinancialYear.objects.create(label="2023/24")
         year2 = FinancialYear.objects.create(label="2024/25")
         council = Council.objects.create(name="Solo", slug="solo")
-        field = DataField.objects.create(name="HQ", slug="council_location")
+        field = DataField.objects.create(name="HQ", slug="council_hq_post_code")
 
         # Trigger data quality assessment without any submissions present.
         call_command("assess_data_issues")
