@@ -4,7 +4,12 @@
         <tr>
             <th class="px-2 py-1 text-left sortable" data-sort="council">Council</th>
             <th class="px-2 py-1 text-left sortable" data-sort="field">Field</th>
+            {% if issue_type == 'missing' and not show_year %}
+            <th class="px-2 py-1 text-left">Action</th>
+            {% endif %}
+            {% if show_year %}
             <th class="px-2 py-1 text-left sortable" data-sort="year">Year</th>
+            {% endif %}
             {% if issue_type == 'suspicious' %}
             <th class="px-2 py-1 text-left sortable" data-sort="value">Value</th>
             {% endif %}
@@ -15,13 +20,23 @@
         <tr class="border-b">
             <td class="px-2 py-1"><a href="{% url 'council_detail' d.council.slug %}?tab=edit&year={{ d.year }}" class="underline">{{ d.council.name }}</a></td>
             <td class="px-2 py-1">{{ d.field.name }}</td>
+            {% if issue_type == 'missing' and not show_year %}
+            <td class="px-2 py-1">
+                <button type="button" class="add-value-btn bg-blue-600 text-white px-2 py-1 rounded"
+                        data-council="{{ d.council.slug }}" data-field="{{ d.field.slug }}" data-url="{% url 'submit_contribution' %}">
+                    Add
+                </button>
+            </td>
+            {% endif %}
+            {% if show_year %}
             <td class="px-2 py-1">{{ d.year }}</td>
+            {% endif %}
             {% if issue_type == 'suspicious' %}
             <td class="px-2 py-1">{{ d.value }}</td>
             {% endif %}
         </tr>
     {% empty %}
-        <tr><td class="px-2 py-1 text-center" colspan="{% if issue_type == 'suspicious' %}4{% else %}3{% endif %}">No data issues.</td></tr>
+        <tr><td class="px-2 py-1 text-center" colspan="{% if issue_type == 'suspicious' %}{% if show_year %}4{% else %}3{% endif %}{% elif issue_type == 'missing' and not show_year %}3{% else %}{% if show_year %}3{% else %}2{% endif %}{% endif %}">No data issues.</td></tr>
     {% endfor %}
     </tbody>
 </table>

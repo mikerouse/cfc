@@ -3,10 +3,15 @@
 // user can work through large issue lists without reloading
 // the entire page each time.
 
-function setupIssueTable(type) {
-    const searchInput = document.getElementById(`${type}-search`);
-    const container = document.getElementById(`${type}-data-container`);
+function setupIssueTable(containerId) {
+    const container = document.getElementById(`${containerId}-data-container`);
+    const searchInput = document.getElementById(`${containerId}-search`);
+    const sizeInput = document.getElementById(`${containerId}-size`);
     if (!container) return;
+    // Each container stores the ``type`` (missing or suspicious) and optional
+    // ``category`` so the AJAX endpoint can filter appropriately.
+    const type = container.dataset.type;
+    const category = container.dataset.category;
 
     let timer;
 
@@ -14,8 +19,10 @@ function setupIssueTable(type) {
         const order = params.order || container.dataset.order || 'council';
         const dir = params.dir || container.dataset.dir || 'asc';
         const page = params.page || container.dataset.page || 1;
+        const pageSize = params.pageSize || container.dataset.pageSize || (sizeInput ? sizeInput.value : 50);
         const q = searchInput.value.trim();
-        let url = `/contribute/issues/?type=${type}&page=${page}&order=${order}&dir=${dir}`;
+        let url = `/contribute/issues/?type=${type}&page=${page}&order=${order}&dir=${dir}&page_size=${pageSize}`;
+        if (category) url += `&category=${category}`;
         if (q) url += `&q=${encodeURIComponent(q)}`;
         const resp = await fetch(url, {headers: {'X-Requested-With': 'XMLHttpRequest'}});
         const data = await resp.json();
@@ -23,7 +30,9 @@ function setupIssueTable(type) {
         container.dataset.order = order;
         container.dataset.dir = dir;
         container.dataset.page = page;
+        container.dataset.pageSize = pageSize;
         attachHandlers();
+        document.dispatchEvent(new Event('issueTableUpdated'));
     }
 
     function attachHandlers() {
@@ -47,9 +56,15 @@ function setupIssueTable(type) {
         timer = setTimeout(() => load({page: 1}), 300);
     });
 
+    if (sizeInput) {
+        sizeInput.addEventListener('change', () => {
+            load({page: 1, pageSize: sizeInput.value});
+        });
+    }
+
     attachHandlers();
 }
 
 document.addEventListener('DOMContentLoaded', () => {
-    ['missing', 'suspicious'].forEach(setupIssueTable);
+    ['missing-financial', 'missing-characteristic', 'suspicious'].forEach(setupIssueTable);
 });

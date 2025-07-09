@@ -9,15 +9,33 @@ from .models import (
     FigureSubmission,
     DataIssue,
 )
+# Import the list of protected slugs so we know which fields apply across
+# all years. These fields are not repeated for each financial period and
+# therefore should only generate a single DataIssue with ``year`` set to
+# ``None`` if missing.
+# ``CHARACTERISTIC_SLUGS`` represents council attributes that exist once per
+# authority rather than repeating for every financial year.  We use this set to
+# ensure missing data checks don't create duplicate issues for each year.
+from .models.field import CHARACTERISTIC_SLUGS
 
 
 def assess_data_issues() -> int:
     """Rebuild the :class:`DataIssue` table by scanning current figures."""
     DataIssue.objects.all().delete()
     years = list(FinancialYear.objects.all())
-    fields = list(DataField.objects.all())
+    # ``council_name`` is stored directly on the :class:`Council` model and
+    # therefore should never appear as a missing DataIssue.  Exclude it from the
+    # scan entirely so users don't see a false positive in the contribution
+    # queue.
+    fields = [f for f in DataField.objects.all() if f.slug != "council_name"]
     yearless_fields = set(
         FigureSubmission.objects.filter(year__isnull=True).values_list("field_id", flat=True)
+    )
+    # Council characteristics like "population" or "council_location" only
+    # appear once per authority. Include their IDs in ``yearless_fields`` so we
+    # don't raise a missing-data issue for every financial period.
+    yearless_fields.update(
+        df.id for df in fields if df.slug in CHARACTERISTIC_SLUGS or df.category == "characteristic"
     )
     existing = {
         (fs.council_id, fs.field_id, fs.year_id): fs

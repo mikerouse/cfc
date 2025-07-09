@@ -42,3 +42,31 @@ class GodModeAccessTests(TestCase):
         self.client.post(reverse("god_mode"), {"reconcile_population": "1"})
         council.refresh_from_db()
         self.assertEqual(council.latest_population, 123)
+
+    def test_assess_button_clears_characteristic_duplicates(self):
+        """Running the assess button should remove year-specific issues for
+        characteristic fields."""
+
+        self.client.login(username="boss", password="secret")
+
+        from council_finance.models import (
+            Council,
+            DataField,
+            FinancialYear,
+            DataIssue,
+        )
+
+        field = DataField.objects.create(name="Location", slug="council_location")
+        council = Council.objects.create(name="Aberdeen City Council", slug="aberdeen")
+        year = FinancialYear.objects.create(label="2024/25")
+
+        # Simulate stale issues that include a year-specific entry
+        DataIssue.objects.create(council=council, field=field, year=year, issue_type="missing")
+        DataIssue.objects.create(council=council, field=field, issue_type="missing")
+
+        # Trigger the button which internally calls ``assess_data_issues``
+        self.client.post(reverse("god_mode"), {"assess_issues": "1"})
+
+        issues = DataIssue.objects.filter(council=council, field=field)
+        self.assertEqual(issues.count(), 1)
+        self.assertIsNone(issues.first().year_id)

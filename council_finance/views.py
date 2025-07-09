@@ -603,8 +603,14 @@ def contribute(request):
     # Load the first page of each issue type. The remaining pages can be
     # requested via AJAX so initial load time stays reasonable even when the
     # dataset contains thousands of records.
-    missing_qs = (
+    missing_financial_qs = (
         DataIssue.objects.filter(issue_type="missing")
+        .exclude(field__category="characteristic")
+        .select_related("council", "field", "year")
+        .order_by("council__name")
+    )
+    missing_characteristic_qs = (
+        DataIssue.objects.filter(issue_type="missing", field__category="characteristic")
         .select_related("council", "field", "year")
         .order_by("council__name")
     )
@@ -614,9 +620,11 @@ def contribute(request):
         .order_by("council__name")
     )
 
-    missing_paginator = Paginator(missing_qs, 50)
+    missing_financial_paginator = Paginator(missing_financial_qs, 50)
+    missing_characteristic_paginator = Paginator(missing_characteristic_qs, 50)
     suspicious_paginator = Paginator(suspicious_qs, 50)
-    missing_page = missing_paginator.get_page(1)
+    missing_financial_page = missing_financial_paginator.get_page(1)
+    missing_characteristic_page = missing_characteristic_paginator.get_page(1)
     suspicious_page = suspicious_paginator.get_page(1)
     my_contribs = (
         Contribution.objects.filter(user=request.user).select_related(
@@ -629,8 +637,10 @@ def contribute(request):
         request,
         "council_finance/contribute.html",
         {
-            "missing_page": missing_page,
-            "missing_paginator": missing_paginator,
+            "missing_financial_page": missing_financial_page,
+            "missing_financial_paginator": missing_financial_paginator,
+            "missing_characteristic_page": missing_characteristic_page,
+            "missing_characteristic_paginator": missing_characteristic_paginator,
             "suspicious_page": suspicious_page,
             "suspicious_paginator": suspicious_paginator,
             "my_contribs": my_contribs,
@@ -650,6 +660,7 @@ def data_issues_table(request):
         return HttpResponseBadRequest("invalid type")
 
     search = request.GET.get("q", "").strip()
+    category = request.GET.get("category")
     order = request.GET.get("order", "council")
     direction = request.GET.get("dir", "asc")
     allowed = {"council": "council__name", "field": "field__name", "year": "year__label", "value": "value"}
@@ -658,16 +669,27 @@ def data_issues_table(request):
         order_by = f"-{order_by}"
 
     qs = DataIssue.objects.filter(issue_type=issue_type).select_related("council", "field", "year")
+    if category == "characteristic":
+        qs = qs.filter(field__category="characteristic")
+    elif category == "financial":
+        qs = qs.exclude(field__category="characteristic")
     if search:
         qs = qs.filter(Q(council__name__icontains=search) | Q(field__name__icontains=search))
     qs = qs.order_by(order_by)
 
-    paginator = Paginator(qs, 50)
+    page_size = int(request.GET.get("page_size", 50))
+    paginator = Paginator(qs, page_size)
     page = paginator.get_page(request.GET.get("page"))
 
+    show_year = not (issue_type == "missing" and category == "characteristic")
     html = render_to_string(
         "council_finance/data_issues_table.html",
-        {"page_obj": page, "paginator": paginator, "issue_type": issue_type},
+        {
+            "page_obj": page,
+            "paginator": paginator,
+            "issue_type": issue_type,
+            "show_year": show_year,
+        },
         request=request,
     )
     return JsonResponse({"html": html})
@@ -1540,6 +1562,10 @@ def submit_contribution(request):
     # message.
     try:
         field = DataField.objects.get(slug=field_slug)
+        # Characteristic values are not tied to a particular financial year so
+        # ignore any ``year`` parameter provided in the request.
+        if field.category == "characteristic":
+            year = None
     except DataField.DoesNotExist:
         from .models import RejectionLog
 
@@ -1613,12 +1639,15 @@ def submit_contribution(request):
         created__gte=window,
     ).exclude(pk=contrib.pk)
     if not recent.exists():
-        profile.points += 1
+        # Award extra points for characteristic data because it improves the
+        # overall quality of the site for all future years.
+        award = 2 if field.category == "characteristic" else 1
+        profile.points += award
         profile.save()
         link = reverse("council_detail", args=[council.slug])
         create_notification(
             request.user,
-            f"Thanks for submitting a figure for <a href='{link}'>{council.name}</a>. You earned 1 point.",
+            f"Thanks for submitting a figure for <a href='{link}'>{council.name}</a>. You earned {award} point{'s' if award != 1 else ''}.",
         )
 
     # Create an in-app notification so the user can see a record of their
@@ -1650,8 +1679,8 @@ def review_contribution(request, pk, action):
         _apply_contribution(contrib, request.user)
         contrib.status = "approved"
         contrib.save()
-        # Always award two points when a contribution is approved.
-        points = 2
+        # Reward characteristic data a bit more to encourage its collection.
+        points = 3 if contrib.field.category == "characteristic" else 2
         profile = contrib.user.profile
         profile.points += points
         profile.save()
@@ -2039,7 +2068,7 @@ def council_counters(request, slug):
 
 @login_required
 def field_list(request):
-    """List all data fields for management."""
+    """List all data fields and council characteristics for management."""
     if not request.user.is_superuser and request.user.profile.tier.level < MANAGEMENT_TIER:
         raise Http404()
     # Split fields by category so the template can render a tab for each
