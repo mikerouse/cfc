@@ -16,9 +16,9 @@ CHARACTERISTIC_SLUGS = {
     # Each council should always have a website address recorded so the
     # site can link directly to their homepage.
     "council_website",
-    # Location of the council headquarters doesn't change per year and is
-    # needed to provide context for visitors.
-    "council_location",
+    # Post code for the council headquarters. Previously the slug was
+    # ``council_location`` but has been renamed for clarity.
+    "council_hq_post_code",
     # The number of elected councillors is a structural fact about a council
     # rather than a yearly statistic so this slug must remain consistent.
     "elected_members",

@@ -157,7 +157,7 @@ class ContributeQueueTests(TestCase):
     def test_characteristics_separate_table(self):
         from council_finance.models import DataIssue
 
-        char_field = DataField.objects.create(name="HQ", slug="council_location", category="characteristic")
+        char_field = DataField.objects.create(name="HQ", slug="council_hq_post_code", category="characteristic")
         DataIssue.objects.create(council=self.council, field=char_field, issue_type="missing")
 
         resp = self.client.get(reverse("contribute"))
@@ -168,7 +168,7 @@ class ContributeQueueTests(TestCase):
         """The characteristics table should omit the year heading entirely."""
         from council_finance.models import DataIssue
 
-        char_field = DataField.objects.create(name="HQ", slug="council_location", category="characteristic")
+        char_field = DataField.objects.create(name="HQ", slug="council_hq_post_code", category="characteristic")
         DataIssue.objects.create(council=self.council, field=char_field, issue_type="missing")
 
         url = reverse("data_issues_table") + "?type=missing&category=characteristic"
@@ -179,7 +179,7 @@ class ContributeQueueTests(TestCase):
     def test_characteristics_table_has_add_buttons(self):
         from council_finance.models import DataIssue
 
-        char_field = DataField.objects.create(name="HQ", slug="council_location", category="characteristic")
+        char_field = DataField.objects.create(name="HQ", slug="council_hq_post_code", category="characteristic")
         DataIssue.objects.create(council=self.council, field=char_field, issue_type="missing")
 
         url = reverse("data_issues_table") + "?type=missing&category=characteristic"
@@ -232,13 +232,13 @@ class CharacteristicPointsTests(TestCase):
             username="charpoints", email="c@example.com", password="pw"
         )
         self.council = Council.objects.create(name="Char", slug="char")
-        self.field = DataField.objects.create(name="HQ", slug="council_location", category="characteristic")
+        self.field = DataField.objects.create(name="HQ", slug="council_hq_post_code", category="characteristic")
         self.client.login(username="charpoints", password="pw")
 
     def test_extra_points_for_characteristics(self):
         self.client.post(
             reverse("submit_contribution"),
-            {"council": "char", "field": "council_location", "value": "Town Hall"},
+            {"council": "char", "field": "council_hq_post_code", "value": "Town Hall"},
             HTTP_X_REQUESTED_WITH="XMLHttpRequest",
         )
         self.user.profile.refresh_from_db()

@@ -31,7 +31,7 @@ def assess_data_issues() -> int:
     yearless_fields = set(
         FigureSubmission.objects.filter(year__isnull=True).values_list("field_id", flat=True)
     )
-    # Council characteristics like "population" or "council_location" only
+    # Council characteristics like "population" or "council_hq_post_code" only
     # appear once per authority. Include their IDs in ``yearless_fields`` so we
     # don't raise a missing-data issue for every financial period.
     yearless_fields.update(
