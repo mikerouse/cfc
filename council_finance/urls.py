@@ -79,6 +79,7 @@ urlpatterns = [
     path("contribute/", views.contribute, name="contribute"),
     path("contribute/issues/", views.data_issues_table, name="data_issues_table"),
     path("contribute/submit/", views.submit_contribution, name="submit_contribution"),
+    path("fields/<slug:slug>/options/", views.list_field_options, name="list_field_options"),
     path("contribute/<int:pk>/<str:action>/", views.review_contribution, name="review_contribution"),
     path("submit/", views.contribute),
     path("profile/", views.my_profile, name="my_profile"),
