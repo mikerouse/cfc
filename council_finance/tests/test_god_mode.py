@@ -70,3 +70,24 @@ class GodModeAccessTests(TestCase):
         issues = DataIssue.objects.filter(council=council, field=field)
         self.assertEqual(issues.count(), 1)
         self.assertIsNone(issues.first().year_id)
+
+    def test_assess_button_updates_field_names(self):
+        """Old issues tied to removed fields should be replaced with new ones."""
+
+        self.client.login(username="boss", password="secret")
+
+        from council_finance.models import Council, DataField, DataIssue
+
+        council = Council.objects.create(name="Legacy", slug="legacy")
+        old_field = DataField.objects.create(name="Old Nation", slug="old_field")
+        DataIssue.objects.create(council=council, field=old_field, issue_type="missing")
+
+        new_field = DataField.objects.create(name="HQ Post", slug="council_hq_post_code")
+
+        old_id = old_field.id
+        old_field.delete()
+        self.client.post(reverse("god_mode"), {"assess_issues": "1"})
+
+        issues = DataIssue.objects.filter(council=council)
+        self.assertTrue(issues.filter(field=new_field).exists())
+        self.assertFalse(issues.filter(field_id=old_id).exists())

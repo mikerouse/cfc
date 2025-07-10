@@ -208,7 +208,7 @@ class SubmissionPointTests(TestCase):
     def test_points_awarded_once_per_period(self):
         self.submit()
         self.user.profile.refresh_from_db()
-        self.assertEqual(self.user.profile.points, 2)
+        self.assertEqual(self.user.profile.points, 10)
 
         c = Contribution.objects.latest("id")
         from django.utils import timezone
@@ -218,13 +218,13 @@ class SubmissionPointTests(TestCase):
 
         self.submit()
         self.user.profile.refresh_from_db()
-        self.assertEqual(self.user.profile.points, 2)
+        self.assertEqual(self.user.profile.points, 10)
 
         # Move both contributions outside the 3 week window
         Contribution.objects.all().update(created=timezone.now() - timedelta(days=22))
         self.submit()
         self.user.profile.refresh_from_db()
-        self.assertEqual(self.user.profile.points, 4)
+        self.assertEqual(self.user.profile.points, 20)
 
 
 class CharacteristicPointsTests(TestCase):
@@ -243,7 +243,7 @@ class CharacteristicPointsTests(TestCase):
             HTTP_X_REQUESTED_WITH="XMLHttpRequest",
         )
         self.user.profile.refresh_from_db()
-        self.assertEqual(self.user.profile.points, 2)
+        self.assertEqual(self.user.profile.points, 10)
 
 class CouncilNationTests(TestCase):
     def setUp(self):

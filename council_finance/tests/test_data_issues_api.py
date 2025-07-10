@@ -54,3 +54,16 @@ class DataIssuesApiTests(TestCase):
         resp = self.client.get(url, HTTP_X_REQUESTED_WITH="XMLHttpRequest")
         html = resp.json()["html"]
         self.assertLess(html.index("Alpha"), html.index("Stuff0"))
+
+    def test_refresh_parameter_triggers_rebuild(self):
+        old_field = DataField.objects.create(name="Old", slug="old")
+        DataIssue.objects.create(council=self.council, field=old_field, issue_type="missing")
+        DataField.objects.create(name="New", slug="new")
+        old_id = old_field.id
+        old_field.delete()
+        url = reverse("data_issues_table") + "?type=missing&refresh=1"
+        self.client.get(url, HTTP_X_REQUESTED_WITH="XMLHttpRequest")
+        from council_finance.models import DataIssue as DI, DataField as DF
+        new_field = DF.objects.get(slug="new")
+        self.assertTrue(DI.objects.filter(field=new_field).exists())
+        self.assertFalse(DI.objects.filter(field_id=old_id).exists())

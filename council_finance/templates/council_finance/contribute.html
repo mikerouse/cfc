@@ -13,6 +13,7 @@
                 <option value="50" selected>50</option>
                 <option value="100">100</option>
             </select>
+            <button id="missing-characteristic-refresh" type="button" class="px-2 py-1 border rounded">Refresh</button>
         </div>
         <div id="missing-characteristic-data-container" data-type="missing" data-category="characteristic" data-page="1" data-order="council" data-page-size="50">
             {% include 'council_finance/data_issues_table.html' with page_obj=missing_characteristic_page paginator=missing_characteristic_paginator issue_type='missing' show_year=False %}
@@ -20,14 +21,20 @@
     </section>
     <section>
         <h2 class="text-xl font-semibold mb-2">Missing Financial Data</h2>
-        <input id="missing-financial-search" type="text" placeholder="Search..." class="border rounded px-2 py-1 mb-2" />
+        <div class="flex items-center gap-2 mb-2">
+            <input id="missing-financial-search" type="text" placeholder="Search..." class="border rounded px-2 py-1" />
+            <button id="missing-financial-refresh" type="button" class="px-2 py-1 border rounded">Refresh</button>
+        </div>
         <div id="missing-financial-data-container" data-type="missing" data-category="financial" data-page="1" data-order="council">
             {% include 'council_finance/data_issues_table.html' with page_obj=missing_financial_page paginator=missing_financial_paginator issue_type='missing' show_year=True %}
         </div>
     </section>
     <section>
         <h2 class="text-xl font-semibold mb-2">Suspicious Data</h2>
-        <input id="suspicious-search" type="text" placeholder="Search..." class="border rounded px-2 py-1 mb-2" />
+        <div class="flex items-center gap-2 mb-2">
+            <input id="suspicious-search" type="text" placeholder="Search..." class="border rounded px-2 py-1" />
+            <button id="suspicious-refresh" type="button" class="px-2 py-1 border rounded">Refresh</button>
+        </div>
         <div id="suspicious-data-container" data-type="suspicious" data-page="1" data-order="council">
             {% include 'council_finance/data_issues_table.html' with page_obj=suspicious_page paginator=suspicious_paginator issue_type='suspicious' show_year=True %}
         </div>
@@ -229,10 +236,16 @@ document.getElementById('add-value-form').addEventListener('submit', async e => 
   showMessage(out.message || 'Submitted');
   document.getElementById('add-value-modal').classList.add('hidden');
   if (window.currentAddBtn) {
-    // Update the table so the user sees immediate feedback.
+    const row = window.currentAddBtn.closest('tr');
+    const valCell = row.querySelector('.issue-value');
+    if (valCell) {
+      valCell.textContent = out.value || document.getElementById('add-value').value || document.getElementById('add-value-select').value;
+    }
     if (out.status === 'approved') {
+      row.classList.add('bg-green-100');
       window.currentAddBtn.parentElement.textContent = 'Added';
     } else {
+      row.classList.add('bg-red-100');
       window.currentAddBtn.parentElement.innerHTML = '<i class="fas fa-clock mr-1"></i>Pending confirmation';
     }
     window.currentAddBtn = null;

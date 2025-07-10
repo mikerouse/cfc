@@ -728,6 +728,10 @@ def following(request):
 def contribute(request):
     """Show contribution dashboard with various queues."""
     from .models import DataIssue
+    from .data_quality import assess_data_issues
+
+    # Ensure the DataIssue table reflects any recent field changes.
+    assess_data_issues()
     from django.core.paginator import Paginator
 
     # Load the first page of each issue type. The remaining pages can be
@@ -784,6 +788,7 @@ def data_issues_table(request):
         return HttpResponseBadRequest("XHR required")
 
     from .models import DataIssue
+    from .data_quality import assess_data_issues
 
     issue_type = request.GET.get("type")
     if issue_type not in {"missing", "suspicious"}:
@@ -798,6 +803,8 @@ def data_issues_table(request):
     if direction == "desc":
         order_by = f"-{order_by}"
 
+    if request.GET.get("refresh"):
+        assess_data_issues()
     qs = DataIssue.objects.filter(issue_type=issue_type).select_related("council", "field", "year")
     if category == "characteristic":
         qs = qs.filter(field__category="characteristic")
@@ -1912,7 +1919,7 @@ def submit_contribution(request):
     if not recent.exists():
         # Award extra points for characteristic data because it improves the
         # overall quality of the site for all future years.
-        award = 2 if field.category == "characteristic" else 1
+        award = 10 if field.category == "characteristic" else 1
         profile.points += award
         profile.save()
         link = reverse("council_detail", args=[council.slug])
@@ -1926,7 +1933,7 @@ def submit_contribution(request):
     create_notification(request.user, f"{msg} for {council.name}")
 
     if request.headers.get("X-Requested-With") == "XMLHttpRequest":
-        return JsonResponse({"status": status, "message": msg})
+        return JsonResponse({"status": status, "message": msg, "value": field.display_value(value)})
 
     messages.info(request, msg)
     return redirect("council_detail", council.slug)
@@ -2632,8 +2639,16 @@ def god_mode(request):
             return redirect("god_mode")
         if "assess_issues" in request.POST:
             from .data_quality import assess_data_issues
-
             total = assess_data_issues()
+            log_activity(
+                request,
+                activity="assess_issues",
+                log_type="user",
+                action="run",
+                response=str(total),
+            )
+            if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+                return JsonResponse({"count": total})
             messages.success(request, f"Identified {total} data issues")
             logger.info("Data issue assessment run by %s", request.user.username)
             return redirect("god_mode")
