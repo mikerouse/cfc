@@ -296,3 +296,23 @@ class CouncilNationTests(TestCase):
         self.assertFalse(
             DataIssue.objects.filter(council=self.council, field=self.field).exists()
         )
+
+    def test_issue_not_recreated_after_assessment(self):
+        """Running the data quality check shouldn't resurrect fixed issues."""
+        from django.core.management import call_command
+        from council_finance.models import DataIssue
+
+        DataIssue.objects.create(
+            council=self.council,
+            field=self.field,
+            issue_type="missing",
+        )
+        self.client.post(
+            reverse("submit_contribution"),
+            {"council": "nation", "field": "council_nation", "value": str(self.nation.id)},
+            HTTP_X_REQUESTED_WITH="XMLHttpRequest",
+        )
+        call_command("assess_data_issues")
+        self.assertFalse(
+            DataIssue.objects.filter(council=self.council, field=self.field).exists()
+        )
