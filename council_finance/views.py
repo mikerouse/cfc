@@ -2101,6 +2101,21 @@ def _apply_contribution(contribution, user, request=None):
         new_value=contribution.value,
         approved_by=user,
     )
+    # Clear any outstanding data issues now that the figure is populated.
+    from .models import DataIssue
+    DataIssue.objects.filter(
+        council=council,
+        field=field,
+        year=contribution.year,
+    ).delete()
+    if request:
+        log_activity(
+            request,
+            council=council,
+            activity="apply_contribution",
+            log_type="debug",
+            action="clear issues",
+        )
     if request:
         log_activity(
             request,

@@ -279,3 +279,20 @@ class CouncilNationTests(TestCase):
             logs.filter(action__icontains="nation").exists(),
             "Debug log for nation change missing",
         )
+
+    def test_issue_removed_on_apply(self):
+        from council_finance.models import DataIssue
+
+        DataIssue.objects.create(
+            council=self.council,
+            field=self.field,
+            issue_type="missing",
+        )
+        self.client.post(
+            reverse("submit_contribution"),
+            {"council": "nation", "field": "council_nation", "value": str(self.nation.id)},
+            HTTP_X_REQUESTED_WITH="XMLHttpRequest",
+        )
+        self.assertFalse(
+            DataIssue.objects.filter(council=self.council, field=self.field).exists()
+        )
