@@ -82,7 +82,7 @@ def log_activity(
     *,
     council=None,
     activity="",
-    button="",
+    log_type="user",
     action="",
     request_data=None,
     response="",
@@ -136,7 +136,7 @@ def log_activity(
         council=council,
         page=request.path,
         activity=activity,
-        button=button,
+        log_type=log_type,
         action=action,
         request=request_data,
         response=response,
@@ -728,6 +728,10 @@ def following(request):
 def contribute(request):
     """Show contribution dashboard with various queues."""
     from .models import DataIssue
+    from .data_quality import assess_data_issues
+
+    # Ensure the DataIssue table reflects any recent field changes.
+    assess_data_issues()
     from django.core.paginator import Paginator
 
     # Load the first page of each issue type. The remaining pages can be
@@ -784,6 +788,7 @@ def data_issues_table(request):
         return HttpResponseBadRequest("XHR required")
 
     from .models import DataIssue
+    from .data_quality import assess_data_issues
 
     issue_type = request.GET.get("type")
     if issue_type not in {"missing", "suspicious"}:
@@ -798,6 +803,8 @@ def data_issues_table(request):
     if direction == "desc":
         order_by = f"-{order_by}"
 
+    if request.GET.get("refresh"):
+        assess_data_issues()
     qs = DataIssue.objects.filter(issue_type=issue_type).select_related("council", "field", "year")
     if category == "characteristic":
         qs = qs.filter(field__category="characteristic")
@@ -968,7 +975,7 @@ def site_counter_form(request, slug=None):
         log_activity(
             request,
             activity="counter_site",
-            button="save",
+            log_type="user",
             action=slug or "new",
             response="saved",
         )
@@ -997,7 +1004,7 @@ def group_counter_form(request, slug=None):
         log_activity(
             request,
             activity="counter_group",
-            button="save",
+            log_type="user",
             action=slug or "new",
             response="saved",
         )
@@ -1044,7 +1051,7 @@ def counter_definition_form(request, slug=None):
         log_activity(
             request,
             activity="counter_definition",
-            button="save",
+            log_type="user",
             action=slug or "new",
             response="saved",
         )
@@ -1325,7 +1332,7 @@ def profile_view(request):
             log_activity(
                 request,
                 activity="profile_preference",
-                button="font",
+                log_type="user",
                 action=profile.preferred_font,
                 response="saved",
             )
@@ -1339,7 +1346,7 @@ def profile_view(request):
                 log_activity(
                     request,
                     activity="profile_tier",
-                    button="set",
+                    log_type="user",
                     action=str(tier.id),
                     response="saved",
                 )
@@ -1351,7 +1358,7 @@ def profile_view(request):
             log_activity(
                 request,
                 activity="profile_visibility",
-                button="set",
+                log_type="user",
                 action=profile.visibility,
                 response="saved",
             )
@@ -1381,7 +1388,7 @@ def profile_view(request):
             log_activity(
                 request,
                 activity="profile_change",
-                button="request",
+                log_type="user",
                 action="details",
                 response="email_sent",
             )
@@ -1393,7 +1400,7 @@ def profile_view(request):
                 log_activity(
                     request,
                     activity="profile_extra",
-                    button="save",
+                    log_type="user",
                     action="extra",
                     response="saved",
                 )
@@ -1573,7 +1580,7 @@ def add_favourite(request):
             request,
             council=council,
             activity="favourite",
-            button="add",
+            log_type="user",
             action=f"slug={slug}",
             response="ok",
         )
@@ -1625,7 +1632,7 @@ def remove_favourite(request):
             request,
             council=council,
             activity="favourite",
-            button="remove",
+            log_type="user",
             action=f"slug={slug}",
             response="ok",
         )
@@ -1648,7 +1655,7 @@ def add_to_list(request, list_id):
             request,
             council=council,
             activity="list_add",
-            button="add",
+            log_type="user",
             action=f"list={list_id}",
             response="ok",
         )
@@ -1671,7 +1678,7 @@ def remove_from_list(request, list_id):
             request,
             council=council,
             activity="list_remove",
-            button="remove",
+            log_type="user",
             action=f"list={list_id}",
             response="ok",
         )
@@ -1698,7 +1705,7 @@ def move_between_lists(request):
             request,
             council=council,
             activity="list_move",
-            button="move",
+            log_type="user",
             action=f"from={from_id}&to={to_id}",
             response="ok",
         )
@@ -1868,7 +1875,7 @@ def submit_contribution(request):
         request,
         council=council,
         activity="submit_contribution",
-        button="submit",
+        log_type="user",
         action=f"field={field.slug}&year={year.id if year else ''}",
         response=status,
         extra={"value": value},
@@ -1912,7 +1919,7 @@ def submit_contribution(request):
     if not recent.exists():
         # Award extra points for characteristic data because it improves the
         # overall quality of the site for all future years.
-        award = 2 if field.category == "characteristic" else 1
+        award = 10 if field.category == "characteristic" else 1
         profile.points += award
         profile.save()
         link = reverse("council_detail", args=[council.slug])
@@ -1926,7 +1933,7 @@ def submit_contribution(request):
     create_notification(request.user, f"{msg} for {council.name}")
 
     if request.headers.get("X-Requested-With") == "XMLHttpRequest":
-        return JsonResponse({"status": status, "message": msg})
+        return JsonResponse({"status": status, "message": msg, "value": field.display_value(value)})
 
     messages.info(request, msg)
     return redirect("council_detail", council.slug)
@@ -1954,7 +1961,7 @@ def review_contribution(request, pk, action):
             request,
             council=contrib.council,
             activity="review_contribution",
-            button="approve",
+            log_type="user",
             action=f"id={pk}",
             response="approved",
             extra={"value": contrib.value},
@@ -1983,7 +1990,7 @@ def review_contribution(request, pk, action):
             request,
             council=contrib.council,
             activity="review_contribution",
-            button="reject",
+            log_type="user",
             action=f"id={pk}",
             response="rejected",
             extra={"reason": reason, "value": contrib.value},
@@ -2019,7 +2026,7 @@ def review_contribution(request, pk, action):
             request,
             council=contrib.council,
             activity="review_contribution",
-            button="edit",
+            log_type="user",
             action=f"id={pk}",
             response="edited",
             extra={"value": contrib.value},
@@ -2033,17 +2040,57 @@ def _apply_contribution(contribution, user, request=None):
     field = contribution.field
     council = contribution.council
 
+    # Debug logging so the activity log shows each step of the process. This
+    # helps diagnose issues when a contribution does not appear to apply
+    # correctly from the UI.
+    if request:
+        log_activity(
+            request,
+            council=council,
+            activity="apply_contribution",
+            log_type="debug",
+            action=f"start field={field.slug}",
+            extra={"value": contribution.value},
+        )
+
     old_value = contribution.old_value
 
     if field.slug == "council_website":
         council.website = contribution.value
         council.save()
+        if request:
+            log_activity(
+                request,
+                council=council,
+                activity="apply_contribution",
+                log_type="debug",
+                action="set website",
+                extra={"new": contribution.value},
+            )
     elif field.slug == "council_type":
         council.council_type_id = contribution.value or None
         council.save()
+        if request:
+            log_activity(
+                request,
+                council=council,
+                activity="apply_contribution",
+                log_type="debug",
+                action="set type",
+                extra={"new": contribution.value},
+            )
     elif field.slug == "council_nation":
         council.council_nation_id = contribution.value or None
         council.save()
+        if request:
+            log_activity(
+                request,
+                council=council,
+                activity="apply_contribution",
+                log_type="debug",
+                action="set nation",
+                extra={"new": contribution.value},
+            )
     else:
         FigureSubmission.objects.update_or_create(
             council=council,
@@ -2061,6 +2108,30 @@ def _apply_contribution(contribution, user, request=None):
         new_value=contribution.value,
         approved_by=user,
     )
+    # Clear any outstanding data issues now that the figure is populated.
+    from .models import DataIssue
+    DataIssue.objects.filter(
+        council=council,
+        field=field,
+        year=contribution.year,
+    ).delete()
+    if request:
+        log_activity(
+            request,
+            council=council,
+            activity="apply_contribution",
+            log_type="debug",
+            action="clear issues",
+        )
+    if request:
+        log_activity(
+            request,
+            council=council,
+            activity="apply_contribution",
+            log_type="debug",
+            action="record change",
+            extra={"old": old_value, "new": contribution.value},
+        )
 
     # Update contributor stats once a change is successfully recorded. The
     # ``approved_submission_count`` tracks how many edits moderators have
@@ -2077,12 +2148,24 @@ def _apply_contribution(contribution, user, request=None):
             profile.verified_ip_count += 1
     profile.approved_submission_count += 1
     profile.save()
+    if request:
+        log_activity(
+            request,
+            council=council,
+            activity="apply_contribution",
+            log_type="debug",
+            action="update profile",
+            extra={
+                "verified": profile.verified_ip_count,
+                "approved": profile.approved_submission_count,
+            },
+        )
 
     log_activity(
         request,
         council=council,
         activity="apply_contribution",
-        button="auto" if user == contribution.user else "moderator",
+        log_type="user" if user == contribution.user else "moderator",
         action=f"field={field.slug}&year={contribution.year_id}",
         response="applied",
         extra={"old": old_value, "new": contribution.value},
@@ -2410,7 +2493,7 @@ def field_form(request, slug=None):
         log_activity(
             request,
             activity="field_form",
-            button="save",
+            log_type="user",
             action=slug or "new",
             response="saved",
         )
@@ -2444,7 +2527,7 @@ def factoid_form(request, slug=None):
         log_activity(
             request,
             activity="factoid_form",
-            button="save",
+            log_type="user",
             action=slug or "new",
             response="saved",
         )
@@ -2470,7 +2553,7 @@ def factoid_delete(request, slug):
     log_activity(
         request,
         activity="factoid_delete",
-        button="delete",
+        log_type="user",
         action=f"slug={slug}",
         response="deleted",
     )
@@ -2491,7 +2574,7 @@ def field_delete(request, slug):
         log_activity(
             request,
             activity="field_delete",
-            button="delete",
+            log_type="user",
             action=f"slug={slug}",
             response="deleted",
         )
@@ -2556,8 +2639,16 @@ def god_mode(request):
             return redirect("god_mode")
         if "assess_issues" in request.POST:
             from .data_quality import assess_data_issues
-
             total = assess_data_issues()
+            log_activity(
+                request,
+                activity="assess_issues",
+                log_type="user",
+                action="run",
+                response=str(total),
+            )
+            if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+                return JsonResponse({"count": total})
             messages.success(request, f"Identified {total} data issues")
             logger.info("Data issue assessment run by %s", request.user.username)
             return redirect("god_mode")
@@ -2610,7 +2701,7 @@ def activity_log_entries(request):
             "council": log.council.name if log.council else "",
             "page": log.page,
             "activity": log.activity,
-            "button": log.button,
+            "log_type": log.log_type,
             "action": log.action,
             "request": log.request,
             "response": log.response,

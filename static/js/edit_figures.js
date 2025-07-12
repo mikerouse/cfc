@@ -2,7 +2,18 @@
 // Handles year selection, AJAX form submission and helper attachment.
 
 function showMessage(text) {
-    let area = document.getElementById('message-area');
+    // Prefer the contribute page container if present so messages appear
+    // below the nav bar rather than at the very top of the page.
+    let area = document.getElementById('contrib-msg');
+    if (area) {
+        area.textContent = text;
+        area.classList.remove('hidden');
+        setTimeout(() => area.classList.add('hidden'), 5000);
+        return;
+    }
+
+    // Fallback to the generic message area used by the edit figures tab.
+    area = document.getElementById('message-area');
     if (!area) {
         area = document.createElement('div');
         area.id = 'message-area';

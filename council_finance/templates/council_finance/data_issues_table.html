@@ -5,6 +5,7 @@
             <th class="px-2 py-1 text-left sortable" data-sort="council">Council</th>
             <th class="px-2 py-1 text-left sortable" data-sort="field">Field</th>
             {% if issue_type == 'missing' and not show_year %}
+            <th class="px-2 py-1 text-left">Value</th>
             <th class="px-2 py-1 text-left">Action</th>
             {% endif %}
             {% if show_year %}
@@ -17,10 +18,11 @@
     </thead>
     <tbody>
     {% for d in page_obj %}
-        <tr class="border-b">
+        <tr class="border-b" data-issue="{{ d.id }}">
             <td class="px-2 py-1"><a href="{% url 'council_detail' d.council.slug %}?tab=edit&year={{ d.year }}" class="underline">{{ d.council.name }}</a></td>
-            <td class="px-2 py-1">{{ d.field.name }}</td>
+            <td class="px-2 py-1 issue-field">{{ d.field.name }}</td>
             {% if issue_type == 'missing' and not show_year %}
+            <td class="px-2 py-1 issue-value"></td>
             <td class="px-2 py-1">
                 <button type="button" class="add-value-btn bg-blue-600 text-white px-2 py-1 rounded"
                         data-council="{{ d.council.slug }}" data-field="{{ d.field.slug }}" data-url="{% url 'submit_contribution' %}"
@@ -37,7 +39,7 @@
             {% endif %}
         </tr>
     {% empty %}
-        <tr><td class="px-2 py-1 text-center" colspan="{% if issue_type == 'suspicious' %}{% if show_year %}4{% else %}3{% endif %}{% elif issue_type == 'missing' and not show_year %}3{% else %}{% if show_year %}3{% else %}2{% endif %}{% endif %}">No data issues.</td></tr>
+        <tr><td class="px-2 py-1 text-center" colspan="{% if issue_type == 'suspicious' %}{% if show_year %}4{% else %}3{% endif %}{% elif issue_type == 'missing' and not show_year %}4{% else %}{% if show_year %}3{% else %}2{% endif %}{% endif %}">No data issues.</td></tr>
     {% endfor %}
     </tbody>
 </table>

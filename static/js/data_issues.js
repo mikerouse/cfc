@@ -7,6 +7,7 @@ function setupIssueTable(containerId) {
     const container = document.getElementById(`${containerId}-data-container`);
     const searchInput = document.getElementById(`${containerId}-search`);
     const sizeInput = document.getElementById(`${containerId}-size`);
+    const refreshBtn = document.getElementById(`${containerId}-refresh`);
     if (!container) return;
     // Each container stores the ``type`` (missing or suspicious) and optional
     // ``category`` so the AJAX endpoint can filter appropriately.
@@ -24,6 +25,7 @@ function setupIssueTable(containerId) {
         let url = `/contribute/issues/?type=${type}&page=${page}&order=${order}&dir=${dir}&page_size=${pageSize}`;
         if (category) url += `&category=${category}`;
         if (q) url += `&q=${encodeURIComponent(q)}`;
+        if (params.refresh) url += '&refresh=1';
         const resp = await fetch(url, {headers: {'X-Requested-With': 'XMLHttpRequest'}});
         const data = await resp.json();
         container.innerHTML = data.html;
@@ -62,7 +64,13 @@ function setupIssueTable(containerId) {
         });
     }
 
+    if (refreshBtn) {
+        refreshBtn.addEventListener('click', () => load({page: 1, refresh: true}));
+    }
+
     attachHandlers();
+    // Initial refresh ensures field labels are up to date
+    load({refresh: true});
 }
 
 document.addEventListener('DOMContentLoaded', () => {

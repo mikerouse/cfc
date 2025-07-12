@@ -18,6 +18,15 @@ from .models import (
 # ensure missing data checks don't create duplicate issues for each year.
 from .models.field import CHARACTERISTIC_SLUGS
 
+# Map characteristic slugs that live directly on the ``Council`` model to a
+# lambda returning their value. This allows the assessment routine to check
+# those attributes without relying on a ``FigureSubmission`` entry.
+COUNCIL_ATTRS = {
+    "council_type": lambda c: c.council_type_id,
+    "council_nation": lambda c: c.council_nation_id,
+    "council_website": lambda c: c.website,
+}
+
 
 def assess_data_issues() -> int:
     """Rebuild the :class:`DataIssue` table by scanning current figures."""
@@ -54,6 +63,18 @@ def assess_data_issues() -> int:
                 else:
                     year_ids = [y.id for y in years]
                 for year_id in year_ids:
+                    attr_check = COUNCIL_ATTRS.get(field.slug)
+                    if attr_check and year_id is None:
+                        value = attr_check(council)
+                        if value in (None, ""):
+                            DataIssue.objects.create(
+                                council=council,
+                                field=field,
+                                issue_type="missing",
+                            )
+                            count += 1
+                        continue
+
                     fs = existing.get((council.id, field.id, year_id))
                     if not fs or fs.needs_populating or fs.value in (None, ""):
                         DataIssue.objects.create(

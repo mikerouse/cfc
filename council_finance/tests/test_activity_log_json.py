@@ -14,7 +14,7 @@ class ActivityLogJsonTests(TestCase):
             user=self.superuser,
             page="/test",
             activity="unit_test",
-            button="x",
+            log_type="user",
             action="do",
             request="POST",
             response="ok",

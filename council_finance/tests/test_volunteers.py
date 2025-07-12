@@ -46,8 +46,9 @@ class ContributionApprovalTests(TestCase):
             {"council": "test", "field": "council_website", "value": "http://a.com"},
             HTTP_X_REQUESTED_WITH="XMLHttpRequest",
         )
-        self.assertEqual(response.json()["status"], "pending")
-        self.assertEqual(Contribution.objects.first().status, "pending")
+        # Characteristic fields are auto-approved regardless of tier
+        self.assertEqual(response.json()["status"], "approved")
+        self.assertEqual(Contribution.objects.first().status, "approved")
 
     def test_high_tier_auto_approved(self):
         self.user.profile.tier = self.tier3
@@ -90,7 +91,7 @@ class ContributionApprovalTests(TestCase):
             {"council": "test", "field": "council_website", "value": "http://e.com"},
             HTTP_X_REQUESTED_WITH="XMLHttpRequest",
         )
-        self.assertEqual(resp.json()["status"], "pending")
+        self.assertEqual(resp.json()["status"], "approved")
 
     def test_standard_post_redirects(self):
         self.client.login(username="contrib", password="pass123")
@@ -100,8 +101,8 @@ class ContributionApprovalTests(TestCase):
             follow=True,
         )
         msgs = list(resp.context["messages"])
-        self.assertTrue(any("queued" in str(m) for m in msgs))
-        self.assertContains(resp, "Website pending confirmation")
+        self.assertTrue(any("accepted" in str(m) for m in msgs))
+        self.assertNotContains(resp, "pending confirmation")
 
 
 class EditTabTests(TestCase):
@@ -207,7 +208,7 @@ class SubmissionPointTests(TestCase):
     def test_points_awarded_once_per_period(self):
         self.submit()
         self.user.profile.refresh_from_db()
-        self.assertEqual(self.user.profile.points, 2)
+        self.assertEqual(self.user.profile.points, 10)
 
         c = Contribution.objects.latest("id")
         from django.utils import timezone
@@ -217,13 +218,13 @@ class SubmissionPointTests(TestCase):
 
         self.submit()
         self.user.profile.refresh_from_db()
-        self.assertEqual(self.user.profile.points, 2)
+        self.assertEqual(self.user.profile.points, 10)
 
         # Move both contributions outside the 3 week window
         Contribution.objects.all().update(created=timezone.now() - timedelta(days=22))
         self.submit()
         self.user.profile.refresh_from_db()
-        self.assertEqual(self.user.profile.points, 4)
+        self.assertEqual(self.user.profile.points, 20)
 
 
 class CharacteristicPointsTests(TestCase):
@@ -242,4 +243,76 @@ class CharacteristicPointsTests(TestCase):
             HTTP_X_REQUESTED_WITH="XMLHttpRequest",
         )
         self.user.profile.refresh_from_db()
-        self.assertEqual(self.user.profile.points, 2)
+        self.assertEqual(self.user.profile.points, 10)
+
+class CouncilNationTests(TestCase):
+    def setUp(self):
+        self.user = get_user_model().objects.create_user(
+            username="nation", email="n@example.com", password="pw"
+        )
+        self.council = Council.objects.create(name="NationTest", slug="nation")
+        from council_finance.models.council_nation import CouncilNation
+        self.nation, _ = CouncilNation.objects.get_or_create(name="Scotland")
+        self.field = DataField.objects.get(slug="council_nation")
+        self.client.login(username="nation", password="pw")
+
+    def test_council_nation_auto_applied(self):
+        resp = self.client.post(
+            reverse("submit_contribution"),
+            {"council": "nation", "field": "council_nation", "value": str(self.nation.id)},
+            HTTP_X_REQUESTED_WITH="XMLHttpRequest",
+        )
+        self.assertEqual(resp.json()["status"], "approved")
+        self.council.refresh_from_db()
+        self.assertEqual(self.council.council_nation, self.nation)
+
+    def test_debug_log_recorded(self):
+        self.client.post(
+            reverse("submit_contribution"),
+            {"council": "nation", "field": "council_nation", "value": str(self.nation.id)},
+            HTTP_X_REQUESTED_WITH="XMLHttpRequest",
+        )
+        from council_finance.models import ActivityLog
+
+        logs = ActivityLog.objects.filter(activity="apply_contribution", log_type="debug")
+        self.assertTrue(
+            logs.filter(action__icontains="nation").exists(),
+            "Debug log for nation change missing",
+        )
+
+    def test_issue_removed_on_apply(self):
+        from council_finance.models import DataIssue
+
+        DataIssue.objects.create(
+            council=self.council,
+            field=self.field,
+            issue_type="missing",
+        )
+        self.client.post(
+            reverse("submit_contribution"),
+            {"council": "nation", "field": "council_nation", "value": str(self.nation.id)},
+            HTTP_X_REQUESTED_WITH="XMLHttpRequest",
+        )
+        self.assertFalse(
+            DataIssue.objects.filter(council=self.council, field=self.field).exists()
+        )
+
+    def test_issue_not_recreated_after_assessment(self):
+        """Running the data quality check shouldn't resurrect fixed issues."""
+        from django.core.management import call_command
+        from council_finance.models import DataIssue
+
+        DataIssue.objects.create(
+            council=self.council,
+            field=self.field,
+            issue_type="missing",
+        )
+        self.client.post(
+            reverse("submit_contribution"),
+            {"council": "nation", "field": "council_nation", "value": str(self.nation.id)},
+            HTTP_X_REQUESTED_WITH="XMLHttpRequest",
+        )
+        call_command("assess_data_issues")
+        self.assertFalse(
+            DataIssue.objects.filter(council=self.council, field=self.field).exists()
+        )
