@@ -54,5 +54,10 @@ document.getElementById('delete-cancel').addEventListener('click', () => documen
 // Re-attach moderator controls after each table update
 attachRejectButtons();
 attachDeleteButtons();
+document.addEventListener('issueTableUpdated', () => {
+  document.querySelectorAll('.reject-btn').forEach(btn => {
+    btn.onclick = e => { e.preventDefault(); document.getElementById('reject-form').action = btn.dataset.url; document.getElementById('reject-modal').classList.remove('hidden');};
+  });
+});
 </script>
 {% endblock %}
