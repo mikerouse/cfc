@@ -15,9 +15,8 @@ function setupIssueTable(containerId) {
     const category = container.dataset.category;
 
     let timer;
-    // Store the last set of issue IDs so the periodic checker can report what
-    // changed after each refresh. This helps volunteers see when their
-    // contributions remove items from the queue.
+    // Track the issues shown on screen so polling can report any that were
+    // added or removed since the last refresh.
     let currentIds = new Set();
 
     async function load(params = {}) {
@@ -73,9 +72,21 @@ function setupIssueTable(containerId) {
         if (params.check && before) {
             const after = gatherInfo();
             const removed = Object.keys(before).filter(id => !after[id]);
+            const added = Object.keys(after).filter(id => !before[id]);
+
             if (removed.length) {
                 removed.forEach(id => {
+                    // When an issue disappears we tell the user so they know
+                    // their recent contribution removed it from the queue.
                     showMessage(`${before[id]} resolved: removing from queue`);
+                });
+            }
+
+            if (added.length) {
+                added.forEach(id => {
+                    // Inform volunteers when new issues appear so they know
+                    // their queue is updating in real time.
+                    showMessage(`New issue: ${after[id]}`);
                 });
             }
         }
@@ -91,6 +102,7 @@ function setupIssueTable(containerId) {
             const field = row.querySelector('.issue-field')?.textContent.trim();
             info[id] = `${field} for ${council}`;
         });
+        // Store the set so the next refresh can compare against it.
         currentIds = new Set(Object.keys(info));
         return info;
     }
