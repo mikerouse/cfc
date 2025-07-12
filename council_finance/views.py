@@ -726,58 +726,58 @@ def following(request):
 
 
 def contribute(request):
-    """Show contribution dashboard with various queues."""
-    from .models import DataIssue
+    """Show a single real-time table of data issues and contributions."""
+
+    from .models import DataIssue, UserProfile
     from .data_quality import assess_data_issues
 
-    # Ensure the DataIssue table reflects any recent field changes.
     assess_data_issues()
+
     from django.core.paginator import Paginator
 
-    # Load the first page of each issue type. The remaining pages can be
-    # requested via AJAX so initial load time stays reasonable even when the
-    # dataset contains thousands of records.
-    missing_financial_qs = (
+    # Default to showing missing characteristics to highlight important gaps.
+    qs = (
+        DataIssue.objects.filter(issue_type="missing", field__category="characteristic")
+        .select_related("council", "field", "year")
+        .order_by("council__name")
+    )
+
+    paginator = Paginator(qs, 50)
+    page = paginator.get_page(1)
+
+    financial_qs = (
         DataIssue.objects.filter(issue_type="missing")
         .exclude(field__category="characteristic")
         .select_related("council", "field", "year")
         .order_by("council__name")
     )
-    missing_characteristic_qs = (
-        DataIssue.objects.filter(issue_type="missing", field__category="characteristic")
-        .select_related("council", "field", "year")
-        .order_by("council__name")
-    )
-    suspicious_qs = (
-        DataIssue.objects.filter(issue_type="suspicious")
-        .select_related("council", "field", "year")
-        .order_by("council__name")
-    )
+    financial_paginator = Paginator(financial_qs, 50)
+    financial_page = financial_paginator.get_page(1)
 
-    missing_financial_paginator = Paginator(missing_financial_qs, 50)
-    missing_characteristic_paginator = Paginator(missing_characteristic_qs, 50)
-    suspicious_paginator = Paginator(suspicious_qs, 50)
-    missing_financial_page = missing_financial_paginator.get_page(1)
-    missing_characteristic_page = missing_characteristic_paginator.get_page(1)
-    suspicious_page = suspicious_paginator.get_page(1)
     my_contribs = (
-        Contribution.objects.filter(user=request.user).select_related(
-            "council", "field"
-        )
+        Contribution.objects.filter(user=request.user).select_related("council", "field")
         if request.user.is_authenticated
         else []
     )
+
+    points = None
+    rank = None
+    if request.user.is_authenticated:
+        profile = request.user.profile
+        points = profile.points
+        rank = UserProfile.objects.filter(points__gt=points).count() + 1
+
     return render(
         request,
         "council_finance/contribute.html",
         {
-            "missing_financial_page": missing_financial_page,
-            "missing_financial_paginator": missing_financial_paginator,
-            "missing_characteristic_page": missing_characteristic_page,
-            "missing_characteristic_paginator": missing_characteristic_paginator,
-            "suspicious_page": suspicious_page,
-            "suspicious_paginator": suspicious_paginator,
+            "page_obj": page,
+            "paginator": paginator,
+            "missing_financial_page": financial_page,
+            "missing_financial_paginator": financial_paginator,
             "my_contribs": my_contribs,
+            "points": points,
+            "rank": rank,
         },
     )
 
@@ -787,11 +787,11 @@ def data_issues_table(request):
     if request.headers.get("X-Requested-With") != "XMLHttpRequest":
         return HttpResponseBadRequest("XHR required")
 
-    from .models import DataIssue
+    from .models import DataIssue, Contribution
     from .data_quality import assess_data_issues
 
     issue_type = request.GET.get("type")
-    if issue_type not in {"missing", "suspicious"}:
+    if issue_type not in {"missing", "suspicious", "pending"}:
         return HttpResponseBadRequest("invalid type")
 
     search = request.GET.get("q", "").strip()
@@ -805,28 +805,59 @@ def data_issues_table(request):
 
     if request.GET.get("refresh"):
         assess_data_issues()
-    qs = DataIssue.objects.filter(issue_type=issue_type).select_related("council", "field", "year")
-    if category == "characteristic":
-        qs = qs.filter(field__category="characteristic")
-    elif category == "financial":
-        qs = qs.exclude(field__category="characteristic")
-    if search:
-        qs = qs.filter(Q(council__name__icontains=search) | Q(field__name__icontains=search))
-    qs = qs.order_by(order_by)
+    if issue_type == "pending":
+        qs = Contribution.objects.filter(status="pending").select_related("council", "field", "user", "year")
+        if search:
+            qs = qs.filter(Q(council__name__icontains=search) | Q(field__name__icontains=search))
+        qs = qs.order_by(order_by)
+    else:
+        qs = DataIssue.objects.filter(issue_type=issue_type).select_related("council", "field", "year")
+        if category == "characteristic":
+            qs = qs.filter(field__category="characteristic")
+        elif category == "financial":
+            qs = qs.exclude(field__category="characteristic")
+        if search:
+            qs = qs.filter(Q(council__name__icontains=search) | Q(field__name__icontains=search))
+        qs = qs.order_by(order_by)
 
     page_size = int(request.GET.get("page_size", 50))
     paginator = Paginator(qs, page_size)
     page = paginator.get_page(request.GET.get("page"))
 
-    show_year = not (issue_type == "missing" and category == "characteristic")
+    if issue_type == "pending":
+        html = render_to_string(
+            "council_finance/pending_table.html",
+            {"page_obj": page, "paginator": paginator},
+            request=request,
+        )
+    else:
+        show_year = not (issue_type == "missing" and category == "characteristic")
+        html = render_to_string(
+            "council_finance/data_issues_table.html",
+            {
+                "page_obj": page,
+                "paginator": paginator,
+                "issue_type": issue_type,
+                "show_year": show_year,
+            },
+            request=request,
+        )
+    return JsonResponse({"html": html})
+
+
+def moderator_panel(request):
+    """Return the moderator side panel HTML."""
+    if not request.user.is_authenticated or request.user.profile.tier.level < 3:
+        return HttpResponseBadRequest("permission denied")
+
+    pending = (
+        Contribution.objects.filter(status="pending")
+        .select_related("council", "field", "user", "year")[:10]
+    )
+
     html = render_to_string(
-        "council_finance/data_issues_table.html",
-        {
-            "page_obj": page,
-            "paginator": paginator,
-            "issue_type": issue_type,
-            "show_year": show_year,
-        },
+        "council_finance/moderator_panel.html",
+        {"pending": pending},
         request=request,
     )
     return JsonResponse({"html": html})

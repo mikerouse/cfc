@@ -1,0 +1,46 @@
+<!-- Editing and moderation modals extracted for re-use -->
+<div id="edit-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+  <form method="post" id="edit-form" class="bg-white p-4 rounded shadow">
+    {% csrf_token %}
+    <label class="block mb-2">New value
+      <input type="text" name="value" id="edit-value" class="border p-2 w-full" />
+    </label>
+    <div class="text-right space-x-2">
+      <button type="submit" class="bg-blue-600 text-white px-4 py-1 rounded">Save</button>
+      <button type="button" id="edit-cancel" class="px-4 py-1 border rounded">Cancel</button>
+    </div>
+  </form>
+</div>
+<div id="add-value-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+  <form method="post" id="add-value-form" action="{% url 'submit_contribution' %}" class="bg-white p-4 rounded shadow">
+    {% csrf_token %}
+    <input type="hidden" name="council" id="add-council">
+    <input type="hidden" name="field" id="add-field">
+    <input type="hidden" name="year" id="add-year">
+    <label class="block mb-2">Value
+      <input type="text" name="value" id="add-value" class="border p-2 w-full" />
+      <select name="value" id="add-value-select" class="border p-2 w-full hidden"></select>
+    </label>
+    <div class="text-right space-x-2">
+      <button type="submit" class="bg-green-600 text-white px-4 py-1 rounded">Submit</button>
+      <button type="button" id="add-cancel" class="px-4 py-1 border rounded">Cancel</button>
+    </div>
+  </form>
+</div>
+<div id="reject-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+  <form method="post" id="reject-form" class="bg-white p-4 rounded shadow">
+    {% csrf_token %}
+    <label class="block mb-2">Reason
+      <select name="reason" id="reject-reason" class="border p-2 w-full">
+        <option value="data_incorrect">The data wasn't correct</option>
+        <option value="no_sources">We can't find reliable sources</option>
+        <option value="other">Other (specify)</option>
+      </select>
+    </label>
+    <input type="text" name="details" id="reject-details" class="border p-2 w-full mb-2 hidden" placeholder="Details" />
+    <div class="text-right space-x-2">
+      <button type="submit" class="bg-red-600 text-white px-4 py-1 rounded">Reject</button>
+      <button type="button" id="reject-cancel" class="px-4 py-1 border rounded">Cancel</button>
+    </div>
+  </form>
+</div>
