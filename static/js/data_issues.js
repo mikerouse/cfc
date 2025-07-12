@@ -15,9 +15,6 @@ function setupIssueTable(containerId) {
     const category = container.dataset.category;
 
     let timer;
-    // Track the issues shown on screen so polling can report any that were
-    // added or removed since the last refresh.
-    let currentIds = new Set();
 
     async function load(params = {}) {
         const order = params.order || container.dataset.order || 'council';
@@ -102,8 +99,6 @@ function setupIssueTable(containerId) {
             const field = row.querySelector('.issue-field')?.textContent.trim();
             info[id] = `${field} for ${council}`;
         });
-        // Store the set so the next refresh can compare against it.
-        currentIds = new Set(Object.keys(info));
         return info;
     }
 
@@ -147,7 +142,8 @@ function setupIssueTable(containerId) {
     // without forcing a full page reload. Volunteers see a brief spinner and a
     // message describing any issues removed since the last check.
     setInterval(() => {
-        showMessage('<i class="fas fa-sync-alt fa-spin mr-1"></i> Checking data...');
+        // Display a brief spinner so volunteers know the system is polling.
+        showMessage('<i class="fas fa-sync-alt fa-spin mr-1"></i> Checking data...', true);
         load({page: container.dataset.page, refresh: true, check: true});
     }, 60000);
 }
