@@ -11,6 +11,9 @@ python -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
 ```
+Whenever `requirements.txt` changes (for example, after pulling a new version of
+the code) run the install command again so new packages like **Django Channels**
+are available.
 
 2. Apply database migrations whenever pulling new code:
 

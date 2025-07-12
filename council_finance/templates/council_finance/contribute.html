@@ -29,14 +29,6 @@
       <span id="issues-loading" class="hidden" role="status" aria-live="polite">Loading...</span>
     </div>
     <div id="issues-data-container" data-page="1" data-order="council" data-dir="asc" data-page-size="50" aria-live="polite">
-      </select>
-      <select id="issues-size" class="border rounded px-2 py-1">
-        <option value="25">25</option>
-        <option value="50" selected>50</option>
-        <option value="100">100</option>
-      </select>
-    </div>
-    <div id="issues-data-container" data-page="1" data-order="council" data-dir="asc" data-page-size="50">
       {% include 'council_finance/data_issues_table.html' with page_obj=page_obj paginator=paginator issue_type='missing' show_year=True %}
     </div>
     <h2 class="sr-only">Missing Financial Data</h2>
