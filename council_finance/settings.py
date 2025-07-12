@@ -16,6 +16,7 @@ INSTALLED_APPS = [
     "django.contrib.staticfiles",
     "core",
     "council_finance",
+    "channels",
     "heroicons",
 ]
 
@@ -115,6 +116,12 @@ DEFAULT_FINANCIAL_YEAR = "2023/24"
 # migrations. Without this setting Django would default to AutoField and
 # repeatedly generate spurious migration files.
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
+
+# Channels configuration for WebSocket support
+ASGI_APPLICATION = "council_finance.asgi.application"
+CHANNEL_LAYERS = {
+    "default": {"BACKEND": "channels.layers.InMemoryChannelLayer"}
+}
 
 # Auto-approval defaults used when creating new user accounts. These values
 # can be overridden via the ``SiteSetting`` admin by storing integer values

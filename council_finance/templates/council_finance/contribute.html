@@ -1,261 +1,55 @@
 {% extends "base.html" %}
+{% load static %}
 {% block title %}Contribute - Council Finance Counters{% endblock %}
 {% block content %}
 <h1 class="text-2xl font-bold mb-4">Contribute Data</h1>
 <div id="contrib-msg" class="text-green-700 mb-4 hidden" role="status"></div>
-<div class="space-y-6">
-    <section>
-        <h2 class="text-xl font-semibold mb-2">Missing Characteristics</h2>
-        <div class="flex items-center gap-2 mb-2">
-            <input id="missing-characteristic-search" type="text" placeholder="Search..." class="border rounded px-2 py-1" />
-            <select id="missing-characteristic-size" class="border rounded px-2 py-1">
-                <option value="25">25</option>
-                <option value="50" selected>50</option>
-                <option value="100">100</option>
-            </select>
-            <button id="missing-characteristic-refresh" type="button" class="px-2 py-1 border rounded">Refresh</button>
-        </div>
-        <div id="missing-characteristic-data-container" data-type="missing" data-category="characteristic" data-page="1" data-order="council" data-page-size="50">
-            {% include 'council_finance/data_issues_table.html' with page_obj=missing_characteristic_page paginator=missing_characteristic_paginator issue_type='missing' show_year=False %}
-        </div>
-    </section>
-    <section>
-        <h2 class="text-xl font-semibold mb-2">Missing Financial Data</h2>
-        <div class="flex items-center gap-2 mb-2">
-            <input id="missing-financial-search" type="text" placeholder="Search..." class="border rounded px-2 py-1" />
-            <button id="missing-financial-refresh" type="button" class="px-2 py-1 border rounded">Refresh</button>
-        </div>
-        <div id="missing-financial-data-container" data-type="missing" data-category="financial" data-page="1" data-order="council">
-            {% include 'council_finance/data_issues_table.html' with page_obj=missing_financial_page paginator=missing_financial_paginator issue_type='missing' show_year=True %}
-        </div>
-    </section>
-    <section>
-        <h2 class="text-xl font-semibold mb-2">Suspicious Data</h2>
-        <div class="flex items-center gap-2 mb-2">
-            <input id="suspicious-search" type="text" placeholder="Search..." class="border rounded px-2 py-1" />
-            <button id="suspicious-refresh" type="button" class="px-2 py-1 border rounded">Refresh</button>
-        </div>
-        <div id="suspicious-data-container" data-type="suspicious" data-page="1" data-order="council">
-            {% include 'council_finance/data_issues_table.html' with page_obj=suspicious_page paginator=suspicious_paginator issue_type='suspicious' show_year=True %}
-        </div>
-    </section>
-    <section>
-        <h2 class="text-xl font-semibold mb-2">My Contributions</h2>
-        {% if user.is_authenticated %}
-            {% if my_contribs %}
-            {# Table ID helps future CSS targeting of user contributions #}
-            <table id="my-contributions" class="min-w-full border divide-y divide-gray-200">
-                <thead class="bg-gray-100">
-                    <tr>
-                        <th class="px-3 py-2 text-left">ID</th>
-                        <th class="px-2 py-1 text-left">Council</th>
-                        <th class="px-2 py-1 text-left">Field</th>
-                        <th class="px-2 py-1 text-left">Change</th>
-                        <th class="px-2 py-1 text-left">Status</th>
-                        <th class="px-2 py-1 text-left">Date</th>
-                    </tr>
-                </thead>
-                <tbody>
-                {% for c in my_contribs %}
-                    <tr class="border-b">
-                        <td class="px-3 py-2 text-sm">{{ c.id }}</td>
-                        <td class="px-2 py-1 flex items-center">
-                            <span class="w-5 h-5 rounded-full bg-gray-300 mr-2"></span>
-                            <a href="{% url 'council_detail' c.council.slug %}" class="text-blue-700 hover:underline">{{ c.council.name }}</a>
-                        </td>
-                        <td class="px-2 py-1">{{ c.field.name }}</td>
-                        <td class="px-2 py-1">{{ c.display_old_value }} <span class="mx-1">&rarr;</span> {{ c.display_new_value }}</td>
-                        <td class="px-2 py-1">{{ c.status }}</td>
-                        <td class="px-2 py-1">{{ c.created|date:"Y-m-d H:i" }}</td>
-                    </tr>
-                {% endfor %}
-                </tbody>
-            </table>
-            {% else %}
-            <p>You haven't submitted any contributions yet.</p>
-            {% endif %}
-        {% else %}
-            <p><a href="{% url 'login' %}" class="underline">Log in</a> to see your contributions.</p>
-        {% endif %}
-    </section>
-    <section>
-        <h2 class="text-xl font-semibold">Contributions by Friends</h2>
-        <p>Placeholder list showing what your friends submitted.</p>
-    </section>
-    <section>
-        <h2 class="text-xl font-semibold">Contributions for Councils I am Following</h2>
-        <p>Placeholder for followed councils.</p>
-    </section>
-    <section>
-        <h2 class="text-xl font-semibold">Top Rate Contributions</h2>
-        <p>Placeholder for the best rated submissions.</p>
-    </section>
-</div>
-
-<!-- Modal used for editing a contribution -->
-<div id="edit-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-  <form method="post" id="edit-form" class="bg-white p-4 rounded shadow">
-    {% csrf_token %}
-    <label class="block mb-2">New value
-      <input type="text" name="value" id="edit-value" class="border p-2 w-full" />
-    </label>
-    <div class="text-right space-x-2">
-      <button type="submit" class="bg-blue-600 text-white px-4 py-1 rounded">Save</button>
-      <button type="button" id="edit-cancel" class="px-4 py-1 border rounded">Cancel</button>
-    </div>
-  </form>
-</div>
-
-<!-- Modal for adding a missing characteristic value -->
-<div id="add-value-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-  <form method="post" id="add-value-form" action="{% url 'submit_contribution' %}" class="bg-white p-4 rounded shadow">
-    {% csrf_token %}
-    <input type="hidden" name="council" id="add-council">
-    <input type="hidden" name="field" id="add-field">
-    <input type="hidden" name="year" id="add-year">
-    <label class="block mb-2">Value
-      <input type="text" name="value" id="add-value" class="border p-2 w-full" />
-      <select name="value" id="add-value-select" class="border p-2 w-full hidden"></select>
-    </label>
-    <div class="text-right space-x-2">
-      <button type="submit" class="bg-green-600 text-white px-4 py-1 rounded">Submit</button>
-      <button type="button" id="add-cancel" class="px-4 py-1 border rounded">Cancel</button>
-    </div>
-  </form>
-</div>
-
-<!-- Modal used when rejecting a contribution -->
-<div id="reject-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-  <form method="post" id="reject-form" class="bg-white p-4 rounded shadow">
-    {% csrf_token %}
-    <label class="block mb-2">Reason
-      <select name="reason" id="reject-reason" class="border p-2 w-full">
-        <option value="data_incorrect">The data wasn't correct</option>
-        <option value="no_sources">We can't find reliable sources</option>
-        <option value="other">Other (specify)</option>
+{% if points is not None %}
+<p class="mb-4" aria-live="polite">You have {{ points }} points and rank {{ rank }} on the leaderboard.</p>
+{% endif %}
+<div class="flex gap-4">
+  <div class="flex-1">
+    <h2 class="sr-only">Missing Characteristics</h2>
+    <div class="mb-2 flex gap-2 items-end">
+      <input id="issues-search" type="text" placeholder="Search..." class="border rounded px-2 py-1" />
+      <select id="issues-type" class="border rounded px-2 py-1">
+        <option value="missing">Missing Financial</option>
+        <option value="missing" data-category="characteristic">Missing Characteristics</option>
+        <option value="suspicious">Suspicious</option>
+        <option value="pending">Pending Approval</option>
       </select>
-    </label>
-    <input type="text" name="details" id="reject-details" class="border p-2 w-full mb-2 hidden" placeholder="Details" />
-    <div class="text-right space-x-2">
-      <button type="submit" class="bg-red-600 text-white px-4 py-1 rounded">Reject</button>
-      <button type="button" id="reject-cancel" class="px-4 py-1 border rounded">Cancel</button>
+      <select id="issues-size" class="border rounded px-2 py-1">
+        <option value="25">25</option>
+        <option value="50" selected>50</option>
+        <option value="100">100</option>
+      </select>
     </div>
-  </form>
+    <div id="issues-data-container" data-page="1" data-order="council" data-dir="asc" data-page-size="50">
+      {% include 'council_finance/data_issues_table.html' with page_obj=page_obj paginator=paginator issue_type='missing' show_year=True %}
+    </div>
+    <h2 class="sr-only">Missing Financial Data</h2>
+    <div class="hidden" id="initial-financial-data">
+      {% include 'council_finance/data_issues_table.html' with page_obj=missing_financial_page paginator=missing_financial_paginator issue_type='missing' show_year=True %}
+    </div>
+  </div>
+  <aside id="moderator-panel" class="w-64 hidden md:block"></aside>
 </div>
 
+{% include 'council_finance/modals.html' %}
+<script src="{% static 'js/data_issues.js' %}"></script>
 <script>
-document.querySelectorAll('.edit-btn').forEach(btn => {
-  btn.addEventListener('click', e => {
-    e.preventDefault();
-    document.getElementById('edit-form').action = btn.dataset.url;
-    document.getElementById('edit-value').value = btn.dataset.value;
-    document.getElementById('edit-modal').classList.remove('hidden');
-  });
-});
-document.getElementById('edit-cancel').addEventListener('click', () => {
-  document.getElementById('edit-modal').classList.add('hidden');
-});
-
-document.querySelectorAll('.reject-btn').forEach(btn => {
-  btn.addEventListener('click', e => {
-    e.preventDefault();
-    document.getElementById('reject-form').action = btn.dataset.url;
-    document.getElementById('reject-modal').classList.remove('hidden');
-  });
-});
-document.getElementById('reject-cancel').addEventListener('click', () => {
-  document.getElementById('reject-modal').classList.add('hidden');
-});
-document.getElementById('reject-reason').addEventListener('change', function() {
-  document.getElementById('reject-details').classList.toggle('hidden', this.value !== 'other');
-});
-
-function setupAddButtons() {
-  document.querySelectorAll('.add-value-btn').forEach(btn => {
-    btn.addEventListener('click', e => {
-      e.preventDefault();
-      // Remember the button so we can update the row after submission.
-      window.currentAddBtn = btn;
-      document.getElementById('add-council').value = btn.dataset.council;
-      document.getElementById('add-field').value = btn.dataset.field;
-      document.getElementById('add-year').value = btn.dataset.year || '';
-      const input = document.getElementById('add-value');
-      const select = document.getElementById('add-value-select');
-      input.value = '';
-      select.innerHTML = '';
-      input.classList.add('hidden');
-      select.classList.add('hidden');
-      input.disabled = false;
-      select.disabled = true;
-      if (btn.dataset.contentType === 'list' && btn.dataset.datasetType) {
-        // Linked list fields use a drop-down populated via AJAX so
-        // volunteers pick from valid options rather than typing free text.
-        fetch(`/fields/${btn.dataset.field}/options/`)
-          .then(resp => resp.json())
-          .then(data => {
-            data.options.forEach(opt => {
-              const option = document.createElement('option');
-              option.value = opt.id;
-              option.textContent = opt.name;
-              select.appendChild(option);
-            });
-            select.classList.remove('hidden');
-            select.disabled = false;
-          });
-      } else {
-        // URL fields trigger browser validation, everything else uses
-        // a standard text input.
-        input.type = btn.dataset.contentType === 'url' ? 'url' : 'text';
-        input.classList.remove('hidden');
-      }
-      document.getElementById('add-value-modal').classList.remove('hidden');
-    });
-  });
+// Simple tutorial shown once
+if (!localStorage.getItem('seenTutorial')) {
+  alert('Use this table to add or review council data. Moderators see extra actions.');
+  localStorage.setItem('seenTutorial', '1');
 }
-document.getElementById('add-cancel').addEventListener('click', () => {
-  document.getElementById('add-value-modal').classList.add('hidden');
-});
-// Called initially and after AJAX loads
-document.addEventListener('issueTableUpdated', setupAddButtons);
-setupAddButtons();
-
-// Submit the add value form via AJAX so the user stays on this page
-// rather than being redirected to the council detail view.
-document.getElementById('add-value-form').addEventListener('submit', async e => {
-  e.preventDefault();
-  const form = e.target;
-  const csrftoken = document.cookie.match('(^|;)\\s*csrftoken\\s*=\\s*([^;]+)');
-  const token = csrftoken ? csrftoken.pop() : '';
-  const data = new FormData(form);
-  const resp = await fetch(form.action, {
-    method: 'POST',
-    body: data,
-    headers: { 'X-CSRFToken': token, 'X-Requested-With': 'XMLHttpRequest' }
+document.getElementById('edit-cancel').addEventListener('click', () => document.getElementById('edit-modal').classList.add('hidden'));
+document.getElementById('reject-cancel').addEventListener('click', () => document.getElementById('reject-modal').classList.add('hidden'));
+document.getElementById('add-cancel').addEventListener('click', () => document.getElementById('add-value-modal').classList.add('hidden'));
+document.addEventListener('issueTableUpdated', () => {
+  document.querySelectorAll('.reject-btn').forEach(btn => {
+    btn.onclick = e => { e.preventDefault(); document.getElementById('reject-form').action = btn.dataset.url; document.getElementById('reject-modal').classList.remove('hidden');};
   });
-  const out = await resp.json();
-  showMessage(out.message || 'Submitted');
-  document.getElementById('add-value-modal').classList.add('hidden');
-  if (window.currentAddBtn) {
-    const row = window.currentAddBtn.closest('tr');
-    const valCell = row.querySelector('.issue-value');
-    if (valCell) {
-      valCell.textContent = out.value || document.getElementById('add-value').value || document.getElementById('add-value-select').value;
-    }
-    if (out.status === 'approved') {
-      row.classList.add('bg-green-100');
-      window.currentAddBtn.parentElement.textContent = 'Added';
-    } else {
-      row.classList.add('bg-red-100');
-      window.currentAddBtn.parentElement.innerHTML = '<i class="fas fa-clock mr-1"></i>Pending confirmation';
-    }
-    window.currentAddBtn = null;
-  }
-});
-
-// Confirm moderation actions are present for debugging purposes.
-document.addEventListener('DOMContentLoaded', () => {
-  const actions = document.querySelectorAll('.edit-btn, .reject-btn');
-  console.log('Loaded moderation buttons:', actions.length);
 });
 </script>
 {% endblock %}

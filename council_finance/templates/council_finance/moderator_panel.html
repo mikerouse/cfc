@@ -1,0 +1,16 @@
+<div class="space-y-2" aria-live="polite" id="mod-items">
+  {% for c in pending %}
+  <div class="p-2 border rounded bg-white" data-id="{{ c.id }}">
+    <p class="text-sm">{{ c.council.name }} - {{ c.field.name }} by {{ c.user.username }}</p>
+    <div class="mt-1 space-x-1">
+      <form method="post" action="{% url 'review_contribution' c.id 'approve' %}" class="inline approve-form">
+        {% csrf_token %}
+        <button type="submit" class="bg-green-600 text-white px-2 py-0.5 rounded">Approve</button>
+      </form>
+      <button type="button" class="reject-btn bg-red-600 text-white px-2 py-0.5 rounded" data-url="{% url 'review_contribution' c.id 'reject' %}">Reject</button>
+    </div>
+  </div>
+  {% empty %}
+  <p>No pending contributions.</p>
+  {% endfor %}
+</div>
