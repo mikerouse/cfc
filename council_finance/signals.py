@@ -4,6 +4,9 @@ from django.db.models.signals import post_save, pre_save, post_delete
 from django.dispatch import receiver
 
 from .models import UserProfile, TrustTier, FigureSubmission
+from .models import DataIssue, Contribution
+from asgiref.sync import async_to_sync
+from channels.layers import get_channel_layer
 from django.utils.crypto import get_random_string
 from .notifications import create_notification
 
@@ -47,3 +50,26 @@ def refresh_population_cache(sender, instance, **kwargs):
     if instance.field.slug != "population":
         return
     instance.council.update_latest_population()
+
+
+def _broadcast_update(model_name: str) -> None:
+    """Send a simple notification to connected websocket clients."""
+    layer = get_channel_layer()
+    if not layer:
+        return
+    async_to_sync(layer.group_send)(
+        "contribute",
+        {"type": "contribute.update", "data": {"model": model_name}},
+    )
+
+
+@receiver([post_save, post_delete], sender=DataIssue)
+def notify_issue_change(sender, **kwargs):
+    """Trigger a websocket event when DataIssue rows change."""
+    _broadcast_update("DataIssue")
+
+
+@receiver([post_save, post_delete], sender=Contribution)
+def notify_contrib_change(sender, **kwargs):
+    """Trigger a websocket event when contributions change."""
+    _broadcast_update("Contribution")

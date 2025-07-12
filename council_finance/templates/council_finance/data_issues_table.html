@@ -1,5 +1,6 @@
 {% load static %}
-<table class="min-w-full border divide-y divide-gray-200 issues-table" data-type="{{ issue_type }}">
+<table class="min-w-full border divide-y divide-gray-200 issues-table" data-type="{{ issue_type }}" aria-describedby="issues-help">
+    <caption id="issues-help" class="sr-only">List of {{ issue_type }} data issues</caption>
     <thead class="bg-gray-100">
         <tr>
             <th class="px-2 py-1 text-left sortable" data-sort="council">Council</th>

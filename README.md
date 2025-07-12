@@ -11,6 +11,9 @@ python -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
 ```
+Whenever `requirements.txt` changes (for example, after pulling a new version of
+the code) run the install command again so new packages like **Django Channels**
+are available.
 
 2. Apply database migrations whenever pulling new code:
 
@@ -36,12 +39,21 @@ python manage.py runserver
 
 You can then access the admin at `http://localhost:8000/admin/` using the credentials created above.
 
+When using SQLite with the real-time features enabled, you might see
+`database is locked` errors if multiple connections try to write at the same
+time. The default configuration now increases the SQLite timeout to 20 seconds
+to mitigate this. If the problem persists, stop any background processes that
+may be accessing the database.
+
 ## Adding councils and figures
 
 Create councils, fields and financial years directly in the Django admin. Figures can be entered manually or populated with custom scripts using the standard models.
 When you add or edit a population figure for a council, the latest value is cached on the council record so views can display it quickly.
 Superusers can also manually refresh all cached population figures from the **God Mode** page using the
 "Check & Reconcile All Population Figures" button.
+God Mode moderators can now delete invalid contributions directly from the
+/contribute page. Use the **Delete** button next to pending items to remove them
+from the queue instantly.
 
 ## Animated Counters
 

@@ -1,0 +1,44 @@
+<table class="min-w-full border divide-y divide-gray-200">
+  <thead class="bg-gray-100">
+    <tr>
+      <th class="px-2 py-1 text-left sortable" data-sort="council">Council</th>
+      <th class="px-2 py-1 text-left sortable" data-sort="field">Field</th>
+      <th class="px-2 py-1 text-left">Old</th>
+      <th class="px-2 py-1 text-left">Proposed</th>
+      <th class="px-2 py-1 text-left">User</th>
+      <th class="px-2 py-1 text-left">Actions</th>
+    </tr>
+  </thead>
+  <tbody>
+  {% for c in page_obj %}
+    <tr class="border-b">
+      <td class="px-2 py-1">{{ c.council.name }}</td>
+      <td class="px-2 py-1">{{ c.field.name }}</td>
+      <td class="px-2 py-1">{{ c.display_old_value }}</td>
+      <td class="px-2 py-1">{{ c.display_new_value }}</td>
+      <td class="px-2 py-1">{{ c.user.username }}</td>
+      <td class="px-2 py-1 space-x-1">
+        <form method="post" action="{% url 'review_contribution' c.id 'approve' %}" class="inline approve-form">
+          {% csrf_token %}
+          <button type="submit" class="bg-green-600 text-white px-2 py-0.5 rounded">Approve</button>
+        </form>
+        <button type="button" class="reject-btn bg-red-600 text-white px-2 py-0.5 rounded" data-url="{% url 'review_contribution' c.id 'reject' %}">Reject</button>
+        {% if request.user.is_superuser or request.user.profile.tier.level|default:0 >= 5 %}
+        <button type="button" class="delete-btn bg-gray-700 text-white px-2 py-0.5 rounded" data-url="{% url 'review_contribution' c.id 'delete' %}">Delete</button>
+        {% endif %}
+      </td>
+    </tr>
+  {% empty %}
+    <tr><td class="px-2 py-1 text-center" colspan="6">No pending contributions.</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+<div class="flex justify-between text-sm mt-2">
+  {% if page_obj.has_previous %}
+  <button type="button" class="issues-page underline" data-page="{{ page_obj.previous_page_number }}">Prev</button>
+  {% else %}<span></span>{% endif %}
+  <span>Page {{ page_obj.number }} of {{ paginator.num_pages }}</span>
+  {% if page_obj.has_next %}
+  <button type="button" class="issues-page underline" data-page="{{ page_obj.next_page_number }}">Next</button>
+  {% else %}<span></span>{% endif %}
+</div>

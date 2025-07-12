@@ -115,3 +115,23 @@ class ContributionReviewTests(TestCase):
         self.assertEqual(log.reason, "invalid_field")
         self.assertIsNone(log.field)
         self.assertIn("does-not-exist", log.value)
+
+    def test_delete_requires_god_mode(self):
+        """Tier 3 moderators should not be allowed to delete."""
+        resp = self.client.post(
+            reverse("review_contribution", args=[self.contrib.id, "delete"]),
+            {},
+        )
+        self.assertEqual(resp.status_code, 400)
+        self.assertTrue(Contribution.objects.filter(pk=self.contrib.id).exists())
+
+    def test_superuser_can_delete(self):
+        boss = get_user_model().objects.create_superuser(
+            username="boss", email="boss@example.com", password="pw"
+        )
+        self.client.login(username="boss", password="pw")
+        self.client.post(
+            reverse("review_contribution", args=[self.contrib.id, "delete"]),
+            {},
+        )
+        self.assertFalse(Contribution.objects.filter(pk=self.contrib.id).exists())
