@@ -6,7 +6,11 @@ function showMessage(text) {
     // below the nav bar rather than at the very top of the page.
     let area = document.getElementById('contrib-msg');
     if (area) {
-        area.textContent = text;
+        // Allow basic markup (like icons) in the message so status updates can
+        // include small spinners or other indicators. Using ``innerHTML`` here
+        // lets callers pass HTML strings while still showing plain text when no
+        // markup is provided.
+        area.innerHTML = text;
         area.classList.remove('hidden');
         setTimeout(() => area.classList.add('hidden'), 5000);
         return;

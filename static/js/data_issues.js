@@ -15,6 +15,10 @@ function setupIssueTable(containerId) {
     const category = container.dataset.category;
 
     let timer;
+    // Store the last set of issue IDs so the periodic checker can report what
+    // changed after each refresh. This helps volunteers see when their
+    // contributions remove items from the queue.
+    let currentIds = new Set();
 
     async function load(params = {}) {
         const order = params.order || container.dataset.order || 'council';
@@ -26,6 +30,10 @@ function setupIssueTable(containerId) {
         if (category) url += `&category=${category}`;
         if (q) url += `&q=${encodeURIComponent(q)}`;
         if (params.refresh) url += '&refresh=1';
+        // When checking for updates, capture the current issue details so we
+        // can compare after the refresh completes.
+        const before = params.check ? gatherInfo() : null;
+
         const resp = await fetch(url, {headers: {'X-Requested-With': 'XMLHttpRequest'}});
         const data = await resp.json();
         container.innerHTML = data.html;
@@ -35,6 +43,30 @@ function setupIssueTable(containerId) {
         container.dataset.pageSize = pageSize;
         attachHandlers();
         document.dispatchEvent(new Event('issueTableUpdated'));
+
+        if (params.check && before) {
+            const after = gatherInfo();
+            const removed = Object.keys(before).filter(id => !after[id]);
+            if (removed.length) {
+                removed.forEach(id => {
+                    showMessage(`${before[id]} resolved: removing from queue`);
+                });
+            }
+        }
+    }
+
+    // Helper to map issue IDs to a human readable label so the UI can display
+    // what changed after a refresh.
+    function gatherInfo() {
+        const info = {};
+        container.querySelectorAll('tr[data-issue]').forEach(row => {
+            const id = row.dataset.issue;
+            const council = row.querySelector('td a')?.textContent.trim();
+            const field = row.querySelector('.issue-field')?.textContent.trim();
+            info[id] = `${field} for ${council}`;
+        });
+        currentIds = new Set(Object.keys(info));
+        return info;
     }
 
     function attachHandlers() {
@@ -69,8 +101,17 @@ function setupIssueTable(containerId) {
     }
 
     attachHandlers();
-    // Initial refresh ensures field labels are up to date
-    load({refresh: true});
+    // Initial refresh ensures field labels are up to date and captures the
+    // starting set of issues.
+    load({refresh: true, check: true});
+
+    // Periodically poll the server so the table reflects new data in real time
+    // without forcing a full page reload. Volunteers see a brief spinner and a
+    // message describing any issues removed since the last check.
+    setInterval(() => {
+        showMessage('<i class="fas fa-sync-alt fa-spin mr-1"></i> Checking data...');
+        load({page: container.dataset.page, refresh: true, check: true});
+    }, 60000);
 }
 
 document.addEventListener('DOMContentLoaded', () => {
