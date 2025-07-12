@@ -34,8 +34,34 @@ function setupIssueTable(containerId) {
         // can compare after the refresh completes.
         const before = params.check ? gatherInfo() : null;
 
-        const resp = await fetch(url, {headers: {'X-Requested-With': 'XMLHttpRequest'}});
-        const data = await resp.json();
+        let resp;
+        try {
+            resp = await fetch(url, {
+                headers: {'X-Requested-With': 'XMLHttpRequest'},
+            });
+        } catch (err) {
+            // Network failures should not crash the UI. Inform the user and
+            // abort this refresh attempt.
+            showMessage('Error contacting server');
+            return;
+        }
+        if (!resp.ok) {
+            // If the server responds with an error page (for example a 500
+            // Internal Server Error) calling ``resp.json()`` would throw.
+            // Display a short message instead and skip updating the table.
+            showMessage(`Issue loading data (${resp.status})`);
+            return;
+        }
+        let data;
+        try {
+            data = await resp.json();
+        } catch (err) {
+            // Sometimes an HTML error page sneaks through which cannot be
+            // parsed as JSON. Showing a friendly note avoids the uncaught
+            // exception previously seen in the console.
+            showMessage('Invalid response from server');
+            return;
+        }
         container.innerHTML = data.html;
         container.dataset.order = order;
         container.dataset.dir = dir;
