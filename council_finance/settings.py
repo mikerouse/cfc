@@ -68,6 +68,9 @@ DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.sqlite3",
         "NAME": BASE_DIR / "db.sqlite3",
+        # Increase the lock timeout to reduce "database is locked" errors
+        # when multiple connections (such as WebSockets) access SQLite.
+        "OPTIONS": {"timeout": 20},
     }
 }
 
