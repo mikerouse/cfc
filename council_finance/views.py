@@ -2095,7 +2095,7 @@ def _apply_contribution(contribution, user, request=None):
     # helps diagnose issues when a contribution does not appear to apply
     # correctly from the UI.
     if request:
-               log_activity(
+                             log_activity(
             request,
             council=council,
             activity="apply_contribution",
@@ -2494,21 +2494,20 @@ def council_counters(request, slug):
             if not enabled:
                 continue
             result = values.get(counter.slug, {})
-            data[counter.slug] = {
-                "name": counter.name,
-                "duration": counter.duration,
-                "value": result.get("value"),
-                "formatted": result.get("formatted"),
-                "error": result.get("error),
-                # Expose formatting defaults so the client can override them
-                # when rendering counters in the UI. These mirror fields on
-                # ``CounterDefinition`` and allow the front end to apply custom
-                # user preferences without another round trip to the server.
-                "show_currency": counter.show_currency,
-                "precision": counter.precision,
-                "friendly_format": counter.friendly_format,
-                "headline": counter.headline,
-            }
+            if result:
+                data[counter.slug] = {
+                    "value": result.get("value"),
+                    "formatted": result.get("formatted"),
+                    "error": result.get("error"),
+                    # Expose formatting defaults so the client can override them
+                    # when rendering counters in the UI. These mirror fields on
+                    # ``CounterDefinition`` and allow the front end to apply custom
+                    # user preferences without another round trip to the server.
+                    "show_currency": counter.show_currency,
+                    "precision": counter.precision,
+                    "friendly_format": counter.friendly_format,
+                    "headline": counter.headline,
+                }
 
     return JsonResponse({"counters": data})
 
