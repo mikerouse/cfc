@@ -21,6 +21,21 @@ The emphasis is on 'visually striking' ways to show the data using counters and 
 - Emphasise maintainability, extensibility and portability.
 - Search tools should work as live or predictive features - show the results as the user types a couple or few letters, and allow the user to choose the result they want from a drop-down, which can be enriched with shortcut links or buttons depending upon what context the search is used within. 
 
+## Things the creator cares about 
+
+- Comments. There should be useful and descriptive comments.
+- Helpers in the UI for the benefit of users.
+- Realtime data
+- Taking a holistic app-wide view
+- Prioritising the user experience
+- Log, log, log
+
+## Things the create does NOT care about
+
+- Loading indicators and progress indicators
+- Verbose status and debugging information
+- Deleting old work and replacing it with better
+
 ## OpenAI Integration
 
 - The app will integrate with OpenAI to use models to extract data from provided PDFs
