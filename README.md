@@ -39,50 +39,10 @@ python manage.py runserver
 
 You can then access the admin at `http://localhost:8000/admin/` using the credentials created above.
 
-When using SQLite with the real-time features enabled, you might see
-`database is locked` errors if multiple connections try to write at the same
-time. The default configuration now increases the SQLite timeout to 20 seconds
-to mitigate this. If the problem persists, stop any background processes that
-may be accessing the database.
-
 ## Adding councils and figures
 
-Create councils, fields and financial years directly in the Django admin. Figures can be entered manually or populated with custom scripts using the standard models.
-When you add or edit a population figure for a council, the latest value is cached on the council record so views can display it quickly.
-Superusers can also manually refresh all cached population figures from the **God Mode** page using the
-"Check & Reconcile All Population Figures" button.
+Create councils and financial years directly in the Django admin backend. Otherwise use the front-end to create things like new fields, characteristics, etc.
 
 ## Animated Counters
 
-From July 2025 counters can be configured from the Django admin. Create a
-`Counter Definition` with a slug, formula and explanation text. Counters sum the
-specified figure fields using the `CounterAgent`. Each council can enable or
-disable individual counters in the **Councils** admin. Managers can manage all
-definitions via `/manage/counters/` using the management toolbar shown above the
-header. The screen lists existing counters and provides an **Add counter**
-button. Each form includes a small formula builder&mdash;click or drag available
-fields into the formula input and choose operators. Formulas are validated
-client-side using **math.js** so mistakes are surfaced immediately. Counters
-also define precision, currency display and whether large values should appear
-as friendly text like `£1m`.
-
-## Cached Site Totals
-
-Use the `SiteTotalsAgent` to pre-compute homepage figures. Schedule the agent
-via cron so visitors see fast responses:
-
-```bash
-python manage.py runagent SiteTotalsAgent
-```
-
-Totals are cached by counter slug and year label. The home view reads these
-values directly from the cache to avoid expensive per-request calculations.
-
-### Proxy configuration
-
-When `USE_X_FORWARDED_HOST` is enabled the application trusts the
-`X-Forwarded-For` header to determine the client's IP address when handling
-submissions. Deployments behind reverse proxies must ensure the proxy chain is
-configured to pass a clean header from trusted sources only; otherwise the
-recorded address can be spoofed.
-
+Counters can be configured with a formula and explanation text. Each council can enable or disable individual counters in the **Councils** admin (so you can remove counters that don't apply - for instance, not all councils collect council tax). 
