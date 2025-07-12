@@ -2095,7 +2095,7 @@ def _apply_contribution(contribution, user, request=None):
     # helps diagnose issues when a contribution does not appear to apply
     # correctly from the UI.
     if request:
-        log_activity(
+               log_activity(
             request,
             council=council,
             activity="apply_contribution",
@@ -2499,7 +2499,7 @@ def council_counters(request, slug):
                 "duration": counter.duration,
                 "value": result.get("value"),
                 "formatted": result.get("formatted"),
-                "error": result.get("error"),
+                "error": result.get("error),
                 # Expose formatting defaults so the client can override them
                 # when rendering counters in the UI. These mirror fields on
                 # ``CounterDefinition`` and allow the front end to apply custom
