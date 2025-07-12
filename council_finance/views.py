@@ -2095,7 +2095,7 @@ def _apply_contribution(contribution, user, request=None):
     # helps diagnose issues when a contribution does not appear to apply
     # correctly from the UI.
     if request:
-                             log_activity(
+                                                         log_activity(
             request,
             council=council,
             activity="apply_contribution",
@@ -2477,37 +2477,24 @@ def council_counters(request, slug):
             cc.counter_id: cc.enabled
             for cc in CouncilCounter.objects.filter(council=council)
         }
-
-        ordered = list(CounterDefinition.objects.all())
-        if council.council_type_id:
-            ordered = [
-                c
-                for c in ordered
-                if not c.council_types.exists()
-                or c.council_types.filter(id=council.council_type_id).exists()
-            ]
-        else:
-            ordered = [c for c in ordered if not c.council_types.exists()]
-        ordered.sort(key=lambda c: (not c.headline, c.slug))
-        for counter in ordered:
+        for counter in CounterDefinition.objects.all():
             enabled = override_map.get(counter.id, counter.show_by_default)
             if not enabled:
                 continue
             result = values.get(counter.slug, {})
-            if result:
-                data[counter.slug] = {
-                    "value": result.get("value"),
-                    "formatted": result.get("formatted"),
-                    "error": result.get("error"),
-                    # Expose formatting defaults so the client can override them
-                    # when rendering counters in the UI. These mirror fields on
-                    # ``CounterDefinition`` and allow the front end to apply custom
-                    # user preferences without another round trip to the server.
-                    "show_currency": counter.show_currency,
-                    "precision": counter.precision,
-                    "friendly_format": counter.friendly_format,
-                    "headline": counter.headline,
-                }
+            data[counter.slug] = {
+                "value": result.get("value"),
+                "formatted": result.get("formatted"),
+                "error": result.get("error"),
+                # Expose formatting defaults so the client can override them
+                # when rendering counters in the UI. These mirror fields on
+                # ``CounterDefinition`` and allow the front end to apply custom
+                # user preferences without another round trip to the server.
+                "show_currency": counter.show_currency,
+                "precision": counter.precision,
+                "friendly_format": counter.friendly_format,
+                "headline": counter.headline,
+            }
 
     return JsonResponse({"counters": data})
 
