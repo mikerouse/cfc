@@ -1,12 +1,20 @@
 // JS helpers for the Edit Figures tab on council detail pages.
 // Handles year selection, AJAX form submission and helper attachment.
 
-function showMessage(text) {
+// Display a transient notification to the user.
+// ``html`` controls whether the message is treated as HTML markup or plain text.
+function showMessage(text, html = false) {
     // Prefer the contribute page container if present so messages appear
     // below the nav bar rather than at the very top of the page.
     let area = document.getElementById('contrib-msg');
     if (area) {
-        area.textContent = text;
+        // Use ``innerHTML`` only when explicitly allowed so normal messages
+        // remain plain text and cannot accidentally inject markup.
+        if (html) {
+            area.innerHTML = text;
+        } else {
+            area.textContent = text;
+        }
         area.classList.remove('hidden');
         setTimeout(() => area.classList.add('hidden'), 5000);
         return;
@@ -21,9 +29,21 @@ function showMessage(text) {
     }
     const div = document.createElement('div');
     div.className = 'message mb-2 p-2 bg-blue-50 border border-blue-300 text-blue-900 rounded flex justify-between items-start';
-    div.innerHTML = `<span>${text}</span><button type="button" class="close ml-2" aria-label="Dismiss">&times;</button>`;
+    const span = document.createElement('span');
+    if (html) {
+        span.innerHTML = text;
+    } else {
+        span.textContent = text;
+    }
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'close ml-2';
+    btn.setAttribute('aria-label', 'Dismiss');
+    btn.innerHTML = '&times;';
+    div.appendChild(span);
+    div.appendChild(btn);
     area.appendChild(div);
-    div.querySelector('.close').addEventListener('click', () => div.remove());
+    btn.addEventListener('click', () => div.remove());
     setTimeout(() => div.remove(), 8000);
 }
 
