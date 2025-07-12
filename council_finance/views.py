@@ -731,7 +731,9 @@ def contribute(request):
     from .models import DataIssue, UserProfile
     from .data_quality import assess_data_issues
 
-    assess_data_issues()
+    # Rebuilding the DataIssue table can take a while and may lock the
+    # SQLite database. Avoid doing so automatically on every page load.
+    # Volunteers can trigger a refresh via AJAX if needed.
 
     from django.core.paginator import Paginator
 
