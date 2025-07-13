@@ -1,0 +1,84 @@
+<table class="min-w-full divide-y divide-gray-200">
+  <thead class="bg-gray-50">
+    <tr>
+      <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100" data-sort="council">
+        Council
+        <svg class="w-4 h-4 inline ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l4-4 4 4m0 6l-4 4-4-4"/>
+        </svg>
+      </th>
+      <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100" data-sort="field">
+        Field
+        <svg class="w-4 h-4 inline ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l4-4 4 4m0 6l-4 4-4-4"/>
+        </svg>
+      </th>
+      {% if show_year %}
+      <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100" data-sort="year">
+        Year
+        <svg class="w-4 h-4 inline ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l4-4 4 4m0 6l-4 4-4-4"/>
+        </svg>
+      </th>
+      {% endif %}
+      <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+        Status
+      </th>
+      <th scope="col" class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+        Actions
+      </th>
+    </tr>
+  </thead>
+  <tbody class="bg-white divide-y divide-gray-200">
+    {% for item in page_obj %}
+    <tr class="hover:bg-gray-50">
+      <td class="px-6 py-4 whitespace-nowrap">
+        <div class="text-sm font-medium text-gray-900">{{ item.council.name }}</div>
+        <div class="text-sm text-gray-500">{{ item.council.council_type.name|default:"No type" }}</div>
+      </td>
+      <td class="px-6 py-4">
+        <div class="text-sm text-gray-900">{{ item.field.name }}</div>
+        <div class="text-sm text-gray-500">{{ item.field.category|title }}</div>
+      </td>
+      {% if show_year %}
+      <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+        {{ item.year.label|default:"N/A" }}
+      </td>
+      {% endif %}
+      <td class="px-6 py-4 whitespace-nowrap">
+        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-800">
+          Missing
+        </span>
+      </td>
+      <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+        <button class="add-value-btn inline-flex items-center px-3 py-1 border border-transparent text-sm leading-4 font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                data-council="{{ item.council.slug }}"
+                data-council-name="{{ item.council.name }}"
+                data-field="{{ item.field.slug }}"
+                data-field-name="{{ item.field.name }}"
+                {% if item.year %}
+                data-year="{{ item.year.id }}"
+                data-year-name="{{ item.year.label }}"
+                {% endif %}>
+          <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/>
+          </svg>
+          Add Value
+        </button>
+      </td>
+    </tr>
+    {% empty %}
+    <tr>
+      <td colspan="{% if show_year %}5{% else %}4{% endif %}" class="px-6 py-12 text-center text-gray-500">
+        {% if data_type == "missing_characteristics" %}
+          🎉 All council characteristics are complete!
+        {% elif data_type == "missing_financial" %}
+          🎉 All financial data is complete!
+        {% else %}
+          No data to display
+        {% endif %}
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>

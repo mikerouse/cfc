@@ -41,6 +41,9 @@ urlpatterns = [
     ),
     # Show information about the logged in user.
     path("accounts/profile/", views.profile_view, name="profile"),
+    # User preferences management
+    path("accounts/preferences/", views.user_preferences_view, name="user_preferences"),
+    path("api/preferences/", views.user_preferences_ajax, name="user_preferences_ajax"),
     path("councils/", views.council_list, name="council_list"),
     path(
         "councils/<slug:slug>/counters/",
@@ -82,8 +85,12 @@ urlpatterns = [
     path("updates/<int:update_id>/like/", views.like_update, name="like_update"),
     path("updates/<int:update_id>/comment/", views.comment_update, name="comment_update"),
     path("contribute/", views.contribute, name="contribute"),
+    path("contribute/api/data/", views.contribute_api_data, name="contribute_api_data"),
+    path("contribute/api/stats/", views.contribute_api_stats, name="contribute_api_stats"),
     path("contribute/issues/", views.data_issues_table, name="data_issues_table"),
+    path("contribute/stats/", views.contribute_stats, name="contribute_stats"),
     path("contribute/submit/", views.submit_contribution, name="submit_contribution"),
+    path("contribute/field-options/<slug:slug>/", views.list_field_options, name="contribute_field_options"),
     path("fields/<slug:slug>/options/", views.list_field_options, name="list_field_options"),
     path("contribute/<int:pk>/<str:action>/", views.review_contribution, name="review_contribution"),
     path("contribute/mod-panel/", views.moderator_panel, name="moderator_panel"),

@@ -60,6 +60,41 @@ class UserProfile(models.Model):
     # provide a clean, modern feel. Users can override this from their
     # profile page.
     preferred_font = models.CharField(max_length=100, default="Cairo", blank=True)
+    
+    # Font size preference for better accessibility
+    FONT_SIZE_CHOICES = [
+        ("small", "Small (14px)"),
+        ("medium", "Medium (16px)"),
+        ("large", "Large (18px)"),
+        ("extra-large", "Extra Large (20px)"),
+    ]
+    font_size = models.CharField(
+        max_length=20, 
+        choices=FONT_SIZE_CHOICES, 
+        default="medium",
+        help_text="Choose your preferred font size for better readability"
+    )
+    
+    # High contrast mode for accessibility
+    high_contrast_mode = models.BooleanField(
+        default=False,
+        help_text="Enable high contrast colors for better visibility"
+    )
+    
+    # Color theme preference
+    THEME_CHOICES = [
+        ("auto", "Auto (follows system)"),
+        ("light", "Light theme"),
+        ("dark", "Dark theme"),
+        ("high-contrast", "High contrast"),
+    ]
+    color_theme = models.CharField(
+        max_length=20,
+        choices=THEME_CHOICES,
+        default="auto",
+        help_text="Choose your preferred color theme"
+    )
+    
     # Gamification fields tracking contribution performance.
     points = models.IntegerField(default=0)
     rejection_count = models.IntegerField(default=0)

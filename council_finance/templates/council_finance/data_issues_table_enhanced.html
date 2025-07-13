@@ -1,0 +1,208 @@
+<div class="overflow-x-auto">
+  <table class="min-w-full divide-y divide-gray-200">
+    <thead class="bg-gray-50">
+      <tr>
+        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sortable cursor-pointer hover:bg-gray-100" data-sort="council">
+          <div class="flex items-center gap-1">
+            Council
+            <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4"/>
+            </svg>
+          </div>
+        </th>
+        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sortable cursor-pointer hover:bg-gray-100" data-sort="field">
+          <div class="flex items-center gap-1">
+            Field
+            <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4"/>
+            </svg>
+          </div>
+        </th>
+        {% if show_year %}
+        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sortable cursor-pointer hover:bg-gray-100" data-sort="year">
+          <div class="flex items-center gap-1">
+            Year
+            <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4"/>
+            </svg>
+          </div>
+        </th>
+        {% endif %}
+        {% if issue_type == "pending" %}
+        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Current</th>
+        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Proposed</th>
+        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">User</th>
+        {% else %}
+        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+        {% endif %}
+        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+      </tr>
+    </thead>
+    <tbody class="bg-white divide-y divide-gray-200">
+      {% for item in page_obj %}
+      <tr class="hover:bg-gray-50 transition-colors">
+        <td class="px-6 py-4 whitespace-nowrap">
+          <div class="flex items-center">
+            <div>
+              <div class="text-sm font-medium text-gray-900">{{ item.council.name }}</div>
+              <div class="text-sm text-gray-500">{{ item.council.council_type.name|default:"" }}</div>
+            </div>
+          </div>
+        </td>
+        <td class="px-6 py-4 whitespace-nowrap">
+          <div class="text-sm text-gray-900">{{ item.field.name }}</div>
+          <div class="text-sm text-gray-500">{{ item.field.category|title }}</div>
+        </td>
+        {% if show_year %}
+        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+          {{ item.year.label|default:"N/A" }}
+        </td>
+        {% endif %}
+        {% if issue_type == "pending" %}
+        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+          {{ item.display_old_value|default:"—" }}
+        </td>
+        <td class="px-6 py-4 whitespace-nowrap">
+          <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+            {{ item.display_new_value }}
+          </span>
+        </td>
+        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+          {{ item.user.username }}
+        </td>
+        {% else %}
+        <td class="px-6 py-4 whitespace-nowrap">
+          {% if issue_type == "missing" %}
+          <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
+            Missing
+          </span>
+          {% elif issue_type == "suspicious" %}
+          <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-800">
+            Suspicious
+          </span>
+          {% endif %}
+        </td>
+        {% endif %}
+        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+          {% if issue_type == "missing" %}
+          <button class="edit-missing bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded-md text-sm transition-colors"
+                  data-council="{{ item.council.slug }}"
+                  data-field="{{ item.field.slug }}"
+                  data-year="{{ item.year.id|default:'' }}"
+                  data-field-name="{{ item.field.name }}"
+                  data-council-name="{{ item.council.name }}">
+            Add Data
+          </button>
+          {% elif issue_type == "pending" %}
+          <div class="flex items-center gap-2">
+            {% if request.user.is_authenticated and request.user.profile.tier.level >= 3 or request.user.is_superuser %}
+            <button class="approve-btn bg-green-600 hover:bg-green-700 text-white px-2 py-1 rounded text-xs transition-colors"
+                    data-url="{% url 'review_contribution' item.id 'approve' %}">
+              Approve
+            </button>
+            <button class="reject-btn bg-red-600 hover:bg-red-700 text-white px-2 py-1 rounded text-xs transition-colors"
+                    data-url="{% url 'review_contribution' item.id 'reject' %}">
+              Reject
+            </button>
+            {% if request.user.is_superuser or request.user.profile.tier.level >= 5 %}
+            <button class="delete-btn bg-gray-600 hover:bg-gray-700 text-white px-2 py-1 rounded text-xs transition-colors"
+                    data-url="{% url 'review_contribution' item.id 'delete' %}">
+              Delete
+            </button>
+            {% endif %}
+            {% endif %}
+          </div>
+          {% else %}
+          <span class="text-gray-500">—</span>
+          {% endif %}
+        </td>
+      </tr>
+      {% empty %}
+      <tr>
+        <td colspan="{% if show_year %}6{% else %}5{% endif %}" class="px-6 py-12 text-center">
+          <div class="text-gray-500">
+            <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+            </svg>
+            <h3 class="mt-2 text-sm font-medium text-gray-900">No data found</h3>
+            <p class="mt-1 text-sm text-gray-500">No items match your current filters.</p>
+          </div>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<!-- Pagination -->
+{% if paginator.num_pages > 1 %}
+<div class="bg-white px-4 py-3 flex items-center justify-between border-t border-gray-200 sm:px-6">
+  <div class="flex-1 flex justify-between sm:hidden">
+    {% if page_obj.has_previous %}
+    <button class="issues-page relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50"
+            data-page="{{ page_obj.previous_page_number }}">
+      Previous
+    </button>
+    {% endif %}
+    {% if page_obj.has_next %}
+    <button class="issues-page ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50"
+            data-page="{{ page_obj.next_page_number }}">
+      Next
+    </button>
+    {% endif %}
+  </div>
+  <div class="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
+    <div>
+      <p class="text-sm text-gray-700">
+        Showing
+        <span class="font-medium">{{ page_obj.start_index }}</span>
+        to
+        <span class="font-medium">{{ page_obj.end_index }}</span>
+        of
+        <span class="font-medium">{{ paginator.count }}</span>
+        results
+      </p>
+    </div>
+    <div>
+      <nav class="relative z-0 inline-flex rounded-md shadow-sm -space-x-px">
+        {% if page_obj.has_previous %}
+        <button class="issues-page relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50"
+                data-page="{{ page_obj.previous_page_number }}">
+          <span class="sr-only">Previous</span>
+          <svg class="h-5 w-5" fill="currentColor" viewBox="0 0 20 20">
+            <path fill-rule="evenodd" d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z" clip-rule="evenodd"/>
+          </svg>
+        </button>
+        {% endif %}
+        
+        {% for num in paginator.page_range %}
+        {% if num == page_obj.number %}
+        <span class="relative inline-flex items-center px-4 py-2 border border-blue-500 bg-blue-50 text-sm font-medium text-blue-600">
+          {{ num }}
+        </span>
+        {% elif num == paginator.ELLIPSIS %}
+        <span class="relative inline-flex items-center px-4 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-700">
+          ...
+        </span>
+        {% else %}
+        <button class="issues-page relative inline-flex items-center px-4 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-700 hover:bg-gray-50"
+                data-page="{{ num }}">
+          {{ num }}
+        </button>
+        {% endif %}
+        {% endfor %}
+        
+        {% if page_obj.has_next %}
+        <button class="issues-page relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50"
+                data-page="{{ page_obj.next_page_number }}">
+          <span class="sr-only">Next</span>
+          <svg class="h-5 w-5" fill="currentColor" viewBox="0 0 20 20">
+            <path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd"/>
+          </svg>
+        </button>
+        {% endif %}
+      </nav>
+    </div>
+  </div>
+</div>
+{% endif %}

@@ -1,0 +1,644 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Contribute Data - Council Finance Counters{% endblock %}
+
+{% block content %}
+<div class="min-h-screen bg-gray-50 py-6">
+  <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <!-- Page Header -->
+    <div class="mb-8">
+      <h1 class="text-3xl font-bold text-gray-900">Contribute Data</h1>
+      <p class="mt-2 text-gray-600">Help improve council data accuracy by contributing missing information and reviewing pending submissions.</p>
+    </div>
+
+    <!-- Data Quality Dashboard -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+      <div class="bg-white rounded-lg shadow p-6">
+        <h3 class="text-lg font-semibold text-gray-900 mb-2">Missing Characteristics</h3>
+        <div class="text-3xl font-bold text-orange-600" id="missing-characteristics-count">{{ page_obj.paginator.count }}</div>
+        <p class="text-sm text-gray-500">Council details needed</p>
+      </div>
+      <div class="bg-white rounded-lg shadow p-6">
+        <h3 class="text-lg font-semibold text-gray-900 mb-2">Missing Financial Data</h3>
+        <div class="text-3xl font-bold text-red-600" id="missing-financial-count">{{ missing_financial_page.paginator.count }}</div>
+        <p class="text-sm text-gray-500">Financial figures needed</p>
+      </div>
+      <div class="bg-white rounded-lg shadow p-6">
+        <h3 class="text-lg font-semibold text-gray-900 mb-2">Your Contributions</h3>
+        <div class="text-3xl font-bold text-green-600">{{ my_contribs|length }}</div>
+        <p class="text-sm text-gray-500">Total submissions</p>
+      </div>
+    </div>
+
+    <!-- Main Content Area -->
+    <div class="grid grid-cols-1 lg:grid-cols-4 gap-6">
+      <!-- Data Table Section -->
+      <div class="lg:col-span-3">
+        <div class="bg-white rounded-lg shadow">
+          <!-- Table Controls -->
+          <div class="p-6 border-b border-gray-200">
+            <div class="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
+              <div class="flex flex-wrap items-center gap-4">
+                <!-- Data Type Filter -->
+                <div class="flex items-center gap-2">
+                  <label for="data-type-filter" class="text-sm font-medium text-gray-700">Show:</label>
+                  <select id="data-type-filter" class="rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
+                    <option value="missing_characteristics">Missing Characteristics</option>
+                    <option value="missing_financial">Missing Financial Data</option>
+                    <option value="pending">Pending Reviews</option>
+                    <option value="suspicious">Suspicious Data</option>
+                  </select>
+                </div>
+
+                <!-- Page Size -->
+                <div class="flex items-center gap-2">
+                  <label for="page-size" class="text-sm font-medium text-gray-700">Per page:</label>
+                  <select id="page-size" class="rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
+                    <option value="25">25</option>
+                    <option value="50" selected>50</option>
+                    <option value="100">100</option>
+                  </select>
+                </div>
+              </div>
+
+              <!-- Search and Refresh -->
+              <div class="flex items-center gap-3">
+                <div class="relative">
+                  <input type="text" id="data-search" placeholder="Search councils or fields..." 
+                         class="pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500">
+                  <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <svg class="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+                    </svg>
+                  </div>
+                </div>
+                <button id="refresh-data" type="button" 
+                        class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors">
+                  <svg class="w-4 h-4 inline mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+                  </svg>
+                  Refresh
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Data Table -->
+          <div class="overflow-x-auto">
+            <div id="data-table-container" class="min-h-96">
+              <!-- Table content will be loaded via AJAX -->
+              <div class="flex items-center justify-center py-12">
+                <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                <span class="ml-3 text-gray-600">Loading data...</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Pagination -->
+          <div id="pagination-container" class="px-6 py-4 border-t border-gray-200">
+            <!-- Pagination will be loaded via AJAX -->
+          </div>
+        </div>
+      </div>
+
+      <!-- Sidebar -->
+      <div class="lg:col-span-1">
+        <!-- Moderator Panel (for privileged users) -->
+        {% if user.is_authenticated and user.profile.tier.level >= 3 %}
+        <div class="bg-white rounded-lg shadow mb-6">
+          <div class="p-4 border-b border-gray-200">
+            <h3 class="font-semibold text-gray-900">Moderator Panel</h3>
+          </div>
+          <div id="moderator-panel-content" class="p-4">
+            <!-- Moderator content loaded via AJAX -->
+          </div>
+        </div>
+        {% endif %}
+
+        <!-- Quick Stats -->
+        <div class="bg-white rounded-lg shadow mb-6">
+          <div class="p-4 border-b border-gray-200">
+            <h3 class="font-semibold text-gray-900">Your Progress</h3>
+          </div>
+          <div class="p-4">
+            {% if user.is_authenticated %}
+            <div class="space-y-3">
+              <div class="flex justify-between">
+                <span class="text-sm text-gray-600">Points:</span>
+                <span class="font-semibold">{{ points|default:0 }}</span>
+              </div>
+              <div class="flex justify-between">
+                <span class="text-sm text-gray-600">Rank:</span>
+                <span class="font-semibold">#{{ rank|default:"-" }}</span>
+              </div>
+              <div class="flex justify-between">
+                <span class="text-sm text-gray-600">Contributions:</span>
+                <span class="font-semibold">{{ my_contribs|length }}</span>
+              </div>
+            </div>
+            {% else %}
+            <p class="text-sm text-gray-600">
+              <a href="{% url 'login' %}" class="text-blue-600 hover:underline">Log in</a> to track your contributions and earn points.
+            </p>
+            {% endif %}
+          </div>
+        </div>
+
+        <!-- Help Section -->
+        <div class="bg-white rounded-lg shadow">
+          <div class="p-4 border-b border-gray-200">
+            <h3 class="font-semibold text-gray-900">Need Help?</h3>
+          </div>
+          <div class="p-4">
+            <div class="space-y-3">
+              <button id="show-tutorial" class="w-full text-left px-3 py-2 rounded-md hover:bg-gray-50 text-sm">
+                📚 Show Tutorial
+              </button>
+              <a href="#" class="block px-3 py-2 rounded-md hover:bg-gray-50 text-sm">
+                📋 Data Quality Guidelines
+              </a>
+              <a href="#" class="block px-3 py-2 rounded-md hover:bg-gray-50 text-sm">
+                💬 Report an Issue
+              </a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Inline Edit Modal -->
+<div id="edit-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden z-50 flex items-center justify-center">
+  <div class="bg-white rounded-lg shadow-xl max-w-md w-full mx-4">
+    <div class="p-6">
+      <h3 class="text-lg font-semibold text-gray-900 mb-4">Add Data</h3>
+      <form id="edit-form">
+        {% csrf_token %}
+        <input type="hidden" id="edit-council" name="council">
+        <input type="hidden" id="edit-field" name="field">
+        <input type="hidden" id="edit-year" name="year">
+        
+        <div class="mb-4">
+          <label class="block text-sm font-medium text-gray-700 mb-2">Council</label>
+          <div id="edit-council-name" class="text-gray-900 font-medium"></div>
+        </div>
+        
+        <div class="mb-4">
+          <label class="block text-sm font-medium text-gray-700 mb-2">Field</label>
+          <div id="edit-field-name" class="text-gray-900"></div>
+        </div>
+        
+        <div class="mb-4" id="edit-year-container">
+          <label class="block text-sm font-medium text-gray-700 mb-2">Financial Year</label>
+          <div id="edit-year-name" class="text-gray-900"></div>
+        </div>
+        
+        <div class="mb-6">
+          <label for="edit-value" class="block text-sm font-medium text-gray-700 mb-2">Value</label>
+          <input type="text" id="edit-value" name="value" 
+                 class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                 placeholder="Enter the value...">
+          <p class="mt-1 text-xs text-gray-500">Enter the exact value from official sources</p>
+        </div>
+        
+        <div class="flex justify-end gap-3">
+          <button type="button" id="edit-cancel" 
+                  class="px-4 py-2 text-gray-600 hover:text-gray-800 font-medium">
+            Cancel
+          </button>
+          <button type="submit" 
+                  class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 font-medium">
+            Submit
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- Tutorial Modal -->
+<div id="tutorial-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden z-50 flex items-center justify-center">
+  <div class="bg-white rounded-lg shadow-xl max-w-md w-full mx-4 transform transition-all">
+    <div class="p-6">
+      <div class="flex items-center justify-between mb-4">
+        <h3 class="text-lg font-semibold text-gray-900">Welcome to Contribute Data</h3>
+        <div class="text-sm text-gray-500">
+          <span id="tutorial-current">1</span> of <span id="tutorial-total">1</span>
+        </div>
+      </div>
+      
+      <div id="tutorial-content">
+        <!-- Tutorial slides will be dynamically inserted here -->
+      </div>
+      
+      <div class="flex justify-between items-center mt-6">
+        <button id="tutorial-prev" class="px-4 py-2 text-gray-600 hover:text-gray-800 hidden">
+          ← Previous
+        </button>
+        <div class="flex gap-2">
+          <button id="tutorial-skip" class="px-4 py-2 text-gray-600 hover:text-gray-800">
+            Skip
+          </button>
+          <button id="tutorial-next" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">
+            Got it
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// Modern contribute page management system
+class ContributeManager {
+  constructor() {
+    this.currentDataType = 'missing_characteristics';
+    this.currentPage = 1;
+    this.pageSize = 50;
+    this.searchQuery = '';
+    this.sortBy = 'council';
+    this.sortDirection = 'asc';
+    
+    this.setupEventListeners();
+    this.setupWebSocket();
+    this.loadData();
+  }
+  
+  setupEventListeners() {
+    // Data type filter
+    document.getElementById('data-type-filter').addEventListener('change', (e) => {
+      this.currentDataType = e.target.value;
+      this.currentPage = 1;
+      this.loadData();
+    });
+    
+    // Page size
+    document.getElementById('page-size').addEventListener('change', (e) => {
+      this.pageSize = parseInt(e.target.value);
+      this.currentPage = 1;
+      this.loadData();
+    });
+    
+    // Search with debouncing
+    let searchTimeout;
+    document.getElementById('data-search').addEventListener('input', (e) => {
+      clearTimeout(searchTimeout);
+      searchTimeout = setTimeout(() => {
+        this.searchQuery = e.target.value.trim();
+        this.currentPage = 1;
+        this.loadData();
+      }, 300);
+    });
+    
+    // Refresh button
+    document.getElementById('refresh-data').addEventListener('click', () => {
+      this.loadData(true);
+    });
+    
+    // Tutorial trigger
+    document.getElementById('show-tutorial').addEventListener('click', () => {
+      this.showTutorial();
+    });
+    
+    // Edit form
+    this.setupEditForm();
+  }
+  
+  setupWebSocket() {
+    // WebSocket for real-time updates
+    const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
+    this.socket = new WebSocket(`${protocol}://${window.location.host}/ws/contribute/`);
+    
+    this.socket.onopen = () => {
+      console.log('Real-time updates connected');
+    };
+    
+    this.socket.onmessage = () => {
+      // Reload data when updates come in
+      this.loadData();
+      this.updateStats();
+    };
+    
+    this.socket.onerror = (error) => {
+      console.log('WebSocket connection failed, falling back to polling');
+      // Fallback to periodic refresh if WebSocket fails
+      setInterval(() => this.loadData(), 30000);
+    };
+  }
+  
+  async loadData(refresh = false) {
+    const container = document.getElementById('data-table-container');
+    const paginationContainer = document.getElementById('pagination-container');
+    
+    // Show loading state
+    if (!refresh) {
+      container.innerHTML = `
+        <div class="flex items-center justify-center py-12">
+          <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+          <span class="ml-3 text-gray-600">Loading data...</span>
+        </div>
+      `;
+    }
+    
+    try {
+      const params = new URLSearchParams({
+        type: this.currentDataType,
+        page: this.currentPage,
+        page_size: this.pageSize,
+        order: this.sortBy,
+        dir: this.sortDirection,
+        ...(this.searchQuery && { q: this.searchQuery }),
+        ...(refresh && { refresh: '1' })
+      });
+      
+      const response = await fetch(`/contribute/api/data/?${params}`, {
+        headers: { 'X-Requested-With': 'XMLHttpRequest' }
+      });
+      
+      if (!response.ok) throw new Error('Failed to load data');
+      
+      const data = await response.json();
+      container.innerHTML = data.table_html;
+      paginationContainer.innerHTML = data.pagination_html;
+      
+      // Attach event handlers to new content
+      this.attachTableHandlers();
+      
+    } catch (error) {
+      console.error('Error loading data:', error);
+      container.innerHTML = `
+        <div class="text-center py-12">
+          <div class="text-red-600 mb-2">Failed to load data</div>
+          <button onclick="contributeManager.loadData()" class="text-blue-600 hover:underline">Try again</button>
+        </div>
+      `;
+    }
+  }
+  
+  attachTableHandlers() {
+    // Sort headers
+    document.querySelectorAll('[data-sort]').forEach(header => {
+      header.addEventListener('click', () => {
+        const newSort = header.dataset.sort;
+        if (this.sortBy === newSort) {
+          this.sortDirection = this.sortDirection === 'asc' ? 'desc' : 'asc';
+        } else {
+          this.sortBy = newSort;
+          this.sortDirection = 'asc';
+        }
+        this.currentPage = 1;
+        this.loadData();
+      });
+    });
+    
+    // Pagination links
+    document.querySelectorAll('[data-page]').forEach(link => {
+      link.addEventListener('click', (e) => {
+        e.preventDefault();
+        this.currentPage = parseInt(link.dataset.page);
+        this.loadData();
+      });
+    });
+    
+    // Add value buttons
+    document.querySelectorAll('.add-value-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        this.openEditModal(btn.dataset);
+      });
+    });
+  }
+  
+  setupEditForm() {
+    const form = document.getElementById('edit-form');
+    const modal = document.getElementById('edit-modal');
+    
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      await this.submitContribution();
+    });
+    
+    document.getElementById('edit-cancel').addEventListener('click', () => {
+      modal.classList.add('hidden');
+      document.body.style.overflow = '';
+    });
+    
+    // Close on outside click
+    modal.addEventListener('click', (e) => {
+      if (e.target === modal) {
+        modal.classList.add('hidden');
+        document.body.style.overflow = '';
+      }
+    });
+  }
+  
+  openEditModal(data) {
+    const modal = document.getElementById('edit-modal');
+    
+    document.getElementById('edit-council').value = data.council;
+    document.getElementById('edit-field').value = data.field;
+    document.getElementById('edit-year').value = data.year || '';
+    
+    document.getElementById('edit-council-name').textContent = data.councilName;
+    document.getElementById('edit-field-name').textContent = data.fieldName;
+    
+    const yearContainer = document.getElementById('edit-year-container');
+    if (data.year) {
+      yearContainer.style.display = 'block';
+      document.getElementById('edit-year-name').textContent = data.yearName;
+    } else {
+      yearContainer.style.display = 'none';
+    }
+    
+    document.getElementById('edit-value').value = '';
+    document.getElementById('edit-value').focus();
+    
+    modal.classList.remove('hidden');
+    document.body.style.overflow = 'hidden';
+  }
+  
+  async submitContribution() {
+    const form = document.getElementById('edit-form');
+    const formData = new FormData(form);
+    
+    try {
+      const response = await fetch('/contribute/submit/', {
+        method: 'POST',
+        body: formData,
+        headers: { 'X-Requested-With': 'XMLHttpRequest' }
+      });
+      
+      const result = await response.json();
+      
+      if (response.ok) {
+        // Success
+        this.showNotification(result.message, 'success');
+        document.getElementById('edit-modal').classList.add('hidden');
+        document.body.style.overflow = '';
+        this.loadData();
+        this.updateStats();
+      } else {
+        // Error
+        this.showNotification(result.error || 'Failed to submit contribution', 'error');
+      }
+    } catch (error) {
+      console.error('Submission error:', error);
+      this.showNotification('Failed to submit contribution', 'error');
+    }
+  }
+  
+  async updateStats() {
+    try {
+      const response = await fetch('/contribute/api/stats/', {
+        headers: { 'X-Requested-With': 'XMLHttpRequest' }
+      });
+      
+      if (response.ok) {
+        const stats = await response.json();
+        document.getElementById('missing-characteristics-count').textContent = stats.missing_characteristics;
+        document.getElementById('missing-financial-count').textContent = stats.missing_financial;
+      }
+    } catch (error) {
+      console.error('Failed to update stats:', error);
+    }
+  }
+  
+  showNotification(message, type = 'info') {
+    // Create a toast notification
+    const toast = document.createElement('div');
+    toast.className = `fixed top-4 right-4 z-50 px-6 py-3 rounded-md shadow-lg text-white transform transition-all duration-300 translate-x-full ${
+      type === 'success' ? 'bg-green-600' : 
+      type === 'error' ? 'bg-red-600' : 'bg-blue-600'
+    }`;
+    toast.textContent = message;
+    
+    document.body.appendChild(toast);
+    
+    // Animate in
+    setTimeout(() => toast.classList.remove('translate-x-full'), 100);
+    
+    // Remove after 4 seconds
+    setTimeout(() => {
+      toast.classList.add('translate-x-full');
+      setTimeout(() => document.body.removeChild(toast), 300);
+    }, 4000);
+  }
+  
+  showTutorial() {
+    // Force show tutorial regardless of localStorage
+    if (window.tutorialInstance) {
+      window.tutorialInstance.show();
+    }
+  }
+}
+
+// Tutorial system with DEBUG mode support
+class Tutorial {
+  constructor() {
+    this.config = {{ page_tutorials.contribute|default:"{\"slides\": []}" }};
+    this.slides = this.config.slides || [];
+    this.currentSlide = 0;
+    this.modal = document.getElementById('tutorial-modal');
+    this.content = document.getElementById('tutorial-content');
+    this.currentSpan = document.getElementById('tutorial-current');
+    this.totalSpan = document.getElementById('tutorial-total');
+    this.prevBtn = document.getElementById('tutorial-prev');
+    this.nextBtn = document.getElementById('tutorial-next');
+    this.skipBtn = document.getElementById('tutorial-skip');
+    
+    this.init();
+  }
+  
+  init() {
+    if (this.slides.length === 0) return;
+    
+    this.totalSpan.textContent = this.slides.length;
+    this.setupEventListeners();
+    this.updateSlide();
+    
+    // Show tutorial based on DEBUG mode or localStorage
+    const forceShow = {{ tutorials_debug_mode|yesno:"true,false" }};
+    const hasSeenTutorial = localStorage.getItem('seenTutorial_contribute');
+    
+    if (forceShow || !hasSeenTutorial) {
+      this.show();
+    }
+  }
+  
+  setupEventListeners() {
+    this.nextBtn.addEventListener('click', () => this.next());
+    this.prevBtn.addEventListener('click', () => this.previous());
+    this.skipBtn.addEventListener('click', () => this.close());
+    
+    this.modal.addEventListener('click', (e) => {
+      if (e.target === this.modal) this.close();
+    });
+    
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && !this.modal.classList.contains('hidden')) {
+        this.close();
+      }
+    });
+  }
+  
+  updateSlide() {
+    const slide = this.slides[this.currentSlide];
+    this.content.innerHTML = `
+      <div class="text-gray-700 leading-relaxed">
+        ${slide.content}
+      </div>
+    `;
+    
+    this.currentSpan.textContent = this.currentSlide + 1;
+    this.prevBtn.classList.toggle('hidden', this.currentSlide === 0);
+    
+    if (this.currentSlide === this.slides.length - 1) {
+      this.nextBtn.textContent = 'Got it';
+    } else {
+      this.nextBtn.textContent = 'Next →';
+    }
+  }
+  
+  next() {
+    if (this.currentSlide < this.slides.length - 1) {
+      this.currentSlide++;
+      this.updateSlide();
+    } else {
+      this.close();
+    }
+  }
+  
+  previous() {
+    if (this.currentSlide > 0) {
+      this.currentSlide--;
+      this.updateSlide();
+    }
+  }
+  
+  show() {
+    this.modal.classList.remove('hidden');
+    document.body.style.overflow = 'hidden';
+  }
+  
+  close() {
+    this.modal.classList.add('hidden');
+    document.body.style.overflow = '';
+    // Only save to localStorage in production mode
+    if (!{{ tutorials_debug_mode|yesno:"true,false" }}) {
+      localStorage.setItem('seenTutorial_contribute', '1');
+    }
+  }
+}
+
+// Initialize the application
+let contributeManager;
+let tutorialInstance;
+
+document.addEventListener('DOMContentLoaded', () => {
+  contributeManager = new ContributeManager();
+  tutorialInstance = new Tutorial();
+  window.tutorialInstance = tutorialInstance;
+});
+</script>
+{% endblock %}

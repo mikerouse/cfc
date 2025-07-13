@@ -8,6 +8,7 @@
   <nav class="flex gap-4">
     <a href="{% url 'profile' %}" class="py-2 px-4 border-b-2 {% if tab == 'profile' %}border-blue-600 font-semibold{% else %}border-transparent{% endif %}">Profile</a>
     <a href="{% url 'profile' %}?tab=custom" class="py-2 px-4 border-b-2 {% if tab == 'custom' %}border-blue-600 font-semibold{% else %}border-transparent{% endif %}">Customisations</a>
+    <a href="{% url 'user_preferences' %}" class="py-2 px-4 border-b-2 border-transparent hover:border-blue-300">Preferences</a>
     <a href="{% url 'notifications' %}" class="py-2 px-4 border-b-2 {% if tab == 'notifications' %}border-blue-600 font-semibold{% else %}border-transparent{% endif %}">Notifications</a>
   </nav>
 </div>

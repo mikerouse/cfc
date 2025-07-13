@@ -1,0 +1,306 @@
+{% load heroicons %}
+
+<!-- Quick Accessibility Toolbar -->
+<div id="accessibility-toolbar" class="fixed bottom-4 right-4 z-50">
+    <!-- Toggle Button -->
+    <button id="a11y-toggle" 
+            class="bg-gray-700 hover:bg-gray-600 text-white p-3 rounded-full shadow-lg transition-all duration-200"
+            aria-label="Open accessibility options"
+            title="Accessibility Options">
+        {% heroicon_outline "adjustments-horizontal" class="w-5 h-5" %}
+    </button>
+    
+    <!-- Accessibility Panel -->
+    <div id="a11y-panel" 
+         class="hidden absolute bottom-16 right-0 bg-white border border-gray-200 rounded-lg shadow-lg p-4 w-72">
+        <div class="flex items-center justify-between mb-3">
+            <h3 class="font-semibold text-gray-900">Quick Settings</h3>
+            <button id="a11y-close" class="text-gray-400 hover:text-gray-600">
+                {% heroicon_outline "x-mark" class="w-4 h-4" %}
+            </button>
+        </div>
+        
+        <!-- Font Size Controls -->
+        <div class="space-y-2 mb-4">
+            <label class="block text-sm font-medium text-gray-700">Font Size</label>
+            <div class="flex gap-2">
+                <button data-font-size="small" 
+                        class="font-size-btn px-3 py-1 text-xs border rounded hover:bg-gray-50">
+                    A-
+                </button>
+                <button data-font-size="medium" 
+                        class="font-size-btn px-3 py-1 text-sm border rounded hover:bg-gray-50">
+                    A
+                </button>
+                <button data-font-size="large" 
+                        class="font-size-btn px-3 py-1 text-base border rounded hover:bg-gray-50">
+                    A+
+                </button>
+                <button data-font-size="extra-large" 
+                        class="font-size-btn px-3 py-1 text-lg border rounded hover:bg-gray-50">
+                    A++
+                </button>
+            </div>
+        </div>
+        
+        <!-- High Contrast Toggle -->
+        <div class="flex items-center justify-between mb-4">
+            <label class="text-sm font-medium text-gray-700">High Contrast</label>
+            <button id="contrast-toggle" 
+                    class="relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-200 ease-in-out bg-gray-200"
+                    role="switch" 
+                    aria-checked="false">
+                <span class="sr-only">Toggle high contrast mode</span>
+                <span class="contrast-thumb inline-block h-4 w-4 transform rounded-full bg-white shadow-lg ring-0 transition duration-200 ease-in-out translate-x-1"></span>
+            </button>
+        </div>
+        
+        <!-- Theme Selection -->
+        <div class="space-y-2 mb-4">
+            <label class="block text-sm font-medium text-gray-700">Theme</label>
+            <div class="grid grid-cols-2 gap-2">
+                <button data-theme="light" 
+                        class="theme-btn flex items-center justify-center px-3 py-2 text-xs border rounded hover:bg-gray-50">
+                    {% heroicon_outline "sun" class="w-4 h-4 mr-1" %}
+                    Light
+                </button>
+                <button data-theme="dark" 
+                        class="theme-btn flex items-center justify-center px-3 py-2 text-xs border rounded hover:bg-gray-50">
+                    {% heroicon_outline "moon" class="w-4 h-4 mr-1" %}
+                    Dark
+                </button>
+                <button data-theme="auto" 
+                        class="theme-btn flex items-center justify-center px-3 py-2 text-xs border rounded hover:bg-gray-50">
+                    {% heroicon_outline "computer-desktop" class="w-4 h-4 mr-1" %}
+                    Auto
+                </button>
+                <button data-theme="high-contrast" 
+                        class="theme-btn flex items-center justify-center px-3 py-2 text-xs border rounded hover:bg-gray-50">
+                    {% heroicon_outline "eye" class="w-4 h-4 mr-1" %}
+                    High
+                </button>
+            </div>
+        </div>
+        
+        <!-- More Options Link -->
+        <div class="border-t pt-3">
+            <a href="{% url 'user_preferences' %}" 
+               class="text-sm text-blue-600 hover:text-blue-800 flex items-center">
+                {% heroicon_outline "cog-6-tooth" class="w-4 h-4 mr-1" %}
+                More preferences
+            </a>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const toolbar = document.getElementById('accessibility-toolbar');
+    const toggle = document.getElementById('a11y-toggle');
+    const panel = document.getElementById('a11y-panel');
+    const closeBtn = document.getElementById('a11y-close');
+    const contrastToggle = document.getElementById('contrast-toggle');
+    
+    // Font size mappings
+    const fontSizes = {
+        'small': '14px',
+        'medium': '16px',
+        'large': '18px',
+        'extra-large': '20px'
+    };
+    
+    // Get current preferences from CSS or defaults
+    function getCurrentPreferences() {
+        const style = getComputedStyle(document.documentElement);
+        return {
+            fontSize: getCurrentFontSize(),
+            highContrast: document.body.classList.contains('high-contrast'),
+            theme: getCurrentTheme()
+        };
+    }
+    
+    function getCurrentFontSize() {
+        const current = getComputedStyle(document.documentElement).getPropertyValue('--font-size-base').trim();
+        for (const [key, value] of Object.entries(fontSizes)) {
+            if (value === current) return key;
+        }
+        return 'medium';
+    }
+    
+    function getCurrentTheme() {
+        if (document.body.classList.contains('theme-light')) return 'light';
+        if (document.body.classList.contains('theme-dark')) return 'dark';
+        if (document.body.classList.contains('theme-high-contrast')) return 'high-contrast';
+        return 'auto';
+    }
+    
+    // Update UI to reflect current state
+    function updateUI() {
+        const prefs = getCurrentPreferences();
+        
+        // Update font size buttons
+        document.querySelectorAll('.font-size-btn').forEach(btn => {
+            btn.classList.toggle('bg-blue-500', btn.dataset.fontSize === prefs.fontSize);
+            btn.classList.toggle('text-white', btn.dataset.fontSize === prefs.fontSize);
+        });
+        
+        // Update contrast toggle
+        const thumb = contrastToggle.querySelector('.contrast-thumb');
+        if (prefs.highContrast) {
+            contrastToggle.classList.add('bg-blue-500');
+            contrastToggle.classList.remove('bg-gray-200');
+            thumb.classList.add('translate-x-6');
+            thumb.classList.remove('translate-x-1');
+            contrastToggle.setAttribute('aria-checked', 'true');
+        } else {
+            contrastToggle.classList.remove('bg-blue-500');
+            contrastToggle.classList.add('bg-gray-200');
+            thumb.classList.remove('translate-x-6');
+            thumb.classList.add('translate-x-1');
+            contrastToggle.setAttribute('aria-checked', 'false');
+        }
+        
+        // Update theme buttons
+        document.querySelectorAll('.theme-btn').forEach(btn => {
+            btn.classList.toggle('bg-blue-500', btn.dataset.theme === prefs.theme);
+            btn.classList.toggle('text-white', btn.dataset.theme === prefs.theme);
+        });
+    }
+    
+    // Apply preference changes
+    function applyPreference(type, value) {
+        const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]')?.value || 
+                         getCookie('csrftoken');
+        
+        const formData = new FormData();
+        formData.append('csrfmiddlewaretoken', csrfToken);
+        formData.append(type, value);
+        
+        fetch('{% url "user_preferences_ajax" %}', {
+            method: 'POST',
+            body: formData,
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Apply changes immediately
+                if (type === 'font_size') {
+                    document.documentElement.style.setProperty('--font-size-base', fontSizes[value]);
+                    document.body.className = document.body.className.replace(/font-size-\w+/g, '');
+                    document.body.classList.add(`font-size-${value}`);
+                }
+                
+                if (type === 'high_contrast_mode') {
+                    const enabled = value === 'true';
+                    document.body.classList.toggle('high-contrast', enabled);
+                    
+                    if (enabled) {
+                        document.documentElement.style.setProperty('--color-background', '#000000');
+                        document.documentElement.style.setProperty('--color-text', '#ffffff');
+                        document.documentElement.style.setProperty('--color-primary', '#ffff00');
+                        document.documentElement.style.setProperty('--color-border', '#ffffff');
+                    } else {
+                        document.documentElement.style.setProperty('--color-background', '#ffffff');
+                        document.documentElement.style.setProperty('--color-text', '#0b0c0c');
+                        document.documentElement.style.setProperty('--color-primary', '#1d70b8');
+                        document.documentElement.style.setProperty('--color-border', '#b1b4b6');
+                    }
+                }
+                
+                if (type === 'color_theme') {
+                    document.body.className = document.body.className.replace(/theme-\w+/g, '');
+                    document.body.classList.add(`theme-${value}`);
+                }
+                
+                updateUI();
+            }
+        })
+        .catch(error => {
+            console.error('Error updating preference:', error);
+        });
+    }
+    
+    // Helper function to get CSRF cookie
+    function getCookie(name) {
+        const match = document.cookie.match('(^|;)\\s*' + name + '\\s*=\\s*([^;]+)');
+        return match ? match.pop() : '';
+    }
+    
+    // Event listeners
+    toggle.addEventListener('click', function() {
+        panel.classList.toggle('hidden');
+        updateUI();
+    });
+    
+    closeBtn.addEventListener('click', function() {
+        panel.classList.add('hidden');
+    });
+    
+    // Font size buttons
+    document.querySelectorAll('.font-size-btn').forEach(btn => {
+        btn.addEventListener('click', function() {
+            applyPreference('font_size', this.dataset.fontSize);
+        });
+    });
+    
+    // High contrast toggle
+    contrastToggle.addEventListener('click', function() {
+        const enabled = this.getAttribute('aria-checked') === 'true';
+        applyPreference('high_contrast_mode', enabled ? 'false' : 'true');
+    });
+    
+    // Theme buttons
+    document.querySelectorAll('.theme-btn').forEach(btn => {
+        btn.addEventListener('click', function() {
+            applyPreference('color_theme', this.dataset.theme);
+        });
+    });
+    
+    // Close panel when clicking outside
+    document.addEventListener('click', function(e) {
+        if (!toolbar.contains(e.target)) {
+            panel.classList.add('hidden');
+        }
+    });
+    
+    // Initial UI update
+    updateUI();
+});
+</script>
+
+<style>
+/* Accessibility toolbar styles */
+#accessibility-toolbar .font-size-btn.bg-blue-500,
+#accessibility-toolbar .theme-btn.bg-blue-500 {
+    border-color: #3b82f6;
+}
+
+/* High contrast mode overrides */
+.high-contrast #accessibility-toolbar {
+    filter: invert(1) hue-rotate(180deg);
+}
+
+.high-contrast #a11y-panel {
+    background: #000000 !important;
+    color: #ffffff !important;
+    border-color: #ffffff !important;
+}
+
+.high-contrast #a11y-panel button {
+    background: #000000 !important;
+    color: #ffffff !important;
+    border-color: #ffffff !important;
+}
+
+.high-contrast #a11y-panel button:hover {
+    background: #333333 !important;
+}
+
+.high-contrast #a11y-panel .bg-blue-500 {
+    background: #ffff00 !important;
+    color: #000000 !important;
+}
+</style>

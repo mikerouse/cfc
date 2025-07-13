@@ -58,10 +58,11 @@ TEMPLATES = [
                 "django.template.context_processors.request",
                 "django.contrib.auth.context_processors.auth",
                 "django.contrib.messages.context_processors.messages",
-                # Provide the chosen Google font to every template.
-                "council_finance.context_processors.font_family",
+                # Provide comprehensive user preferences including font, theme, and accessibility
+                "council_finance.context_processors.user_preferences",
                 "council_finance.context_processors.compare_count",
-                "council_finance.context_processors.tutorial.tutorial_context",
+                "council_finance.context_processors.debug_flag",
+                "council_finance.context_processors.tutorial_context",
             ],
         },
     },

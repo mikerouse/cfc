@@ -726,26 +726,17 @@ def following(request):
 
 
 def contribute(request):
-    """Show a single real-time table of data issues and contributions."""
+    """Show a modern, real-time contribute interface with AJAX editing."""
 
     from .models import DataIssue, UserProfile
     from .data_quality import assess_data_issues
 
-    # Rebuilding the DataIssue table can take a while and may lock the
-    # SQLite database. Avoid doing so automatically on every page load.
-    # Volunteers can trigger a refresh via AJAX if needed.
-
-    from django.core.paginator import Paginator
-
-    # Default to showing missing characteristics to highlight important gaps.
-    qs = (
+    # Get initial data for the page
+    characteristic_qs = (
         DataIssue.objects.filter(issue_type="missing", field__category="characteristic")
         .select_related("council", "field", "year")
         .order_by("council__name")
     )
-
-    paginator = Paginator(qs, 50)
-    page = paginator.get_page(1)
 
     financial_qs = (
         DataIssue.objects.filter(issue_type="missing")
@@ -753,7 +744,13 @@ def contribute(request):
         .select_related("council", "field", "year")
         .order_by("council__name")
     )
-    financial_paginator = Paginator(financial_qs, 50)
+
+    # Use smaller page sizes for the initial load
+    from django.core.paginator import Paginator
+    char_paginator = Paginator(characteristic_qs, 25)
+    char_page = char_paginator.get_page(1)
+
+    financial_paginator = Paginator(financial_qs, 25)
     financial_page = financial_paginator.get_page(1)
 
     my_contribs = (
@@ -771,10 +768,10 @@ def contribute(request):
 
     return render(
         request,
-        "council_finance/contribute.html",
+        "council_finance/contribute_new.html",
         {
-            "page_obj": page,
-            "paginator": paginator,
+            "page_obj": char_page,
+            "paginator": char_paginator,
             "missing_financial_page": financial_page,
             "missing_financial_paginator": financial_paginator,
             "my_contribs": my_contribs,
@@ -782,6 +779,36 @@ def contribute(request):
             "rank": rank,
         },
     )
+
+
+@require_GET
+def contribute_stats(request):
+    """Return statistics for the contribute page sidebar."""
+    if request.headers.get("X-Requested-With") != "XMLHttpRequest":
+        return HttpResponseBadRequest("XHR required")
+    
+    from .models import DataIssue, Contribution
+    
+    stats = {
+        'missing': DataIssue.objects.filter(issue_type='missing').count(),
+        'pending': Contribution.objects.filter(status='pending').count(),
+        'suspicious': DataIssue.objects.filter(issue_type='suspicious').count(),
+    }
+    
+    return JsonResponse(stats)
+
+
+@require_GET  
+def contribute_submit(request):
+    """Handle AJAX contribution submissions from the quick edit modal."""
+    if request.method != "POST":
+        return HttpResponseBadRequest("POST required")
+    
+    if request.headers.get("X-Requested-With") != "XMLHttpRequest":
+        return HttpResponseBadRequest("XHR required")
+    
+    # Reuse the existing submit_contribution logic
+    return submit_contribution(request)
 
 
 def data_issues_table(request):
@@ -835,7 +862,7 @@ def data_issues_table(request):
     else:
         show_year = not (issue_type == "missing" and category == "characteristic")
         html = render_to_string(
-            "council_finance/data_issues_table.html",
+            "council_finance/data_issues_table_enhanced.html",
             {
                 "page_obj": page,
                 "paginator": paginator,
@@ -844,7 +871,15 @@ def data_issues_table(request):
             },
             request=request,
         )
-    return JsonResponse({"html": html})
+    
+    # Return additional pagination info for the enhanced UI
+    return JsonResponse({
+        "html": html,
+        "total": paginator.count,
+        "page": page.number,
+        "page_size": page_size,
+        "num_pages": paginator.num_pages
+    })
 
 
 def moderator_panel(request):
@@ -2060,7 +2095,7 @@ def review_contribution(request, pk, action):
             council=contrib.council,
             activity="review_contribution",
             log_type="user",
-            action=f"id={pk}",
+                       action=f"id={pk}",
             response="edited",
             extra={"value": contrib.value},
         )
@@ -2750,3 +2785,236 @@ def activity_log_entries(request):
         row["json"] = json.dumps(row, ensure_ascii=False)
         data.append(row)
     return JsonResponse({"results": data, "has_next": page.has_next()})
+
+
+@require_GET
+def contribute_api_data(request):
+    """Return data table HTML for AJAX requests with real-time editing capabilities."""
+    if request.headers.get("X-Requested-With") != "XMLHttpRequest":
+        return HttpResponseBadRequest("XHR required")
+
+    from .models import DataIssue, Contribution
+    from .data_quality import assess_data_issues
+
+    data_type = request.GET.get("type", "missing_characteristics")
+    search = request.GET.get("q", "").strip()
+    order = request.GET.get("order", "council")
+    direction = request.GET.get("dir", "asc")
+    page_size = int(request.GET.get("page_size", 50))
+    
+    # Refresh data quality assessment if requested
+    if request.GET.get("refresh"):
+        assess_data_issues()
+
+    # Build the appropriate queryset based on data type
+    if data_type == "pending":
+        qs = Contribution.objects.filter(status="pending").select_related(
+            "council", "field", "user", "year"
+        )
+    elif data_type == "missing_characteristics":
+        qs = DataIssue.objects.filter(
+            issue_type="missing", field__category="characteristic"
+        ).select_related("council", "field", "year")
+    elif data_type == "missing_financial":
+        qs = (DataIssue.objects.filter(issue_type="missing")
+        .exclude(field__category="characteristic")
+        .select_related("council", "field", "year"))
+    elif data_type == "suspicious":
+        qs = DataIssue.objects.filter(issue_type="suspicious").select_related(
+            "council", "field", "year"
+        )
+    else:
+        return JsonResponse({"error": "Invalid data type"}, status=400)
+
+    # Apply search filter
+    if search:
+        qs = qs.filter(
+            Q(council__name__icontains=search) | Q(field__name__icontains=search)
+        )
+
+    # Apply sorting
+    allowed_sorts = {
+        "council": "council__name",
+        "field": "field__name", 
+        "year": "year__label",
+        "value": "value"
+    }
+    sort_field = allowed_sorts.get(order, "council__name")
+    if direction == "desc":
+        sort_field = f"-{sort_field}"
+    qs = qs.order_by(sort_field)
+
+    # Paginate results
+    paginator = Paginator(qs, page_size)
+    page = paginator.get_page(request.GET.get("page", 1))
+
+    # Render the appropriate template
+    if data_type == "pending":
+        table_html = render_to_string(
+            "council_finance/contribute_pending_table.html",
+            {"page_obj": page, "paginator": paginator, "data_type": data_type},
+            request=request,
+        )
+    else:
+        table_html = render_to_string(
+            "council_finance/contribute_data_table.html",
+            {
+                "page_obj": page,
+                "paginator": paginator,
+                "data_type": data_type,
+                "show_year": data_type != "missing_characteristics",
+            },
+            request=request,
+        )
+
+    pagination_html = render_to_string(
+        "council_finance/contribute_pagination.html",
+        {"page_obj": page, "paginator": paginator},
+        request=request,
+    )
+
+    return JsonResponse({
+        "table_html": table_html,
+        "pagination_html": pagination_html,
+        "total_count": paginator.count,
+    })
+
+
+@require_GET
+def contribute_api_stats(request):
+    """Return current statistics for the contribute dashboard."""
+    if request.headers.get("X-Requested-With") != "XMLHttpRequest":
+        return HttpResponseBadRequest("XHR required")
+
+    from .models import DataIssue
+
+    stats = {
+        "missing_characteristics": DataIssue.objects.filter(
+            issue_type="missing", field__category="characteristic"
+        ).count(),
+        "missing_financial": DataIssue.objects.filter(issue_type="missing")
+        .exclude(field__category="characteristic")
+        .count(),
+        "pending": Contribution.objects.filter(status="pending").count(),
+        "suspicious": DataIssue.objects.filter(issue_type="suspicious").count(),
+    }
+
+    return JsonResponse(stats)
+
+
+# === User Preferences Management ===
+
+@login_required
+def user_preferences_view(request):
+    """
+    Display and handle user preferences including fonts and accessibility options.
+    """
+    from .user_preferences import UserPreferences
+    
+    prefs = UserPreferences(request)
+    current_preferences = prefs.get_preferences()
+    
+    if request.method == 'POST':
+        # Handle preference updates
+        new_preferences = {}
+        
+        if 'font_family' in request.POST:
+            font_family = request.POST['font_family']
+            if font_family in prefs.GOOGLE_FONTS:
+                new_preferences['font_family'] = font_family
+        
+        if 'font_size' in request.POST:
+            font_size = request.POST['font_size']
+            if font_size in prefs.FONT_SIZES:
+                new_preferences['font_size'] = font_size
+        
+        if 'high_contrast_mode' in request.POST:
+            new_preferences['high_contrast_mode'] = request.POST['high_contrast_mode'] == 'true'
+        
+        if 'color_theme' in request.POST:
+            color_theme = request.POST['color_theme']
+            if color_theme in ['auto', 'light', 'dark', 'high-contrast']:
+                new_preferences['color_theme'] = color_theme
+        
+        # Update preferences
+        if prefs.update_profile_preferences(new_preferences):
+            messages.success(request, "Your preferences have been updated successfully.")
+        else:
+            messages.error(request, "Failed to update preferences. Please try again.")
+        
+        # Return JSON response for AJAX requests
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            updated_prefs = prefs.get_preferences()
+            return JsonResponse({
+                'success': True,
+                'preferences': updated_prefs,
+                'css_variables': prefs.get_css_variables(),
+                'google_fonts_url': prefs.get_google_fonts_url(),
+                'accessibility_classes': prefs.get_accessibility_classes(),
+            })
+        
+        return redirect('user_preferences')
+    
+    context = {
+        'current_preferences': current_preferences,
+        'available_fonts': list(prefs.GOOGLE_FONTS.keys()),
+        'available_font_sizes': prefs.FONT_SIZES,
+        'font_size_choices': [
+            ('small', 'Small (14px)'),
+            ('medium', 'Medium (16px)'),
+            ('large', 'Large (18px)'),
+            ('extra-large', 'Extra Large (20px)'),
+        ],
+        'theme_choices': [
+            ('auto', 'Auto (follows system)'),
+            ('light', 'Light theme'),
+            ('dark', 'Dark theme'),
+            ('high-contrast', 'High contrast'),
+        ],
+    }
+    
+    return render(request, 'council_finance/user_preferences.html', context)
+
+
+def user_preferences_ajax(request):
+    """
+    Handle AJAX requests for user preference updates (for anonymous users).
+    """
+    if request.method != 'POST':
+        return JsonResponse({'error': 'POST required'}, status=405)
+    
+    from .user_preferences import UserPreferences
+    prefs = UserPreferences(request)
+    
+    # For anonymous users, store in session
+    if not request.user.is_authenticated:
+        if 'font_family' in request.POST:
+            font_family = request.POST['font_family']
+            if font_family in prefs.GOOGLE_FONTS:
+                prefs.set_session_preference('font_family', font_family)
+        
+        if 'font_size' in request.POST:
+            font_size = request.POST['font_size']
+            if font_size in prefs.FONT_SIZES:
+                prefs.set_session_preference('font_size', font_size)
+        
+        if 'high_contrast_mode' in request.POST:
+            prefs.set_session_preference('high_contrast_mode', 
+                                       request.POST['high_contrast_mode'] == 'true')
+        
+        if 'color_theme' in request.POST:
+            color_theme = request.POST['color_theme']
+            if color_theme in ['auto', 'light', 'dark', 'high-contrast']:
+                prefs.set_session_preference('color_theme', color_theme)
+        
+        updated_prefs = prefs.get_preferences()
+        return JsonResponse({
+            'success': True,
+            'preferences': updated_prefs,
+            'css_variables': prefs.get_css_variables(),
+            'google_fonts_url': prefs.get_google_fonts_url(),
+            'accessibility_classes': prefs.get_accessibility_classes(),
+        })
+    
+    # For authenticated users, redirect to the main preferences view
+    return user_preferences_view(request)

@@ -1,65 +1,325 @@
-{% extends "base.html" %}
+{% extends "council_finance/base.html" %}
 {% load static %}
-{% load tutorial_tags %}
 {% block title %}Contribute - Council Finance Counters{% endblock %}
 {% block content %}
-<h1 class="text-2xl font-bold mb-4">Contribute Data</h1>
-<div id="contrib-msg" class="text-green-700 mb-4 hidden" role="status"></div>
-{% if points is not None %}
-<p class="mb-4" aria-live="polite">You have {{ points }} points and rank {{ rank }} on the leaderboard.</p>
-{% endif %}
-<div class="flex gap-4">
-  <div class="flex-1">
-    <!-- Unified table of issues and pending contributions. Moderators see
-         additional actions like reject and delete. -->
-    <h2 class="sr-only">Missing Characteristics</h2>
-    <div class="mb-2 flex gap-2 items-end">
-      <input id="issues-search" type="text" placeholder="Search..." class="border rounded px-2 py-1" />
-      <select id="issues-type" class="border rounded px-2 py-1">
-        <option value="missing">Missing Financial</option>
-        <option value="missing" data-category="characteristic">Missing Characteristics</option>
-        <option value="suspicious">Suspicious</option>
-        <option value="pending">Pending Approval</option>
-      </select>
-      <select id="issues-size" class="border rounded px-2 py-1">
-        <option value="25">25</option>
-        <option value="50" selected>50</option>
-        <option value="100">100</option>
-      </select>
-      <button id="issues-refresh" type="button" class="px-2 py-1 border rounded">Refresh</button>
-      <span id="issues-loading" class="hidden" role="status" aria-live="polite">Loading...</span>
+<div class="max-w-7xl mx-auto">
+  <div class="flex items-center justify-between mb-6">
+    <div>
+      <h1 class="text-3xl font-bold text-gray-900">Contribute Data</h1>
+      <p class="text-gray-600 mt-1">Help improve council transparency by adding missing data</p>
     </div>
-    <div id="issues-data-container" data-page="1" data-order="council" data-dir="asc" data-page-size="50" aria-live="polite">
-      {% include 'council_finance/data_issues_table.html' with page_obj=page_obj paginator=paginator issue_type='missing' show_year=True %}
+    {% if points is not None %}
+    <div class="bg-blue-50 px-4 py-2 rounded-lg border border-blue-200">
+      <div class="text-sm text-blue-600">Your Progress</div>
+      <div class="font-semibold text-blue-900">{{ points }} points • Rank #{{ rank }}</div>
     </div>
-    <h2 class="sr-only">Missing Financial Data</h2>
-    <div class="hidden" id="initial-financial-data">
-      {% include 'council_finance/data_issues_table.html' with page_obj=missing_financial_page paginator=missing_financial_paginator issue_type='missing' show_year=True %}
+    {% endif %}
+  </div>
+
+  <!-- Status Messages -->
+  <div id="contrib-msg" class="mb-4 p-4 rounded-lg border hidden" role="status"></div>
+
+  <!-- Main Content Grid -->
+  <div class="grid grid-cols-1 lg:grid-cols-4 gap-6">
+    <!-- Main Data Table -->
+    <div class="lg:col-span-3">
+      <!-- Controls Bar -->
+      <div class="bg-white rounded-lg shadow border mb-4">
+        <div class="p-4 border-b border-gray-200">
+          <div class="flex flex-wrap items-center gap-4">
+            <div class="flex items-center gap-2">
+              <label for="issues-type" class="text-sm font-medium text-gray-700">View:</label>
+              <select id="issues-type" class="border border-gray-300 rounded-md px-3 py-1 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                <option value="missing">Missing Data</option>
+                <option value="pending">Pending Review</option>
+                <option value="suspicious">Suspicious Values</option>
+              </select>
+            </div>
+            
+            <div class="flex items-center gap-2">
+              <label for="issues-category" class="text-sm font-medium text-gray-700">Category:</label>
+              <select id="issues-category" class="border border-gray-300 rounded-md px-3 py-1 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                <option value="">All</option>
+                <option value="characteristic">Council Info</option>
+                <option value="financial">Financial Data</option>
+              </select>
+            </div>
+
+            <div class="flex-1 max-w-md">
+              <input type="text" id="issues-search" placeholder="Search councils or fields..." 
+                     class="w-full border border-gray-300 rounded-md px-3 py-1 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+            </div>
+
+            <button id="issues-refresh" type="button" 
+                    class="px-3 py-1 bg-gray-100 hover:bg-gray-200 border border-gray-300 rounded-md text-sm font-medium transition-colors">
+              <svg class="w-4 h-4 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+              </svg>
+              Refresh
+            </button>
+          </div>
+        </div>
+
+        <!-- Results Info -->
+        <div class="px-4 py-2 bg-gray-50 text-sm text-gray-600 flex items-center justify-between">
+          <div id="results-info">Loading...</div>
+          <div class="flex items-center gap-2">
+            <label for="issues-size" class="text-sm">Show:</label>
+            <select id="issues-size" class="border border-gray-300 rounded px-2 py-1 text-sm">
+              <option value="25">25</option>
+              <option value="50" selected>50</option>
+              <option value="100">100</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <!-- Data Table -->
+      <div class="bg-white rounded-lg shadow border">
+        <div id="issues-loading" class="hidden p-8 text-center">
+          <div class="inline-flex items-center">
+            <svg class="animate-spin -ml-1 mr-3 h-5 w-5 text-blue-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
+            Loading data...
+          </div>
+        </div>
+        <div id="issues-data-container" data-page="1" data-order="council" data-dir="asc" data-page-size="50" aria-live="polite">
+          <!-- Table content will be loaded here -->
+        </div>
+      </div>
+    </div>
+
+    <!-- Sidebar -->
+    <div class="lg:col-span-1">
+      <!-- Quick Stats -->
+      <div class="bg-white rounded-lg shadow border p-4 mb-4">
+        <h3 class="font-semibold text-gray-900 mb-3">Quick Stats</h3>
+        <div class="space-y-2">
+          <div class="flex justify-between text-sm">
+            <span class="text-gray-600">Missing Data:</span>
+            <span id="stat-missing" class="font-medium">-</span>
+          </div>
+          <div class="flex justify-between text-sm">
+            <span class="text-gray-600">Pending Review:</span>
+            <span id="stat-pending" class="font-medium">-</span>
+          </div>
+          <div class="flex justify-between text-sm">
+            <span class="text-gray-600">Suspicious:</span>
+            <span id="stat-suspicious" class="font-medium">-</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Moderator Panel -->
+      <div id="moderator-panel" class="hidden">
+        <!-- Moderator content will be loaded here -->
+      </div>
+
+      <!-- Help -->
+      <div class="bg-blue-50 rounded-lg border border-blue-200 p-4">
+        <h3 class="font-semibold text-blue-900 mb-2">How to Contribute</h3>
+        <ul class="text-sm text-blue-800 space-y-1">
+          <li>• Click any missing data cell to add information</li>
+          <li>• Data is reviewed before going live</li>
+          <li>• Earn points for accurate contributions</li>
+          <li>• Use official council sources only</li>
+        </ul>
+      </div>
     </div>
   </div>
-  <aside id="moderator-panel" class="w-64 hidden md:block"></aside>
+</div>
+
+<!-- Quick Edit Modal -->
+<div id="quick-edit-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden z-50 flex items-center justify-center">
+  <div class="bg-white rounded-lg shadow-xl max-w-md w-full mx-4">
+    <div class="p-6">
+      <div class="flex items-center justify-between mb-4">
+        <h3 id="edit-modal-title" class="text-lg font-semibold text-gray-900">Add Data</h3>
+        <button id="edit-modal-close" class="text-gray-400 hover:text-gray-600">
+          <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+          </svg>
+        </button>
+      </div>
+      
+      <form id="quick-edit-form">
+        <input type="hidden" id="edit-council" name="council">
+        <input type="hidden" id="edit-field" name="field">
+        <input type="hidden" id="edit-year" name="year">
+        
+        <div class="mb-4">
+          <label class="block text-sm font-medium text-gray-700 mb-2">
+            <span id="edit-field-label">Field</span>
+          </label>
+          <input type="text" id="edit-value" name="value" 
+                 class="w-full border border-gray-300 rounded-md px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                 placeholder="Enter value...">
+          <select id="edit-value-select" name="value" 
+                  class="w-full border border-gray-300 rounded-md px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 hidden">
+          </select>
+        </div>
+        
+        <div class="flex justify-end gap-3">
+          <button type="button" id="edit-cancel" 
+                  class="px-4 py-2 text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-md transition-colors">
+            Cancel
+          </button>
+          <button type="submit" 
+                  class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors">
+            Submit
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
 </div>
 
 {% include 'council_finance/modals.html' %}
 
-<script src="{% static 'js/data_issues.js' %}"></script>
-<script src="{% static 'js/universal_tutorial.js' %}"></script>
-<script>
-// Initialize universal tutorial system
-document.addEventListener('DOMContentLoaded', () => {
-  // Get tutorial configuration from Django
-  const tutorialConfig = {{ tutorial_engine|tutorial_config:'contribute' }};
-  
-  // Create and initialize tutorial
-  const tutorial = UniversalTutorial.fromDjangoConfig(tutorialConfig);
-});
+<!-- Tutorial Modal -->
+<div id="tutorial-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden z-50 flex items-center justify-center">
+  <div class="bg-white rounded-lg shadow-xl max-w-md w-full mx-4 transform transition-all">
+    <div class="p-6">
+      <div class="flex items-center justify-between mb-4">
+        <h3 class="text-lg font-semibold text-gray-900">Welcome to Contribute Data</h3>
+        <div class="text-sm text-gray-500">
+          <span id="tutorial-current">1</span> of <span id="tutorial-total">1</span>
+        </div>
+      </div>
+      
+      <div id="tutorial-content">
+        <!-- Tutorial slides will be dynamically inserted here -->
+      </div>
+      
+      <div class="flex justify-between items-center mt-6">
+        <button id="tutorial-prev" class="px-4 py-2 text-gray-600 hover:text-gray-800 hidden">
+          ← Previous
+        </button>
+        <div class="flex gap-2">
+          <button id="tutorial-skip" class="px-4 py-2 text-gray-600 hover:text-gray-800">
+            Skip
+          </button>
+          <button id="tutorial-next" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">
+            Got it
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
 
-document.getElementById('edit-cancel').addEventListener('click', () => document.getElementById('edit-modal').classList.add('hidden'));
-document.getElementById('reject-cancel').addEventListener('click', () => document.getElementById('reject-modal').classList.add('hidden'));
-document.getElementById('add-cancel').addEventListener('click', () => document.getElementById('add-value-modal').classList.add('hidden'));
-document.getElementById('delete-cancel').addEventListener('click', () => document.getElementById('delete-modal').classList.add('hidden'));
-// Re-attach moderator controls after each table update
-attachRejectButtons();
-attachDeleteButtons();
+<script src="{% static 'js/contribute_enhanced.js' %}"></script>
+<script>
+// Tutorial system
+class Tutorial {
+  constructor() {
+    this.slides = [
+      {
+        title: "Welcome to Contribute Data",
+        content: "Use this table to add or review council data. Click any missing data cell to add information quickly."
+      }
+      // Future slides can be added here
+    ];
+    this.currentSlide = 0;
+    this.modal = document.getElementById('tutorial-modal');
+    this.content = document.getElementById('tutorial-content');
+    this.currentSpan = document.getElementById('tutorial-current');
+    this.totalSpan = document.getElementById('tutorial-total');
+    this.prevBtn = document.getElementById('tutorial-prev');
+    this.nextBtn = document.getElementById('tutorial-next');
+    this.skipBtn = document.getElementById('tutorial-skip');
+    
+    this.init();
+  }
+  
+  init() {
+    this.totalSpan.textContent = this.slides.length;
+    this.setupEventListeners();
+    this.updateSlide();
+    
+    // Show tutorial based on DEBUG flag or if not seen before
+    const debugMode = {{ debug|yesno:"true,false" }};
+    if (debugMode || !localStorage.getItem('seenTutorial')) {
+      this.show();
+    }
+  }
+  
+  setupEventListeners() {
+    this.nextBtn.addEventListener('click', () => this.next());
+    this.prevBtn.addEventListener('click', () => this.previous());
+    this.skipBtn.addEventListener('click', () => this.close());
+    
+    // Close on outside click
+    this.modal.addEventListener('click', (e) => {
+      if (e.target === this.modal) {
+        this.close();
+      }
+    });
+    
+    // Close on Escape key
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && !this.modal.classList.contains('hidden')) {
+        this.close();
+      }
+    });
+  }
+  
+  updateSlide() {
+    const slide = this.slides[this.currentSlide];
+    this.content.innerHTML = `
+      <div class="text-gray-700 leading-relaxed">
+        ${slide.content}
+      </div>
+    `;
+    
+    this.currentSpan.textContent = this.currentSlide + 1;
+    
+    // Update button states
+    this.prevBtn.classList.toggle('hidden', this.currentSlide === 0);
+    
+    if (this.currentSlide === this.slides.length - 1) {
+      this.nextBtn.textContent = 'Got it';
+    } else {
+      this.nextBtn.textContent = 'Next →';
+    }
+  }
+  
+  next() {
+    if (this.currentSlide < this.slides.length - 1) {
+      this.currentSlide++;
+      this.updateSlide();
+    } else {
+      this.close();
+    }
+  }
+  
+  previous() {
+    if (this.currentSlide > 0) {
+      this.currentSlide--;
+      this.updateSlide();
+    }
+  }
+  
+  show() {
+    this.modal.classList.remove('hidden');
+    document.body.style.overflow = 'hidden';
+  }
+  
+  close() {
+    this.modal.classList.add('hidden');
+    document.body.style.overflow = '';
+    const debugMode = {{ debug|yesno:"true,false" }};
+    if (!debugMode) {
+      localStorage.setItem('seenTutorial', '1');
+    }
+  }
+}
+
+// Initialize tutorial
+document.addEventListener('DOMContentLoaded', () => {
+  new Tutorial();
+});
 </script>
 {% endblock %}

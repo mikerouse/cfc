@@ -1,55 +1,231 @@
 {% load static %}
-<table class="min-w-full border divide-y divide-gray-200 issues-table" data-type="{{ issue_type }}" aria-describedby="issues-help">
+<div class="overflow-x-auto">
+  <table class="min-w-full border divide-y divide-gray-200" aria-describedby="issues-help">
     <caption id="issues-help" class="sr-only">List of {{ issue_type }} data issues</caption>
-    <thead class="bg-gray-100">
-        <tr>
-            <th class="px-2 py-1 text-left sortable" data-sort="council">Council</th>
-            <th class="px-2 py-1 text-left sortable" data-sort="field">Field</th>
-            {% if issue_type == 'missing' and not show_year %}
-            <th class="px-2 py-1 text-left">Value</th>
-            <th class="px-2 py-1 text-left">Action</th>
-            {% endif %}
-            {% if show_year %}
-            <th class="px-2 py-1 text-left sortable" data-sort="year">Year</th>
-            {% endif %}
-            {% if issue_type == 'suspicious' %}
-            <th class="px-2 py-1 text-left sortable" data-sort="value">Value</th>
-            {% endif %}
-        </tr>
+    <thead class="bg-gray-50">
+      <tr>
+        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sortable cursor-pointer hover:bg-gray-100" data-sort="council">
+          Council
+          <svg class="w-4 h-4 inline ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l4-4 4 4m0 6l-4 4-4-4"/>
+          </svg>
+        </th>
+        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sortable cursor-pointer hover:bg-gray-100" data-sort="field">
+          Field
+          <svg class="w-4 h-4 inline ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l4-4 4 4m0 6l-4 4-4-4"/>
+          </svg>
+        </th>
+        {% if show_year %}
+        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sortable cursor-pointer hover:bg-gray-100" data-sort="year">
+          Year
+          <svg class="w-4 h-4 inline ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l4-4 4 4m0 6l-4 4-4-4"/>
+          </svg>
+        </th>
+        {% endif %}
+        {% if issue_type == 'suspicious' %}
+        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sortable cursor-pointer hover:bg-gray-100" data-sort="value">
+          Current Value
+          <svg class="w-4 h-4 inline ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l4-4 4 4m0 6l-4 4-4-4"/>
+          </svg>
+        </th>
+        {% endif %}
+        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+          Action
+        </th>
+      </tr>
     </thead>
-    <tbody>
-    {% for d in page_obj %}
-        <tr class="border-b" data-issue="{{ d.id }}">
-            <td class="px-2 py-1"><a href="{% url 'council_detail' d.council.slug %}?tab=edit&year={{ d.year }}" class="underline">{{ d.council.name }}</a></td>
-            <td class="px-2 py-1 issue-field">{{ d.field.name }}</td>
-            {% if issue_type == 'missing' and not show_year %}
-            <td class="px-2 py-1 issue-value"></td>
-            <td class="px-2 py-1">
-                <button type="button" class="add-value-btn bg-blue-600 text-white px-2 py-1 rounded"
-                        data-council="{{ d.council.slug }}" data-field="{{ d.field.slug }}" data-url="{% url 'submit_contribution' %}"
-                        data-content-type="{{ d.field.content_type }}" data-dataset-type="{{ d.field.dataset_type_id }}">
-                    Add &amp; Earn Points
-                </button>
-            </td>
+    <tbody class="bg-white divide-y divide-gray-200">
+      {% for d in page_obj %}
+        <tr class="hover:bg-gray-50 transition-colors" data-issue="{{ d.id }}">
+          <!-- Council Name -->
+          <td class="px-4 py-4 whitespace-nowrap">
+            <div class="flex items-center">
+              <div class="text-sm font-medium text-gray-900">
+                <a href="{% url 'council_detail' d.council.slug %}?tab=edit&year={{ d.year.id|default:'' }}" 
+                   class="text-blue-600 hover:text-blue-800 hover:underline">
+                  {{ d.council.name }}
+                </a>
+              </div>
+              {% if d.council.council_type %}
+                <div class="text-xs text-gray-500 ml-2">
+                  {{ d.council.council_type.name }}
+                </div>
+              {% endif %}
+            </div>
+          </td>
+          
+          <!-- Field Name -->
+          <td class="px-4 py-4 whitespace-nowrap">
+            <div class="text-sm text-gray-900">{{ d.field.name }}</div>
+            {% if d.field.description %}
+              <div class="text-xs text-gray-500 mt-1">{{ d.field.description|truncatechars:60 }}</div>
             {% endif %}
-            {% if show_year %}
-            <td class="px-2 py-1">{{ d.year }}</td>
+          </td>
+          
+          <!-- Year (if shown) -->
+          {% if show_year %}
+          <td class="px-4 py-4 whitespace-nowrap">
+            <span class="text-sm text-gray-900">
+              {% if d.year %}
+                {{ d.year.label }}
+              {% else %}
+                <span class="text-gray-400">N/A</span>
+              {% endif %}
+            </span>
+          </td>
+          {% endif %}
+          
+          <!-- Current Value (for suspicious data) -->
+          {% if issue_type == 'suspicious' %}
+          <td class="px-4 py-4 whitespace-nowrap">
+            <span class="text-sm text-gray-900 font-mono">{{ d.value }}</span>
+          </td>
+          {% endif %}
+          
+          <!-- Action Column -->
+          <td class="px-4 py-4 whitespace-nowrap text-sm font-medium">
+            {% if issue_type == 'missing' %}
+              <button type="button" 
+                      class="edit-missing inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
+                      data-council="{{ d.council.slug }}"
+                      data-field="{{ d.field.slug }}"
+                      data-year="{{ d.year.id|default:'' }}"
+                      data-field-name="{{ d.field.name }}"
+                      data-council-name="{{ d.council.name }}">
+                <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+                </svg>
+                Add Data
+              </button>
+            {% elif issue_type == 'suspicious' %}
+              <button type="button" 
+                      class="edit-missing inline-flex items-center px-3 py-2 border border-orange-300 text-sm leading-4 font-medium rounded-md text-orange-700 bg-orange-50 hover:bg-orange-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500 transition-colors"
+                      data-council="{{ d.council.slug }}"
+                      data-field="{{ d.field.slug }}"
+                      data-year="{{ d.year.id|default:'' }}"
+                      data-field-name="{{ d.field.name }}"
+                      data-council-name="{{ d.council.name }}"
+                      data-current-value="{{ d.value }}">
+                <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+                </svg>
+                Correct Value
+              </button>
+            {% elif issue_type == 'pending' %}
+              {% if user.is_authenticated and user.profile.tier.level >= 3 %}
+                <div class="flex space-x-2">
+                  <button type="button" 
+                          class="approve-btn inline-flex items-center px-2 py-1 border border-transparent text-xs font-medium rounded text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
+                          data-url="{% url 'review_contribution' d.id 'approve' %}">
+                    <svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+                    </svg>
+                    Approve
+                  </button>
+                  <button type="button" 
+                          class="reject-btn inline-flex items-center px-2 py-1 border border-transparent text-xs font-medium rounded text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+                          data-url="{% url 'review_contribution' d.id 'reject' %}">
+                    <svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                    </svg>
+                    Reject
+                  </button>
+                </div>
+              {% else %}
+                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+                  Pending Review
+                </span>
+              {% endif %}
             {% endif %}
-            {% if issue_type == 'suspicious' %}
-            <td class="px-2 py-1">{{ d.value }}</td>
-            {% endif %}
+          </td>
         </tr>
-    {% empty %}
-        <tr><td class="px-2 py-1 text-center" colspan="{% if issue_type == 'suspicious' %}{% if show_year %}4{% else %}3{% endif %}{% elif issue_type == 'missing' and not show_year %}4{% else %}{% if show_year %}3{% else %}2{% endif %}{% endif %}">No data issues.</td></tr>
-    {% endfor %}
+      {% empty %}
+        <tr>
+          <td class="px-4 py-8 text-center text-gray-500" colspan="{% if show_year %}{% if issue_type == 'suspicious' %}5{% else %}4{% endif %}{% else %}{% if issue_type == 'suspicious' %}4{% else %}3{% endif %}{% endif %}">
+            <div class="flex flex-col items-center">
+              <svg class="w-12 h-12 text-gray-300 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+              </svg>
+              <p class="text-lg font-medium">No {{ issue_type }} data found</p>
+              <p class="text-sm">All data appears to be in good shape!</p>
+            </div>
+          </td>
+        </tr>
+      {% endfor %}
     </tbody>
-</table>
-<div class="flex justify-between text-sm mt-2">
-    {% if page_obj.has_previous %}
-    <button type="button" class="issues-page underline" data-page="{{ page_obj.previous_page_number }}">Prev</button>
-    {% else %}<span></span>{% endif %}
-    <span>Page {{ page_obj.number }} of {{ paginator.num_pages }}</span>
-    {% if page_obj.has_next %}
-    <button type="button" class="issues-page underline" data-page="{{ page_obj.next_page_number }}">Next</button>
-    {% else %}<span></span>{% endif %}
+  </table>
 </div>
+
+<!-- Pagination -->
+{% if paginator.num_pages > 1 %}
+  <div class="bg-white px-4 py-3 border-t border-gray-200 sm:px-6">
+    <div class="flex items-center justify-between">
+      <div class="flex-1 flex justify-between sm:hidden">
+        {% if page_obj.has_previous %}
+          <button type="button" class="issues-page relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50" 
+                  data-page="{{ page_obj.previous_page_number }}">
+            Previous
+          </button>
+        {% endif %}
+        {% if page_obj.has_next %}
+          <button type="button" class="issues-page ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50" 
+                  data-page="{{ page_obj.next_page_number }}">
+            Next
+          </button>
+        {% endif %}
+      </div>
+      <div class="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
+        <div>
+          <p class="text-sm text-gray-700">
+            Showing
+            <span class="font-medium">{{ page_obj.start_index }}</span>
+            to
+            <span class="font-medium">{{ page_obj.end_index }}</span>
+            of
+            <span class="font-medium">{{ paginator.count }}</span>
+            results
+          </p>
+        </div>
+        <div>
+          <nav class="relative z-0 inline-flex rounded-md shadow-sm -space-x-px" aria-label="Pagination">
+            {% if page_obj.has_previous %}
+              <button type="button" class="issues-page relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50" 
+                      data-page="{{ page_obj.previous_page_number }}">
+                <span class="sr-only">Previous</span>
+                <svg class="h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                  <path fill-rule="evenodd" d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z" clip-rule="evenodd" />
+                </svg>
+              </button>
+            {% endif %}
+            
+            {% for num in paginator.page_range %}
+              {% if page_obj.number == num %}
+                <span class="relative inline-flex items-center px-4 py-2 border border-gray-300 bg-blue-50 text-sm font-medium text-blue-600">
+                  {{ num }}
+                </span>
+              {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+                <button type="button" class="issues-page relative inline-flex items-center px-4 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-700 hover:bg-gray-50" 
+                        data-page="{{ num }}">
+                  {{ num }}
+                </button>
+              {% endif %}
+            {% endfor %}
+            
+            {% if page_obj.has_next %}
+              <button type="button" class="issues-page relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50" 
+                      data-page="{{ page_obj.next_page_number }}">
+                <span class="sr-only">Next</span>
+                <svg class="h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                  <path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd" />
+                </svg>
+              </button>
+            {% endif %}
+          </nav>
+        </div>
+      </div>
+    </div>
+  </div>
+{% endif %}
