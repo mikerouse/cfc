@@ -81,12 +81,12 @@
             <div class="flex items-center justify-between p-3 bg-gray-50 rounded-md">
               <div class="flex items-center gap-2">
                 <span class="font-medium">{{ year.label }}</span>
-                {% if year.id == current_financial_year.id %}
+                {% if year.id == current_financial_year.id|default:0 %}
                 <span class="px-2 py-1 bg-green-100 text-green-800 text-xs rounded-full">Current</span>
                 {% endif %}
               </div>
               <div class="flex items-center gap-1">
-                {% if year.id != current_financial_year.id %}
+                {% if year.id != current_financial_year.id|default:0 %}
                 <form method="post" class="inline">
                   {% csrf_token %}
                   <input type="hidden" name="year_id" value="{{ year.id }}">
@@ -320,7 +320,7 @@
                          class="text-blue-600 hover:text-blue-800">{{ activity.council.name }}</a>
                   {% endif %}
                 </p>
-                <p class="text-xs text-gray-500">{{ activity.timestamp|timesince }} ago</p>
+                <p class="text-xs text-gray-500">{{ activity.created|timesince }} ago</p>
               </div>
             </div>
             {% empty %}

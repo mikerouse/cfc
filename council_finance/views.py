@@ -2689,7 +2689,7 @@ def god_mode(request):
 
     # Handle AJAX requests for activity log updates
     if request.GET.get("ajax") == "activity":
-        recent_activity = ActivityLog.objects.select_related("user", "council").order_by("-timestamp")[:20]
+        recent_activity = ActivityLog.objects.select_related("user", "council").order_by("-created")[:20]
         activity_html = ""
         for log in recent_activity:
             activity_html += f"""
@@ -2701,11 +2701,11 @@ def god_mode(request):
               </div>
               <div class="flex-1 min-w-0">
                 <p class="text-sm text-gray-900">
-                  <span class="font-medium">{log.user.username}</span>
+                  <span class="font-medium">{log.user.username if log.user else 'System'}</span>
                   {log.activity}
                   {f'for <a href="/councils/{log.council.slug}/" class="text-blue-600 hover:text-blue-800">{log.council.name}</a>' if log.council else ''}
                 </p>
-                <p class="text-xs text-gray-500">{log.timestamp.strftime('%M')} minutes ago</p>
+                <p class="text-xs text-gray-500">{log.created.strftime('%H:%M')} - {log.created.strftime('%b %d')}</p>
               </div>
             </div>
             """
@@ -2867,7 +2867,7 @@ def god_mode(request):
     # Get data for template
     from .models import FinancialYear
     logs = RejectionLog.objects.select_related("council", "field", "reviewed_by")[:200]
-    recent_activity = ActivityLog.objects.select_related("user", "council").order_by("-timestamp")[:20]
+    recent_activity = ActivityLog.objects.select_related("user", "council").order_by("-created")[:20]
     financial_years = FinancialYear.objects.all().order_by("label")
     current_financial_year = FinancialYear.get_current()
     all_councils = Council.objects.all().order_by("name")
