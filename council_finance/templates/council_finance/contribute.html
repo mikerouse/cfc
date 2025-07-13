@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% load static %}
+{% load tutorial_tags %}
 {% block title %}Contribute - Council Finance Counters{% endblock %}
 {% block content %}
 <h1 class="text-2xl font-bold mb-4">Contribute Data</h1>
@@ -40,13 +41,19 @@
 </div>
 
 {% include 'council_finance/modals.html' %}
+
 <script src="{% static 'js/data_issues.js' %}"></script>
+<script src="{% static 'js/universal_tutorial.js' %}"></script>
 <script>
-// Simple tutorial shown once
-if (!localStorage.getItem('seenTutorial')) {
-  alert('Use this table to add or review council data. Moderators see extra actions.');
-  localStorage.setItem('seenTutorial', '1');
-}
+// Initialize universal tutorial system
+document.addEventListener('DOMContentLoaded', () => {
+  // Get tutorial configuration from Django
+  const tutorialConfig = {{ tutorial_engine|tutorial_config:'contribute' }};
+  
+  // Create and initialize tutorial
+  const tutorial = UniversalTutorial.fromDjangoConfig(tutorialConfig);
+});
+
 document.getElementById('edit-cancel').addEventListener('click', () => document.getElementById('edit-modal').classList.add('hidden'));
 document.getElementById('reject-cancel').addEventListener('click', () => document.getElementById('reject-modal').classList.add('hidden'));
 document.getElementById('add-cancel').addEventListener('click', () => document.getElementById('add-value-modal').classList.add('hidden'));
@@ -54,10 +61,5 @@ document.getElementById('delete-cancel').addEventListener('click', () => documen
 // Re-attach moderator controls after each table update
 attachRejectButtons();
 attachDeleteButtons();
-document.addEventListener('issueTableUpdated', () => {
-  document.querySelectorAll('.reject-btn').forEach(btn => {
-    btn.onclick = e => { e.preventDefault(); document.getElementById('reject-form').action = btn.dataset.url; document.getElementById('reject-modal').classList.remove('hidden');};
-  });
-});
 </script>
 {% endblock %}

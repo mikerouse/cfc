@@ -1,10 +1,14 @@
 import os
 from pathlib import Path
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 SECRET_KEY = "django-insecure-change-me"
-DEBUG = True
+DEBUG = os.getenv('DEBUG', 'False').lower() == 'true'
 ALLOWED_HOSTS = []
 
 INSTALLED_APPS = [
@@ -57,6 +61,7 @@ TEMPLATES = [
                 # Provide the chosen Google font to every template.
                 "council_finance.context_processors.font_family",
                 "council_finance.context_processors.compare_count",
+                "council_finance.context_processors.tutorial.tutorial_context",
             ],
         },
     },

@@ -2095,7 +2095,7 @@ def _apply_contribution(contribution, user, request=None):
     # helps diagnose issues when a contribution does not appear to apply
     # correctly from the UI.
     if request:
-                                                         log_activity(
+        log_activity(
             request,
             council=council,
             activity="apply_contribution",
