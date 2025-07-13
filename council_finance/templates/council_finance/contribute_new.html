@@ -200,6 +200,9 @@
           <input type="text" id="edit-value" name="value" 
                  class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
                  placeholder="Enter the value...">
+          <select id="edit-value-select" name="value" 
+                  class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500 hidden">
+          </select>
           <p class="mt-1 text-xs text-gray-500">Enter the exact value from official sources</p>
         </div>
         
@@ -451,7 +454,14 @@ class ContributeManager {
       yearContainer.style.display = 'none';
     }
     
+    // Reset form inputs
     document.getElementById('edit-value').value = '';
+    document.getElementById('edit-value').classList.remove('hidden');
+    document.getElementById('edit-value-select').classList.add('hidden');
+    
+    // Load field options if it's a list field
+    this.loadFieldOptions(data.field);
+    
     document.getElementById('edit-value').focus();
     
     modal.classList.remove('hidden');
@@ -523,6 +533,39 @@ class ContributeManager {
       toast.classList.add('translate-x-full');
       setTimeout(() => document.body.removeChild(toast), 300);
     }, 4000);
+  }
+  
+  async loadFieldOptions(fieldSlug) {
+    try {
+      const resp = await fetch(`/contribute/field-options/${fieldSlug}/`, {
+        headers: { 'X-Requested-With': 'XMLHttpRequest' }
+      });
+      
+      if (resp.ok) {
+        const data = await resp.json();
+        
+        if (data.options && data.options.length > 0) {
+          // Show select dropdown instead of text input
+          const editValue = document.getElementById('edit-value');
+          const editValueSelect = document.getElementById('edit-value-select');
+          
+          editValue.classList.add('hidden');
+          editValueSelect.classList.remove('hidden');
+          
+          editValueSelect.innerHTML = '<option value="">Select...</option>';
+          data.options.forEach(option => {
+            const opt = document.createElement('option');
+            opt.value = option.id;
+            opt.textContent = option.name;
+            editValueSelect.appendChild(opt);
+          });
+          
+          editValueSelect.focus();
+        }
+      }
+    } catch (error) {
+      console.error('Failed to load field options:', error);
+    }
   }
   
   showTutorial() {

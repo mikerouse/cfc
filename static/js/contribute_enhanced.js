@@ -285,6 +285,7 @@ class ContributeManager {
       
       if (resp.ok) {
         const data = await resp.json();
+        
         if (data.options && data.options.length > 0) {
           // Show select dropdown instead of text input
           this.editValue.classList.add('hidden');

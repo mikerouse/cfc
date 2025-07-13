@@ -2,97 +2,402 @@
 {% load static %}
 {% block title %}God Mode - Council Finance Counters{% endblock %}
 {% block content %}
-<h1 class="text-2xl font-bold mb-4">Rejection Log</h1>
-<div class="mb-4 flex justify-between">
-  <form method="get">
-    <button name="export" value="csv" class="bg-blue-600 text-white px-4 py-1 rounded">Export CSV</button>
-  </form>
-  <form method="post">
-    {% csrf_token %}
-    <button name="reconcile_population" value="1" class="bg-green-600 text-white px-4 py-1 rounded">Check &amp; Reconcile All Population Figures</button>
-  </form>
-  <form method="post">
-    {% csrf_token %}
-    <button name="assess_issues" value="1" class="bg-blue-600 text-white px-4 py-1 rounded">Assess Data Issues</button>
-  </form>
+<div class="max-w-7xl mx-auto">
+  <!-- Header -->
+  <div class="mb-8">
+    <h1 class="text-3xl font-bold text-gray-900 mb-2">God Mode Administration</h1>
+    <p class="text-gray-600">Advanced administrative controls for tier 5+ users</p>
+  </div>
+
+  <!-- Quick Actions Bar -->
+  <div class="bg-white rounded-lg shadow-sm border mb-6">
+    <div class="p-4 border-b border-gray-200">
+      <h2 class="text-lg font-semibold text-gray-900">Quick Actions</h2>
+    </div>
+    <div class="p-4">
+      <div class="flex flex-wrap gap-3">
+        <form method="post" class="inline">
+          {% csrf_token %}
+          <button name="assess_issues" value="1" 
+                  class="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors">
+            <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
+            </svg>
+            Assess Data Issues
+          </button>
+        </form>
+        
+        <form method="post" class="inline">
+          {% csrf_token %}
+          <button name="reconcile_population" value="1" 
+                  class="inline-flex items-center px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors">
+            <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+            </svg>
+            Reconcile Population
+          </button>
+        </form>
+        
+        <form method="get" class="inline">
+          <button name="export" value="csv" 
+                  class="inline-flex items-center px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 transition-colors">
+            <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+            </svg>
+            Export CSV
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Main Grid Layout -->
+  <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <!-- Left Column: Financial Years & Council Management -->
+    <div class="lg:col-span-1 space-y-6">
+      
+      <!-- Financial Year Management -->
+      <div class="bg-white rounded-lg shadow-sm border">
+        <div class="p-4 border-b border-gray-200">
+          <h2 class="text-lg font-semibold text-gray-900">Financial Years</h2>
+        </div>
+        <div class="p-4">
+          <!-- Add New Year -->
+          <form method="post" class="mb-4">
+            {% csrf_token %}
+            <div class="flex gap-2">
+              <input type="text" name="new_year_label" placeholder="e.g., 2024/25" 
+                     class="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500">
+              <button type="submit" name="add_financial_year" value="1"
+                      class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700">
+                Add
+              </button>
+            </div>
+          </form>
+          
+          <!-- Current Years List -->
+          <div class="space-y-2">
+            {% for year in financial_years %}
+            <div class="flex items-center justify-between p-3 bg-gray-50 rounded-md">
+              <div class="flex items-center gap-2">
+                <span class="font-medium">{{ year.label }}</span>
+                {% if year.id == current_financial_year.id %}
+                <span class="px-2 py-1 bg-green-100 text-green-800 text-xs rounded-full">Current</span>
+                {% endif %}
+              </div>
+              <div class="flex items-center gap-1">
+                {% if year.id != current_financial_year.id %}
+                <form method="post" class="inline">
+                  {% csrf_token %}
+                  <input type="hidden" name="year_id" value="{{ year.id }}">
+                  <button type="submit" name="set_current_year" value="1"
+                          class="px-2 py-1 text-xs bg-blue-100 text-blue-800 rounded hover:bg-blue-200">
+                    Set Current
+                  </button>
+                </form>
+                {% endif %}
+                <form method="post" class="inline">
+                  {% csrf_token %}
+                  <input type="hidden" name="year_id" value="{{ year.id }}">
+                  <button type="submit" name="delete_year" value="1"
+                          onclick="return confirm('Delete this financial year? This cannot be undone.')"
+                          class="px-2 py-1 text-xs bg-red-100 text-red-800 rounded hover:bg-red-200">
+                    Delete
+                  </button>
+                </form>
+              </div>
+            </div>
+            {% empty %}
+            <p class="text-gray-500 text-sm">No financial years defined</p>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+
+      <!-- Council Merging -->
+      <div class="bg-white rounded-lg shadow-sm border">
+        <div class="p-4 border-b border-gray-200">
+          <h2 class="text-lg font-semibold text-gray-900">Council Management</h2>
+        </div>
+        <div class="p-4">
+          <!-- Merge Councils -->
+          <div class="mb-4">
+            <h3 class="font-medium text-gray-900 mb-2">Merge Councils</h3>
+            <form method="post" class="space-y-3">
+              {% csrf_token %}
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Source Council (to be merged)</label>
+                <select name="source_council" 
+                        class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500">
+                  <option value="">Select council...</option>
+                  {% for council in all_councils %}
+                  <option value="{{ council.id }}">{{ council.name }}</option>
+                  {% endfor %}
+                </select>
+              </div>
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Target Council (successor)</label>
+                <select name="target_council" 
+                        class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500">
+                  <option value="">Select council...</option>
+                  {% for council in all_councils %}
+                  <option value="{{ council.id }}">{{ council.name }}</option>
+                  {% endfor %}
+                </select>
+              </div>
+              <button type="submit" name="merge_councils" value="1"
+                      onclick="return confirm('This will merge the source council into the target. Continue?')"
+                      class="w-full px-4 py-2 bg-orange-600 text-white rounded-md hover:bg-orange-700">
+                Merge Councils
+              </button>
+            </form>
+          </div>
+          
+          <!-- Flag Council -->
+          <div>
+            <h3 class="font-medium text-gray-900 mb-2">Flag Council Status</h3>
+            <form method="post" class="space-y-3">
+              {% csrf_token %}
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Council</label>
+                <select name="flag_council" 
+                        class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500">
+                  <option value="">Select council...</option>
+                  {% for council in all_councils %}
+                  <option value="{{ council.id }}">{{ council.name }}</option>
+                  {% endfor %}
+                </select>
+              </div>
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Status</label>
+                <select name="flag_status" 
+                        class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500">
+                  <option value="closed">Closed/Disbanded</option>
+                  <option value="merged">Merged</option>
+                  <option value="renamed">Renamed</option>
+                </select>
+              </div>
+              <button type="submit" name="flag_council_status" value="1"
+                      class="w-full px-4 py-2 bg-yellow-600 text-white rounded-md hover:bg-yellow-700">
+                Flag Council
+              </button>
+            </form>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Right Column: Rejection Log & Activity -->
+    <div class="lg:col-span-2 space-y-6">
+      
+      <!-- Rejection Log -->
+      <div class="bg-white rounded-lg shadow-sm border">
+        <div class="p-4 border-b border-gray-200">
+          <div class="flex items-center justify-between">
+            <h2 class="text-lg font-semibold text-gray-900">Rejection Log</h2>
+            <div class="text-sm text-gray-500">
+              {{ logs.count }} entries
+            </div>
+          </div>
+        </div>
+        <div class="p-4">
+          <form method="post">
+            {% csrf_token %}
+            <!-- Bulk Actions -->
+            <div class="flex items-center gap-3 mb-4">
+              <div class="flex items-center gap-2">
+                <input type="checkbox" id="select-all" class="rounded border-gray-300 text-blue-600">
+                <label for="select-all" class="text-sm text-gray-700">Select All</label>
+              </div>
+              <div class="flex items-center gap-2">
+                <button type="submit" name="delete" value="1"
+                        class="px-3 py-1 bg-red-600 text-white rounded text-sm hover:bg-red-700">
+                  Delete Selected
+                </button>
+                <button type="submit" name="block" value="1"
+                        class="px-3 py-1 bg-gray-600 text-white rounded text-sm hover:bg-gray-700">
+                  Block IPs
+                </button>
+              </div>
+            </div>
+            
+            <!-- Rejection Table -->
+            <div class="overflow-x-auto">
+              <table class="min-w-full divide-y divide-gray-200">
+                <thead class="bg-gray-50">
+                  <tr>
+                    <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <input type="checkbox" class="rounded border-gray-300 text-blue-600">
+                    </th>
+                    <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Council
+                    </th>
+                    <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Field
+                    </th>
+                    <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      User
+                    </th>
+                    <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Reason
+                    </th>
+                    <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Date
+                    </th>
+                  </tr>
+                </thead>
+                <tbody class="bg-white divide-y divide-gray-200">
+                  {% for log in logs %}
+                  <tr class="hover:bg-gray-50">
+                    <td class="px-3 py-4 whitespace-nowrap">
+                      <input type="checkbox" name="ids" value="{{ log.id }}" 
+                             class="rounded border-gray-300 text-blue-600">
+                    </td>
+                    <td class="px-3 py-4 whitespace-nowrap">
+                      <a href="{% url 'council_detail' log.council.slug %}" 
+                         class="text-blue-600 hover:text-blue-800">
+                        {{ log.council.name }}
+                      </a>
+                    </td>
+                    <td class="px-3 py-4 whitespace-nowrap text-sm text-gray-900">
+                      {% if log.field %}
+                        {{ log.field.name }}
+                      {% else %}
+                        <span class="text-red-600">N/A</span>
+                      {% endif %}
+                    </td>
+                    <td class="px-3 py-4 whitespace-nowrap text-sm text-gray-900">
+                      {{ log.user.username }}
+                    </td>
+                    <td class="px-3 py-4 whitespace-nowrap text-sm text-gray-500">
+                      {{ log.get_reason_display|default:"No reason provided" }}
+                    </td>
+                    <td class="px-3 py-4 whitespace-nowrap text-sm text-gray-500">
+                      {{ log.timestamp|date:"M d, Y H:i" }}
+                    </td>
+                  </tr>
+                  {% empty %}
+                  <tr>
+                    <td colspan="6" class="px-3 py-8 text-center text-gray-500">
+                      No rejection entries found
+                    </td>
+                  </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+          </form>
+        </div>
+      </div>
+
+      <!-- Live Activity Log -->
+      <div class="bg-white rounded-lg shadow-sm border">
+        <div class="p-4 border-b border-gray-200">
+          <div class="flex items-center justify-between">
+            <h2 class="text-lg font-semibold text-gray-900">Live Activity</h2>
+            <div class="flex items-center gap-2">
+              <div class="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+              <span class="text-sm text-gray-500">Live</span>
+            </div>
+          </div>
+        </div>
+        <div class="p-4">
+          <div id="activity-log" class="space-y-2 max-h-96 overflow-y-auto">
+            {% for activity in recent_activity %}
+            <div class="flex items-start gap-3 p-3 bg-gray-50 rounded-md">
+              <div class="flex-shrink-0 w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
+                <svg class="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                </svg>
+              </div>
+              <div class="flex-1 min-w-0">
+                <p class="text-sm text-gray-900">
+                  <span class="font-medium">{{ activity.user.username }}</span>
+                  {{ activity.activity }}
+                  {% if activity.council %}
+                  for <a href="{% url 'council_detail' activity.council.slug %}" 
+                         class="text-blue-600 hover:text-blue-800">{{ activity.council.name }}</a>
+                  {% endif %}
+                </p>
+                <p class="text-xs text-gray-500">{{ activity.timestamp|timesince }} ago</p>
+              </div>
+            </div>
+            {% empty %}
+            <p class="text-gray-500 text-sm">No recent activity</p>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
 </div>
-<form method="post">
-  {% csrf_token %}
-  <table class="min-w-full bg-white border mb-4">
-    <thead>
-      <tr>
-        <th class="border px-2 py-1"><input type="checkbox" id="check-all"/></th>
-        <th class="border px-2 py-1">Council</th>
-        <th class="border px-2 py-1">Field</th>
-        <th class="border px-2 py-1">Year</th>
-        <th class="border px-2 py-1">Value</th>
-        <th class="border px-2 py-1">Reason</th>
-        <th class="border px-2 py-1">IP</th>
-        <th class="border px-2 py-1">Actions</th>
-      </tr>
-    </thead>
-    <tbody>
-      {% for log in logs %}
-      <tr class="odd:bg-gray-50">
-        <td class="border px-2 py-1 text-center"><input type="checkbox" name="ids" value="{{ log.id }}"></td>
-        <td class="border px-2 py-1">{{ log.council.name }}</td>
-        <td class="border px-2 py-1">
-          {% if log.field %}
-            {{ log.field.name }}
-          {% else %}
-            <span class="text-red-600">N/A</span>
-          {% endif %}
-        </td>
-        <td class="border px-2 py-1 text-center">{{ log.year }}</td>
-        <td class="border px-2 py-1">{{ log.value }}</td>
-        <td class="border px-2 py-1">{{ log.get_reason_display }}</td>
-        <td class="border px-2 py-1">{{ log.ip_address }}</td>
-        <td class="border px-2 py-1 text-center">
-          <button name="block" value="{{ log.ip_address }}" class="text-red-600 underline">Block IP</button>
-        </td>
-      </tr>
-      {% empty %}
-      <tr>
-        <td class="border px-2 py-1 text-center" colspan="8">Log empty.</td>
-      </tr>
-      {% endfor %}
-    </tbody>
-  </table>
-  <button name="delete" value="1" class="bg-red-600 text-white px-4 py-1 rounded">Delete Selected</button>
-</form>
 
-<h2 class="text-xl font-bold mb-2 mt-8">Activity Log</h2>
-<input id="activity-search" type="text" class="border px-2 py-1 mb-2" placeholder="Search..." />
-<table class="min-w-full bg-white border mb-4">
-  <thead>
-    <tr>
-      <th class="border px-2 py-1">Time</th>
-      <th class="border px-2 py-1">User</th>
-      <th class="border px-2 py-1">Council</th>
-      <th class="border px-2 py-1">Page</th>
-      <th class="border px-2 py-1">Activity</th>
-      <th class="border px-2 py-1">Type</th>
-      <th class="border px-2 py-1">Action</th>
-      <th class="border px-2 py-1">Request</th>
-      <th class="border px-2 py-1">Response</th>
-      <th class="border px-2 py-1">Extra</th>
-      <th class="border px-2 py-1">JSON</th>
-    </tr>
-  </thead>
-  <tbody id="activity-log-body"></tbody>
-</table>
+<!-- JavaScript for Enhanced Functionality -->
 <script>
-const checkAll = document.getElementById('check-all');
-if (checkAll) {
-  checkAll.addEventListener('change', () => {
-    document.querySelectorAll('input[name="ids"]').forEach(cb => cb.checked = checkAll.checked);
+document.addEventListener('DOMContentLoaded', function() {
+  // Select all checkbox functionality
+  const selectAllCheckbox = document.getElementById('select-all');
+  const rowCheckboxes = document.querySelectorAll('input[name="ids"]');
+  
+  if (selectAllCheckbox) {
+    selectAllCheckbox.addEventListener('change', function() {
+      rowCheckboxes.forEach(checkbox => {
+        checkbox.checked = this.checked;
+      });
+    });
+  }
+  
+  // Update select all when individual checkboxes change
+  rowCheckboxes.forEach(checkbox => {
+    checkbox.addEventListener('change', function() {
+      const allChecked = Array.from(rowCheckboxes).every(cb => cb.checked);
+      const someChecked = Array.from(rowCheckboxes).some(cb => cb.checked);
+      
+      if (selectAllCheckbox) {
+        selectAllCheckbox.checked = allChecked;
+        selectAllCheckbox.indeterminate = someChecked && !allChecked;
+      }
+    });
   });
-}
-
-// Log how many entries are shown to help with front-end debugging.
-document.addEventListener('DOMContentLoaded', () => {
-  console.log('God Mode loaded with', document.querySelectorAll('tbody tr').length, 'log rows');
+  
+  // Auto-refresh activity log every 30 seconds
+  setInterval(function() {
+    fetch(window.location.href + '?ajax=activity')
+      .then(response => response.json())
+      .then(data => {
+        if (data.activity_html) {
+          document.getElementById('activity-log').innerHTML = data.activity_html;
+        }
+      })
+      .catch(error => {
+        console.log('Failed to refresh activity log:', error);
+      });
+  }, 30000);
+  
+  // Confirmation for destructive actions
+  document.querySelectorAll('button[name="delete"], button[name="merge_councils"]').forEach(button => {
+    button.addEventListener('click', function(e) {
+      const action = this.name;
+      let message = 'Are you sure you want to perform this action?';
+      
+      if (action === 'delete') {
+        const checkedBoxes = document.querySelectorAll('input[name="ids"]:checked');
+        if (checkedBoxes.length === 0) {
+          e.preventDefault();
+          alert('Please select items to delete.');
+          return;
+        }
+        message = `Delete ${checkedBoxes.length} selected item(s)?`;
+      } else if (action === 'merge_councils') {
+        message = 'This will permanently merge the source council into the target council. This action cannot be undone. Continue?';
+      }
+      
+      if (!confirm(message)) {
+        e.preventDefault();
+      }
+    });
+  });
 });
 </script>
-<script src="{% static 'js/activity_log.js' %}"></script>
+
 {% endblock %}
