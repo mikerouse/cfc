@@ -9,9 +9,25 @@ from .field import DataField
 
 class Council(models.Model):
     """Basic local authority info."""
+    
+    # Status choices for council flagging
+    STATUS_CHOICES = [
+        ('active', 'Active'),
+        ('closed', 'Closed/Disbanded'),
+        ('merged', 'Merged'),
+        ('renamed', 'Renamed'),
+    ]
+    
     name = models.CharField(max_length=200)
     slug = models.SlugField(unique=True)
     website = models.URLField(blank=True)
+    status = models.CharField(
+        max_length=20,
+        choices=STATUS_CHOICES,
+        default='active',
+        help_text="Current status of the council"
+    )
+    
     # Store the most recent population figure so views don't repeatedly
     # search figure submissions. Null is used when no figure exists.
     latest_population = models.IntegerField(
@@ -63,9 +79,24 @@ class Council(models.Model):
 class FinancialYear(models.Model):
     """Represents a financial year label (e.g. 2023/24)."""
     label = models.CharField(max_length=20, unique=True)
+    is_current = models.BooleanField(default=False, help_text="Mark as current financial year")
+    
+    class Meta:
+        ordering = ['-label']
 
     def __str__(self):
         return self.label
+    
+    def save(self, *args, **kwargs):
+        # Ensure only one financial year is marked as current
+        if self.is_current:
+            FinancialYear.objects.filter(is_current=True).update(is_current=False)
+        super().save(*args, **kwargs)
+    
+    @classmethod
+    def get_current(cls):
+        """Get the current financial year."""
+        return cls.objects.filter(is_current=True).first() or cls.objects.first()
 
 class FigureSubmission(models.Model):
     """Stores a single value for a given field, council and year."""

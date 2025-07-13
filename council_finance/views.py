@@ -2661,7 +2661,7 @@ def field_delete(request, slug):
 
 @login_required
 def god_mode(request):
-    """Tier 5 tool for reviewing the rejection log and blocking IPs.
+    """Enhanced God Mode for tier 5+ users with financial year management and council merging.
 
     Superusers are allowed to bypass the tier requirement entirely.
     """
@@ -2687,6 +2687,30 @@ def god_mode(request):
 
     logger.info("%s accessed God Mode via %s", request.user.username, request.method)
 
+    # Handle AJAX requests for activity log updates
+    if request.GET.get("ajax") == "activity":
+        recent_activity = ActivityLog.objects.select_related("user", "council").order_by("-timestamp")[:20]
+        activity_html = ""
+        for log in recent_activity:
+            activity_html += f"""
+            <div class="flex items-start gap-3 p-3 bg-gray-50 rounded-md">
+              <div class="flex-shrink-0 w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
+                <svg class="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                </svg>
+              </div>
+              <div class="flex-1 min-w-0">
+                <p class="text-sm text-gray-900">
+                  <span class="font-medium">{log.user.username}</span>
+                  {log.activity}
+                  {f'for <a href="/councils/{log.council.slug}/" class="text-blue-600 hover:text-blue-800">{log.council.name}</a>' if log.council else ''}
+                </p>
+                <p class="text-xs text-gray-500">{log.timestamp.strftime('%M')} minutes ago</p>
+              </div>
+            </div>
+            """
+        return JsonResponse({"activity_html": activity_html})
+
     if request.GET.get("export") == "csv":
         rows = RejectionLog.objects.all().values_list(
             "id",
@@ -2707,13 +2731,109 @@ def god_mode(request):
         return response
 
     if request.method == "POST":
+        # Financial Year Management
+        if "add_financial_year" in request.POST:
+            label = request.POST.get("new_year_label", "").strip()
+            if label:
+                from .models import FinancialYear
+                year, created = FinancialYear.objects.get_or_create(label=label)
+                if created:
+                    messages.success(request, f"Financial year '{label}' added successfully")
+                    logger.info("Financial year '%s' added by %s", label, request.user.username)
+                else:
+                    messages.warning(request, f"Financial year '{label}' already exists")
+            else:
+                messages.error(request, "Please enter a valid year label")
+            return redirect("god_mode")
+            
+        if "set_current_year" in request.POST:
+            year_id = request.POST.get("year_id")
+            if year_id:
+                from .models import FinancialYear
+                try:
+                    year = FinancialYear.objects.get(id=year_id)
+                    year.is_current = True
+                    year.save()  # This will automatically unset other current years
+                    messages.success(request, f"Set '{year.label}' as current financial year")
+                    logger.info("Current financial year set to '%s' by %s", year.label, request.user.username)
+                except FinancialYear.DoesNotExist:
+                    messages.error(request, "Financial year not found")
+            return redirect("god_mode")
+            
+        if "delete_year" in request.POST:
+            year_id = request.POST.get("year_id")
+            if year_id:
+                from .models import FinancialYear
+                try:
+                    year = FinancialYear.objects.get(id=year_id)
+                    year_label = year.label
+                    year.delete()
+                    messages.success(request, f"Financial year '{year_label}' deleted")
+                    logger.info("Financial year '%s' deleted by %s", year_label, request.user.username)
+                except FinancialYear.DoesNotExist:
+                    messages.error(request, "Financial year not found")
+            return redirect("god_mode")
+
+        # Council Management
+        if "merge_councils" in request.POST:
+            source_id = request.POST.get("source_council")
+            target_id = request.POST.get("target_council")
+            if source_id and target_id and source_id != target_id:
+                try:
+                    source_council = Council.objects.get(id=source_id)
+                    target_council = Council.objects.get(id=target_id)
+                    
+                    # Merge logic: move all data from source to target
+                    from django.db import transaction
+                    with transaction.atomic():
+                        # Move figure submissions
+                        source_council.figuresubmission_set.update(council=target_council)
+                        # Move contributions
+                        source_council.contribution_set.update(council=target_council)
+                        # Move data issues
+                        source_council.dataissue_set.update(council=target_council)
+                        # Move activity logs
+                        source_council.activitylog_set.update(council=target_council)
+                        
+                        # Create a merger record or note
+                        messages.success(request, f"Successfully merged '{source_council.name}' into '{target_council.name}'")
+                        logger.info("Merged council '%s' into '%s' by %s", 
+                                  source_council.name, target_council.name, request.user.username)
+                        
+                        # Delete the source council
+                        source_council.delete()
+                        
+                except Council.DoesNotExist:
+                    messages.error(request, "One or both councils not found")
+                except Exception as e:
+                    messages.error(request, f"Error merging councils: {str(e)}")
+            else:
+                messages.error(request, "Please select two different councils")
+            return redirect("god_mode")
+            
+        if "flag_council_status" in request.POST:
+            council_id = request.POST.get("flag_council")
+            status = request.POST.get("flag_status")
+            if council_id and status:
+                try:
+                    council = Council.objects.get(id=council_id)
+                    council.status = status
+                    council.save()
+                    messages.success(request, f"Flagged '{council.name}' as {council.get_status_display()}")
+                    logger.info("Council '%s' flagged as '%s' by %s", 
+                              council.name, status, request.user.username)
+                except Council.DoesNotExist:
+                    messages.error(request, "Council not found")
+            return redirect("god_mode")
+
+        # Existing functionality
         if "reconcile_population" in request.POST:
             from .population import reconcile_populations
-
             updated = reconcile_populations()
             messages.success(request, f"Reconciled {updated} population figures")
             logger.info("Population reconciliation triggered by %s", request.user.username)
             return redirect("god_mode")
+            
         if "assess_issues" in request.POST:
             from .data_quality import assess_data_issues
             total = assess_data_issues()
@@ -2729,23 +2849,36 @@ def god_mode(request):
             messages.success(request, f"Identified {total} data issues")
             logger.info("Data issue assessment run by %s", request.user.username)
             return redirect("god_mode")
+            
         if "delete" in request.POST:
             ids = request.POST.getlist("ids")
             RejectionLog.objects.filter(id__in=ids).delete()
             messages.success(request, "Deleted entries")
-            logger.info(
-                "Deleted rejection log entries %s by %s", ids, request.user.username
-            )
+            logger.info("Deleted rejection log entries %s by %s", ids, request.user.username)
+            
         if "block" in request.POST:
             ip = request.POST.get("block")
             BlockedIP.objects.get_or_create(ip_address=ip)
             messages.success(request, f"Blocked {ip}")
             logger.info("Blocked IP %s by %s", ip, request.user.username)
+            
         return redirect("god_mode")
 
+    # Get data for template
+    from .models import FinancialYear
     logs = RejectionLog.objects.select_related("council", "field", "reviewed_by")[:200]
-    activity_logs = ActivityLog.objects.select_related("user", "council")[:200]
-    context = {"logs": logs, "activity_logs": activity_logs}
+    recent_activity = ActivityLog.objects.select_related("user", "council").order_by("-timestamp")[:20]
+    financial_years = FinancialYear.objects.all().order_by("label")
+    current_financial_year = FinancialYear.get_current()
+    all_councils = Council.objects.all().order_by("name")
+    
+    context = {
+        "logs": logs, 
+        "recent_activity": recent_activity,
+        "financial_years": financial_years,
+        "current_financial_year": current_financial_year,
+        "all_councils": all_councils,
+    }
     return render(request, "council_finance/god_mode.html", context)
 
 
