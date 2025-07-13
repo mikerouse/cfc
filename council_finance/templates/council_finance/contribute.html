@@ -87,6 +87,45 @@
         </div>
         <div id="issues-data-container" data-page="1" data-order="council" data-dir="asc" data-page-size="50" aria-live="polite">
           <!-- Table content will be loaded here -->
+          {% if user.is_superuser %}
+          <script>
+          // God Mode: Mark Invalid button handler
+          document.addEventListener('DOMContentLoaded', function() {
+            document.body.addEventListener('click', function(e) {
+              if (e.target.classList.contains('mark-invalid-btn') || e.target.closest('.mark-invalid-btn')) {
+                const btn = e.target.classList.contains('mark-invalid-btn') ? e.target : e.target.closest('.mark-invalid-btn');
+                const issueId = btn.dataset.issueId;
+                
+                if (confirm('Are you sure you want to mark this item as invalid? This action cannot be undone.')) {
+                  fetch(`/contribute/issue/${issueId}/mark-invalid/`, {
+                    method: 'POST',
+                    headers: {
+                      'X-Requested-With': 'XMLHttpRequest',
+                      'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+                    }
+                  }).then(resp => resp.json()).then(data => {
+                    if (data.status === 'ok') {
+                      // Remove the row from the table
+                      btn.closest('tr').remove();
+                      // Show success message
+                      const msg = document.getElementById('contrib-msg');
+                      msg.className = 'mb-4 p-4 rounded-lg border bg-green-50 border-green-200 text-green-800';
+                      msg.textContent = data.message;
+                      msg.classList.remove('hidden');
+                      setTimeout(() => msg.classList.add('hidden'), 3000);
+                    } else {
+                      alert('Error: ' + (data.error || 'Failed to mark as invalid'));
+                    }
+                  }).catch(err => {
+                    console.error('Error:', err);
+                    alert('Network error occurred');
+                  });
+                }
+              }
+            });
+          });
+          </script>
+          {% endif %}
         </div>
       </div>
     </div>

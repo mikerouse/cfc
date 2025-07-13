@@ -103,12 +103,35 @@ class DataField(models.Model):
             original = DataField.objects.get(pk=self.pk)
             if original.slug in PROTECTED_SLUGS and original.slug != self.slug:
                 raise ValidationError("This field's slug is protected and cannot be changed.")
+                
+            # If slug is being changed, clean up old references
+            if original.slug != self.slug:
+                self._cleanup_old_field_references(original.slug)
+                
         # When saving a known characteristic ensure it lives in the
         # ``characteristic`` category so management screens group these
         # values separately from yearly financial fields.
         if self.slug in CHARACTERISTIC_SLUGS:
             self.category = "characteristic"
         super().save(*args, **kwargs)
+        
+    def _cleanup_old_field_references(self, old_slug):
+        """Clean up references to the old field slug when field is renamed."""
+        from django.db import transaction
+        
+        with transaction.atomic():
+            # Remove DataIssues for the old field to prevent confusion
+            from .data_issue import DataIssue
+            old_issues = DataIssue.objects.filter(field__slug=old_slug)
+            if old_issues.exists():
+                # Log this for audit purposes
+                count = old_issues.count()
+                old_issues.delete()
+                
+                # You could add logging here if needed
+                import logging
+                logger = logging.getLogger(__name__)
+                logger.info(f"Removed {count} DataIssue records for renamed field: {old_slug} -> {self.slug}")
 
     def delete(self, *args, **kwargs):
         """Disallow deletion of protected fields."""

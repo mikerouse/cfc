@@ -144,4 +144,5 @@ urlpatterns = [
     ),
     path("god-mode/", views.god_mode, name="god_mode"),
     path("god-mode/activity-log/", views.activity_log_entries, name="activity_log_entries"),
+    path("contribute/issue/<int:issue_id>/mark-invalid/", views.mark_issue_invalid, name="mark_issue_invalid"),
 ]

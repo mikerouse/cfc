@@ -85,14 +85,46 @@
         {% endif %}
         <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
           {% if issue_type == "missing" %}
-          <button class="edit-missing bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded-md text-sm transition-colors"
-                  data-council="{{ item.council.slug }}"
-                  data-field="{{ item.field.slug }}"
-                  data-year="{{ item.year.id|default:'' }}"
-                  data-field-name="{{ item.field.name }}"
-                  data-council-name="{{ item.council.name }}">
-            Add Data
-          </button>
+          <div class="flex items-center gap-2">
+            <button class="edit-missing bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded-md text-sm transition-colors"
+                    data-council="{{ item.council.slug }}"
+                    data-field="{{ item.field.slug }}"
+                    data-year="{{ item.year.id|default:'' }}"
+                    data-field-name="{{ item.field.name }}"
+                    data-council-name="{{ item.council.name }}">
+              Add Data
+            </button>
+            {% if request.user.is_superuser %}
+            <button class="mark-invalid-btn bg-red-600 hover:bg-red-700 text-white px-2 py-1 rounded text-xs transition-colors"
+                    data-issue-id="{{ item.id }}"
+                    title="Mark this field as invalid (God Mode)">
+              <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+              </svg>
+            </button>
+            {% endif %}
+          </div>
+          {% elif issue_type == "suspicious" %}
+          <div class="flex items-center gap-2">
+            <button class="edit-missing bg-orange-600 hover:bg-orange-700 text-white px-3 py-1 rounded-md text-sm transition-colors"
+                    data-council="{{ item.council.slug }}"
+                    data-field="{{ item.field.slug }}"
+                    data-year="{{ item.year.id|default:'' }}"
+                    data-field-name="{{ item.field.name }}"
+                    data-council-name="{{ item.council.name }}"
+                    data-current-value="{{ item.value }}">
+              Correct Value
+            </button>
+            {% if request.user.is_superuser %}
+            <button class="mark-invalid-btn bg-red-600 hover:bg-red-700 text-white px-2 py-1 rounded text-xs transition-colors"
+                    data-issue-id="{{ item.id }}"
+                    title="Mark this field as invalid (God Mode)">
+              <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+              </svg>
+            </button>
+            {% endif %}
+          </div>
           {% elif issue_type == "pending" %}
           <div class="flex items-center gap-2">
             {% if request.user.is_authenticated and request.user.profile.tier.level >= 3 or request.user.is_superuser %}

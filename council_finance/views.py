@@ -726,6 +726,11 @@ def following(request):
 
 
 def contribute(request):
+    # God Mode: Mark DataIssue as invalid
+    if request.method == "POST" and request.user.is_superuser and "mark_invalid" in request.POST:
+        issue_id = request.POST.get("issue_id")
+        DataIssue.objects.filter(id=issue_id).delete()
+        return JsonResponse({"status": "ok", "message": "Issue marked invalid and removed."})
     """Show a modern, real-time contribute interface with AJAX editing."""
 
     from .models import DataIssue, UserProfile
@@ -3018,3 +3023,34 @@ def user_preferences_ajax(request):
     
     # For authenticated users, redirect to the main preferences view
     return user_preferences_view(request)
+
+
+def mark_issue_invalid(request, issue_id):
+    """God Mode: Mark a DataIssue as invalid and remove it from the queue."""
+    if not request.user.is_superuser:
+        return JsonResponse({"error": "Permission denied"}, status=403)
+    
+    if request.method != "POST":
+        return JsonResponse({"error": "POST required"}, status=405)
+    
+    try:
+        from .models import DataIssue
+        issue = DataIssue.objects.get(id=issue_id)
+        
+        # Log the removal for audit purposes
+        from .models import ActivityLog
+        ActivityLog.objects.create(
+            user=request.user,
+            action="mark_invalid",
+            entity_type="DataIssue",
+            entity_id=issue_id,
+            details=f"Marked DataIssue as invalid: {issue.council.name} - {issue.field.name}"
+        )
+        
+        issue.delete()
+        return JsonResponse({"status": "ok", "message": "Issue marked invalid and removed."})
+        
+    except DataIssue.DoesNotExist:
+        return JsonResponse({"error": "Issue not found"}, status=404)
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=500)
