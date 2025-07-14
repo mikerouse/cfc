@@ -2783,17 +2783,41 @@ def god_mode(request):
                 'cancelled': 'bg-gray-100 text-gray-600'
             }.get(log.status, 'bg-blue-100 text-blue-600')
             
-            # Enhanced details display
+            # Enhanced details display with more comprehensive information
             details_preview = ""
             if log.details:
-                # Extract key details for preview
+                # Extract key details for preview with better formatting
                 key_details = []
                 if isinstance(log.details, dict):
-                    for key, value in list(log.details.items())[:3]:  # Show first 3 details
-                        if value and str(value).strip():
-                            key_details.append(f"{key}: {value}")
+                    # Priority order for displaying details
+                    priority_keys = ['source_council_name', 'target_council_name', 'merge_from_year', 
+                                   'figures_moved', 'conflicts_resolved', 'field', 'old_value', 'new_value',
+                                   'year_label', 'error', 'automated', 'council_name']
+                    
+                    # First show priority details
+                    for key in priority_keys:
+                        if key in log.details and log.details[key] and str(log.details[key]).strip():
+                            value = log.details[key]
+                            if key in ['figures_moved', 'conflicts_resolved']:
+                                key_details.append(f"{key.replace('_', ' ')}: {value}")
+                            elif key == 'merge_from_year':
+                                key_details.append(f"from {value}")
+                            elif key in ['old_value', 'new_value']:
+                                # Truncate long values
+                                display_value = str(value)[:50] + ('...' if len(str(value)) > 50 else '')
+                                key_details.append(f"{key.replace('_', ' ')}: {display_value}")
+                            else:
+                                key_details.append(f"{key.replace('_', ' ')}: {value}")
+                    
+                    # Then add any other details not already shown
+                    shown_keys = set(priority_keys)
+                    for key, value in log.details.items():
+                        if key not in shown_keys and value and str(value).strip():
+                            if len(key_details) < 4:  # Limit total details shown
+                                key_details.append(f"{key}: {value}")
+                            
                 if key_details:
-                    details_preview = f" • {' • '.join(key_details)}"
+                    details_preview = ' • '.join(key_details[:4])  # Show max 4 details
             
             # Generate unique ID for this log entry
             log_id = log.id
@@ -3029,8 +3053,27 @@ def god_mode(request):
             if council_id and status:
                 try:
                     council = Council.objects.get(id=council_id)
+                    old_status = council.status
                     council.status = status
                     council.save()
+                    
+                    # Log the flag activity
+                    ActivityLog.log_activity(
+                        activity_type='moderation',
+                        description=f'Council status changed from {old_status} to {status}',
+                        user=request.user,
+                        related_council=council,
+                        status='completed',
+                        details={
+                            'old_status': old_status,
+                            'new_status': status,
+                            'council_name': council.name,
+                            'council_id': council.id,
+                            'action_type': 'status_change'
+                        },
+                        request=request
+                    )
+                    
                     messages.success(request, f"Flagged '{council.name}' as {council.get_status_display()}")
                     logger.info("Council '%s' flagged as '%s' by %s", 
                               council.name, status, request.user.username)
@@ -3102,7 +3145,7 @@ def activity_log_entries(request):
 
     import json
 
-    logs = ActivityLog.objects.select_related("user", "council").order_by("-created")
+    logs = ActivityLog.objects.select_related("user", "related_council").order_by("-created")
     q = request.GET.get("q")
     if q:
         logs = logs.filter(
@@ -3120,7 +3163,7 @@ def activity_log_entries(request):
         row = {
             "time": log.created.strftime("%Y-%m-%d %H:%M:%S"),
             "user": log.user.username if log.user else "",
-            "council": log.council.name if log.council else "",
+            "council": log.related_council.name if log.related_council else (log.council.name if hasattr(log, 'council') and log.council else ""),
             "page": log.page,
             "activity": log.activity,
             "log_type": log.log_type,
@@ -3142,6 +3185,8 @@ def activity_log_json(request, log_id):
     """Return JSON data for a specific activity log entry."""
     if not request.user.is_superuser and request.user.profile.tier.level < 5:
         raise Http404()
+    
+    from django.utils import timezone
     
     try:
         log = ActivityLog.objects.select_related("user", "related_council").get(id=log_id)
