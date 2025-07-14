@@ -2912,13 +2912,111 @@ def dismiss_notification(request):
     return JsonResponse({"message": "Dismiss Notification - Not implemented yet"})
 
 def profile_view(request):
-    """User profile view"""
+    """Enhanced user profile view with comprehensive management features"""
     if not request.user.is_authenticated:
         return redirect('login')
     
+    from django.contrib import messages
+    from django.utils.crypto import get_random_string
+    from django.contrib.auth.hashers import make_password
+    from django.urls import reverse
+    import hashlib
+    
+    user = request.user
+    # Ensure we always have a profile
+    profile, _ = UserProfile.objects.get_or_create(
+        user=user,
+        defaults={"confirmation_token": get_random_string(32)},
+    )
+
+    tab = request.GET.get("tab", "profile")
+
+    # Handle form submissions
+    if request.method == "POST":
+        if "preferred_font" in request.POST:
+            # Save font preferences
+            profile.preferred_font = request.POST.get("preferred_font", "Cairo")
+            profile.font_size = request.POST.get("font_size", "medium")
+            profile.high_contrast_mode = request.POST.get("high_contrast_mode") == "on"
+            profile.color_theme = request.POST.get("color_theme", "auto")
+            profile.save()
+            messages.success(request, "Display preferences saved.")
+            tab = "display"
+            
+        elif "update_profile" in request.POST:
+            # Update basic profile info
+            profile.postcode = request.POST.get("postcode", "")
+            profile.postcode_refused = request.POST.get("postcode_refused") == "on"
+            profile.political_affiliation = request.POST.get("political_affiliation", "")
+            profile.works_for_council = request.POST.get("works_for_council") == "on"
+            
+            employer_council_id = request.POST.get("employer_council")
+            if employer_council_id:
+                from .models import Council
+                profile.employer_council = Council.objects.filter(id=employer_council_id).first()
+            else:
+                profile.employer_council = None
+                
+            profile.official_email = request.POST.get("official_email", "")
+            profile.save()
+            messages.success(request, "Profile details updated.")
+            
+        elif "visibility" in request.POST:
+            profile.visibility = request.POST.get("visibility", profile.visibility)
+            profile.save()
+            messages.success(request, "Privacy settings updated.")
+            tab = "privacy"
+            
+        elif user.is_superuser and "tier" in request.POST:
+            # Allow superusers to change tier
+            tier = TrustTier.objects.filter(id=request.POST.get("tier")).first()
+            if tier:
+                profile.tier = tier
+                profile.save()
+                messages.success(request, f"Tier changed to {tier.name}.")
+            tab = "advanced"
+
+    # Gather data for template
+    followers = UserFollow.objects.filter(target=user).select_related("follower")
+    following = UserFollow.objects.filter(follower=user).select_related("target")
+    
+    # Gravatar
+    email = (user.email or "").strip().lower()
+    email_hash = hashlib.md5(email.encode("utf-8")).hexdigest() if email else ""
+    gravatar_url = (
+        f"https://www.gravatar.com/avatar/{email_hash}?d=identicon&s=150"
+        if email_hash
+        else None
+    )
+    
+    # Statistics
+    from .models import Contribution, Council
+    contributions = Contribution.objects.filter(user=user)
+    approved_contributions = contributions.filter(status='approved')
+    pending_contributions = contributions.filter(status='pending')
+    
+    # Leaderboard position
+    users_with_more_points = UserProfile.objects.filter(points__gt=profile.points).count()
+    rank = users_with_more_points + 1
+    
     context = {
-        'user': request.user,
-        'profile': request.user.profile if hasattr(request.user, 'profile') else None
+        'user': user,
+        'profile': profile,
+        'tab': tab,
+        'gravatar_url': gravatar_url,
+        'followers': followers,
+        'following': following,
+        'rank': rank,
+        'contributions_count': contributions.count(),
+        'approved_count': approved_contributions.count(),
+        'pending_count': pending_contributions.count(),
+        'recent_contributions': contributions.order_by('-created')[:5],
+        'visibility_choices': UserProfile.VISIBILITY_CHOICES,
+        'font_size_choices': UserProfile.FONT_SIZE_CHOICES,
+        'theme_choices': UserProfile.THEME_CHOICES,
+        'councils': Council.objects.all().order_by('name'),
+        'tiers': TrustTier.objects.all(),
+        'fonts': ["Cairo", "Roboto", "Lato", "Open Sans", "Inter", "Poppins"],
     }
     
     return render(request, 'council_finance/profile.html', context)

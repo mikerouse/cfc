@@ -145,6 +145,6 @@ urlpatterns = [
     path("god-mode/activity-log/<int:log_id>/json/", views.activity_log_json, name="activity_log_json"),
     path("contribute/issue/<int:issue_id>/mark-invalid/", views.mark_issue_invalid, name="mark_issue_invalid"),
     
-    # Include new data architecture URLs
-    path("", include("council_finance.urls_v2")),
+    # Include new data architecture URLs (commented out - file doesn't exist)
+    # path("", include("council_finance.urls_v2")),
 ]

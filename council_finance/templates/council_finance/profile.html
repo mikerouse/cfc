@@ -1,0 +1,525 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}My Profile - Council Finance Counters{% endblock %}
+
+{% block content %}
+<div class="min-h-screen bg-gray-50 py-6">
+  <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <!-- Page Header -->
+    <div class="mb-8">
+      <div class="flex items-center justify-between">
+        <div>
+          <h1 class="text-3xl font-bold text-gray-900">My Profile</h1>
+          <p class="mt-2 text-gray-600">Manage your account settings and preferences</p>
+        </div>
+        <div class="flex items-center space-x-4">
+          {% if not profile.email_confirmed %}
+          <div class="bg-yellow-100 border border-yellow-400 text-yellow-800 px-3 py-1 rounded-md text-sm">
+            <span class="font-medium">Email not verified</span>
+            <a href="{% url 'resend_confirmation' %}" class="ml-2 underline hover:no-underline">Verify now</a>
+          </div>
+          {% endif %}
+          <div class="bg-blue-100 border border-blue-400 text-blue-800 px-3 py-1 rounded-md text-sm">
+            Rank #{{ rank }}
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-4 gap-6">
+      <!-- Profile Sidebar -->
+      <div class="lg:col-span-1">
+        <div class="bg-white rounded-lg shadow p-6">
+          <!-- Profile Picture -->
+          <div class="text-center">
+            {% if gravatar_url %}
+            <img src="{{ gravatar_url }}" alt="Profile Picture" class="w-24 h-24 rounded-full mx-auto border-4 border-gray-200">
+            {% else %}
+            <div class="w-24 h-24 rounded-full mx-auto bg-gray-300 flex items-center justify-center">
+              <svg class="w-12 h-12 text-gray-400" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M24 20.993V24H0v-2.996A14.977 14.977 0 0112.004 15c4.904 0 9.26 2.354 11.996 5.993zM16.002 8.999a4 4 0 11-8 0 4 4 0 018 0z"/>
+              </svg>
+            </div>
+            {% endif %}
+            <h3 class="mt-4 text-lg font-semibold text-gray-900">{{ user.get_full_name|default:user.username }}</h3>
+            <p class="text-sm text-gray-600">{{ profile.tier.name }}</p>
+            <div class="mt-2">
+              <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                {{ profile.badge }}
+              </span>
+            </div>
+          </div>
+
+          <!-- Quick Stats -->
+          <div class="mt-6 space-y-3">
+            <div class="flex justify-between">
+              <span class="text-sm text-gray-600">Points:</span>
+              <span class="font-semibold text-green-600">{{ profile.points }}</span>
+            </div>
+            <div class="flex justify-between">
+              <span class="text-sm text-gray-600">Level:</span>
+              <span class="font-semibold">{{ profile.level }}</span>
+            </div>
+            <div class="flex justify-between">
+              <span class="text-sm text-gray-600">Contributions:</span>
+              <span class="font-semibold">{{ contributions_count }}</span>
+            </div>
+            <div class="flex justify-between">
+              <span class="text-sm text-gray-600">Approved:</span>
+              <span class="font-semibold text-green-600">{{ approved_count }}</span>
+            </div>
+            {% if pending_count > 0 %}
+            <div class="flex justify-between">
+              <span class="text-sm text-gray-600">Pending:</span>
+              <span class="font-semibold text-yellow-600">{{ pending_count }}</span>
+            </div>
+            {% endif %}
+            <div class="flex justify-between">
+              <span class="text-sm text-gray-600">Followers:</span>
+              <span class="font-semibold">{{ followers.count }}</span>
+            </div>
+            <div class="flex justify-between">
+              <span class="text-sm text-gray-600">Following:</span>
+              <span class="font-semibold">{{ following.count }}</span>
+            </div>
+          </div>
+
+          <!-- Profile Completion -->
+          <div class="mt-6">
+            <div class="flex justify-between text-sm mb-1">
+              <span class="text-gray-600">Profile completion</span>
+              <span class="font-medium">{{ profile.completion_percent }}%</span>
+            </div>
+            <div class="w-full bg-gray-200 rounded-full h-2">
+              <div class="bg-blue-600 h-2 rounded-full transition-all duration-300" style="width: {{ profile.completion_percent }}%"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Recent Activity -->
+        {% if recent_contributions %}
+        <div class="bg-white rounded-lg shadow p-6 mt-6">
+          <h3 class="text-lg font-semibold text-gray-900 mb-4">Recent Contributions</h3>
+          <div class="space-y-3">
+            {% for contribution in recent_contributions %}
+            <div class="flex items-center justify-between p-2 bg-gray-50 rounded">
+              <div class="flex-1 min-w-0">
+                <p class="text-sm font-medium text-gray-900 truncate">
+                  {{ contribution.field_slug|title }}
+                </p>
+                <p class="text-xs text-gray-500">
+                  {{ contribution.created_at|date:"M d" }}
+                </p>
+              </div>
+              <div class="flex-shrink-0">
+                {% if contribution.status == 'approved' %}
+                <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                  Approved
+                </span>
+                {% elif contribution.status == 'pending' %}
+                <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+                  Pending
+                </span>
+                {% elif contribution.status == 'rejected' %}
+                <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                  Rejected
+                </span>
+                {% endif %}
+              </div>
+            </div>
+            {% endfor %}
+          </div>
+        </div>
+        {% endif %}
+      </div>
+
+      <!-- Main Content -->
+      <div class="lg:col-span-3">
+        <!-- Tab Navigation -->
+        <div class="bg-white rounded-lg shadow">
+          <div class="border-b border-gray-200">
+            <nav class="flex space-x-8 px-6" aria-label="Tabs">
+              <a href="?tab=profile" class="py-4 px-1 border-b-2 font-medium text-sm {% if tab == 'profile' %}border-blue-500 text-blue-600{% else %}border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300{% endif %}">
+                Personal Info
+              </a>
+              <a href="?tab=display" class="py-4 px-1 border-b-2 font-medium text-sm {% if tab == 'display' %}border-blue-500 text-blue-600{% else %}border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300{% endif %}">
+                Display
+              </a>
+              <a href="?tab=privacy" class="py-4 px-1 border-b-2 font-medium text-sm {% if tab == 'privacy' %}border-blue-500 text-blue-600{% else %}border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300{% endif %}">
+                Privacy
+              </a>
+              <a href="?tab=social" class="py-4 px-1 border-b-2 font-medium text-sm {% if tab == 'social' %}border-blue-500 text-blue-600{% else %}border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300{% endif %}">
+                Social
+              </a>
+              {% if user.is_superuser %}
+              <a href="?tab=advanced" class="py-4 px-1 border-b-2 font-medium text-sm {% if tab == 'advanced' %}border-blue-500 text-blue-600{% else %}border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300{% endif %}">
+                Advanced
+              </a>
+              {% endif %}
+            </nav>
+          </div>
+
+          <!-- Tab Content -->
+          <div class="p-6">
+            {% if tab == 'profile' %}
+            <!-- Personal Information Tab -->
+            <div class="space-y-6">
+              <div>
+                <h3 class="text-lg font-medium text-gray-900 mb-4">Basic Information</h3>
+                <form method="post" class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {% csrf_token %}
+                  <input type="hidden" name="update_profile" value="1">
+                  
+                  <div>
+                    <label for="first_name" class="block text-sm font-medium text-gray-700">First Name</label>
+                    <input type="text" name="first_name" id="first_name" value="{{ user.first_name }}" 
+                           class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500">
+                  </div>
+                  
+                  <div>
+                    <label for="last_name" class="block text-sm font-medium text-gray-700">Last Name</label>
+                    <input type="text" name="last_name" id="last_name" value="{{ user.last_name }}" 
+                           class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500">
+                  </div>
+                  
+                  <div>
+                    <label for="email" class="block text-sm font-medium text-gray-700">Email</label>
+                    <input type="email" name="email" id="email" value="{{ user.email }}" 
+                           class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500">
+                    {% if not profile.email_confirmed %}
+                    <p class="mt-1 text-sm text-red-600">Email not verified</p>
+                    {% endif %}
+                  </div>
+                  
+                  <div>
+                    <label for="postcode" class="block text-sm font-medium text-gray-700">Postcode</label>
+                    <input type="text" name="postcode" id="postcode" value="{{ profile.postcode }}" 
+                           class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
+                           placeholder="Enter your UK postcode">
+                    <div class="mt-2">
+                      <label class="flex items-center">
+                        <input type="checkbox" name="postcode_refused" {% if profile.postcode_refused %}checked{% endif %} 
+                               class="rounded border-gray-300 text-blue-600 shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200 focus:ring-opacity-50">
+                        <span class="ml-2 text-sm text-gray-600">I prefer not to provide my postcode</span>
+                      </label>
+                    </div>
+                  </div>
+                  
+                  <div class="md:col-span-2">
+                    <label for="political_affiliation" class="block text-sm font-medium text-gray-700">Political Affiliation (Optional)</label>
+                    <input type="text" name="political_affiliation" id="political_affiliation" value="{{ profile.political_affiliation }}" 
+                           class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
+                           placeholder="e.g., Conservative, Labour, Liberal Democrat, Green, Independent">
+                  </div>
+                  
+                  <div class="md:col-span-2">
+                    <label class="flex items-center">
+                      <input type="checkbox" name="works_for_council" {% if profile.works_for_council %}checked{% endif %} 
+                             class="rounded border-gray-300 text-blue-600 shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200 focus:ring-opacity-50">
+                      <span class="ml-2 text-sm font-medium text-gray-700">I work for a council</span>
+                    </label>
+                  </div>
+                  
+                  <div>
+                    <label for="employer_council" class="block text-sm font-medium text-gray-700">Employer Council</label>
+                    <select name="employer_council" id="employer_council" 
+                            class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500">
+                      <option value="">Select a council</option>
+                      {% for council in councils %}
+                      <option value="{{ council.id }}" {% if profile.employer_council_id == council.id %}selected{% endif %}>
+                        {{ council.name }}
+                      </option>
+                      {% endfor %}
+                    </select>
+                  </div>
+                  
+                  <div>
+                    <label for="official_email" class="block text-sm font-medium text-gray-700">Official .gov.uk Email</label>
+                    <input type="email" name="official_email" id="official_email" value="{{ profile.official_email }}" 
+                           class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
+                           placeholder="your.name@council.gov.uk">
+                  </div>
+                  
+                  <div class="md:col-span-2">
+                    <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">
+                      Update Profile
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>
+
+            {% elif tab == 'display' %}
+            <!-- Display Preferences Tab -->
+            <div class="space-y-6">
+              <div>
+                <h3 class="text-lg font-medium text-gray-900 mb-4">Display Preferences</h3>
+                <form method="post" class="space-y-6">
+                  {% csrf_token %}
+                  <input type="hidden" name="preferred_font" value="1">
+                  
+                  <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                      <label for="font_family" class="block text-sm font-medium text-gray-700">Font Family</label>
+                      <select name="preferred_font" id="font_family" 
+                              class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500">
+                        {% for font in fonts %}
+                        <option value="{{ font }}" {% if profile.preferred_font == font %}selected{% endif %}>{{ font }}</option>
+                        {% endfor %}
+                      </select>
+                    </div>
+                    
+                    <div>
+                      <label for="font_size" class="block text-sm font-medium text-gray-700">Font Size</label>
+                      <select name="font_size" id="font_size" 
+                              class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500">
+                        {% for value, label in font_size_choices %}
+                        <option value="{{ value }}" {% if profile.font_size == value %}selected{% endif %}>{{ label }}</option>
+                        {% endfor %}
+                      </select>
+                    </div>
+                  </div>
+                  
+                  <div>
+                    <label for="color_theme" class="block text-sm font-medium text-gray-700">Color Theme</label>
+                    <select name="color_theme" id="color_theme" 
+                            class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500">
+                      {% for value, label in theme_choices %}
+                      <option value="{{ value }}" {% if profile.color_theme == value %}selected{% endif %}>{{ label }}</option>
+                      {% endfor %}
+                    </select>
+                  </div>
+                  
+                  <div>
+                    <label class="flex items-center">
+                      <input type="checkbox" name="high_contrast_mode" {% if profile.high_contrast_mode %}checked{% endif %} 
+                             class="rounded border-gray-300 text-blue-600 shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200 focus:ring-opacity-50">
+                      <span class="ml-2 text-sm font-medium text-gray-700">Enable high contrast mode</span>
+                    </label>
+                    <p class="mt-1 text-sm text-gray-500">Improves readability with higher contrast colors</p>
+                  </div>
+                  
+                  <div>
+                    <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">
+                      Save Display Preferences
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>
+
+            {% elif tab == 'privacy' %}
+            <!-- Privacy Settings Tab -->
+            <div class="space-y-6">
+              <div>
+                <h3 class="text-lg font-medium text-gray-900 mb-4">Privacy Settings</h3>
+                <form method="post" class="space-y-6">
+                  {% csrf_token %}
+                  
+                  <div>
+                    <label for="visibility" class="block text-sm font-medium text-gray-700">Profile Visibility</label>
+                    <select name="visibility" id="visibility" 
+                            class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500">
+                      {% for value, label in visibility_choices %}
+                      <option value="{{ value }}" {% if profile.visibility == value %}selected{% endif %}>{{ label }}</option>
+                      {% endfor %}
+                    </select>
+                    <div class="mt-2 text-sm text-gray-500">
+                      <ul class="space-y-1">
+                        <li><strong>Private:</strong> Only you can see your profile</li>
+                        <li><strong>Friends only:</strong> Only users you follow can see your profile</li>
+                        <li><strong>Followers only:</strong> Only your followers can see your profile</li>
+                        <li><strong>Public:</strong> Anyone can see your profile</li>
+                      </ul>
+                    </div>
+                  </div>
+                  
+                  <div>
+                    <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">
+                      Update Privacy Settings
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>
+
+            {% elif tab == 'social' %}
+            <!-- Social Connections Tab -->
+            <div class="space-y-6">
+              <div>
+                <h3 class="text-lg font-medium text-gray-900 mb-4">Social Connections</h3>
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <!-- Followers -->
+                  <div>
+                    <h4 class="text-md font-medium text-gray-900 mb-3">Followers ({{ followers.count }})</h4>
+                    {% if followers %}
+                    <div class="space-y-2 max-h-60 overflow-y-auto">
+                      {% for follow in followers %}
+                      <div class="flex items-center justify-between p-2 bg-gray-50 rounded">
+                        <div class="flex items-center">
+                          <div class="w-8 h-8 bg-gray-300 rounded-full flex items-center justify-center">
+                            <span class="text-xs font-medium text-gray-600">
+                              {{ follow.follower.username|slice:":1"|upper }}
+                            </span>
+                          </div>
+                          <div class="ml-3">
+                            <p class="text-sm font-medium text-gray-900">{{ follow.follower.username }}</p>
+                            <p class="text-xs text-gray-500">Since {{ follow.created_at|date:"M Y" }}</p>
+                          </div>
+                        </div>
+                      </div>
+                      {% endfor %}
+                    </div>
+                    {% else %}
+                    <p class="text-sm text-gray-500">No followers yet.</p>
+                    {% endif %}
+                  </div>
+                  
+                  <!-- Following -->
+                  <div>
+                    <h4 class="text-md font-medium text-gray-900 mb-3">Following ({{ following.count }})</h4>
+                    {% if following %}
+                    <div class="space-y-2 max-h-60 overflow-y-auto">
+                      {% for follow in following %}
+                      <div class="flex items-center justify-between p-2 bg-gray-50 rounded">
+                        <div class="flex items-center">
+                          <div class="w-8 h-8 bg-gray-300 rounded-full flex items-center justify-center">
+                            <span class="text-xs font-medium text-gray-600">
+                              {{ follow.target.username|slice:":1"|upper }}
+                            </span>
+                          </div>
+                          <div class="ml-3">
+                            <p class="text-sm font-medium text-gray-900">{{ follow.target.username }}</p>
+                            <p class="text-xs text-gray-500">Since {{ follow.created_at|date:"M Y" }}</p>
+                          </div>
+                        </div>
+                        <button class="text-red-600 hover:text-red-800 text-sm">Unfollow</button>
+                      </div>
+                      {% endfor %}
+                    </div>
+                    {% else %}
+                    <p class="text-sm text-gray-500">Not following anyone yet.</p>
+                    {% endif %}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {% elif tab == 'advanced' and user.is_superuser %}
+            <!-- Advanced Settings Tab (Superuser only) -->
+            <div class="space-y-6">
+              <div>
+                <h3 class="text-lg font-medium text-gray-900 mb-4">Advanced Settings</h3>
+                <div class="bg-yellow-50 border border-yellow-200 rounded-md p-4 mb-6">
+                  <div class="flex">
+                    <div class="flex-shrink-0">
+                      <svg class="h-5 w-5 text-yellow-400" viewBox="0 0 20 20" fill="currentColor">
+                        <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/>
+                      </svg>
+                    </div>
+                    <div class="ml-3">
+                      <h3 class="text-sm font-medium text-yellow-800">Warning</h3>
+                      <div class="mt-2 text-sm text-yellow-700">
+                        <p>These settings are for testing purposes only and should not be used in production.</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                
+                <form method="post" class="space-y-6">
+                  {% csrf_token %}
+                  
+                  <div>
+                    <label for="tier" class="block text-sm font-medium text-gray-700">Trust Tier</label>
+                    <select name="tier" id="tier" 
+                            class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500">
+                      {% for tier in tiers %}
+                      <option value="{{ tier.id }}" {% if profile.tier_id == tier.id %}selected{% endif %}>
+                        {{ tier.name }} (Level {{ tier.level }})
+                      </option>
+                      {% endfor %}
+                    </select>
+                  </div>
+                  
+                  <div>
+                    <button type="submit" class="bg-red-600 text-white px-4 py-2 rounded-md hover:bg-red-700 focus:ring-2 focus:ring-red-500 focus:ring-offset-2">
+                      Update Advanced Settings
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// Profile management JavaScript
+document.addEventListener('DOMContentLoaded', function() {
+  // Auto-hide success messages after 5 seconds
+  const messages = document.querySelectorAll('.alert, .bg-green-100');
+  messages.forEach(message => {
+    setTimeout(() => {
+      message.style.transition = 'opacity 0.5s';
+      message.style.opacity = '0';
+      setTimeout(() => message.remove(), 500);
+    }, 5000);
+  });
+  
+  // Council employment checkbox logic
+  const worksForCouncil = document.querySelector('input[name="works_for_council"]');
+  const employerCouncil = document.querySelector('select[name="employer_council"]');
+  const officialEmail = document.querySelector('input[name="official_email"]');
+  
+  if (worksForCouncil) {
+    function toggleCouncilFields() {
+      const isChecked = worksForCouncil.checked;
+      if (employerCouncil) {
+        employerCouncil.disabled = !isChecked;
+        employerCouncil.classList.toggle('bg-gray-100', !isChecked);
+      }
+      if (officialEmail) {
+        officialEmail.disabled = !isChecked;
+        officialEmail.classList.toggle('bg-gray-100', !isChecked);
+      }
+    }
+    
+    worksForCouncil.addEventListener('change', toggleCouncilFields);
+    toggleCouncilFields(); // Initial state
+  }
+  
+  // Postcode checkbox logic
+  const postcodeRefused = document.querySelector('input[name="postcode_refused"]');
+  const postcodeInput = document.querySelector('input[name="postcode"]');
+  
+  if (postcodeRefused && postcodeInput) {
+    function togglePostcodeField() {
+      const isRefused = postcodeRefused.checked;
+      postcodeInput.disabled = isRefused;
+      postcodeInput.classList.toggle('bg-gray-100', isRefused);
+      if (isRefused) {
+        postcodeInput.value = '';
+      }
+    }
+    
+    postcodeRefused.addEventListener('change', togglePostcodeField);
+    togglePostcodeField(); // Initial state
+  }
+  
+  // Preview font changes
+  const fontSelect = document.querySelector('select[name="preferred_font"]');
+  if (fontSelect) {
+    fontSelect.addEventListener('change', function() {
+      // Apply font preview (could be expanded)
+      console.log('Font changed to:', this.value);
+    });
+  }
+});
+</script>
+{% endblock %}
