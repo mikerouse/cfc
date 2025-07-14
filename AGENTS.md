@@ -21,14 +21,15 @@ The emphasis is on 'visually striking' ways to show the data using counters and 
 - Emphasise maintainability, extensibility and portability.
 - Search tools should work as live or predictive features - show the results as the user types a couple or few letters, and allow the user to choose the result they want from a drop-down, which can be enriched with shortcut links or buttons depending upon what context the search is used within. 
 
-## Things the creator cares about 
+## Things the creator cares about:
 
-- Comments. There should be useful and descriptive comments.
-- Helpers in the UI for the benefit of users.
-- Realtime data
-- Taking a holistic app-wide view
-- Prioritising the user experience
-- Log, log, log
+- We care about comments. There should be useful and descriptive comments.
+- We care about helpers in the UI for the benefit of users.
+- We care about realtime and live data using websockets or polling.
+- We care about taking a holistic app-wide view - this means if we adjust functionality that affects one place we look around the app to see where else might be affected and act accordingly.
+- We prioritise the user experience and ease-of-use. That means we do not use things like alert() we use modals instead.
+- We care about accessibility, but not when it compromises design. We should do both.
+- We log, log, log.
 
 ## Things the create does NOT care about
 

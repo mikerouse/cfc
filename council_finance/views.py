@@ -13,6 +13,7 @@ from django.contrib.auth.decorators import login_required
 from django.contrib.auth.hashers import make_password
 from django.contrib.auth import login
 from django.utils.crypto import get_random_string
+from django.utils import timezone
 from django.core.paginator import Paginator
 from django.template.loader import render_to_string
 from django.urls import reverse
@@ -21,6 +22,7 @@ from django.views.decorators.http import require_GET
 
 import csv
 import hashlib
+import inspect
 
 # Brevo's Python SDK exposes ApiException from the `rest` module
 from brevo_python.rest import ApiException
@@ -88,7 +90,7 @@ def log_activity(
     response="",
     extra=None,
 ):
-    """Helper to store troubleshooting events."""
+    """Helper to store troubleshooting events using the modern ActivityLog system."""
     import json
     import inspect
 
@@ -121,8 +123,6 @@ def log_activity(
         if cls:
             extra_data["class"] = cls
 
-    extra = json.dumps(extra_data, ensure_ascii=False)
-
     # Request data defaults to the HTTP method for quick reference. The caller
     # can supply a short string or dict to capture more detail when needed.
     if request_data is None:
@@ -131,16 +131,35 @@ def log_activity(
         request_data = json.dumps(request_data, ensure_ascii=False)
     elif request_data is None:
         request_data = ""
-    ActivityLog.objects.create(
+
+    # Map the legacy activity to modern activity types
+    activity_type_mapping = {
+        'field_delete': 'delete',
+        'apply_contribution': 'contribution', 
+        'submit_contribution': 'contribution',
+        'review_contribution': 'moderation',
+        'council_merge': 'council_merge',
+        'financial_year': 'financial_year',
+        'data_correction': 'data_correction',
+    }
+    
+    modern_activity_type = activity_type_mapping.get(activity, 'system')
+    
+    # Create the activity log using the new enhanced model
+    ActivityLog.log_activity(
+        activity_type=modern_activity_type,
+        description=f"{activity}: {action}" if action else activity or "Legacy activity",
         user=request.user if getattr(request, "user", None) and request.user.is_authenticated else None,
-        council=council,
-        page=request.path,
-        activity=activity,
-        log_type=log_type,
-        action=action,
-        request=request_data,
-        response=response,
-        extra=extra,
+        related_council=council,
+        status='completed',
+        details={
+            'legacy_data': extra_data,
+            'request_method': request_data,
+            'response': response,
+            'page': request.path,
+            'action': action,
+        },
+        request=request
     )
 
 
@@ -307,7 +326,7 @@ def home(request):
             "raw": value,
             "duration": gc.duration,
             "precision": gc.precision,
-            "show_currency": gc.show_currency,
+            "show_currency": sc.show_currency,
             "friendly_format": gc.friendly_format,
             "explanation": "",  # groups currently lack custom explanations
             "columns": 3,  # groups default to full width for now
@@ -2150,7 +2169,7 @@ def review_contribution(request, pk, action):
             council=contrib.council,
             activity="review_contribution",
             log_type="user",
-                       action=f"id={pk}",
+            action=f"id={pk}",
             response="edited",
             extra={"value": contrib.value},
         )
@@ -2747,7 +2766,7 @@ def god_mode(request):
         recent_activity = ActivityLog.objects.select_related("user", "related_council").order_by("-created")[:20]
         activity_html = ""
         for log in recent_activity:
-            # Use new field names
+            # Enhanced activity description with more detail
             description = log.description or f"{log.page}: {log.activity}" if log.activity else "Activity"
             council_link = ""
             if log.related_council:
@@ -2764,23 +2783,62 @@ def god_mode(request):
                 'cancelled': 'bg-gray-100 text-gray-600'
             }.get(log.status, 'bg-blue-100 text-blue-600')
             
+            # Enhanced details display
+            details_preview = ""
+            if log.details:
+                # Extract key details for preview
+                key_details = []
+                if isinstance(log.details, dict):
+                    for key, value in list(log.details.items())[:3]:  # Show first 3 details
+                        if value and str(value).strip():
+                            key_details.append(f"{key}: {value}")
+                if key_details:
+                    details_preview = f" • {' • '.join(key_details)}"
+            
+            # Generate unique ID for this log entry
+            log_id = log.id
+            
             activity_html += f"""
-            <div class="flex items-start gap-3 p-3 bg-gray-50 rounded-md">
+            <div class="flex items-start gap-3 p-3 bg-gray-50 rounded-md hover:bg-gray-100 transition-colors">
               <div class="flex-shrink-0 w-8 h-8 {status_color} rounded-full flex items-center justify-center">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
                 </svg>
               </div>
               <div class="flex-1 min-w-0">
-                <p class="text-sm text-gray-900">
-                  <span class="font-medium">{log.user.username if log.user else 'System'}</span>
-                  {description}
-                  {council_link}
-                </p>
-                <p class="text-xs text-gray-500">
-                  {log.created.strftime('%H:%M')} - {log.created.strftime('%b %d')}
-                  {f'({log.get_activity_type_display()})' if log.activity_type else ''}
-                </p>
+                <div class="flex items-start justify-between">
+                  <div class="flex-1">
+                    <p class="text-sm text-gray-900">
+                      <span class="font-medium">{log.user.username if log.user else 'System'}</span>
+                      <span class="mx-1">•</span>
+                      <span class="text-gray-700">{description}</span>
+                      {council_link}
+                    </p>
+                    {f'<p class="text-xs text-gray-600 mt-1">{details_preview}</p>' if details_preview else ''}
+                    <p class="text-xs text-gray-500 mt-1">
+                      {log.created.strftime('%H:%M:%S')} - {log.created.strftime('%b %d, %Y')}
+                      {f' • {log.get_activity_type_display()}' if log.activity_type else ''}
+                      {f' • {log.get_status_display()}' if log.status != 'completed' else ''}
+                      {f' • IP: {log.ip_address}' if log.ip_address else ''}
+                    </p>
+                  </div>
+                  <div class="flex gap-1 ml-2">
+                    <button onclick="viewActivityJSON({log_id})" 
+                            class="p-1 text-gray-400 hover:text-blue-600 transition-colors" 
+                            title="View full JSON">
+                      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                      </svg>
+                    </button>
+                    <button onclick="copyActivityJSON({log_id})" 
+                            class="p-1 text-gray-400 hover:text-green-600 transition-colors" 
+                            title="Copy JSON to clipboard">
+                      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/>
+                      </svg>
+                    </button>
+                  </div>
+                </div>
               </div>
             </div>
             """
@@ -3079,120 +3137,67 @@ def activity_log_entries(request):
     return JsonResponse({"results": data, "has_next": page.has_next()})
 
 
-@require_GET
-def contribute_api_data(request):
-    """Return data table HTML for AJAX requests with real-time editing capabilities."""
-    if request.headers.get("X-Requested-With") != "XMLHttpRequest":
-        return HttpResponseBadRequest("XHR required")
-
-    from .models import DataIssue, Contribution
-    from .data_quality import assess_data_issues
-
-    data_type = request.GET.get("type", "missing_characteristics")
-    search = request.GET.get("q", "").strip()
-    order = request.GET.get("order", "council")
-    direction = request.GET.get("dir", "asc")
-    page_size = int(request.GET.get("page_size", 50))
+@login_required
+def activity_log_json(request, log_id):
+    """Return JSON data for a specific activity log entry."""
+    if not request.user.is_superuser and request.user.profile.tier.level < 5:
+        raise Http404()
     
-    # Refresh data quality assessment if requested
-    if request.GET.get("refresh"):
-        assess_data_issues()
-
-    # Build the appropriate queryset based on data type
-    if data_type == "pending":
-        qs = Contribution.objects.filter(status="pending").select_related(
-            "council", "field", "user", "year"
-        )
-    elif data_type == "missing_characteristics":
-        qs = DataIssue.objects.filter(
-            issue_type="missing", field__category="characteristic"
-        ).select_related("council", "field", "year")
-    elif data_type == "missing_financial":
-        qs = (DataIssue.objects.filter(issue_type="missing")
-        .exclude(field__category="characteristic")
-        .select_related("council", "field", "year"))
-    elif data_type == "suspicious":
-        qs = DataIssue.objects.filter(issue_type="suspicious").select_related(
-            "council", "field", "year"
-        )
-    else:
-        return JsonResponse({"error": "Invalid data type"}, status=400)
-
-    # Apply search filter
-    if search:
-        qs = qs.filter(
-            Q(council__name__icontains=search) | Q(field__name__icontains=search)
-        )
-
-    # Apply sorting
-    allowed_sorts = {
-        "council": "council__name",
-        "field": "field__name", 
-        "year": "year__label",
-        "value": "value"
-    }
-    sort_field = allowed_sorts.get(order, "council__name")
-    if direction == "desc":
-        sort_field = f"-{sort_field}"
-    qs = qs.order_by(sort_field)
-
-    # Paginate results
-    paginator = Paginator(qs, page_size)
-    page = paginator.get_page(request.GET.get("page", 1))
-
-    # Render the appropriate template
-    if data_type == "pending":
-        table_html = render_to_string(
-            "council_finance/contribute_pending_table.html",
-            {"page_obj": page, "paginator": paginator, "data_type": data_type},
-            request=request,
-        )
-    else:
-        table_html = render_to_string(
-            "council_finance/contribute_data_table.html",
-            {
-                "page_obj": page,
-                "paginator": paginator,
-                "data_type": data_type,
-                "show_year": data_type != "missing_characteristics",
+    try:
+        log = ActivityLog.objects.select_related("user", "related_council").get(id=log_id)
+        
+        # Build comprehensive JSON data for AI tools
+        json_data = {
+            'id': log.id,
+            'timestamp': log.created.isoformat(),
+            'updated': log.updated.isoformat(),
+            'user': {
+                'username': log.user.username if log.user else None,
+                'id': log.user.id if log.user else None,
+                'email': log.user.email if log.user else None,
+                'is_staff': log.user.is_staff if log.user else False,
+                'is_superuser': log.user.is_superuser if log.user else False,
             },
-            request=request,
-        )
-
-    pagination_html = render_to_string(
-        "council_finance/contribute_pagination.html",
-        {"page_obj": page, "paginator": paginator},
-        request=request,
-    )
-
-    return JsonResponse({
-        "table_html": table_html,
-        "pagination_html": pagination_html,
-        "total_count": paginator.count,
-    })
-
-
-@require_GET
-def contribute_api_stats(request):
-    """Return current statistics for the contribute dashboard."""
-    if request.headers.get("X-Requested-With") != "XMLHttpRequest":
-        return HttpResponseBadRequest("XHR required")
-
-    from .models import DataIssue
-
-    stats = {
-        "missing_characteristics": DataIssue.objects.filter(
-            issue_type="missing", field__category="characteristic"
-        ).count(),
-        "missing_financial": DataIssue.objects.filter(issue_type="missing")
-        .exclude(field__category="characteristic")
-        .count(),
-        "pending": Contribution.objects.filter(status="pending").count(),
-        "suspicious": DataIssue.objects.filter(issue_type="suspicious").count(),
-    }
-
-    return JsonResponse(stats)
-
+            'activity': {
+                'type': log.activity_type,
+                'type_display': log.get_activity_type_display(),
+                'description': log.description,
+                'status': log.status,
+                'status_display': log.get_status_display(),
+            },
+            'council': {
+                'id': log.related_council.id if log.related_council else None,
+                'name': log.related_council.name if log.related_council else None,
+                'slug': log.related_council.slug if log.related_council else None,
+                'status': log.related_council.status if log.related_council else None,
+            } if log.related_council else None,
+            'context': {
+                'ip_address': log.ip_address,
+                'user_agent': log.user_agent,
+            },
+            'details': log.details,
+            'legacy_fields': {
+                'page': log.page,
+                'activity': log.activity,
+                'log_type': log.log_type,
+                'action': log.action,
+                'request': log.request,
+                'response': log.response,
+                'extra': log.extra,
+            } if any([log.page, log.activity, log.log_type, log.action, log.request, log.response, log.extra]) else None,
+            'metadata': {
+                'database_model': 'ActivityLog',
+                'app_label': 'council_finance',
+                'export_timestamp': timezone.now().isoformat(),
+                'purpose': 'God Mode activity analysis and debugging',
+                'schema_version': '2.0',
+            }
+        }
+        
+        return JsonResponse(json_data, json_dumps_params={'indent': 2})
+        
+    except ActivityLog.DoesNotExist:
+        return JsonResponse({'error': 'Activity log not found'}, status=404)
 
 # === User Preferences Management ===
 
