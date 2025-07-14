@@ -144,4 +144,7 @@ urlpatterns = [
     path("god-mode/activity-log/", views.activity_log_entries, name="activity_log_entries"),
     path("god-mode/activity-log/<int:log_id>/json/", views.activity_log_json, name="activity_log_json"),
     path("contribute/issue/<int:issue_id>/mark-invalid/", views.mark_issue_invalid, name="mark_issue_invalid"),
+    
+    # Include new data architecture URLs
+    path("", include("council_finance.urls_v2")),
 ]

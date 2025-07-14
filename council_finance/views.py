@@ -77,6 +77,13 @@ from .models import (
     ActivityLog,
 )
 
+# Import new data models
+try:
+    from .models.new_data_model import CouncilCharacteristic, FinancialFigure, ContributionV2
+    NEW_DATA_MODEL_AVAILABLE = True
+except ImportError:
+    NEW_DATA_MODEL_AVAILABLE = False
+
 from datetime import date
 
 
