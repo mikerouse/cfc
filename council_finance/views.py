@@ -2668,6 +2668,11 @@ def god_mode(request):
     if not request.user.is_superuser and request.user.profile.tier.level < 5:
         raise Http404()
 
+    # Import models needed for this view
+    from .models.council import Council, FinancialYear, FigureSubmission
+    from .models.activity_log import ActivityLog
+    from .models.rejection_log import RejectionLog
+
     # Configure a logger specifically for this view. The logger writes to
     # ``logs/god_mode.log`` so admins can see a history of actions performed
     # through this interface. We only set up the handler once to avoid duplicate
@@ -2778,37 +2783,95 @@ def god_mode(request):
         if "merge_councils" in request.POST:
             source_id = request.POST.get("source_council")
             target_id = request.POST.get("target_council")
-            if source_id and target_id and source_id != target_id:
+            merge_from_year_id = request.POST.get("merge_from_year")
+            
+            if source_id and target_id and source_id != target_id and merge_from_year_id:
                 try:
                     source_council = Council.objects.get(id=source_id)
                     target_council = Council.objects.get(id=target_id)
+                    merge_from_year = FinancialYear.objects.get(id=merge_from_year_id)
                     
-                    # Merge logic: move all data from source to target
+                    # Enhanced merge logic with year cutoff
                     from django.db import transaction
                     with transaction.atomic():
-                        # Move figure submissions
-                        source_council.figuresubmission_set.update(council=target_council)
-                        # Move contributions
-                        source_council.contribution_set.update(council=target_council)
-                        # Move data issues
-                        source_council.dataissue_set.update(council=target_council)
-                        # Move activity logs
-                        source_council.activitylog_set.update(council=target_council)
+                        # Get figure submissions to merge (from specified year onwards)
+                        # Get all years from the merge year onwards by comparing IDs (assuming higher ID = later year)
+                        merge_year_and_later = FinancialYear.objects.filter(id__gte=merge_from_year.id)
+                        figures_to_merge = source_council.figuresubmission_set.filter(
+                            year__in=merge_year_and_later
+                        )
                         
-                        # Create a merger record or note
-                        messages.success(request, f"Successfully merged '{source_council.name}' into '{target_council.name}'")
-                        logger.info("Merged council '%s' into '%s' by %s", 
-                                  source_council.name, target_council.name, request.user.username)
+                        # Check for conflicts and handle them
+                        conflicts_resolved = 0
+                        figures_moved = 0
                         
-                        # Delete the source council
-                        source_council.delete()
+                        for figure in figures_to_merge:
+                            existing = target_council.figuresubmission_set.filter(
+                                year=figure.year,
+                                field=figure.field
+                            ).first()
+                            
+                            if existing:
+                                # Update existing submission with source data
+                                existing.value = figure.value
+                                existing.save()
+                                # Delete the source submission
+                                figure.delete()
+                                conflicts_resolved += 1
+                            else:
+                                # Move the submission
+                                figure.council = target_council
+                                figure.save()
+                                figures_moved += 1
+                        
+                        # Move other data from specified year onwards for contributions and data issues
+                        # (if they have year relationships - adjust as needed)
+                        contributions_moved = source_council.contribution_set.update(council=target_council)
+                        data_issues_moved = source_council.dataissue_set.update(council=target_council)
+                        
+                        # Move activity logs (these typically don't have year restrictions)
+                        activity_logs_moved = source_council.activitylog_set.update(council=target_council)
+                        
+                        # Mark source council as defunct instead of deleting
+                        source_council.status = 'defunct'
+                        source_council.save()
+                        
+                        # Create activity log for this merge
+                        ActivityLog.objects.create(
+                            activity_type='council_merge',
+                            description=f'Merged {source_council.name} into {target_council.name} from {merge_from_year.label}',
+                            related_council=target_council,
+                            status='completed',
+                            details={
+                                'source_council_name': source_council.name,
+                                'merge_from_year': merge_from_year.label,
+                                'figures_moved': figures_moved,
+                                'conflicts_resolved': conflicts_resolved,
+                                'contributions_moved': contributions_moved,
+                                'data_issues_moved': data_issues_moved,
+                                'activity_logs_moved': activity_logs_moved
+                            }
+                        )
+                        
+                        success_msg = f"Successfully merged '{source_council.name}' into '{target_council.name}' from {merge_from_year.label}. "
+                        success_msg += f"Moved {figures_moved} figure submissions"
+                        if conflicts_resolved > 0:
+                            success_msg += f", resolved {conflicts_resolved} data conflicts"
+                        success_msg += "."
+                        
+                        messages.success(request, success_msg)
+                        logger.info("Merged council '%s' into '%s' from year %s by %s", 
+                                  source_council.name, target_council.name, merge_from_year.label, request.user.username)
                         
                 except Council.DoesNotExist:
                     messages.error(request, "One or both councils not found")
+                except FinancialYear.DoesNotExist:
+                    messages.error(request, "Financial year not found")
                 except Exception as e:
                     messages.error(request, f"Error merging councils: {str(e)}")
+                    logger.error("Error merging councils: %s", str(e))
             else:
-                messages.error(request, "Please select two different councils")
+                messages.error(request, "Please select two different councils and a merge from year")
             return redirect("god_mode")
             
         if "flag_council_status" in request.POST:

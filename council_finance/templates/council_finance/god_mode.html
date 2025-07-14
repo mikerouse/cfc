@@ -145,8 +145,21 @@
                   {% endfor %}
                 </select>
               </div>
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Merge From Financial Year</label>
+                <select name="merge_from_year" 
+                        class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500">
+                  <option value="">Select year...</option>
+                  {% for year in financial_years %}
+                  <option value="{{ year.id }}">{{ year.label }}</option>
+                  {% endfor %}
+                </select>
+                <p class="mt-1 text-xs text-gray-500">
+                  Data from this year onwards will be transferred. Earlier data remains with source council for historical reference.
+                </p>
+              </div>
               <button type="submit" name="merge_councils" value="1"
-                      onclick="return confirm('This will merge the source council into the target. Continue?')"
+                      onclick="return confirm('This will merge data from the selected year onwards. Historical data will remain with the source council. Continue?')"
                       class="w-full px-4 py-2 bg-orange-600 text-white rounded-md hover:bg-orange-700">
                 Merge Councils
               </button>
