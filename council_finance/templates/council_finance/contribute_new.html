@@ -310,25 +310,43 @@ class ContributeManager {
   }
   
   setupWebSocket() {
-    // WebSocket for real-time updates
-    const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
-    this.socket = new WebSocket(`${protocol}://${window.location.host}/ws/contribute/`);
-    
-    this.socket.onopen = () => {
-      console.log('Real-time updates connected');
-    };
-    
-    this.socket.onmessage = () => {
-      // Reload data when updates come in
-      this.loadData();
-      this.updateStats();
-    };
-    
-    this.socket.onerror = (error) => {
-      console.log('WebSocket connection failed, falling back to polling');
-      // Fallback to periodic refresh if WebSocket fails
-      setInterval(() => this.loadData(), 30000);
-    };
+    // WebSocket for real-time updates (optional enhancement)
+    try {
+      const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
+      this.socket = new WebSocket(`${protocol}://${window.location.host}/ws/contribute/`);
+      
+      this.socket.onopen = () => {
+        console.log('Real-time updates connected');
+      };
+      
+      this.socket.onmessage = () => {
+        // Reload data when updates come in
+        this.loadData();
+        this.updateStats();
+      };
+      
+      this.socket.onerror = (error) => {
+        console.log('WebSocket connection failed, using polling instead');
+        this.setupPolling();
+      };
+      
+      this.socket.onclose = () => {
+        console.log('WebSocket connection closed, using polling instead');
+        this.setupPolling();
+      };
+    } catch (error) {
+      console.log('WebSocket not available, using polling instead');
+      this.setupPolling();
+    }
+  }
+  
+  setupPolling() {
+    // Fallback to periodic refresh if WebSocket fails
+    if (!this.pollInterval) {
+      this.pollInterval = setInterval(() => {
+        this.updateStats();
+      }, 30000); // Update every 30 seconds
+    }
   }
   
   async loadData(refresh = false) {
@@ -346,37 +364,141 @@ class ContributeManager {
     }
     
     try {
+      // Map frontend data types to backend parameters
+      let type, category;
+      switch(this.currentDataType) {
+        case 'missing_characteristics':
+          type = 'missing';
+          category = 'characteristic';
+          break;
+        case 'missing_financial':
+          type = 'missing';
+          category = 'financial';
+          break;
+        case 'pending':
+          type = 'pending';
+          category = null;
+          break;
+        case 'suspicious':
+          type = 'suspicious';
+          category = null;
+          break;
+        default:
+          type = 'missing';
+          category = 'characteristic';
+      }
+      
       const params = new URLSearchParams({
-        type: this.currentDataType,
+        type: type,
         page: this.currentPage,
         page_size: this.pageSize,
         order: this.sortBy,
         dir: this.sortDirection,
+        ...(category && { category: category }),
         ...(this.searchQuery && { q: this.searchQuery }),
         ...(refresh && { refresh: '1' })
       });
       
-      const response = await fetch(`/contribute/api/data/?${params}`, {
+      const response = await fetch(`/contribute/issues/?${params}`, {
         headers: { 'X-Requested-With': 'XMLHttpRequest' }
       });
       
-      if (!response.ok) throw new Error('Failed to load data');
+      if (!response.ok) throw new Error(`HTTP ${response.status}: Failed to load data`);
       
       const data = await response.json();
-      container.innerHTML = data.table_html;
-      paginationContainer.innerHTML = data.pagination_html;
+      container.innerHTML = data.html;
+      
+      // Update pagination if provided
+      if (data.total !== undefined) {
+        this.updatePaginationInfo(data);
+      }
       
       // Attach event handlers to new content
       this.attachTableHandlers();
+      
+      // Update stats counters
+      await this.updateStats();
       
     } catch (error) {
       console.error('Error loading data:', error);
       container.innerHTML = `
         <div class="text-center py-12">
-          <div class="text-red-600 mb-2">Failed to load data</div>
-          <button onclick="contributeManager.loadData()" class="text-blue-600 hover:underline">Try again</button>
+          <div class="text-red-600 mb-4">
+            <svg class="w-12 h-12 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 15.5c-.77.833.192 2.5 1.732 2.5z"/>
+            </svg>
+            <div class="font-medium">Failed to load data</div>
+            <div class="text-sm text-gray-500 mt-1">${error.message}</div>
+          </div>
+          <button onclick="contributeManager.loadData(true)" class="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700">
+            <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+            </svg>
+            Try again
+          </button>
         </div>
       `;
+    }
+  }
+  
+  updatePaginationInfo(data) {
+    // Update pagination display
+    const paginationContainer = document.getElementById('pagination-container');
+    if (paginationContainer && data.num_pages > 1) {
+      let paginationHtml = '<div class="flex items-center justify-between">';
+      
+      // Previous button
+      if (this.currentPage > 1) {
+        paginationHtml += `<button onclick="contributeManager.goToPage(${this.currentPage - 1})" class="px-3 py-2 text-sm bg-white border border-gray-300 rounded-md hover:bg-gray-50">Previous</button>`;
+      } else {
+        paginationHtml += '<span></span>';
+      }
+      
+      // Page info
+      paginationHtml += `<span class="text-sm text-gray-700">Page ${this.currentPage} of ${data.num_pages} (${data.total} total)</span>`;
+      
+      // Next button
+      if (this.currentPage < data.num_pages) {
+        paginationHtml += `<button onclick="contributeManager.goToPage(${this.currentPage + 1})" class="px-3 py-2 text-sm bg-white border border-gray-300 rounded-md hover:bg-gray-50">Next</button>`;
+      } else {
+        paginationHtml += '<span></span>';
+      }
+      
+      paginationHtml += '</div>';
+      paginationContainer.innerHTML = paginationHtml;
+    }
+  }
+  
+  goToPage(page) {
+    this.currentPage = page;
+    this.loadData();
+  }
+  
+  async updateStats() {
+    try {
+      const response = await fetch('/contribute/stats/', {
+        headers: { 'X-Requested-With': 'XMLHttpRequest' }
+      });
+      
+      if (response.ok) {
+        const stats = await response.json();
+        
+        // Update dashboard counters with specific counts
+        const missingCharCount = document.getElementById('missing-characteristics-count');
+        const missingFinancialCount = document.getElementById('missing-financial-count');
+        
+        if (missingCharCount && stats.missing_characteristics !== undefined) {
+          missingCharCount.textContent = stats.missing_characteristics.toLocaleString();
+        }
+        
+        if (missingFinancialCount && stats.missing_financial !== undefined) {
+          missingFinancialCount.textContent = stats.missing_financial.toLocaleString();
+        }
+        
+        console.log('Stats updated:', stats);
+      }
+    } catch (error) {
+      console.error('Failed to update stats:', error);
     }
   }
   

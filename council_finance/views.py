@@ -18,11 +18,12 @@ from django.core.paginator import Paginator
 from django.template.loader import render_to_string
 from django.urls import reverse
 from django.core import signing
-from django.views.decorators.http import require_GET
+from django.views.decorators.http import require_GET, require_POST
 
 import csv
 import hashlib
 import inspect
+import json
 
 # Brevo's Python SDK exposes ApiException from the `rest` module
 from brevo_python.rest import ApiException
@@ -863,8 +864,22 @@ def contribute_stats(request):
     
     from .models import DataIssue, Contribution
     
+    # Get detailed breakdown of missing data by category
+    missing_total = DataIssue.objects.filter(issue_type='missing').count()
+    missing_characteristics = DataIssue.objects.filter(
+        issue_type='missing', 
+        field__category='characteristic'
+    ).count()
+    missing_financial = DataIssue.objects.filter(
+        issue_type='missing'
+    ).exclude(
+        field__category='characteristic'
+    ).count()
+    
     stats = {
-        'missing': DataIssue.objects.filter(issue_type='missing').count(),
+        'missing': missing_total,
+        'missing_characteristics': missing_characteristics,
+        'missing_financial': missing_financial,
         'pending': Contribution.objects.filter(status='pending').count(),
         'suspicious': DataIssue.objects.filter(issue_type='suspicious').count(),
     }
@@ -872,12 +887,9 @@ def contribute_stats(request):
     return JsonResponse(stats)
 
 
-@require_GET  
+@require_POST  
 def contribute_submit(request):
     """Handle AJAX contribution submissions from the quick edit modal."""
-    if request.method != "POST":
-        return HttpResponseBadRequest("POST required")
-    
     if request.headers.get("X-Requested-With") != "XMLHttpRequest":
         return HttpResponseBadRequest("XHR required")
     
@@ -3139,7 +3151,7 @@ def god_mode(request):
 
 @login_required
 def activity_log_entries(request):
-    """Return ActivityLog rows in JSON for live updates."""
+    """Return ActivityLog rows in JSON for live updates with enhanced troubleshooting data."""
     if not request.user.is_superuser and request.user.profile.tier.level < 5:
         raise Http404()
 
@@ -3148,36 +3160,124 @@ def activity_log_entries(request):
     logs = ActivityLog.objects.select_related("user", "related_council").order_by("-created")
     q = request.GET.get("q")
     if q:
+        # Search both legacy and enhanced fields
         logs = logs.filter(
             Q(activity__icontains=q)
             | Q(page__icontains=q)
             | Q(action__icontains=q)
             | Q(request__icontains=q)
             | Q(response__icontains=q)
+            | Q(description__icontains=q)
+            | Q(activity_type__icontains=q)
+            | Q(status__icontains=q)
         )
 
     paginator = Paginator(logs, 50)
     page = paginator.get_page(request.GET.get("page"))
     data = []
     for log in page:
+        # Use enhanced fields primarily, fall back to legacy for backwards compatibility
+        enhanced_activity = log.description or log.activity or "No description"
+        enhanced_status = log.get_status_display() if log.status else "Unknown"
+        enhanced_type = log.get_activity_type_display() if log.activity_type else (log.log_type or "General")
+        
+        # Build comprehensive row data
         row = {
+            "id": log.id,
             "time": log.created.strftime("%Y-%m-%d %H:%M:%S"),
-            "user": log.user.username if log.user else "",
+            "user": log.user.username if log.user else "System",
             "council": log.related_council.name if log.related_council else (log.council.name if hasattr(log, 'council') and log.council else ""),
-            "page": log.page,
-            "activity": log.activity,
-            "log_type": log.log_type,
-            "action": log.action,
-            "request": log.request,
-            "response": log.response,
-            "extra": log.extra,
+            "activity_description": enhanced_activity,
+            "activity_type": enhanced_type,
+            "status": enhanced_status,
+            "ip_address": log.ip_address or "Unknown",
+            "user_agent": (log.user_agent[:50] + "...") if log.user_agent and len(log.user_agent) > 50 else (log.user_agent or "Unknown"),
+            
+            # Legacy fields for compatibility
+            "page": log.page or "",
+            "activity": log.activity or "",
+            "log_type": log.log_type or "",
+            "action": log.action or "",
+            "request": log.request or "",
+            "response": log.response or "",
+            "extra": log.extra or "",
+            
+            # Enhanced troubleshooting data
+            "details_summary": _get_details_summary(log.details) if log.details else "No details available",
+            "has_enhanced_data": bool(log.activity_type and log.description),
+            "data_completeness": _assess_log_completeness(log),
         }
-        # Provide a complete JSON blob for easy copying. This includes
-        # the same fields shown in the table so that an external tool can
-        # ingest a single object per log entry.
-        row["json"] = json.dumps(row, ensure_ascii=False)
+        
+        # Provide a complete JSON blob for easy copying
+        row["json"] = json.dumps(row, ensure_ascii=False, indent=2)
         data.append(row)
-    return JsonResponse({"results": data, "has_next": page.has_next()})
+    
+    return JsonResponse({
+        "results": data, 
+        "has_next": page.has_next(),
+        "total_count": paginator.count,
+        "page_num": page.number,
+        "troubleshooting_info": {
+            "enhanced_logs_count": logs.filter(activity_type__isnull=False).count(),
+            "legacy_only_count": logs.filter(activity_type__isnull=True).count(),
+            "search_query": q,
+            "data_quality": "Enhanced activity logging active" if logs.filter(activity_type__isnull=False).exists() else "Only legacy data available"
+        }
+    })
+
+
+def _get_details_summary(details):
+    """Extract a readable summary from JSON details."""
+    if not details:
+        return "No details"
+    
+    if isinstance(details, dict):
+        # Extract key information for quick troubleshooting
+        summary_parts = []
+        
+        if 'error' in details:
+            summary_parts.append(f"Error: {details['error']}")
+        if 'action' in details:
+            summary_parts.append(f"Action: {details['action']}")
+        if 'field' in details:
+            summary_parts.append(f"Field: {details['field']}")
+        if 'value' in details:
+            summary_parts.append(f"Value: {str(details['value'])[:50]}")
+        if 'council' in details:
+            summary_parts.append(f"Council: {details['council']}")
+            
+        if summary_parts:
+            return " | ".join(summary_parts)
+        else:
+            return f"Details available ({len(details)} fields)"
+    
+    return f"Details: {str(details)[:100]}"
+
+
+def _assess_log_completeness(log):
+    """Assess how complete the log data is for troubleshooting."""
+    score = 0
+    total = 8
+    
+    if log.activity_type: score += 1
+    if log.description: score += 1
+    if log.status: score += 1
+    if log.details: score += 1
+    if log.related_council: score += 1
+    if log.user: score += 1
+    if log.ip_address: score += 1
+    if log.user_agent: score += 1
+    
+    percentage = (score / total) * 100
+    
+    if percentage >= 75:
+        return f"Excellent ({percentage:.0f}%)"
+    elif percentage >= 50:
+        return f"Good ({percentage:.0f}%)"
+    elif percentage >= 25:
+        return f"Fair ({percentage:.0f}%)"
+    else:
+        return f"Poor ({percentage:.0f}%)"
 
 
 @login_required
