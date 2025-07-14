@@ -2671,9 +2671,201 @@ def factoid_delete(request, slug):
     return HttpResponse("Factoid Delete - Not implemented yet")
 
 def god_mode(request):
-    """God mode dashboard"""
-    from django.http import HttpResponse
-    return HttpResponse("God Mode - Not implemented yet")
+    """Enhanced God Mode dashboard for system administration and data management"""
+    # Restrict access to superusers only
+    if not request.user.is_superuser:
+        from django.http import HttpResponseForbidden
+        return HttpResponseForbidden("Access denied. Superuser permissions required.")
+    
+    from django.contrib import messages
+    from django.core.management import call_command
+    from django.db import transaction
+    from django.utils import timezone
+    from .models import (
+        Council, DataIssue, ActivityLog, UserProfile, 
+        Contribution, FigureSubmission, DataField
+    )
+    from .population import reconcile_populations
+    from .data_quality import assess_data_issues
+    import time
+    
+    # Handle POST requests for various God Mode operations
+    if request.method == "POST":
+        action = None
+        start_time = time.time()
+        
+        if "reconcile_population" in request.POST:
+            try:
+                with transaction.atomic():
+                    count = reconcile_populations()
+                    action = "reconcile_population"
+                    messages.success(request, f"Population reconciliation completed. Updated {count} councils.")
+                    
+                    # Log the God Mode activity
+                    ActivityLog.objects.create(
+                        user=request.user,
+                        activity_type="bulk_operation",
+                        description=f"Population cache reconciliation completed",
+                        details={
+                            "operation": "reconcile_population",
+                            "councils_updated": count,
+                            "execution_time": round(time.time() - start_time, 2)
+                        }
+                    )
+            except Exception as e:
+                messages.error(request, f"Population reconciliation failed: {str(e)}")
+                
+        elif "assess_issues" in request.POST:
+            try:
+                with transaction.atomic():
+                    count = assess_data_issues()
+                    action = "assess_issues"
+                    messages.success(request, f"Data quality assessment completed. Processed {count} issues.")
+                    
+                    # Log the God Mode activity
+                    ActivityLog.objects.create(
+                        user=request.user,
+                        activity_type="bulk_operation",
+                        description=f"Data quality assessment completed",
+                        details={
+                            "operation": "assess_issues",
+                            "issues_processed": count,
+                            "execution_time": round(time.time() - start_time, 2)
+                        }
+                    )
+            except Exception as e:
+                messages.error(request, f"Data quality assessment failed: {str(e)}")
+                
+        elif "clear_stale_data" in request.POST:
+            try:
+                with transaction.atomic():
+                    # Clear old rejected contributions (older than 6 months)
+                    from datetime import timedelta
+                    cutoff_date = timezone.now() - timedelta(days=180)
+                    deleted_count = Contribution.objects.filter(
+                        status='rejected',
+                        created__lt=cutoff_date
+                    ).count()
+                    Contribution.objects.filter(
+                        status='rejected',
+                        created__lt=cutoff_date
+                    ).delete()
+                    
+                    action = "clear_stale_data"
+                    messages.success(request, f"Cleared {deleted_count} stale rejected contributions.")
+                    
+                    ActivityLog.objects.create(
+                        user=request.user,
+                        activity_type="bulk_operation",
+                        description=f"Stale data cleanup completed",
+                        details={
+                            "operation": "clear_stale_data",
+                            "items_deleted": deleted_count,
+                            "execution_time": round(time.time() - start_time, 2)
+                        }
+                    )
+            except Exception as e:
+                messages.error(request, f"Stale data cleanup failed: {str(e)}")
+                
+        elif "regenerate_stats" in request.POST:
+            try:
+                with transaction.atomic():
+                    # Recalculate user points and statistics
+                    users_updated = 0
+                    for profile in UserProfile.objects.all():
+                        old_points = profile.points
+                        approved_contributions = Contribution.objects.filter(
+                            user=profile.user,
+                            status='approved'
+                        ).count()
+                        # Basic point calculation: 1 point per approved contribution
+                        profile.points = approved_contributions
+                        profile.approved_submission_count = approved_contributions
+                        profile.save()
+                        users_updated += 1
+                    
+                    action = "regenerate_stats"
+                    messages.success(request, f"Regenerated statistics for {users_updated} users.")
+                    
+                    ActivityLog.objects.create(
+                        user=request.user,
+                        activity_type="bulk_operation",
+                        description=f"User statistics regeneration completed",
+                        details={
+                            "operation": "regenerate_stats",
+                            "users_updated": users_updated,
+                            "execution_time": round(time.time() - start_time, 2)
+                        }
+                    )
+            except Exception as e:
+                messages.error(request, f"Statistics regeneration failed: {str(e)}")
+        
+        # Redirect to avoid form resubmission
+        return redirect('god_mode')
+    
+    # Gather dashboard statistics
+    stats = {
+        'total_councils': Council.objects.count(),
+        'active_councils': Council.objects.filter(status='active').count(),
+        'total_data_issues': DataIssue.objects.count(),
+        'missing_data_issues': DataIssue.objects.filter(issue_type='missing').count(),
+        'suspicious_data_issues': DataIssue.objects.filter(issue_type='suspicious').count(),
+        'total_users': UserProfile.objects.count(),
+        'total_contributions': Contribution.objects.count(),
+        'pending_contributions': Contribution.objects.filter(status='pending').count(),
+        'approved_contributions': Contribution.objects.filter(status='approved').count(),
+        'rejected_contributions': Contribution.objects.filter(status='rejected').count(),
+        'total_fields': DataField.objects.count(),
+        'characteristic_fields': DataField.objects.filter(category='characteristic').count(),
+        'financial_fields': DataField.objects.filter(category='financial').count(),
+    }
+    
+    # Recent God Mode activities
+    recent_activities = ActivityLog.objects.filter(
+        activity_type='bulk_operation'
+    ).order_by('-created')[:10]
+    
+    # System health indicators
+    health_indicators = []
+    
+    # Check for councils without population data
+    councils_without_population = Council.objects.filter(
+        status='active',
+        latest_population__isnull=True
+    ).count()
+    if councils_without_population > 0:
+        health_indicators.append({
+            'type': 'warning',
+            'message': f'{councils_without_population} active councils missing population data',
+            'action': 'reconcile_population'
+        })
+    
+    # Check for high number of pending contributions
+    pending_count = Contribution.objects.filter(status='pending').count()
+    if pending_count > 50:
+        health_indicators.append({
+            'type': 'warning',
+            'message': f'{pending_count} contributions pending review',
+            'action': 'review_contributions'
+        })
+    
+    # Check for data quality issues
+    critical_issues = DataIssue.objects.filter(issue_type='missing').count()
+    if critical_issues > 100:
+        health_indicators.append({
+            'type': 'error',
+            'message': f'{critical_issues} critical data quality issues',
+            'action': 'assess_issues'
+        })
+    
+    context = {
+        'stats': stats,
+        'recent_activities': recent_activities,
+        'health_indicators': health_indicators,
+        'title': 'God Mode - System Administration'
+    }
+    
+    return render(request, 'council_finance/god_mode.html', context)
 
 def activity_log_entries(request):
     """Activity log entries"""
