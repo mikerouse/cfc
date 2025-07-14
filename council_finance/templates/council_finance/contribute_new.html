@@ -64,7 +64,6 @@
 
               <!-- Search and Refresh -->
               <div class="flex items-center gap-3">
-                <div style="color: red; font-weight: bold; font-size: 24px;">TEMPLATE IS UPDATED!</div>
                 <div class="relative">
                   <input type="text" id="data-search" placeholder="Search councils or fields..." 
                          class="pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500">
@@ -594,7 +593,7 @@ class ContributeManager {
     document.getElementById('edit-value').classList.remove('hidden');
     document.getElementById('edit-value-select').classList.add('hidden');
     
-    // Skip field options loading for now to test
+    // Load field options for the modal dropdown
     // this.loadFieldOptions(data.field);
     
     document.getElementById('edit-value').focus();
