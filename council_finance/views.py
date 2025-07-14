@@ -502,6 +502,52 @@ def council_detail(request, slug):
         is_following = CouncilFollow.objects.filter(
             user=request.user, council=council
         ).exists()
+    
+    # Check for recent merge or administrative actions
+    recent_merge_activity = None
+    recent_flag_activity = None
+    administrative_messages = []
+    
+    if hasattr(council, 'activity_logs'):
+        from django.utils import timezone
+        from datetime import timedelta
+        
+        # Look for recent merge activities (last 30 days)
+        recent_cutoff = timezone.now() - timedelta(days=30)
+        merge_logs = council.activity_logs.filter(
+            activity_type='council_merge',
+            created__gte=recent_cutoff
+        ).order_by('-created')
+        
+        if merge_logs.exists():
+            recent_merge_activity = merge_logs.first()
+            administrative_messages.append({
+                'type': 'merge',
+                'message': f"This council was merged from another authority on {recent_merge_activity.created.strftime('%B %d, %Y')}. {recent_merge_activity.description}",
+                'timestamp': recent_merge_activity.created
+            })
+        
+        # Look for recent flag/moderation activities
+        flag_logs = council.activity_logs.filter(
+            activity_type__in=['moderation', 'data_correction'],
+            created__gte=recent_cutoff
+        ).order_by('-created')
+        
+        if flag_logs.exists():
+            recent_flag_activity = flag_logs.first()
+            administrative_messages.append({
+                'type': 'flag',
+                'message': f"Recent data update: {recent_flag_activity.description}",
+                'timestamp': recent_flag_activity.created
+            })
+    
+    # Check if council is defunct
+    if council.status == 'defunct':
+        administrative_messages.append({
+            'type': 'defunct',
+            'message': 'This council is no longer active. It may have been merged with another authority or dissolved.',
+            'timestamp': None
+        })
         
     edit_figures = figures.filter(year=edit_selected_year) if edit_selected_year else figures.none()
 
@@ -558,6 +604,10 @@ def council_detail(request, slug):
         ),
         "is_following": is_following,
         "share_data": share_data,
+        # Administrative messaging
+        "administrative_messages": administrative_messages,
+        "recent_merge_activity": recent_merge_activity,
+        "recent_flag_activity": recent_flag_activity,
     }
     # No extra context is required when editing since characteristic drop-downs
     # were replaced by the missing-characteristics table.
@@ -2849,8 +2899,8 @@ def god_mode(request):
                         contributions_moved = source_council.contribution_set.update(council=target_council)
                         data_issues_moved = source_council.dataissue_set.update(council=target_council)
                         
-                        # Move activity logs (these typically don't have year restrictions)
-                        activity_logs_moved = source_council.activitylog_set.update(council=target_council)
+                        # Move activity logs (use correct related name)
+                        activity_logs_moved = source_council.activity_logs.update(related_council=target_council)
                         
                         # Mark source council as defunct instead of deleting
                         source_council.status = 'defunct'
