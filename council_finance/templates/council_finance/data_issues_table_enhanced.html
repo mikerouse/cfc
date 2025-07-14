@@ -90,12 +90,13 @@
         <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
           {% if issue_type == "missing" %}
           <div class="flex items-center gap-2">
-            <button class="edit-missing bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded-md text-sm transition-colors"
+            <button class="add-value-btn bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded-md text-sm transition-colors"
                     data-council="{{ item.council.slug }}"
                     data-field="{{ item.field.slug }}"
                     data-year="{{ item.year.id|default:'' }}"
                     data-field-name="{{ item.field.name }}"
-                    data-council-name="{{ item.council.name }}">
+                    data-council-name="{{ item.council.name }}"
+                    data-year-name="{{ item.year.label|default:'' }}">
               Add Data
             </button>
             {% if request.user.is_superuser %}
@@ -110,13 +111,14 @@
           </div>
           {% elif issue_type == "suspicious" %}
           <div class="flex items-center gap-2">
-            <button class="edit-missing bg-orange-600 hover:bg-orange-700 text-white px-3 py-1 rounded-md text-sm transition-colors"
+            <button class="add-value-btn bg-orange-600 hover:bg-orange-700 text-white px-3 py-1 rounded-md text-sm transition-colors"
                     data-council="{{ item.council.slug }}"
                     data-field="{{ item.field.slug }}"
                     data-year="{{ item.year.id|default:'' }}"
                     data-field-name="{{ item.field.name }}"
                     data-council-name="{{ item.council.name }}"
-                    data-current-value="{{ item.value }}">
+                    data-current-value="{{ item.value }}"
+                    data-year-name="{{ item.year.label|default:'' }}">
               Correct Value
             </button>
             {% if request.user.is_superuser %}

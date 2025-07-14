@@ -796,6 +796,7 @@ def following(request):
 
 
 def contribute(request):
+    print("DEBUG: contribute view called - using contribute_new.html template")
     # God Mode: Mark DataIssue as invalid
     if request.method == "POST" and request.user.is_superuser and "mark_invalid" in request.POST:
         issue_id = request.POST.get("issue_id")
