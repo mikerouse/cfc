@@ -806,15 +806,15 @@ def contribute(request):
     from .models import DataIssue, UserProfile
     from .data_quality import assess_data_issues
 
-    # Get initial data for the page
+    # Get initial data for the page - only show active councils in contribution queues
     characteristic_qs = (
-        DataIssue.objects.filter(issue_type="missing", field__category="characteristic")
+        DataIssue.objects.filter(issue_type="missing", field__category="characteristic", council__status="active")
         .select_related("council", "field", "year")
         .order_by("council__name")
     )
 
     financial_qs = (
-        DataIssue.objects.filter(issue_type="missing")
+        DataIssue.objects.filter(issue_type="missing", council__status="active")
         .exclude(field__category="characteristic")
         .select_related("council", "field", "year")
         .order_by("council__name")
@@ -864,14 +864,16 @@ def contribute_stats(request):
     
     from .models import DataIssue, Contribution
     
-    # Get detailed breakdown of missing data by category
-    missing_total = DataIssue.objects.filter(issue_type='missing').count()
+    # Get detailed breakdown of missing data by category - only for active councils
+    missing_total = DataIssue.objects.filter(issue_type='missing', council__status='active').count()
     missing_characteristics = DataIssue.objects.filter(
         issue_type='missing', 
-        field__category='characteristic'
+        field__category='characteristic',
+        council__status='active'
     ).count()
     missing_financial = DataIssue.objects.filter(
-        issue_type='missing'
+        issue_type='missing',
+        council__status='active'
     ).exclude(
         field__category='characteristic'
     ).count()
@@ -926,7 +928,7 @@ def data_issues_table(request):
             qs = qs.filter(Q(council__name__icontains=search) | Q(field__name__icontains=search))
         qs = qs.order_by(order_by)
     else:
-        qs = DataIssue.objects.filter(issue_type=issue_type).select_related("council", "field", "year")
+        qs = DataIssue.objects.filter(issue_type=issue_type, council__status="active").select_related("council", "field", "year")
         if category == "characteristic":
             qs = qs.filter(field__category="characteristic")
         elif category == "financial":

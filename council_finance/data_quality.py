@@ -172,9 +172,9 @@ def assess_data_issues() -> int:
     
     logger.info(f"Cleared {deleted_total} existing DataIssue records")
     
-    # Get all data with optimized queries upfront
-    logger.info("Loading councils...")
-    councils = list(Council.objects.select_related('council_type').all())
+    # Get all ACTIVE data with optimized queries upfront
+    logger.info("Loading active councils...")
+    councils = list(Council.objects.select_related('council_type').filter(status='active'))
     council_count = len(councils)
     
     logger.info("Loading fields with council type relationships...")
@@ -604,11 +604,12 @@ def assess_data_issues_simple() -> int:
         DataIssue.objects.filter(id__in=ids).delete()
         logger.info(f"Cleared batch of {len(ids)} issues")
     
-    # Get all councils and characteristic fields
-    councils = list(Council.objects.select_related('council_type', 'council_nation').all())
+    # Get all ACTIVE councils and characteristic fields
+    # Exclude merged, closed, or renamed councils from contribution queues
+    councils = list(Council.objects.select_related('council_type', 'council_nation').filter(status='active'))
     char_fields = list(DataField.objects.filter(category='characteristic').exclude(slug='council_name'))
     
-    logger.info(f"Checking {len(councils)} councils for {len(char_fields)} characteristic fields")
+    logger.info(f"Checking {len(councils)} active councils for {len(char_fields)} characteristic fields")
     
     # Get existing contributions for characteristics
     from .models import Contribution
