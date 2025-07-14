@@ -2694,23 +2694,43 @@ def god_mode(request):
 
     # Handle AJAX requests for activity log updates
     if request.GET.get("ajax") == "activity":
-        recent_activity = ActivityLog.objects.select_related("user", "council").order_by("-created")[:20]
+        recent_activity = ActivityLog.objects.select_related("user", "related_council").order_by("-created")[:20]
         activity_html = ""
         for log in recent_activity:
+            # Use new field names
+            description = log.description or f"{log.page}: {log.activity}" if log.activity else "Activity"
+            council_link = ""
+            if log.related_council:
+                council_link = f'for <a href="/councils/{log.related_council.slug}/" class="text-blue-600 hover:text-blue-800">{log.related_council.name}</a>'
+            elif hasattr(log, 'council') and log.council:  # Backward compatibility
+                council_link = f'for <a href="/councils/{log.council.slug}/" class="text-blue-600 hover:text-blue-800">{log.council.name}</a>'
+                
+            # Status indicator
+            status_color = {
+                'completed': 'bg-green-100 text-green-600',
+                'failed': 'bg-red-100 text-red-600',
+                'in_progress': 'bg-yellow-100 text-yellow-600',
+                'initiated': 'bg-blue-100 text-blue-600',
+                'cancelled': 'bg-gray-100 text-gray-600'
+            }.get(log.status, 'bg-blue-100 text-blue-600')
+            
             activity_html += f"""
             <div class="flex items-start gap-3 p-3 bg-gray-50 rounded-md">
-              <div class="flex-shrink-0 w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
-                <svg class="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <div class="flex-shrink-0 w-8 h-8 {status_color} rounded-full flex items-center justify-center">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
                 </svg>
               </div>
               <div class="flex-1 min-w-0">
                 <p class="text-sm text-gray-900">
                   <span class="font-medium">{log.user.username if log.user else 'System'}</span>
-                  {log.activity}
-                  {f'for <a href="/councils/{log.council.slug}/" class="text-blue-600 hover:text-blue-800">{log.council.name}</a>' if log.council else ''}
+                  {description}
+                  {council_link}
                 </p>
-                <p class="text-xs text-gray-500">{log.created.strftime('%H:%M')} - {log.created.strftime('%b %d')}</p>
+                <p class="text-xs text-gray-500">
+                  {log.created.strftime('%H:%M')} - {log.created.strftime('%b %d')}
+                  {f'({log.get_activity_type_display()})' if log.activity_type else ''}
+                </p>
               </div>
             </div>
             """
@@ -2837,20 +2857,26 @@ def god_mode(request):
                         source_council.save()
                         
                         # Create activity log for this merge
-                        ActivityLog.objects.create(
+                        ActivityLog.log_activity(
                             activity_type='council_merge',
                             description=f'Merged {source_council.name} into {target_council.name} from {merge_from_year.label}',
+                            user=request.user,
                             related_council=target_council,
                             status='completed',
                             details={
                                 'source_council_name': source_council.name,
+                                'source_council_id': source_council.id,
+                                'target_council_name': target_council.name,
+                                'target_council_id': target_council.id,
                                 'merge_from_year': merge_from_year.label,
+                                'merge_from_year_id': merge_from_year.id,
                                 'figures_moved': figures_moved,
                                 'conflicts_resolved': conflicts_resolved,
                                 'contributions_moved': contributions_moved,
                                 'data_issues_moved': data_issues_moved,
                                 'activity_logs_moved': activity_logs_moved
-                            }
+                            },
+                            request=request
                         )
                         
                         success_msg = f"Successfully merged '{source_council.name}' into '{target_council.name}' from {merge_from_year.label}. "
@@ -2870,6 +2896,21 @@ def god_mode(request):
                 except Exception as e:
                     messages.error(request, f"Error merging councils: {str(e)}")
                     logger.error("Error merging councils: %s", str(e))
+                    
+                    # Log the error
+                    ActivityLog.log_activity(
+                        activity_type='council_merge',
+                        description=f'Failed to merge councils: {str(e)}',
+                        user=request.user,
+                        status='failed',
+                        details={
+                            'error': str(e), 
+                            'source_id': source_id, 
+                            'target_id': target_id, 
+                            'merge_from_year_id': merge_from_year_id
+                        },
+                        request=request
+                    )
             else:
                 messages.error(request, "Please select two different councils and a merge from year")
             return redirect("god_mode")
@@ -2930,7 +2971,7 @@ def god_mode(request):
     # Get data for template
     from .models import FinancialYear
     logs = RejectionLog.objects.select_related("council", "field", "reviewed_by")[:200]
-    recent_activity = ActivityLog.objects.select_related("user", "council").order_by("-created")[:20]
+    recent_activity = ActivityLog.objects.select_related("user", "related_council").order_by("-created")[:20]
     financial_years = FinancialYear.objects.all().order_by("label")
     current_financial_year = FinancialYear.get_current()
     all_councils = Council.objects.all().order_by("name")
