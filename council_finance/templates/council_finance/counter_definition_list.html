@@ -1,41 +1,407 @@
 {% extends "base.html" %}
-{% block title %}Counters - Council Finance Counters{% endblock %}
+{% load static %}
+
+{% block title %}Counter Management Dashboard - Council Finance Counters{% endblock %}
+
 {% block content %}
-<h1 class="text-2xl font-bold mb-4">Council Counters</h1>
-{% include "council_finance/counter_tabs.html" with section='council' %}
-<p class="mb-4">Existing counters shown below. Click a name to edit or use <strong>Add counter</strong> to create a new one.</p>
-<div class="mb-4 text-right">
-    <a href="{% url 'counter_add' %}" class="bg-blue-600 text-white px-4 py-1 rounded">Add counter</a>
-</div>
-<table class="min-w-full bg-white border">
-    <thead>
-        <tr>
-            <th class="border px-2 py-1 text-left">Name</th>
-            <th class="border px-2 py-1">Slug</th>
-            <th class="border px-2 py-1">Duration</th>
-            <th class="border px-2 py-1">Default?</th>
-            <th class="border px-2 py-1">Headline?</th>
-            <th class="border px-2 py-1">Council Types</th>
-            <th class="border px-2 py-1">Actions</th>
-        </tr>
-    </thead>
-    <tbody>
-        {% for counter in counters %}
-        <tr class="odd:bg-gray-50">
-            <td class="border px-2 py-1"><a href="{% url 'counter_edit' counter.slug %}" class="text-blue-600 underline">{{ counter.name }}</a></td>
-            <td class="border px-2 py-1 text-center">{{ counter.slug }}</td>
-            <td class="border px-2 py-1 text-center">{{ counter.duration }}</td>
-            <td class="border px-2 py-1 text-center">{% if counter.show_by_default %}Yes{% else %}No{% endif %}</td>
-            <td class="border px-2 py-1 text-center">{% if counter.headline %}Yes{% else %}No{% endif %}</td>
-            <td class="border px-2 py-1 text-center">{{ counter.display_council_types }}</td>
-            <td class="border px-2 py-1 text-center"><a href="{% url 'counter_edit' counter.slug %}" class="text-blue-600 underline">Edit</a></td>
-        </tr>
-        {% empty %}
-        <tr>
-            <td class="border px-2 py-1 text-center" colspan="6">No counters defined yet.</td>
-        </tr>
+<div class="min-h-screen bg-gray-50 py-6">
+  <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    
+    <!-- Page Header -->
+    <div class="mb-8">
+      <div class="flex items-center justify-between">
+        <div>
+          <h1 class="text-3xl font-bold text-gray-900">Counter Management Dashboard</h1>
+          <p class="mt-2 text-gray-600">Manage all types of counters across the system</p>
+        </div>
+        <div class="flex items-center space-x-4">
+          <a href="{% url 'counter_add' %}" 
+             class="inline-flex items-center px-4 py-2 bg-blue-600 border border-transparent rounded-md shadow-sm text-sm font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+            <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/>
+            </svg>
+            Add Counter Definition
+          </a>
+        </div>
+      </div>
+    </div>
+
+    <!-- Enhanced Navigation Tabs -->
+    <div class="mb-6 border-b border-gray-200">
+      <nav class="-mb-px flex space-x-8">
+        <a href="{% url 'counter_definitions' %}" 
+           class="border-blue-500 text-blue-600 border-b-2 py-4 px-1 text-sm font-medium">
+          Counter Definitions
+        </a>
+        <a href="{% url 'site_counter_list' %}" 
+           class="border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 border-b-2 py-4 px-1 text-sm font-medium">
+          Site-Wide Counters
+        </a>
+        <a href="{% url 'group_counter_list' %}" 
+           class="border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 border-b-2 py-4 px-1 text-sm font-medium">
+          Group Counters
+        </a>
+        <a href="#" 
+           class="border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 border-b-2 py-4 px-1 text-sm font-medium">
+          My Counters
+        </a>
+      </nav>
+    </div>
+
+    <!-- Statistics Dashboard -->
+    <div class="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4 mb-8">
+      <div class="bg-white overflow-hidden shadow rounded-lg">
+        <div class="p-5">
+          <div class="flex items-center">
+            <div class="flex-shrink-0">
+              <svg class="h-6 w-6 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
+              </svg>
+            </div>
+            <div class="ml-5 w-0 flex-1">
+              <dl>
+                <dt class="text-sm font-medium text-gray-500 truncate">Total Definitions</dt>
+                <dd class="text-lg font-medium text-gray-900">{{ stats.total_counter_definitions }}</dd>
+              </dl>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="bg-white overflow-hidden shadow rounded-lg">
+        <div class="p-5">
+          <div class="flex items-center">
+            <div class="flex-shrink-0">
+              <svg class="h-6 w-6 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/>
+              </svg>
+            </div>
+            <div class="ml-5 w-0 flex-1">
+              <dl>
+                <dt class="text-sm font-medium text-gray-500 truncate">Site Counters</dt>
+                <dd class="text-lg font-medium text-gray-900">{{ stats.total_site_counters }}</dd>
+              </dl>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="bg-white overflow-hidden shadow rounded-lg">
+        <div class="p-5">
+          <div class="flex items-center">
+            <div class="flex-shrink-0">
+              <svg class="h-6 w-6 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"/>
+              </svg>
+            </div>
+            <div class="ml-5 w-0 flex-1">
+              <dl>
+                <dt class="text-sm font-medium text-gray-500 truncate">Group Counters</dt>
+                <dd class="text-lg font-medium text-gray-900">{{ stats.total_group_counters }}</dd>
+              </dl>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="bg-white overflow-hidden shadow rounded-lg">
+        <div class="p-5">
+          <div class="flex items-center">
+            <div class="flex-shrink-0">
+              <svg class="h-6 w-6 text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v3m0 0v3m0-3h3m-3 0H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z"/>
+              </svg>
+            </div>
+            <div class="ml-5 w-0 flex-1">
+              <dl>
+                <dt class="text-sm font-medium text-gray-500 truncate">Unused Definitions</dt>
+                <dd class="text-lg font-medium text-gray-900">{{ stats.unused_counters }}</dd>
+              </dl>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Filters and Search -->
+    <div class="bg-white shadow rounded-lg mb-6">
+      <div class="px-6 py-4 border-b border-gray-200">
+        <h3 class="text-lg font-semibold text-gray-900">Filter & Search</h3>
+      </div>
+      <div class="px-6 py-4">
+        <form method="get" class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <!-- Search -->
+          <div>
+            <label for="search" class="block text-sm font-medium text-gray-700">Search</label>
+            <input type="text" name="search" id="search" value="{{ search_query }}"
+                   class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
+                   placeholder="Search counters...">
+          </div>
+
+          <!-- Type Filter -->
+          <div>
+            <label for="type" class="block text-sm font-medium text-gray-700">Type</label>
+            <select name="type" id="type" 
+                    class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500">
+              <option value="">All Types</option>
+              <option value="headline" {% if type_filter == 'headline' %}selected{% endif %}>Headline</option>
+              <option value="default" {% if type_filter == 'default' %}selected{% endif %}>Default</option>
+              <option value="currency" {% if type_filter == 'currency' %}selected{% endif %}>Currency</option>
+              <option value="friendly" {% if type_filter == 'friendly' %}selected{% endif %}>Friendly Format</option>
+            </select>
+          </div>
+
+          <!-- Status Filter -->
+          <div>
+            <label for="status" class="block text-sm font-medium text-gray-700">Usage</label>
+            <select name="status" id="status" 
+                    class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500">
+              <option value="">All</option>
+              <option value="used" {% if status_filter == 'used' %}selected{% endif %}>Used</option>
+              <option value="unused" {% if status_filter == 'unused' %}selected{% endif %}>Unused</option>
+            </select>
+          </div>
+
+          <!-- Page Size -->
+          <div>
+            <label for="page_size" class="block text-sm font-medium text-gray-700">Per Page</label>
+            <select name="page_size" id="page_size" 
+                    class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500">
+              <option value="10" {% if page_size == 10 %}selected{% endif %}>10</option>
+              <option value="15" {% if page_size == 15 %}selected{% endif %}>15</option>
+              <option value="25" {% if page_size == 25 %}selected{% endif %}>25</option>
+              <option value="50" {% if page_size == 50 %}selected{% endif %}>50</option>
+            </select>
+          </div>
+
+          <div class="sm:col-span-2 lg:col-span-4 flex items-end space-x-3">
+            <button type="submit" 
+                    class="inline-flex items-center px-4 py-2 bg-blue-600 border border-transparent rounded-md shadow-sm text-sm font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+              <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+              </svg>
+              Filter
+            </button>
+            <a href="{% url 'counter_definitions' %}" 
+               class="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500">
+              Clear
+            </a>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- Counter Definitions Table -->
+    <div class="bg-white shadow overflow-hidden sm:rounded-lg">
+      <div class="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
+        <h3 class="text-lg font-semibold text-gray-900">Counter Definitions</h3>
+        <span class="text-sm text-gray-500">{{ page_obj.paginator.count }} total</span>
+      </div>
+      
+      <div class="overflow-x-auto">
+        <table class="min-w-full divide-y divide-gray-200">
+          <thead class="bg-gray-50">
+            <tr>
+              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name & Formula</th>
+              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Properties</th>
+              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Usage</th>
+              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Council Types</th>
+              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+            </tr>
+          </thead>
+          <tbody class="bg-white divide-y divide-gray-200">
+            {% for counter in page_obj %}
+            <tr class="hover:bg-gray-50">
+              <td class="px-6 py-4 whitespace-nowrap">
+                <div>
+                  <div class="text-sm font-medium text-gray-900">
+                    <a href="{% url 'counter_edit' counter.slug %}" class="text-blue-600 hover:text-blue-800">
+                      {{ counter.name }}
+                    </a>
+                    {% if counter.headline %}
+                      <span class="ml-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                        Headline
+                      </span>
+                    {% endif %}
+                  </div>
+                  <div class="text-sm text-gray-500">{{ counter.slug }}</div>
+                  <div class="text-xs text-gray-400 mt-1 font-mono">{{ counter.formula|truncatechars:40 }}</div>
+                </div>
+              </td>
+              <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                <div class="flex flex-col space-y-1">
+                  {% if counter.show_by_default %}
+                    <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                      Default
+                    </span>
+                  {% endif %}
+                  {% if counter.show_currency %}
+                    <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                      Currency
+                    </span>
+                  {% endif %}
+                  {% if counter.friendly_format %}
+                    <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
+                      Friendly
+                    </span>
+                  {% endif %}
+                </div>
+              </td>
+              <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                <div class="flex flex-col space-y-1">
+                  <div>Site: <span class="font-semibold">{{ counter.site_counter_count }}</span></div>
+                  <div>Group: <span class="font-semibold">{{ counter.group_counter_count }}</span></div>
+                  <div>Council: <span class="font-semibold">{{ counter.council_counter_count }}</span></div>
+                </div>
+              </td>
+              <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                {% if counter.council_types.all %}
+                  {% for ct in counter.council_types.all %}
+                    <span class="inline-block bg-gray-100 text-gray-800 text-xs px-2 py-1 rounded mr-1 mb-1">
+                      {{ ct.name }}
+                    </span>
+                  {% endfor %}
+                {% else %}
+                  <span class="text-gray-400 italic">All types</span>
+                {% endif %}
+              </td>
+              <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                <div class="flex space-x-2">
+                  <a href="{% url 'counter_edit' counter.slug %}" 
+                     class="text-blue-600 hover:text-blue-800">Edit</a>
+                  <a href="{% url 'site_counter_add' %}?base={{ counter.slug }}" 
+                     class="text-green-600 hover:text-green-800">+ Site</a>
+                  <a href="{% url 'group_counter_add' %}?base={{ counter.slug }}" 
+                     class="text-purple-600 hover:text-purple-800">+ Group</a>
+                </div>
+              </td>
+            </tr>
+            {% empty %}
+            <tr>
+              <td colspan="5" class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-center">
+                No counter definitions found.
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Pagination -->
+      {% if page_obj.has_other_pages %}
+      <div class="bg-white px-4 py-3 flex items-center justify-between border-t border-gray-200 sm:px-6">
+        <div class="flex-1 flex justify-between sm:hidden">
+          {% if page_obj.has_previous %}
+            <a href="?page={{ page_obj.previous_page_number }}&{{ request.GET.urlencode }}" 
+               class="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
+              Previous
+            </a>
+          {% endif %}
+          {% if page_obj.has_next %}
+            <a href="?page={{ page_obj.next_page_number }}&{{ request.GET.urlencode }}" 
+               class="ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
+              Next
+            </a>
+          {% endif %}
+        </div>
+        <div class="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
+          <div>
+            <p class="text-sm text-gray-700">
+              Showing <span class="font-medium">{{ page_obj.start_index }}</span> to <span class="font-medium">{{ page_obj.end_index }}</span> of <span class="font-medium">{{ page_obj.paginator.count }}</span> results
+            </p>
+          </div>
+          <div>
+            <nav class="relative z-0 inline-flex rounded-md shadow-sm -space-x-px">
+              {% if page_obj.has_previous %}
+                <a href="?page={{ page_obj.previous_page_number }}&{{ request.GET.urlencode }}" 
+                   class="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50">
+                  <svg class="h-5 w-5" fill="currentColor" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd" d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z" clip-rule="evenodd"/>
+                  </svg>
+                </a>
+              {% endif %}
+              
+              {% for num in page_obj.paginator.page_range %}
+                {% if page_obj.number == num %}
+                  <span class="relative inline-flex items-center px-4 py-2 border border-gray-300 bg-blue-50 text-sm font-medium text-blue-600">
+                    {{ num }}
+                  </span>
+                {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+                  <a href="?page={{ num }}&{{ request.GET.urlencode }}" 
+                     class="relative inline-flex items-center px-4 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-700 hover:bg-gray-50">
+                    {{ num }}
+                  </a>
+                {% endif %}
+              {% endfor %}
+              
+              {% if page_obj.has_next %}
+                <a href="?page={{ page_obj.next_page_number }}&{{ request.GET.urlencode }}" 
+                   class="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50">
+                  <svg class="h-5 w-5" fill="currentColor" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd"/>
+                  </svg>
+                </a>
+              {% endif %}
+            </nav>
+          </div>
+        </div>
+      </div>
+      {% endif %}
+    </div>
+
+    <!-- Recent Activity -->
+    {% if recent_counters %}
+    <div class="mt-8 bg-white shadow overflow-hidden sm:rounded-lg">
+      <div class="px-6 py-4 border-b border-gray-200">
+        <h3 class="text-lg font-semibold text-gray-900">Recent Counter Definitions</h3>
+      </div>
+      <ul class="divide-y divide-gray-200">
+        {% for counter in recent_counters %}
+        <li class="px-6 py-4">
+          <div class="flex items-center justify-between">
+            <div>
+              <p class="text-sm font-medium text-gray-900">{{ counter.name }}</p>
+              <p class="text-sm text-gray-500">{{ counter.formula }}</p>
+            </div>
+            <div class="flex items-center">
+              {% if counter.headline %}
+                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800 mr-2">
+                  Headline
+                </span>
+              {% endif %}
+              <a href="{% url 'counter_edit' counter.slug %}" 
+                 class="text-blue-600 hover:text-blue-800 text-sm">Edit</a>
+            </div>
+          </div>
+        </li>
         {% endfor %}
-    </tbody>
-</table>
+      </ul>
+    </div>
+    {% endif %}
+
+  </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  // Auto-submit form when filters change
+  const filterForm = document.querySelector('form');
+  const selects = filterForm.querySelectorAll('select');
+  
+  selects.forEach(select => {
+    select.addEventListener('change', function() {
+      filterForm.submit();
+    });
+  });
+  
+  // Search on Enter key
+  const searchInput = document.getElementById('search');
+  searchInput.addEventListener('keypress', function(e) {
+    if (e.key === 'Enter') {
+      filterForm.submit();
+    }
+  });
+});
+</script>
 {% endblock %}
 

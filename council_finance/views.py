@@ -3063,7 +3063,109 @@ def god_mode(request):
         activity_type='bulk_operation'
     ).order_by('-created')[:10]
     
-    # System health indicators
+    # === ENHANCED GOD MODE SURVEILLANCE SYSTEM ===
+    # Like Zeus atop Olympus, monitoring all activity across the realm
+    
+    from datetime import timedelta
+    from django.db.models import Count, Q, Avg
+    from django.contrib.auth.models import User
+    
+    # Time windows for surveillance
+    now = timezone.now()
+    last_hour = now - timedelta(hours=1)
+    last_24h = now - timedelta(hours=24)
+    last_week = now - timedelta(days=7)
+    last_month = now - timedelta(days=30)
+    
+    # ==> USER ACTIVITY SURVEILLANCE <=
+    user_activity_surveillance = {
+        'active_users_24h': User.objects.filter(last_login__gte=last_24h).count(),
+        'new_users_24h': User.objects.filter(date_joined__gte=last_24h).count(),
+        'contributions_24h': Contribution.objects.filter(created__gte=last_24h).count(),
+        'rejected_contributions_24h': Contribution.objects.filter(
+            created__gte=last_24h, status='rejected'
+        ).count(),
+        'suspicious_users': UserProfile.objects.filter(
+            Q(rejection_count__gt=10) | Q(points__lt=0)
+        ).count(),
+        'top_contributors_today': Contribution.objects.filter(
+            created__gte=last_24h, status='approved'
+        ).values('user__username').annotate(count=Count('id')).order_by('-count')[:5],
+    }
+    
+    # ==> DATA QUALITY SURVEILLANCE <=
+    data_quality_surveillance = {
+        'missing_data_issues': DataIssue.objects.filter(issue_type='missing').count(),
+        'suspicious_data_issues': DataIssue.objects.filter(issue_type='suspicious').count(),
+        'councils_incomplete_data': Council.objects.annotate(
+            figure_count=Count('figuresubmission')
+        ).filter(figure_count__lt=10).count(),
+        'data_completeness_avg': FigureSubmission.objects.exclude(
+            value__isnull=True
+        ).count() / max(FigureSubmission.objects.count(), 1) * 100,
+        'recent_data_changes': ActivityLog.objects.filter(
+            activity_type='data_correction',
+            created__gte=last_24h
+        ).count(),
+    }
+    
+    # ==> SECURITY MONITORING <=
+    security_monitoring = {
+        'failed_login_attempts_24h': 0,  # Would need login failure tracking
+        'blocked_ips': 0,  # Would need IP blocking system  
+        'unusual_activity_patterns': ActivityLog.objects.filter(
+            created__gte=last_hour
+        ).values('user').annotate(count=Count('id')).filter(count__gt=50).count(),
+        'bulk_operations_24h': ActivityLog.objects.filter(
+            activity_type='bulk_operation',
+            created__gte=last_24h
+        ).count(),
+        'admin_activities_24h': ActivityLog.objects.filter(
+            user__is_superuser=True,
+            created__gte=last_24h
+        ).count(),
+    }
+    
+    # ==> REAL-TIME ALERTS GENERATION <=
+    active_alerts = []
+    
+    # Check for unusual activity patterns
+    if user_activity_surveillance['rejected_contributions_24h'] > user_activity_surveillance['contributions_24h'] * 0.3 and user_activity_surveillance['contributions_24h'] > 0:
+        active_alerts.append({
+            'level': 'warning',
+            'message': "High rejection rate detected - may indicate data quality issues",
+            'action': 'review_rejection_patterns',
+            'timestamp': timezone.now()
+        })
+    
+    # Check for data completeness issues
+    if data_quality_surveillance['data_completeness_avg'] < 80:
+        active_alerts.append({
+            'level': 'error',
+            'message': f"Data completeness at {data_quality_surveillance['data_completeness_avg']:.1f}% - below 80% threshold",
+            'action': 'assess_issues',
+            'timestamp': timezone.now()
+        })
+    
+    # Check for unusual bulk operations
+    if security_monitoring['bulk_operations_24h'] > 10:
+        active_alerts.append({
+            'level': 'info',
+            'message': f"{security_monitoring['bulk_operations_24h']} bulk operations in last 24h - monitoring for anomalies",
+            'action': 'review_bulk_operations',
+            'timestamp': timezone.now()
+        })
+    
+    # Check for suspicious user behavior
+    if user_activity_surveillance['suspicious_users'] > 5:
+        active_alerts.append({
+            'level': 'warning',
+            'message': f"{user_activity_surveillance['suspicious_users']} users flagged for suspicious activity",
+            'action': 'review_user_behavior',
+            'timestamp': timezone.now()
+        })
+    
+    # ==> SYSTEM HEALTH INDICATORS <=
     health_indicators = []
     
     # Check for councils without population data
@@ -3100,7 +3202,26 @@ def god_mode(request):
         'stats': stats,
         'recent_activities': recent_activities,
         'health_indicators': health_indicators,
-        'title': 'God Mode - System Administration'
+        'title': 'God Mode - Zeus Surveillance System',
+        # Enhanced God Mode Surveillance
+        'user_activity_surveillance': user_activity_surveillance,
+        'data_quality_surveillance': data_quality_surveillance,
+        'security_monitoring': security_monitoring,
+        'active_alerts': active_alerts,
+        # Additional data for enhanced surveillance
+        'recent_rejections': RejectionLog.objects.select_related('council', 'field', 'reviewed_by').order_by('-created')[:20],
+        'recent_users': User.objects.filter(date_joined__gte=last_week).order_by('-date_joined')[:10],
+        'high_activity_users': ActivityLog.objects.filter(
+            created__gte=last_24h
+        ).values('user__username').annotate(
+            activity_count=Count('id')
+        ).order_by('-activity_count')[:10],
+        'council_activity_hotspots': ActivityLog.objects.filter(
+            created__gte=last_24h,
+            related_council__isnull=False
+        ).values('related_council__name').annotate(
+            activity_count=Count('id')
+        ).order_by('-activity_count')[:10],
     }
     
     return render(request, 'council_finance/god_mode.html', context)

@@ -80,6 +80,21 @@ class FinancialYear(models.Model):
     """Represents a financial year label (e.g. 2023/24)."""
     label = models.CharField(max_length=20, unique=True)
     is_current = models.BooleanField(default=False, help_text="Mark as current financial year")
+    start_date = models.DateField(null=True, blank=True, help_text="When this financial year starts (optional)")
+    end_date = models.DateField(null=True, blank=True, help_text="When this financial year ends (optional)")
+    # New fields for enhanced year management
+    is_provisional = models.BooleanField(
+        default=True, 
+        help_text="True if this year's figures are still being collected/finalized"
+    )
+    is_forecast = models.BooleanField(
+        default=False,
+        help_text="True if this is a future year with projected/estimated figures"
+    )
+    notes = models.TextField(
+        blank=True,
+        help_text="Internal notes about this financial year (data quality, issues, etc.)"
+    )
     
     class Meta:
         ordering = ['-label']
@@ -97,6 +112,119 @@ class FinancialYear(models.Model):
     def get_current(cls):
         """Get the current financial year."""
         return cls.objects.filter(is_current=True).first() or cls.objects.first()
+    
+    @property
+    def status(self):
+        """Return the status of this financial year: 'current', 'future', or 'past'."""
+        if self.is_current:
+            return 'current'
+        
+        current_year = self.get_current()
+        if current_year:
+            # Enhanced comparison that handles multiple year formats
+            try:
+                current_start = self._extract_start_year(current_year.label)
+                this_start = self._extract_start_year(self.label)
+                
+                if this_start > current_start:
+                    return 'future'
+                elif this_start < current_start:
+                    return 'past'
+                else:
+                    return 'current'
+            except (ValueError, TypeError):
+                # Fall back to string comparison if parsing fails
+                if self.label > current_year.label:
+                    return 'future'
+                elif self.label < current_year.label:
+                    return 'past'
+                else:
+                    return 'current'
+        
+        return 'unknown'
+    
+    def _extract_start_year(self, label):
+        """Extract the starting year from various label formats."""
+        import re
+        
+        # Handle formats like "2023/24", "2023-24", "2023_24"
+        match = re.match(r'^(\d{4})[/-_](\d{2,4})$', label)
+        if match:
+            return int(match.group(1))
+        
+        # Handle single year like "2023"
+        match = re.match(r'^(\d{4})$', label)
+        if match:
+            return int(match.group(1))
+        
+        # Handle full year ranges like "2023/2024"
+        match = re.match(r'^(\d{4})[/-_](\d{4})$', label)
+        if match:
+            return int(match.group(1))
+        
+        # If we can't parse it, raise an error
+        raise ValueError(f"Cannot parse year format: {label}")
+    
+    @property
+    def is_future(self):
+        """Return True if this is a future financial year."""
+        return self.status == 'future'
+    
+    @property
+    def is_past(self):
+        """Return True if this is a past financial year."""
+        return self.status == 'past'
+    
+    @property
+    def data_reliability_level(self):
+        """Return reliability level: 'high', 'medium', 'low'."""
+        if self.is_forecast:
+            return 'low'  # Future projections
+        elif self.is_current and self.is_provisional:
+            return 'medium'  # Current year, still collecting data
+        elif self.is_past and not self.is_provisional:
+            return 'high'  # Past year, finalized
+        else:
+            return 'medium'  # Default
+    
+    @property
+    def reliability_note(self):
+        """Return a detailed note about data reliability for this year."""
+        if self.is_forecast:
+            return f"Future year ({self.label}) - figures are projections and estimates only"
+        elif self.is_current:
+            if self.is_provisional:
+                return f"Current year ({self.label}) - figures may be incomplete or provisional"
+            else:
+                return f"Current year ({self.label}) - figures are being finalized"
+        elif self.is_past:
+            if self.is_provisional:
+                return f"Past year ({self.label}) - figures may still be provisional"
+            else:
+                return f"Past year ({self.label}) - figures should be final and audited"
+        else:
+            return f"Status unclear ({self.label}) - use caution when interpreting figures"
+    
+    @property
+    def display_status_badge(self):
+        """Return a CSS class for status badge display."""
+        status = self.status
+        if status == 'current':
+            return 'bg-green-100 text-green-800'
+        elif status == 'future':
+            return 'bg-blue-100 text-blue-800'
+        elif status == 'past':
+            return 'bg-gray-100 text-gray-800'
+        else:
+            return 'bg-yellow-100 text-yellow-800'
+    
+    def get_figure_count(self):
+        """Return the number of figure submissions for this year."""
+        return FigureSubmission.objects.filter(year=self).count()
+    
+    def can_be_deleted(self):
+        """Check if this year can be safely deleted (no associated data)."""
+        return self.get_figure_count() == 0
 
 class FigureSubmission(models.Model):
     """Stores a single value for a given field, council and year."""

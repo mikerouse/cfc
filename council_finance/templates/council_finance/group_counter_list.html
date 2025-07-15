@@ -1,38 +1,383 @@
 {% extends "base.html" %}
+{% load static %}
+
 {% block title %}Group Counters - Council Finance Counters{% endblock %}
+
 {% block content %}
-<h1 class="text-2xl font-bold mb-4">Custom Group Counters</h1>
-{% include "council_finance/counter_tabs.html" with section='groups' %}
-<p class="mb-4">Existing group counters are shown below. Click a name to edit or use <strong>Add counter</strong> to create a new one.</p>
-<div class="mb-4 text-right">
-    <a href="{% url 'group_counter_add' %}" class="bg-blue-600 text-white px-4 py-1 rounded">Add counter</a>
+<div class="min-h-screen bg-gray-50 py-6">
+  <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    
+    <!-- Page Header -->
+    <div class="mb-8">
+      <div class="flex items-center justify-between">
+        <div>
+          <h1 class="text-3xl font-bold text-gray-900">Custom Group Counters</h1>
+          <p class="mt-2 text-gray-600">Manage counters for specific groups of councils</p>
+        </div>
+        <div class="flex items-center space-x-4">
+          <a href="{% url 'group_counter_add' %}" 
+             class="inline-flex items-center px-4 py-2 bg-blue-600 border border-transparent rounded-md shadow-sm text-sm font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+            <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/>
+            </svg>
+            Add Group Counter
+          </a>
+        </div>
+      </div>
+    </div>
+
+    <!-- Navigation Tabs -->
+    <div class="mb-6 border-b border-gray-200">
+      <nav class="-mb-px flex space-x-8">
+        <a href="{% url 'counter_definitions' %}" 
+           class="border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 border-b-2 py-4 px-1 text-sm font-medium">
+          Counter Definitions
+        </a>
+        <a href="{% url 'site_counter_list' %}" 
+           class="border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 border-b-2 py-4 px-1 text-sm font-medium">
+          Site-Wide Counters
+        </a>
+        <a href="{% url 'group_counter_list' %}" 
+           class="border-blue-500 text-blue-600 border-b-2 py-4 px-1 text-sm font-medium">
+          Group Counters
+        </a>
+        <a href="#" 
+           class="border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 border-b-2 py-4 px-1 text-sm font-medium">
+          My Counters
+        </a>
+      </nav>
+    </div>
+
+    <!-- Statistics -->
+    <div class="grid grid-cols-1 gap-5 sm:grid-cols-4 mb-8">
+      <div class="bg-white overflow-hidden shadow rounded-lg">
+        <div class="p-5">
+          <div class="flex items-center">
+            <div class="flex-shrink-0">
+              <svg class="h-6 w-6 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"/>
+              </svg>
+            </div>
+            <div class="ml-5 w-0 flex-1">
+              <dl>
+                <dt class="text-sm font-medium text-gray-500 truncate">Total Group Counters</dt>
+                <dd class="text-lg font-medium text-gray-900">{{ total_counters }}</dd>
+              </dl>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="bg-white overflow-hidden shadow rounded-lg">
+        <div class="p-5">
+          <div class="flex items-center">
+            <div class="flex-shrink-0">
+              <svg class="h-6 w-6 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/>
+              </svg>
+            </div>
+            <div class="ml-5 w-0 flex-1">
+              <dl>
+                <dt class="text-sm font-medium text-gray-500 truncate">Type Groups</dt>
+                <dd class="text-lg font-medium text-gray-900">{{ type_groups }}</dd>
+              </dl>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="bg-white overflow-hidden shadow rounded-lg">
+        <div class="p-5">
+          <div class="flex items-center">
+            <div class="flex-shrink-0">
+              <svg class="h-6 w-6 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+              </svg>
+            </div>
+            <div class="ml-5 w-0 flex-1">
+              <dl>
+                <dt class="text-sm font-medium text-gray-500 truncate">List Groups</dt>
+                <dd class="text-lg font-medium text-gray-900">{{ list_groups }}</dd>
+              </dl>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="bg-white overflow-hidden shadow rounded-lg">
+        <div class="p-5">
+          <div class="flex items-center">
+            <div class="flex-shrink-0">
+              <svg class="h-6 w-6 text-orange-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z"/>
+              </svg>
+            </div>
+            <div class="ml-5 w-0 flex-1">
+              <dl>
+                <dt class="text-sm font-medium text-gray-500 truncate">Custom Groups</dt>
+                <dd class="text-lg font-medium text-gray-900">{{ custom_groups }}</dd>
+              </dl>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Filters -->
+    <div class="bg-white shadow rounded-lg mb-6">
+      <div class="px-6 py-4 border-b border-gray-200">
+        <h3 class="text-lg font-semibold text-gray-900">Filter & Search</h3>
+      </div>
+      <div class="px-6 py-4">
+        <form method="get" class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
+          <!-- Search -->
+          <div>
+            <label for="search" class="block text-sm font-medium text-gray-700">Search</label>
+            <input type="text" name="search" id="search" value="{{ search_query }}"
+                   class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
+                   placeholder="Search group counters...">
+          </div>
+
+          <!-- Group Type Filter -->
+          <div>
+            <label for="group_type" class="block text-sm font-medium text-gray-700">Group Type</label>
+            <select name="group_type" id="group_type" 
+                    class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500">
+              <option value="">All Types</option>
+              <option value="type" {% if group_type_filter == 'type' %}selected{% endif %}>Council Type</option>
+              <option value="list" {% if group_type_filter == 'list' %}selected{% endif %}>Council List</option>
+              <option value="councils" {% if group_type_filter == 'councils' %}selected{% endif %}>Custom Councils</option>
+            </select>
+          </div>
+
+          <!-- Status Filter -->
+          <div>
+            <label for="status" class="block text-sm font-medium text-gray-700">Status</label>
+            <select name="status" id="status" 
+                    class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500">
+              <option value="">All</option>
+              <option value="homepage" {% if status_filter == 'homepage' %}selected{% endif %}>On Homepage</option>
+              <option value="currency" {% if status_filter == 'currency' %}selected{% endif %}>Currency Format</option>
+              <option value="friendly" {% if status_filter == 'friendly' %}selected{% endif %}>Friendly Format</option>
+            </select>
+          </div>
+
+          <!-- Page Size -->
+          <div>
+            <label for="page_size" class="block text-sm font-medium text-gray-700">Per Page</label>
+            <select name="page_size" id="page_size" 
+                    class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500">
+              <option value="10" {% if page_size == 10 %}selected{% endif %}>10</option>
+              <option value="20" {% if page_size == 20 %}selected{% endif %}>20</option>
+              <option value="50" {% if page_size == 50 %}selected{% endif %}>50</option>
+            </select>
+          </div>
+
+          <div class="flex items-end space-x-3">
+            <button type="submit" 
+                    class="inline-flex items-center px-4 py-2 bg-blue-600 border border-transparent rounded-md shadow-sm text-sm font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+              <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+              </svg>
+              Filter
+            </button>
+            <a href="{% url 'group_counter_list' %}" 
+               class="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500">
+              Clear
+            </a>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- Group Counters Table -->
+    <div class="bg-white shadow overflow-hidden sm:rounded-lg">
+      <div class="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
+        <h3 class="text-lg font-semibold text-gray-900">Group Counters</h3>
+        <span class="text-sm text-gray-500">{{ page_obj.paginator.count }} total</span>
+      </div>
+      
+      <div class="overflow-x-auto">
+        <table class="min-w-full divide-y divide-gray-200">
+          <thead class="bg-gray-50">
+            <tr>
+              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Counter</th>
+              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Base Definition</th>
+              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Group</th>
+              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Year</th>
+              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Properties</th>
+              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+            </tr>
+          </thead>
+          <tbody class="bg-white divide-y divide-gray-200">
+            {% for group_counter in page_obj %}
+            <tr class="hover:bg-gray-50">
+              <td class="px-6 py-4 whitespace-nowrap">
+                <div>
+                  <div class="text-sm font-medium text-gray-900">
+                    <a href="{% url 'group_counter_edit' group_counter.slug %}" class="text-blue-600 hover:text-blue-800">
+                      {{ group_counter.name }}
+                    </a>
+                  </div>
+                  <div class="text-sm text-gray-500">{{ group_counter.slug }}</div>
+                  {% if group_counter.explanation %}
+                    <div class="text-xs text-gray-400 mt-1">{{ group_counter.explanation|truncatechars:60 }}</div>
+                  {% endif %}
+                </div>
+              </td>
+              <td class="px-6 py-4 whitespace-nowrap">
+                <div class="text-sm text-gray-900">{{ group_counter.counter.name }}</div>
+                <div class="text-xs text-gray-500 font-mono">{{ group_counter.counter.formula|truncatechars:30 }}</div>
+              </td>
+              <td class="px-6 py-4 whitespace-nowrap">
+                <div class="text-sm text-gray-900">
+                  {% if group_counter.council_type %}
+                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                      Type: {{ group_counter.council_type.name }}
+                    </span>
+                  {% elif group_counter.council_list %}
+                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                      List: {{ group_counter.council_list.name }}
+                    </span>
+                  {% elif group_counter.councils.exists %}
+                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
+                      Custom ({{ group_counter.councils.count }} councils)
+                    </span>
+                  {% else %}
+                    <span class="text-gray-400 italic">No group defined</span>
+                  {% endif %}
+                </div>
+              </td>
+              <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                {% if group_counter.year %}
+                  <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                    {{ group_counter.year.name }}
+                  </span>
+                {% else %}
+                  <span class="text-gray-400 italic">All years</span>
+                {% endif %}
+              </td>
+              <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                <div class="flex flex-col space-y-1">
+                  {% if group_counter.promote_homepage %}
+                    <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                      Homepage
+                    </span>
+                  {% endif %}
+                  {% if group_counter.show_currency %}
+                    <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                      Currency
+                    </span>
+                  {% endif %}
+                  {% if group_counter.friendly_format %}
+                    <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
+                      Friendly
+                    </span>
+                  {% endif %}
+                  <div class="text-xs text-gray-400">
+                    Columns: {{ group_counter.columns }}
+                  </div>
+                </div>
+              </td>
+              <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                <div class="flex space-x-2">
+                  <a href="{% url 'group_counter_edit' group_counter.slug %}" 
+                     class="text-blue-600 hover:text-blue-800">Edit</a>
+                  <a href="#" onclick="previewCounter('{{ group_counter.slug }}')" 
+                     class="text-green-600 hover:text-green-800">Preview</a>
+                  <a href="#" onclick="deleteCounter('{{ group_counter.slug }}')" 
+                     class="text-red-600 hover:text-red-800">Delete</a>
+                </div>
+              </td>
+            </tr>
+            {% empty %}
+            <tr>
+              <td colspan="6" class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-center">
+                <div class="text-center py-8">
+                  <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"/>
+                  </svg>
+                  <h3 class="mt-2 text-sm font-medium text-gray-900">No group counters</h3>
+                  <p class="mt-1 text-sm text-gray-500">Get started by creating your first group counter.</p>
+                  <div class="mt-6">
+                    <a href="{% url 'group_counter_add' %}" 
+                       class="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                      <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/>
+                      </svg>
+                      Add Group Counter
+                    </a>
+                  </div>
+                </div>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Pagination -->
+      {% if page_obj.has_other_pages %}
+      <div class="bg-white px-4 py-3 flex items-center justify-between border-t border-gray-200 sm:px-6">
+        <div class="flex-1 flex justify-between sm:hidden">
+          {% if page_obj.has_previous %}
+            <a href="?page={{ page_obj.previous_page_number }}&{{ request.GET.urlencode }}" 
+               class="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
+              Previous
+            </a>
+          {% endif %}
+          {% if page_obj.has_next %}
+            <a href="?page={{ page_obj.next_page_number }}&{{ request.GET.urlencode }}" 
+               class="ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
+              Next
+            </a>
+          {% endif %}
+        </div>
+        <div class="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
+          <div>
+            <p class="text-sm text-gray-700">
+              Showing <span class="font-medium">{{ page_obj.start_index }}</span> to <span class="font-medium">{{ page_obj.end_index }}</span> of <span class="font-medium">{{ page_obj.paginator.count }}</span> results
+            </p>
+          </div>
+        </div>
+      </div>
+      {% endif %}
+    </div>
+
+  </div>
 </div>
-<table class="min-w-full bg-white border">
-    <thead>
-        <tr>
-            <th class="border px-2 py-1 text-left">Name</th>
-            <th class="border px-2 py-1">Slug</th>
-            <th class="border px-2 py-1">Metric</th>
-            <th class="border px-2 py-1">Year</th>
-            <th class="border px-2 py-1">Promote?</th>
-            <th class="border px-2 py-1">Actions</th>
-        </tr>
-    </thead>
-    <tbody>
-        {% for counter in counters %}
-        <tr class="odd:bg-gray-50">
-            <td class="border px-2 py-1"><a href="{% url 'group_counter_edit' counter.slug %}" class="text-blue-600 underline">{{ counter.name }}</a></td>
-            <td class="border px-2 py-1 text-center">{{ counter.slug }}</td>
-            <td class="border px-2 py-1 text-center">{{ counter.counter.name }}</td>
-            <td class="border px-2 py-1 text-center">{% if counter.year %}{{ counter.year.label }}{% else %}All{% endif %}</td>
-            <td class="border px-2 py-1 text-center">{% if counter.promote_homepage %}Yes{% else %}No{% endif %}</td>
-            <td class="border px-2 py-1 text-center"><a href="{% url 'group_counter_edit' counter.slug %}" class="text-blue-600 underline">Edit</a></td>
-        </tr>
-        {% empty %}
-        <tr>
-            <td class="border px-2 py-1 text-center" colspan="5">No group counters defined yet.</td>
-        </tr>
-        {% endfor %}
-    </tbody>
-</table>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  // Auto-submit form when filters change
+  const filterForm = document.querySelector('form');
+  const selects = filterForm.querySelectorAll('select');
+  
+  selects.forEach(select => {
+    select.addEventListener('change', function() {
+      filterForm.submit();
+    });
+  });
+  
+  // Search on Enter key
+  const searchInput = document.getElementById('search');
+  searchInput.addEventListener('keypress', function(e) {
+    if (e.key === 'Enter') {
+      filterForm.submit();
+    }
+  });
+});
+
+function previewCounter(slug) {
+  // TODO: Implement counter preview
+  alert('Preview functionality coming soon for: ' + slug);
+}
+
+function deleteCounter(slug) {
+  if (confirm('Are you sure you want to delete this group counter?')) {
+    // TODO: Implement delete functionality
+    alert('Delete functionality coming soon for: ' + slug);
+  }
+}
+</script>
 {% endblock %}
