@@ -2636,19 +2636,257 @@ def site_counter_list(request):
     return HttpResponse("Site counter list feature coming soon")
 
 def field_list(request):
-    """List all fields in the admin interface"""
-    from django.http import HttpResponse
-    return HttpResponse("Field List - Not implemented yet")
+    """Enhanced Fields & Characteristics management interface"""
+    from django.contrib.auth.decorators import login_required
+    from django.db.models import Q, Count
+    from django.core.paginator import Paginator
+    from .models import DataField, CouncilType, FigureSubmission, DataIssue
+    from .models.field import CHARACTERISTIC_SLUGS
+    
+    # Require authentication and appropriate permissions
+    if not request.user.is_authenticated:
+        return redirect('login')
+    
+    # Allow tier 3+ users or superusers to manage fields
+    if not request.user.is_superuser and request.user.profile.tier.level < 3:
+        messages.error(request, "You need tier 3+ access to manage fields and characteristics.")
+        return redirect('home')
+    
+    # Handle search and filtering
+    search = request.GET.get('search', '')
+    category_filter = request.GET.get('category', '')
+    content_type_filter = request.GET.get('content_type', '')
+    status_filter = request.GET.get('status', 'all')  # all, protected, user_created
+    
+    # Base queryset with related data for efficiency
+    queryset = DataField.objects.select_related().prefetch_related(
+        'council_types'
+    ).annotate(
+        usage_count=Count('figuresubmission'),
+        issue_count=Count('dataissue')
+    )
+    
+    # Apply filters
+    if search:
+        queryset = queryset.filter(
+            Q(name__icontains=search) | 
+            Q(explanation__icontains=search) |
+            Q(slug__icontains=search)
+        )
+    
+    if category_filter:
+        queryset = queryset.filter(category=category_filter)
+    
+    if content_type_filter:
+        queryset = queryset.filter(content_type=content_type_filter)
+    
+    if status_filter == 'protected':
+        queryset = queryset.filter(slug__in=CHARACTERISTIC_SLUGS)
+    elif status_filter == 'user_created':
+        queryset = queryset.exclude(slug__in=CHARACTERISTIC_SLUGS)
+    
+    # Order by category, then by name for logical grouping
+    queryset = queryset.order_by('category', 'name')
+    
+    # Paginate results
+    paginator = Paginator(queryset, 25)
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
+    
+    # Get filter options for the form
+    categories = DataField.FIELD_CATEGORIES
+    content_types = DataField.CONTENT_TYPES
+    
+    # Group fields by category for tabbed display
+    fields_by_category = {}
+    for field in queryset:
+        if field.category not in fields_by_category:
+            fields_by_category[field.category] = []
+        fields_by_category[field.category].append(field)
+    
+    # Statistics for dashboard
+    stats = {
+        'total_fields': DataField.objects.count(),
+        'characteristic_fields': DataField.objects.filter(category='characteristic').count(),
+        'financial_fields': DataField.objects.exclude(category='characteristic').count(),
+        'protected_fields': DataField.objects.filter(slug__in=CHARACTERISTIC_SLUGS).count(),
+        'user_created_fields': DataField.objects.exclude(slug__in=CHARACTERISTIC_SLUGS).count(),
+        'fields_with_issues': DataField.objects.filter(dataissue__isnull=False).distinct().count(),
+    }
+    
+    context = {
+        'fields': page_obj,
+        'fields_by_category': fields_by_category,
+        'search': search,
+        'category_filter': category_filter,
+        'content_type_filter': content_type_filter,
+        'status_filter': status_filter,
+        'categories': categories,
+        'content_types': content_types,
+        'stats': stats,
+        'characteristic_slugs': CHARACTERISTIC_SLUGS,
+        'title': 'Fields & Characteristics Manager'
+    }
+    
+    return render(request, 'council_finance/field_list.html', context)
 
 def field_form(request, slug=None):
-    """Add or edit field form"""
-    from django.http import HttpResponse
-    return HttpResponse("Field Form - Not implemented yet")
+    """Enhanced field creation and editing form with moderation support"""
+    from django.contrib.auth.decorators import login_required
+    from django.db import transaction
+    from .models import DataField, ActivityLog
+    from .forms import DataFieldForm
+    from .models.field import CHARACTERISTIC_SLUGS
+    
+    # Require authentication and appropriate permissions
+    if not request.user.is_authenticated:
+        return redirect('login')
+    
+    # Allow tier 3+ users or superusers to manage fields
+    if not request.user.is_superuser and request.user.profile.tier.level < 3:
+        messages.error(request, "You need tier 3+ access to manage fields and characteristics.")
+        return redirect('field_list')
+    
+    # Determine if we're editing or creating
+    field = None
+    is_edit = slug is not None
+    
+    if is_edit:
+        try:
+            field = DataField.objects.get(slug=slug)
+        except DataField.DoesNotExist:
+            messages.error(request, "Field not found.")
+            return redirect('field_list')
+    
+    if request.method == 'POST':
+        form = DataFieldForm(request.POST, instance=field)
+        
+        if form.is_valid():
+            try:
+                with transaction.atomic():
+                    # Save the field
+                    field = form.save()
+                    
+                    # Log the activity
+                    activity_type = 'update' if is_edit else 'create'
+                    description = f"{'Updated' if is_edit else 'Created'} field: {field.name}"
+                    
+                    ActivityLog.log_activity(
+                        activity_type=activity_type,
+                        description=description,
+                        user=request.user,
+                        content_object=field,
+                        details={
+                            'field_slug': field.slug,
+                            'field_name': field.name,
+                            'category': field.category,
+                            'content_type': field.content_type,
+                            'is_protected': field.is_protected,
+                        },
+                        request=request
+                    )
+                    
+                    # Show success message
+                    action = 'updated' if is_edit else 'created'
+                    messages.success(request, f"Field '{field.name}' has been {action} successfully.")
+                    
+                    # Redirect based on user action
+                    if 'save_and_continue' in request.POST:
+                        return redirect('field_edit', slug=field.slug)
+                    elif 'save_and_add_another' in request.POST:
+                        return redirect('field_add')
+                    else:
+                        return redirect('field_list')
+                        
+            except Exception as e:
+                messages.error(request, f"Error saving field: {str(e)}")
+    else:
+        form = DataFieldForm(instance=field)
+    
+    # Additional context for the template
+    context = {
+        'form': form,
+        'field': field,
+        'is_edit': is_edit,
+        'is_protected': field.is_protected if field else False,
+        'characteristic_slugs': CHARACTERISTIC_SLUGS,
+        'title': f"{'Edit' if is_edit else 'Add'} Field"
+    }
+    
+    return render(request, 'council_finance/field_form.html', context)
 
 def field_delete(request, slug):
-    """Delete a field"""
-    from django.http import HttpResponse
-    return HttpResponse("Field Delete - Not implemented yet")
+    """Enhanced field deletion with safety checks and audit logging"""
+    from django.contrib.auth.decorators import login_required
+    from django.db import transaction
+    from .models import DataField, ActivityLog, FigureSubmission
+    from .models.field import CHARACTERISTIC_SLUGS
+    
+    # Require authentication and appropriate permissions
+    if not request.user.is_authenticated:
+        return redirect('login')
+    
+    # Allow tier 4+ users or superusers to delete fields (higher threshold)
+    if not request.user.is_superuser and request.user.profile.tier.level < 4:
+        messages.error(request, "You need tier 4+ access to delete fields.")
+        return redirect('field_list')
+    
+    try:
+        field = DataField.objects.get(slug=slug)
+    except DataField.DoesNotExist:
+        messages.error(request, "Field not found.")
+        return redirect('field_list')
+    
+    # Check if field is protected
+    if field.is_protected:
+        messages.error(request, f"Cannot delete '{field.name}' - this is a protected system field.")
+        return redirect('field_list')
+    
+    # Check if field has data
+    usage_count = FigureSubmission.objects.filter(field=field).count()
+    
+    if request.method == 'POST':
+        if 'confirm_delete' in request.POST:
+            try:
+                with transaction.atomic():
+                    field_name = field.name
+                    field_slug = field.slug
+                    
+                    # Log the deletion before actually deleting
+                    ActivityLog.log_activity(
+                        activity_type='delete',
+                        description=f"Deleted field: {field_name}",
+                        user=request.user,
+                        details={
+                            'field_slug': field_slug,
+                            'field_name': field_name,
+                            'category': field.category,
+                            'content_type': field.content_type,
+                            'usage_count': usage_count,
+                            'deletion_reason': request.POST.get('deletion_reason', ''),
+                        },
+                        request=request
+                    )
+                    
+                    # Delete the field
+                    field.delete()
+                    
+                    messages.success(request, f"Field '{field_name}' has been deleted successfully.")
+                    return redirect('field_list')
+                    
+            except Exception as e:
+                messages.error(request, f"Error deleting field: {str(e)}")
+        else:
+            messages.info(request, "Deletion cancelled.")
+            return redirect('field_list')
+    
+    context = {
+        'field': field,
+        'usage_count': usage_count,
+        'title': f"Delete Field: {field.name}"
+    }
+    
+    return render(request, 'council_finance/field_delete.html', context)
 
 def factoid_list(request):
     """List all factoids"""

@@ -1,0 +1,253 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<div class="min-h-screen bg-gray-50 py-6">
+  <div class="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8">
+    <!-- Page Header -->
+    <div class="mb-8">
+      <div class="flex items-center justify-between">
+        <div>
+          <h1 class="text-3xl font-bold text-gray-900">Delete Field</h1>
+          <p class="mt-2 text-gray-600">Permanently remove this field from the system</p>
+        </div>
+        <div class="flex items-center space-x-4">
+          <a href="{% url 'field_list' %}" 
+             class="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+            <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/>
+            </svg>
+            Back to Fields
+          </a>
+        </div>
+      </div>
+    </div>
+
+    <!-- Danger Alert -->
+    <div class="mb-6 bg-red-50 border-l-4 border-red-400 p-4">
+      <div class="flex">
+        <div class="flex-shrink-0">
+          <svg class="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
+            <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/>
+          </svg>
+        </div>
+        <div class="ml-3">
+          <h3 class="text-sm font-medium text-red-800">
+            Warning: This action cannot be undone
+          </h3>
+          <div class="mt-2 text-sm text-red-700">
+            <p>Deleting this field will permanently remove it from the system and all associated data.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Field Information -->
+    <div class="bg-white shadow-lg rounded-lg overflow-hidden mb-6">
+      <div class="px-6 py-4 border-b border-gray-200 bg-gray-50">
+        <h3 class="text-lg font-semibold text-gray-900">Field to Delete</h3>
+      </div>
+      
+      <div class="px-6 py-6">
+        <div class="space-y-4">
+          <div class="flex items-center">
+            <div class="flex-shrink-0 w-12 h-12 bg-red-100 rounded-lg flex items-center justify-center">
+              <svg class="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
+              </svg>
+            </div>
+            <div class="ml-4">
+              <h4 class="text-lg font-semibold text-gray-900">{{ field.name }}</h4>
+              <p class="text-sm text-gray-500">{{ field.slug }}</p>
+            </div>
+          </div>
+          
+          <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div>
+              <dt class="text-sm font-medium text-gray-500">Category</dt>
+              <dd class="mt-1 text-sm text-gray-900">{{ field.get_category_display }}</dd>
+            </div>
+            
+            <div>
+              <dt class="text-sm font-medium text-gray-500">Content Type</dt>
+              <dd class="mt-1 text-sm text-gray-900">{{ field.get_content_type_display }}</dd>
+            </div>
+            
+            {% if field.explanation %}
+            <div class="sm:col-span-2">
+              <dt class="text-sm font-medium text-gray-500">Description</dt>
+              <dd class="mt-1 text-sm text-gray-900">{{ field.explanation }}</dd>
+            </div>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Impact Assessment -->
+    <div class="bg-white shadow-lg rounded-lg overflow-hidden mb-6">
+      <div class="px-6 py-4 border-b border-gray-200 bg-gray-50">
+        <h3 class="text-lg font-semibold text-gray-900">Impact Assessment</h3>
+      </div>
+      
+      <div class="px-6 py-6">
+        <div class="space-y-4">
+          <!-- Usage Count -->
+          <div class="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+            <div class="flex items-center">
+              <svg class="w-5 h-5 text-gray-400 mr-3" fill="currentColor" viewBox="0 0 20 20">
+                <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+              </svg>
+              <div>
+                <p class="text-sm font-medium text-gray-900">Data Submissions</p>
+                <p class="text-xs text-gray-500">Number of council data submissions using this field</p>
+              </div>
+            </div>
+            <div class="text-right">
+              <span class="text-lg font-semibold {% if usage_count > 0 %}text-red-600{% else %}text-green-600{% endif %}">
+                {{ usage_count }}
+              </span>
+            </div>
+          </div>
+
+          <!-- Impact Warnings -->
+          {% if usage_count > 0 %}
+          <div class="bg-red-50 border border-red-200 rounded-lg p-4">
+            <div class="flex">
+              <svg class="w-5 h-5 text-red-400 mt-0.5 mr-3" fill="currentColor" viewBox="0 0 20 20">
+                <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/>
+              </svg>
+              <div>
+                <h4 class="text-sm font-medium text-red-800">High Impact Deletion</h4>
+                <p class="mt-1 text-sm text-red-700">
+                  This field has {{ usage_count }} data submission{{ usage_count|pluralize }} that will be permanently lost.
+                  Consider if this data should be preserved or migrated to another field first.
+                </p>
+              </div>
+            </div>
+          </div>
+          {% else %}
+          <div class="bg-green-50 border border-green-200 rounded-lg p-4">
+            <div class="flex">
+              <svg class="w-5 h-5 text-green-400 mt-0.5 mr-3" fill="currentColor" viewBox="0 0 20 20">
+                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+              </svg>
+              <div>
+                <h4 class="text-sm font-medium text-green-800">Safe to Delete</h4>
+                <p class="mt-1 text-sm text-green-700">
+                  This field has no data submissions, so deletion will not result in data loss.
+                </p>
+              </div>
+            </div>
+          </div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+
+    <!-- Deletion Form -->
+    <div class="bg-white shadow-lg rounded-lg overflow-hidden">
+      <form method="post">
+        {% csrf_token %}
+        
+        <div class="px-6 py-6">
+          <div class="space-y-4">
+            <!-- Deletion Reason -->
+            <div>
+              <label for="deletion_reason" class="block text-sm font-medium text-gray-700">
+                Reason for Deletion (Optional)
+              </label>
+              <div class="mt-1">
+                <textarea id="deletion_reason" name="deletion_reason" rows="3" 
+                          class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-red-500 focus:border-red-500" 
+                          placeholder="Explain why this field is being deleted..."></textarea>
+              </div>
+              <p class="mt-1 text-xs text-gray-500">This will be logged for audit purposes</p>
+            </div>
+
+            <!-- Confirmation Checkbox -->
+            <div class="flex items-start">
+              <div class="flex items-center h-5">
+                <input id="confirm_deletion" name="confirm_deletion" type="checkbox" required
+                       class="focus:ring-red-500 h-4 w-4 text-red-600 border-gray-300 rounded">
+              </div>
+              <div class="ml-3 text-sm">
+                <label for="confirm_deletion" class="font-medium text-gray-700">
+                  I understand that this action is permanent and cannot be undone
+                </label>
+                <p class="text-gray-500">
+                  The field "{{ field.name }}" and all associated data will be permanently deleted.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Action Buttons -->
+        <div class="px-6 py-4 bg-gray-50 text-right space-x-3 border-t border-gray-200">
+          <a href="{% url 'field_list' %}" 
+             class="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500">
+            Cancel
+          </a>
+          
+          <a href="{% url 'field_edit' field.slug %}" 
+             class="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+            <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+            </svg>
+            Edit Instead
+          </a>
+          
+          <button type="submit" name="confirm_delete" value="1"
+                  class="inline-flex items-center px-4 py-2 bg-red-600 border border-transparent rounded-md shadow-sm text-sm font-medium text-white hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500">
+            <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+            </svg>
+            Delete Field Permanently
+          </button>
+        </div>
+      </form>
+    </div>
+
+    <!-- Additional Warning -->
+    <div class="mt-6 text-center">
+      <p class="text-sm text-gray-500">
+        Need help? Consider reaching out to system administrators before proceeding with deletion.
+      </p>
+    </div>
+  </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  // Disable delete button until confirmation is checked
+  const confirmCheckbox = document.getElementById('confirm_deletion');
+  const deleteButton = document.querySelector('button[name="confirm_delete"]');
+  
+  function toggleDeleteButton() {
+    deleteButton.disabled = !confirmCheckbox.checked;
+    if (confirmCheckbox.checked) {
+      deleteButton.classList.remove('opacity-50', 'cursor-not-allowed');
+    } else {
+      deleteButton.classList.add('opacity-50', 'cursor-not-allowed');
+    }
+  }
+  
+  // Initial state
+  toggleDeleteButton();
+  
+  // Listen for changes
+  confirmCheckbox.addEventListener('change', toggleDeleteButton);
+  
+  // Add extra confirmation on form submit
+  const form = document.querySelector('form');
+  form.addEventListener('submit', function(e) {
+    if (!confirm('Are you absolutely sure you want to delete this field? This action cannot be undone.')) {
+      e.preventDefault();
+    }
+  });
+});
+</script>
+{% endblock %}

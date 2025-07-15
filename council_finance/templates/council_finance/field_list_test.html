@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Fields & Characteristics Manager{% endblock %}
+
+{% block content %}
+<div class="container mx-auto py-8">
+  <h1 class="text-3xl font-bold mb-6">Fields & Characteristics Manager</h1>
+  
+  <div class="bg-white shadow rounded-lg">
+    <div class="p-6">
+      <p>This is a test version of the fields manager.</p>
+      
+      {% if fields %}
+        <div class="mt-4">
+          <h2 class="text-xl font-semibold mb-4">Available Fields</h2>
+          <div class="space-y-2">
+            {% for field in fields %}
+            <div class="border p-3 rounded">
+              <h3 class="font-medium">{{ field.name }}</h3>
+              <p class="text-sm text-gray-600">{{ field.slug }} - {{ field.get_category_display }}</p>
+              {% if field.explanation %}
+              <p class="text-sm text-gray-500">{{ field.explanation|truncatechars:100 }}</p>
+              {% endif %}
+            </div>
+            {% endfor %}
+          </div>
+        </div>
+      {% else %}
+        <p class="text-gray-500">No fields found.</p>
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% endblock content %}
+
+{% block extra_scripts %}
+<script>
+console.log('Fields manager page loaded');
+</script>
+{% endblock extra_scripts %}

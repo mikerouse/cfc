@@ -1,63 +1,319 @@
-{% extends "base.html" %}
-{% block title %}Edit Field - Council Finance Counters{% endblock %}
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}{{ title }}{% endblock %}
+
 {% block content %}
-<h1 class="text-2xl font-bold mb-4">{{ form.instance.pk|yesno:'Edit Field,Add Field' }}</h1>
-<form method="post" class="space-y-4">
-    {% csrf_token %}
-    <table class="min-w-full border border-gray-300">
-        <tbody>
-            {# Give each row an id so JS can toggle the dataset field #}
-            {% for field in form %}
-            {% if field.name != 'formula' %}
-            <tr class="odd:bg-gray-50" id="row-{{ field.name }}">
-                <th class="text-left p-2 border w-40">{{ field.label_tag }}</th>
-                <td class="p-2 border">{{ field }}{{ field.errors }}</td>
-            </tr>
+<div class="min-h-screen bg-gray-50 py-6">
+  <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+    <!-- Page Header -->
+    <div class="mb-8">
+      <div class="flex items-center justify-between">
+        <div>
+          <h1 class="text-3xl font-bold text-gray-900">{{ title }}</h1>
+          <p class="mt-2 text-gray-600">
+            {% if is_edit %}
+              Modify field settings and characteristics
+            {% else %}
+              Create a new data field or council characteristic
             {% endif %}
-            {% endfor %}
-        </tbody>
-    </table>
-    {# Clicking the word "Advanced" reveals extra options like the formula #}
-    <p id="advanced-toggle" class="text-blue-600 underline cursor-pointer mt-2">Advanced</p>
-    {# Advanced options are hidden initially and toggled with JavaScript #}
-    <div id="advanced-section" style="display:none">
-        <table class="min-w-full border border-gray-300 mt-2">
-            <tbody>
-                <tr class="odd:bg-gray-50" id="row-formula">
-                    <th class="text-left p-2 border w-40">{{ form.formula.label_tag }}</th>
-                    <td class="p-2 border">{{ form.formula }}{{ form.formula.errors }}</td>
-                </tr>
-            </tbody>
-        </table>
+          </p>
+        </div>
+        <div class="flex items-center space-x-4">
+          <a href="{% url 'field_list' %}" 
+             class="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+            <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/>
+            </svg>
+            Back to Fields
+          </a>
+        </div>
+      </div>
     </div>
-    <div class="text-right">
-        <button type="submit" class="bg-blue-600 text-white px-4 py-1 rounded">Save</button>
-        {% if form.instance.pk and not form.instance.is_protected %}
-        <a href="{% url 'field_delete' form.instance.slug %}" class="ml-2 text-red-600 underline">Delete</a>
+
+    <!-- Protection Notice -->
+    {% if is_protected %}
+    <div class="mb-6 bg-yellow-50 border-l-4 border-yellow-400 p-4">
+      <div class="flex">
+        <div class="flex-shrink-0">
+          <svg class="h-5 w-5 text-yellow-400" viewBox="0 0 20 20" fill="currentColor">
+            <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/>
+          </svg>
+        </div>
+        <div class="ml-3">
+          <p class="text-sm text-yellow-700">
+            <strong>Protected Field:</strong> This is a system-protected field. Some properties like the slug cannot be changed to maintain system integrity.
+          </p>
+        </div>
+      </div>
+    </div>
+    {% endif %}
+
+    <!-- Main Form -->
+    <div class="bg-white shadow-lg rounded-lg overflow-hidden">
+      <form method="post" class="space-y-0">
+        {% csrf_token %}
+        
+        <!-- Basic Information -->
+        <div class="px-6 py-6 border-b border-gray-200">
+          <h3 class="text-lg font-semibold text-gray-900 mb-4">Basic Information</h3>
+          
+          <div class="grid grid-cols-1 gap-6 sm:grid-cols-2">
+            <!-- Name Field -->
+            <div class="sm:col-span-2">
+              <label for="{{ form.name.id_for_label }}" class="block text-sm font-medium text-gray-700">
+                Field Name *
+              </label>
+              <div class="mt-1">
+                {{ form.name }}
+              </div>
+              {% if form.name.errors %}
+                <div class="mt-1 text-sm text-red-600">{{ form.name.errors.0 }}</div>
+              {% endif %}
+              <p class="mt-1 text-xs text-gray-500">The display name for this field</p>
+            </div>
+
+            <!-- Category -->
+            <div>
+              <label for="{{ form.category.id_for_label }}" class="block text-sm font-medium text-gray-700">
+                Category *
+              </label>
+              <div class="mt-1">
+                {{ form.category }}
+              </div>
+              {% if form.category.errors %}
+                <div class="mt-1 text-sm text-red-600">{{ form.category.errors.0 }}</div>
+              {% endif %}
+              <p class="mt-1 text-xs text-gray-500">Classification of this field</p>
+            </div>
+
+            <!-- Content Type -->
+            <div>
+              <label for="{{ form.content_type.id_for_label }}" class="block text-sm font-medium text-gray-700">
+                Content Type *
+              </label>
+              <div class="mt-1">
+                {{ form.content_type }}
+              </div>
+              {% if form.content_type.errors %}
+                <div class="mt-1 text-sm text-red-600">{{ form.content_type.errors.0 }}</div>
+              {% endif %}
+              <p class="mt-1 text-xs text-gray-500">Data type for this field</p>
+            </div>
+
+            <!-- Dataset Type (conditional) -->
+            <div id="dataset_type_row" class="sm:col-span-2" style="display: none;">
+              <label for="{{ form.dataset_type.id_for_label }}" class="block text-sm font-medium text-gray-700">
+                Dataset Source
+              </label>
+              <div class="mt-1">
+                {{ form.dataset_type }}
+              </div>
+              {% if form.dataset_type.errors %}
+                <div class="mt-1 text-sm text-red-600">{{ form.dataset_type.errors.0 }}</div>
+              {% endif %}
+              <p class="mt-1 text-xs text-gray-500">Source model for list options (only for List content type)</p>
+            </div>
+
+            <!-- Explanation -->
+            <div class="sm:col-span-2">
+              <label for="{{ form.explanation.id_for_label }}" class="block text-sm font-medium text-gray-700">
+                Description
+              </label>
+              <div class="mt-1">
+                {{ form.explanation }}
+              </div>
+              {% if form.explanation.errors %}
+                <div class="mt-1 text-sm text-red-600">{{ form.explanation.errors.0 }}</div>
+              {% endif %}
+              <p class="mt-1 text-xs text-gray-500">Help text explaining what this field contains</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Advanced Settings -->
+        <div class="px-6 py-6 border-b border-gray-200">
+          <h3 class="text-lg font-semibold text-gray-900 mb-4">Advanced Settings</h3>
+          
+          <div class="grid grid-cols-1 gap-6 sm:grid-cols-2">
+            <!-- Council Types -->
+            <div class="sm:col-span-2">
+              <label for="{{ form.council_types.id_for_label }}" class="block text-sm font-medium text-gray-700">
+                Council Types
+              </label>
+              <div class="mt-1">
+                {{ form.council_types }}
+              </div>
+              {% if form.council_types.errors %}
+                <div class="mt-1 text-sm text-red-600">{{ form.council_types.errors.0 }}</div>
+              {% endif %}
+              <p class="mt-1 text-xs text-gray-500">Limit this field to specific council types (leave empty for all councils)</p>
+            </div>
+
+            <!-- Formula -->
+            <div class="sm:col-span-2">
+              <label for="{{ form.formula.id_for_label }}" class="block text-sm font-medium text-gray-700">
+                Formula (Optional)
+              </label>
+              <div class="mt-1">
+                {{ form.formula }}
+              </div>
+              {% if form.formula.errors %}
+                <div class="mt-1 text-sm text-red-600">{{ form.formula.errors.0 }}</div>
+              {% endif %}
+              <p class="mt-1 text-xs text-gray-500">Mathematical formula for calculated fields</p>
+            </div>
+
+            <!-- Required -->
+            <div>
+              <div class="flex items-center">
+                {{ form.required }}
+                <label for="{{ form.required.id_for_label }}" class="ml-2 block text-sm text-gray-700">
+                  Required Field
+                </label>
+              </div>
+              {% if form.required.errors %}
+                <div class="mt-1 text-sm text-red-600">{{ form.required.errors.0 }}</div>
+              {% endif %}
+              <p class="mt-1 text-xs text-gray-500">Mark this field as mandatory for councils</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Field Information -->
+        {% if field %}
+        <div class="px-6 py-6 border-b border-gray-200 bg-gray-50">
+          <h3 class="text-lg font-semibold text-gray-900 mb-4">Field Information</h3>
+          
+          <div class="grid grid-cols-1 gap-4 sm:grid-cols-3">
+            <div>
+              <dt class="text-sm font-medium text-gray-500">Slug</dt>
+              <dd class="mt-1 text-sm text-gray-900 font-mono">{{ field.slug }}</dd>
+            </div>
+            
+            {% if field.usage_count is not None %}
+            <div>
+              <dt class="text-sm font-medium text-gray-500">Usage Count</dt>
+              <dd class="mt-1 text-sm text-gray-900">{{ field.usage_count }} submission{{ field.usage_count|pluralize }}</dd>
+            </div>
+            {% endif %}
+            
+            {% if field.issue_count is not None %}
+            <div>
+              <dt class="text-sm font-medium text-gray-500">Data Issues</dt>
+              <dd class="mt-1 text-sm text-gray-900">
+                {% if field.issue_count > 0 %}
+                  <span class="text-orange-600">{{ field.issue_count }} issue{{ field.issue_count|pluralize }}</span>
+                {% else %}
+                  <span class="text-green-600">No issues</span>
+                {% endif %}
+              </dd>
+            </div>
+            {% endif %}
+          </div>
+        </div>
         {% endif %}
+
+        <!-- Action Buttons -->
+        <div class="px-6 py-4 bg-gray-50 text-right space-x-3">
+          <a href="{% url 'field_list' %}" 
+             class="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+            Cancel
+          </a>
+          
+          {% if is_edit %}
+          <button type="submit" name="save_and_continue" 
+                  class="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+            Save & Continue Editing
+          </button>
+          {% else %}
+          <button type="submit" name="save_and_add_another" 
+                  class="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+            Save & Add Another
+          </button>
+          {% endif %}
+          
+          <button type="submit" 
+                  class="inline-flex items-center px-4 py-2 bg-blue-600 border border-transparent rounded-md shadow-sm text-sm font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+            <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+            </svg>
+            {{ is_edit|yesno:"Update Field,Create Field" }}
+          </button>
+        </div>
+      </form>
     </div>
-</form>
+
+    <!-- Help Section -->
+    <div class="mt-8 bg-blue-50 border border-blue-200 rounded-lg p-6">
+      <h3 class="text-lg font-semibold text-blue-900 mb-4">Field Management Guidelines</h3>
+      
+      <div class="space-y-4 text-sm text-blue-800">
+        <div>
+          <h4 class="font-medium text-blue-900">Categories</h4>
+          <ul class="mt-1 list-disc list-inside space-y-1">
+            <li><strong>Characteristics:</strong> Static council information (website, type, population)</li>
+            <li><strong>Balance Sheet:</strong> Assets, liabilities, and reserves</li>
+            <li><strong>Cash Flow:</strong> Money flowing in and out of the council</li>
+            <li><strong>Income:</strong> Revenue and funding sources</li>
+            <li><strong>Spending:</strong> Expenditure and costs</li>
+          </ul>
+        </div>
+        
+        <div>
+          <h4 class="font-medium text-blue-900">Content Types</h4>
+          <ul class="mt-1 list-disc list-inside space-y-1">
+            <li><strong>Monetary:</strong> Financial figures in pounds (formatted with £ symbol)</li>
+            <li><strong>Integer:</strong> Whole numbers (formatted with thousand separators)</li>
+            <li><strong>Text:</strong> Free-form text content</li>
+            <li><strong>URL:</strong> Web addresses and links</li>
+            <li><strong>List:</strong> Selections from predefined options</li>
+          </ul>
+        </div>
+        
+        <div>
+          <h4 class="font-medium text-blue-900">Protected Fields</h4>
+          <p>Some fields are protected system fields that cannot be deleted and have restricted editing. These include core characteristics like council type, population, and website.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
 <script>
-const typeSelect = document.getElementById('id_content_type');
-const datasetRow = document.getElementById('row-dataset_type');
-const advancedToggle = document.getElementById('advanced-toggle');
-const advancedSection = document.getElementById('advanced-section');
-function toggleDataset() {
-    if (typeSelect.value === 'list') {
-        datasetRow.style.display = '';
+document.addEventListener('DOMContentLoaded', function() {
+  // Show/hide dataset type based on content type selection
+  const contentTypeSelect = document.getElementById('{{ form.content_type.id_for_label }}');
+  const datasetRow = document.getElementById('dataset_type_row');
+  
+  function toggleDatasetType() {
+    if (contentTypeSelect.value === 'list') {
+      datasetRow.style.display = 'block';
     } else {
-        datasetRow.style.display = 'none';
+      datasetRow.style.display = 'none';
     }
-}
-if (typeSelect && datasetRow) {
-    toggleDataset();
-    typeSelect.addEventListener('change', toggleDataset);
-}
-if (advancedToggle && advancedSection) {
-    advancedToggle.addEventListener('click', () => {
-        const show = advancedSection.style.display === 'none';
-        advancedSection.style.display = show ? '' : 'none';
-    });
-}
+  }
+  
+  // Initial state
+  toggleDatasetType();
+  
+  // Listen for changes
+  contentTypeSelect.addEventListener('change', toggleDatasetType);
+  
+  // Form styling
+  const formFields = document.querySelectorAll('input, select, textarea');
+  formFields.forEach(field => {
+    if (field.type !== 'checkbox') {
+      field.classList.add('block', 'w-full', 'px-3', 'py-2', 'border', 'border-gray-300', 
+                          'rounded-md', 'shadow-sm', 'focus:ring-blue-500', 'focus:border-blue-500');
+    }
+  });
+  
+  // Multi-select styling for council types
+  const councilTypesSelect = document.getElementById('{{ form.council_types.id_for_label }}');
+  if (councilTypesSelect) {
+    councilTypesSelect.size = 5;
+  }
+});
 </script>
 {% endblock %}
