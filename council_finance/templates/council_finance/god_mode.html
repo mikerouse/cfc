@@ -273,7 +273,7 @@
           <!-- Current Years List -->
           <div class="space-y-2 max-h-64 overflow-y-auto">
             {% for year in financial_years %}
-            <div class="flex flex-col p-2 bg-gray-50 rounded-md">
+            <div class="flex flex-col p-3 bg-gray-50 rounded-md border">
               <div class="flex items-center justify-between">
                 <div class="flex items-center gap-2">
                   <span class="font-medium text-sm">{{ year.label }}</span>
@@ -283,10 +283,25 @@
                   <span class="px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded-full">Future</span>
                   {% endif %}
                 </div>
-                <div class="text-xs text-gray-500">
-                  {{ year.get_figure_count }} figures
+                <div class="flex items-center gap-2">
+                  <div class="text-xs text-gray-500">
+                    {{ year.get_figure_count }} figures
+                  </div>
+                  <!-- Delete button -->
+                  <button onclick="confirmDeleteYear('{{ year.id }}', '{{ year.label }}', {{ year.get_figure_count }})"
+                          class="p-1 text-red-600 hover:text-red-800 hover:bg-red-50 rounded transition-colors"
+                          title="Delete financial year">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                    </svg>
+                  </button>
                 </div>
               </div>
+              {% if year.notes %}
+              <div class="mt-1 text-xs text-gray-600">
+                {{ year.notes|truncatechars:100 }}
+              </div>
+              {% endif %}
             </div>
             {% empty %}
             <div class="text-center py-4 text-gray-500">
@@ -295,6 +310,14 @@
             </div>
             {% endfor %}
           </div>
+          
+          <!-- Hidden Delete Form -->
+          <form id="deleteYearForm" method="post" style="display: none;">
+            {% csrf_token %}
+            <input type="hidden" name="delete_financial_year" value="1">
+            <input type="hidden" name="year_id" id="deleteYearId">
+            <input type="hidden" name="confirm_deletion" id="deleteYearConfirm">
+          </form>
         </div>
       </div>
     </div>
@@ -485,4 +508,30 @@
     </div>
   </div>
 </div>
+
+<script>
+function confirmDeleteYear(yearId, yearLabel, figureCount) {
+    // Safety check for years with data
+    if (figureCount > 0) {
+        alert(`⚠️ Cannot delete financial year '${yearLabel}' - it has ${figureCount} associated figure submissions.\n\nTo delete this year, first remove all associated data or contact an administrator.`);
+        return;
+    }
+    
+    // Confirmation dialog for years without data
+    const confirmed = confirm(
+        `🗑️ Delete Financial Year '${yearLabel}'?\n\n` +
+        `This action cannot be undone. The year will be permanently removed from the system.\n\n` +
+        `✅ Safe to delete: This year has no associated data.\n\n` +
+        `Click OK to proceed with deletion.`
+    );
+    
+    if (confirmed) {
+        // Set form values and submit
+        document.getElementById('deleteYearId').value = yearId;
+        document.getElementById('deleteYearConfirm').value = 'yes';
+        document.getElementById('deleteYearForm').submit();
+    }
+}
+</script>
+
 {% endblock %}

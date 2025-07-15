@@ -3078,6 +3078,48 @@ def god_mode(request):
                             
             except Exception as e:
                 messages.error(request, f"Failed to create financial year: {str(e)}")
+                
+        elif "delete_financial_year" in request.POST:
+            try:
+                year_id = request.POST.get('year_id')
+                confirm_deletion = request.POST.get('confirm_deletion') == 'yes'
+                
+                if not year_id:
+                    messages.error(request, "No financial year specified for deletion.")
+                else:
+                    year = FinancialYear.objects.filter(id=year_id).first()
+                    if not year:
+                        messages.error(request, "Financial year not found.")
+                    else:
+                        # Safety checks
+                        if not confirm_deletion:
+                            messages.error(request, "Deletion not confirmed. Please check the confirmation box.")
+                        elif not year.can_be_deleted():
+                            figure_count = year.get_figure_count()
+                            messages.error(request, 
+                                f"❌ Cannot delete '{year.label}' - it has {figure_count} associated figure submissions. "
+                                "Delete the data first or contact an administrator."
+                            )
+                        else:
+                            # Safe to delete
+                            year_label = year.label
+                            year.delete()
+                            messages.success(request, f"✅ Financial year '{year_label}' deleted successfully!")
+                            
+                            # Log the God Mode activity
+                            ActivityLog.objects.create(
+                                user=request.user,
+                                activity_type="financial_year_deletion",
+                                description=f"Financial year '{year_label}' deleted via God Mode",
+                                details={
+                                    "operation": "delete_financial_year",
+                                    "year_label": year_label,
+                                    "year_id": year_id
+                                }
+                            )
+                            
+            except Exception as e:
+                messages.error(request, f"Failed to delete financial year: {str(e)}")
         
         # Redirect to avoid form resubmission
         return redirect('god_mode')
