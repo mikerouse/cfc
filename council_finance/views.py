@@ -3123,10 +3123,11 @@ def god_mode(request):
         'active_users_24h': User.objects.filter(last_login__gte=last_24h).count(),
         'new_users_24h': User.objects.filter(date_joined__gte=last_24h).count(),
         'contributions_24h': Contribution.objects.filter(created__gte=last_24h).count(),
+        'contributions_today': Contribution.objects.filter(created__gte=last_24h).count(),  # Alias for template
         'rejected_contributions_24h': Contribution.objects.filter(
             created__gte=last_24h, status='rejected'
         ).count(),
-        'suspicious_users': UserProfile.objects.filter(
+        'suspicious_activity_count': UserProfile.objects.filter(
             Q(rejection_count__gt=10) | Q(points__lt=0)
         ).count(),
         'top_contributors_today': Contribution.objects.filter(
@@ -3135,15 +3136,21 @@ def god_mode(request):
     }
     
     # ==> DATA QUALITY SURVEILLANCE <=
+    try:
+        total_figures = FigureSubmission.objects.count()
+        complete_figures = FigureSubmission.objects.exclude(value__isnull=True).exclude(value__exact='').count()
+        completeness_percentage = (complete_figures / max(total_figures, 1)) * 100
+    except:
+        completeness_percentage = 0
+        
     data_quality_surveillance = {
         'missing_data_issues': DataIssue.objects.filter(issue_type='missing').count(),
         'suspicious_data_issues': DataIssue.objects.filter(issue_type='suspicious').count(),
         'councils_incomplete_data': Council.objects.annotate(
             figure_count=Count('figuresubmission')
         ).filter(figure_count__lt=10).count(),
-        'data_completeness_avg': FigureSubmission.objects.exclude(
-            value__isnull=True
-        ).count() / max(FigureSubmission.objects.count(), 1) * 100,
+        'completeness_percentage': completeness_percentage,
+        'consistency_score': min(100, max(0, completeness_percentage)),  # Simplified consistency score
         'recent_data_changes': ActivityLog.objects.filter(
             activity_type='data_correction',
             created__gte=last_24h
@@ -3154,7 +3161,7 @@ def god_mode(request):
     security_monitoring = {
         'failed_login_attempts_24h': 0,  # Would need login failure tracking
         'blocked_ips': 0,  # Would need IP blocking system  
-        'unusual_activity_patterns': ActivityLog.objects.filter(
+        'unusual_patterns': ActivityLog.objects.filter(
             created__gte=last_hour
         ).values('user').annotate(count=Count('id')).filter(count__gt=50).count(),
         'bulk_operations_24h': ActivityLog.objects.filter(
@@ -3180,10 +3187,10 @@ def god_mode(request):
         })
     
     # Check for data completeness issues
-    if data_quality_surveillance['data_completeness_avg'] < 80:
+    if data_quality_surveillance['completeness_percentage'] < 80:
         active_alerts.append({
             'level': 'error',
-            'message': f"Data completeness at {data_quality_surveillance['data_completeness_avg']:.1f}% - below 80% threshold",
+            'message': f"Data completeness at {data_quality_surveillance['completeness_percentage']:.1f}% - below 80% threshold",
             'action': 'assess_issues',
             'timestamp': timezone.now()
         })
@@ -3198,10 +3205,10 @@ def god_mode(request):
         })
     
     # Check for suspicious user behavior
-    if user_activity_surveillance['suspicious_users'] > 5:
+    if user_activity_surveillance['suspicious_activity_count'] > 5:
         active_alerts.append({
             'level': 'warning',
-            'message': f"{user_activity_surveillance['suspicious_users']} users flagged for suspicious activity",
+            'message': f"{user_activity_surveillance['suspicious_activity_count']} users flagged for suspicious activity",
             'action': 'review_user_behavior',
             'timestamp': timezone.now()
         })
@@ -3239,6 +3246,23 @@ def god_mode(request):
             'action': 'assess_issues'
         })
     
+    # Get financial years and other missing context data
+    financial_years = FinancialYear.objects.order_by('-label')
+    all_councils = Council.objects.all()
+    
+    # Generate recommended year (next financial year)
+    try:
+        recommended_year = current_financial_year_label()
+        # Check if current year exists, if so suggest next year
+        if FinancialYear.objects.filter(label=recommended_year).exists():
+            # Extract start year and suggest next year
+            start_year = int(recommended_year.split('/')[0])
+            next_start = start_year + 1
+            next_end = str(next_start + 1)[-2:]
+            recommended_year = f"{next_start}/{next_end}"
+    except:
+        recommended_year = None
+    
     context = {
         'stats': stats,
         'recent_activities': recent_activities,
@@ -3249,6 +3273,10 @@ def god_mode(request):
         'data_quality_surveillance': data_quality_surveillance,
         'security_monitoring': security_monitoring,
         'active_alerts': active_alerts,
+        # Financial Years Management
+        'financial_years': financial_years,
+        'recommended_year': recommended_year,
+        'all_councils': all_councils,
         # Additional data for enhanced surveillance
         'recent_rejections': RejectionLog.objects.select_related('council', 'field', 'reviewed_by').order_by('-created')[:20],
         'recent_users': User.objects.filter(date_joined__gte=last_week).order_by('-date_joined')[:10],
