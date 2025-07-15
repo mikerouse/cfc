@@ -878,27 +878,48 @@ def contribute_stats(request):
     from .models import DataIssue, Contribution
     
     # Get detailed breakdown of missing data by category - only for active councils
-    # Use smart data quality priorities to get realistic counts
+    # Show ALL missing data but with smart organization and prioritization
+    missing_total = DataIssue.objects.filter(issue_type='missing', council__status='active').count()
+    missing_characteristics = DataIssue.objects.filter(
+        issue_type='missing', 
+        field__category='characteristic',
+        council__status='active'
+    ).count()
+    missing_financial = DataIssue.objects.filter(
+        issue_type='missing',
+        council__status='active'
+    ).exclude(
+        field__category='characteristic'
+    ).count()
+    
+    # Get priority breakdown for enhanced user experience
     try:
         from .smart_data_quality import get_data_collection_priorities
         data_priorities = get_data_collection_priorities()
-        missing_characteristics = data_priorities.get('total_characteristics_missing', 0)
-        missing_financial = data_priorities.get('total_financial_missing', 0)
-        missing_total = missing_characteristics + missing_financial
-    except Exception:
-        # Fallback to basic counting if smart system has issues
-        missing_total = DataIssue.objects.filter(issue_type='missing', council__status='active').count()
-        missing_characteristics = DataIssue.objects.filter(
-            issue_type='missing', 
-            field__category='characteristic',
-            council__status='active'
-        ).count()
-        missing_financial = DataIssue.objects.filter(
+        relevant_year_ids = {y.id for y in data_priorities.get('relevant_years', [])}
+        
+        # Count high-priority financial data (current/relevant years)
+        high_priority_financial = DataIssue.objects.filter(
             issue_type='missing',
-            council__status='active'
-        ).exclude(
-            field__category='characteristic'
-        ).count()
+            council__status='active',
+            year_id__in=relevant_year_ids
+        ).exclude(field__category='characteristic').count() if relevant_year_ids else 0
+        
+        # Calculate priority stats for enhanced UX
+        priority_stats = {
+            'high_priority_financial': high_priority_financial,
+            'other_financial': missing_financial - high_priority_financial,
+            'current_year_label': data_priorities.get('current_year', {}).get('label') if data_priorities.get('current_year') else None,
+            'relevant_year_count': len(relevant_year_ids)
+        }
+    except Exception:
+        # Fallback if smart system has issues
+        priority_stats = {
+            'high_priority_financial': 0,
+            'other_financial': missing_financial,
+            'current_year_label': None,
+            'relevant_year_count': 0
+        }
     
     stats = {
         'missing': missing_total,
@@ -906,6 +927,8 @@ def contribute_stats(request):
         'missing_financial': missing_financial,
         'pending': Contribution.objects.filter(status='pending').count(),
         'suspicious': DataIssue.objects.filter(issue_type='suspicious').count(),
+        # Enhanced priority information
+        'priority_stats': priority_stats,
     }
     
     return JsonResponse(stats)
@@ -3466,7 +3489,7 @@ def preview_aggregate_counter(request):
     return HttpResponse("Preview Aggregate Counter - Not implemented yet")
 
 def data_issues_table(request):
-    """Return paginated data issues for the contribute page AJAX calls"""
+    """Return paginated data issues for the contribute page AJAX calls with smart prioritization"""
     from django.http import JsonResponse
     from django.core.paginator import Paginator
     from .models import DataIssue
@@ -3479,6 +3502,7 @@ def data_issues_table(request):
     data_type = request.GET.get('type', 'missing_characteristics')
     page_num = int(request.GET.get('page', 1))
     search = request.GET.get('search', '')
+    priority_filter = request.GET.get('priority', 'all')  # all, high, normal
     
     # Build the queryset based on data type
     if data_type == 'missing_characteristics':
@@ -3492,26 +3516,98 @@ def data_issues_table(request):
             issue_type="missing",
             council__status="active"
         ).exclude(field__category="characteristic")
+        
+        # Add smart prioritization for financial data
+        if priority_filter == 'high':
+            # Show only current/relevant years first
+            try:
+                from .smart_data_quality import get_data_collection_priorities
+                data_priorities = get_data_collection_priorities()
+                relevant_year_ids = [y.id for y in data_priorities.get('relevant_years', [])]
+                if relevant_year_ids:
+                    qs = qs.filter(year_id__in=relevant_year_ids)
+            except Exception:
+                pass  # Fallback to all data if smart system fails
+                
     elif data_type == 'suspicious':
-        qs = DataIssue.objects.filter(issue_type="suspicious")
+        qs = DataIssue.objects.filter(issue_type="suspicious", council__status="active")
     elif data_type == 'pending':
-        # This would be for pending contributions - stub for now
+        # Handle pending contributions
         from .models import Contribution
-        contributions = Contribution.objects.filter(status='pending')[:25]
+        qs = Contribution.objects.filter(status='pending').select_related('council', 'field', 'year')
+        
+        # Apply search filter for contributions
+        if search:
+            qs = qs.filter(Q(council__name__icontains=search) | Q(field__name__icontains=search))
+        
+        # Paginate contributions
+        paginator = Paginator(qs, 25)
+        page_obj = paginator.get_page(page_num)
+        
+        # Build HTML for pending contributions
+        rows_html = []
+        for contrib in page_obj:
+            year_display = contrib.year.label if contrib.year else "N/A"
+            rows_html.append(f"""
+                <tr class="hover:bg-gray-50">
+                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                        {contrib.council.name}
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {contrib.field.name}
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {year_display}
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {contrib.value if contrib.value else 'Empty'}
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {contrib.user.username if contrib.user else 'Unknown'}
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                        <span class="text-yellow-600">Pending Review</span>
+                    </td>
+                </tr>
+            """)
+        
         return JsonResponse({
-            'html': '<tr><td colspan="4" class="text-center py-4">Pending contributions feature coming soon</td></tr>',
-            'pagination_html': '',
-            'total_count': 0
+            'html': ''.join(rows_html),
+            'total_count': paginator.count,
+            'page': page_obj.number,
+            'num_pages': paginator.num_pages
         })
     else:
         qs = DataIssue.objects.none()
     
     # Apply search filter
     if search:
-        qs = qs.filter(council__name__icontains=search)
+        qs = qs.filter(Q(council__name__icontains=search) | Q(field__name__icontains=search))
+    
+    # Smart ordering: prioritize current year data, then alphabetical
+    try:
+        from .smart_data_quality import get_data_collection_priorities
+        data_priorities = get_data_collection_priorities()
+        relevant_year_ids = [y.id for y in data_priorities.get('relevant_years', [])]
+        
+        if data_type == 'missing_financial' and relevant_year_ids:
+            # Custom ordering: relevant years first, then others, all alphabetical by council
+            from django.db.models import Case, When, IntegerField
+            qs = qs.annotate(
+                year_priority=Case(
+                    When(year_id__in=relevant_year_ids, then=1),
+                    default=2,
+                    output_field=IntegerField()
+                )
+            ).order_by('year_priority', 'council__name', 'field__name')
+        else:
+            qs = qs.order_by('council__name', 'field__name')
+    except Exception:
+        # Fallback ordering
+        qs = qs.select_related("council", "field", "year").order_by("council__name", "field__name")
     
     # Select related for efficiency
-    qs = qs.select_related("council", "field", "year").order_by("council__name")
+    qs = qs.select_related("council", "field", "year")
     
     # Paginate
     paginator = Paginator(qs, 25)
@@ -3520,11 +3616,24 @@ def data_issues_table(request):
     # Build HTML for the table rows
     rows_html = []
     for issue in page_obj:
-        year_display = issue.year.year if issue.year else "N/A"
+        year_display = issue.year.label if issue.year else "N/A"
+        
+        # Add priority indicators for financial data
+        priority_class = ""
+        priority_icon = ""
+        if data_type == 'missing_financial' and issue.year:
+            try:
+                if hasattr(issue, 'year_priority') and issue.year_priority == 1:
+                    priority_class = "bg-blue-50"
+                    priority_icon = '<span class="text-blue-600 text-xs">📅 Priority</span>'
+            except:
+                pass
+        
         rows_html.append(f"""
-            <tr class="hover:bg-gray-50">
+            <tr class="hover:bg-gray-50 {priority_class}">
                 <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                     {issue.council.name}
+                    {priority_icon}
                 </td>
                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                     {issue.field.name}
@@ -3550,6 +3659,61 @@ def data_issues_table(request):
     # Build pagination HTML
     pagination_html = ""
     if paginator.num_pages > 1:
+        pagination_html = f"""
+            <div class="flex items-center justify-between px-6 py-3 bg-gray-50">
+                <div class="text-sm text-gray-700">
+                    Showing {page_obj.start_index()} to {page_obj.end_index()} of {paginator.count} results
+                </div>
+                <div class="flex space-x-1">
+        """
+        
+        if page_obj.has_previous():
+            pagination_html += f"""
+                <button onclick="contributeManager.loadPage({page_obj.previous_page_number()})" 
+                        class="px-3 py-1 rounded-md bg-white border border-gray-300 text-sm text-gray-700 hover:bg-gray-50">
+                    Previous
+                </button>
+            """
+        
+        # Show page numbers (limited range)
+        start_page = max(1, page_obj.number - 2)
+        end_page = min(paginator.num_pages, page_obj.number + 2)
+        
+        for page_number in range(start_page, end_page + 1):
+            if page_number == page_obj.number:
+                pagination_html += f"""
+                    <span class="px-3 py-1 rounded-md bg-blue-600 text-white text-sm">
+                        {page_number}
+                    </span>
+                """
+            else:
+                pagination_html += f"""
+                    <button onclick="contributeManager.loadPage({page_number})" 
+                            class="px-3 py-1 rounded-md bg-white border border-gray-300 text-sm text-gray-700 hover:bg-gray-50">
+                        {page_number}
+                    </button>
+                """
+        
+        if page_obj.has_next():
+            pagination_html += f"""
+                <button onclick="contributeManager.loadPage({page_obj.next_page_number()})" 
+                        class="px-3 py-1 rounded-md bg-white border border-gray-300 text-sm text-gray-700 hover:bg-gray-50">
+                    Next
+                </button>
+            """
+            
+        pagination_html += """
+                </div>
+            </div>
+        """
+    
+    return JsonResponse({
+        'html': ''.join(rows_html),
+        'pagination_html': pagination_html,
+        'total_count': paginator.count,
+        'page': page_obj.number,
+        'num_pages': paginator.num_pages
+    })
         pagination_html = f"""
             <div class="flex items-center justify-between px-6 py-3 bg-gray-50">
                 <div class="text-sm text-gray-700">

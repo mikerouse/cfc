@@ -399,10 +399,10 @@
                 <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
                 </svg>
-                Smart Data Assessment
+                Comprehensive Data Assessment
               </button>
               <p class="text-xs text-blue-600 mt-1">
-                🎯 Only assesses relevant years and realistic missing data
+                🎯 Creates ALL missing data issues with smart priority organization
               </p>
             </form>
             
@@ -416,6 +416,7 @@
                           class="w-full px-3 py-2 bg-gray-500 text-white rounded-md hover:bg-gray-600 text-xs">
                     Simple Assessment (Characteristics Only)
                   </button>
+                  <p class="text-xs text-gray-500 mt-1">Only characteristics, no financial data</p>
                 </form>
                 
                 <form method="post" class="w-full">
@@ -423,8 +424,9 @@
                   <input type="hidden" name="assessment_type" value="full">
                   <button name="assess_issues" value="1" 
                           class="w-full px-3 py-2 bg-orange-500 text-white rounded-md hover:bg-orange-600 text-xs">
-                    Full Assessment (All Combinations - Slow!)
+                    Legacy Full Assessment (No Priority Organization)
                   </button>
+                  <p class="text-xs text-gray-500 mt-1">Old method without smart features</p>
                 </form>
               </div>
             </details>

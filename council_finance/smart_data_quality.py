@@ -57,15 +57,15 @@ def get_relevant_financial_years() -> Set[int]:
 
 def smart_assess_data_issues() -> int:
     """
-    Enhanced data quality assessment that only flags realistic missing data.
+    Comprehensive data quality assessment that shows all missing data organized by priority.
     
     This version:
-    - Only checks relevant financial years (not every year in the system)
-    - Focuses on characteristics and truly missing financial data
-    - Avoids creating excessive false positive issues
-    - Coordinates with financial year management
+    - Creates issues for ALL missing data (characteristics + all financial years)
+    - Organizes by priority using current year flags and data presence
+    - Provides complete contribution queues as expected
+    - Maintains smart prioritization without hiding legitimate missing data
     """
-    logger.info("Starting smart data quality assessment...")
+    logger.info("Starting comprehensive data quality assessment...")
     
     # Clear existing issues (same as before)
     old_count = DataIssue.objects.count()
@@ -81,9 +81,9 @@ def smart_assess_data_issues() -> int:
     
     logger.info("Cleared all existing DataIssue records")
     
-    # Get relevant years for financial data assessment
+    # Get ALL years for comprehensive assessment
+    all_years = list(FinancialYear.objects.all())
     relevant_year_ids = get_relevant_financial_years()
-    relevant_years = list(FinancialYear.objects.filter(id__in=relevant_year_ids))
     
     # Get all active councils and fields
     councils = list(Council.objects.select_related('council_type', 'council_nation').filter(status='active'))
@@ -92,7 +92,7 @@ def smart_assess_data_issues() -> int:
     
     logger.info(f"Processing {len(councils)} councils")
     logger.info(f"Checking {len(char_fields)} characteristic fields")
-    logger.info(f"Checking {len(financial_fields)} financial fields for {len(relevant_years)} relevant years")
+    logger.info(f"Checking {len(financial_fields)} financial fields for ALL {len(all_years)} years")
     
     # Get existing contributions to avoid double-flagging
     from .models import Contribution
@@ -137,33 +137,35 @@ def smart_assess_data_issues() -> int:
                 ).exists()
             
             if not has_data:
-                issues_to_create.append(DataIssue(
+                # Add priority flag to the issue for smart sorting later
+                issue = DataIssue(
                     council=council,
                     field=field,
                     year=None,
                     issue_type="missing",
-                    value=""
-                ))
+                    value="",
+                )
+                # Mark characteristics as high priority since they apply to all councils
+                if hasattr(issue, 'priority'):
+                    issue.priority = "high"
+                issues_to_create.append(issue)
                 count += 1
     
     logger.info(f"Found {count} missing characteristic issues")
     
-    # === ASSESS FINANCIAL DATA (only for relevant years) ===
-    logger.info("Assessing financial data for relevant years...")
+    # === ASSESS FINANCIAL DATA (ALL YEARS) ===
+    logger.info("Assessing financial data for ALL years...")
     
     # Build field-to-council-types mapping for efficiency
     field_council_types = {}
     for field in financial_fields:
         field_council_types[field.id] = set(field.council_types.values_list('id', flat=True))
     
-    # Get existing financial submissions for relevant years only
+    # Get existing financial submissions for ALL years
     existing_submissions = {}
-    if relevant_year_ids:
-        submission_queryset = FigureSubmission.objects.filter(
-            year_id__in=relevant_year_ids
-        ).select_related('field')
-        for fs in submission_queryset:
-            existing_submissions[(fs.council_id, fs.field_id, fs.year_id)] = fs
+    submission_queryset = FigureSubmission.objects.select_related('field')
+    for fs in submission_queryset:
+        existing_submissions[(fs.council_id, fs.field_id, fs.year_id)] = fs
     
     financial_count_start = count
     
@@ -174,8 +176,8 @@ def smart_assess_data_issues() -> int:
             if field_types and council.council_type_id not in field_types:
                 continue
             
-            # Only check relevant financial years
-            for year in relevant_years:
+            # Check ALL financial years (not just relevant ones)
+            for year in all_years:
                 key = (council.id, field.id, year.id)
                 
                 # Skip if already contributed
@@ -185,27 +187,37 @@ def smart_assess_data_issues() -> int:
                 # Check if we have existing data
                 fs = existing_submissions.get(key)
                 if not fs or fs.needs_populating or fs.value in (None, ""):
-                    # Missing financial data for a relevant year
-                    issues_to_create.append(DataIssue(
+                    # Missing financial data
+                    issue = DataIssue(
                         council=council,
                         field=field,
                         year=year,
                         issue_type="missing",
                         value=""
-                    ))
+                    )
+                    # Mark priority based on whether this is a relevant/current year
+                    if hasattr(issue, 'priority'):
+                        if year.id in relevant_year_ids:
+                            issue.priority = "high"
+                        else:
+                            issue.priority = "normal"
+                    issues_to_create.append(issue)
                     count += 1
                 else:
                     # Check for suspicious values (zeros in monetary/integer fields)
                     if field.content_type in {"monetary", "integer"}:
                         val = str(fs.value).strip()
                         if val in {"0", "0.0"}:
-                            issues_to_create.append(DataIssue(
+                            issue = DataIssue(
                                 council=council,
                                 field=field,
                                 year=year,
                                 issue_type="suspicious",
                                 value=val
-                            ))
+                            )
+                            if hasattr(issue, 'priority'):
+                                issue.priority = "high" if year.id in relevant_year_ids else "normal"
+                            issues_to_create.append(issue)
                             count += 1
         
         # Create in batches to avoid large transactions
@@ -222,9 +234,9 @@ def smart_assess_data_issues() -> int:
         logger.info(f"Created final batch of {len(issues_to_create)} issues")
     
     financial_issues = count - financial_count_start
-    logger.info(f"Found {financial_issues} missing financial data issues for relevant years")
+    logger.info(f"Found {financial_issues} missing financial data issues for ALL years")
     
-    logger.info(f"Smart assessment complete. Created {count} total issues:")
+    logger.info(f"Comprehensive assessment complete. Created {count} total issues:")
     logger.info(f"  - {financial_count_start} characteristic issues")
     logger.info(f"  - {financial_issues} financial data issues")
     

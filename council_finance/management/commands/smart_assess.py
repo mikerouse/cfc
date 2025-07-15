@@ -15,7 +15,7 @@ from council_finance.models import FinancialYear
 
 
 class Command(BaseCommand):
-    help = "Run smart data quality assessment that only flags realistic missing data"
+    help = "Run comprehensive data quality assessment with smart priority organization"
 
     def add_arguments(self, parser):
         parser.add_argument(
@@ -84,15 +84,15 @@ class Command(BaseCommand):
             if not options['quiet']:
                 return  # Don't run assessment if just showing priorities
 
-        # Run the smart assessment
+        # Run the comprehensive assessment
         if not options['quiet']:
-            self.stdout.write('🎯 Running smart data quality assessment...')
+            self.stdout.write('📋 Running comprehensive data quality assessment...')
         
         count = smart_assess_data_issues()
         
         if not options['quiet']:
             self.stdout.write(
-                self.style.SUCCESS(f'✅ Smart assessment complete. Created {count:,} realistic data issues.')
+                self.style.SUCCESS(f'✅ Comprehensive assessment complete. Created {count:,} data issues.')
             )
             
             # Show summary
@@ -105,14 +105,20 @@ class Command(BaseCommand):
             self.stdout.write(f'  Missing financial data: {missing_financial:,}')
             self.stdout.write(f'  Total issues: {count:,}')
             
-            if missing_financial == 0 and count > 0:
+            current_year = priorities.get('current_year')
+            if current_year:
+                self.stdout.write(f'  Current year: {current_year.label}')
+                self.stdout.write(
+                    self.style.SUCCESS(
+                        f'\n💡 Data is organized with priority for {current_year.label}.\n'
+                        'All missing data is shown but current year items appear first.'
+                    )
+                )
+            else:
                 self.stdout.write(
                     self.style.WARNING(
-                        '\n💡 No financial data issues found. This means either:\n'
-                        '   • No financial years are marked as "current"\n'
-                        '   • All relevant years are fully populated\n'
-                        '   • Only characteristic data is missing\n'
-                        '\nUse --set-current-year to mark a year for data collection.'
+                        '\n💡 No current year set. Use --set-current-year to prioritize\n'
+                        'specific years in the contribution interface.'
                     )
                 )
         else:
