@@ -325,6 +325,113 @@
     <!-- Right Column: Divine Actions & System Controls -->
     <div class="lg:col-span-1 space-y-6">
       
+      <!-- Smart Data Quality Management -->
+      <div class="bg-white rounded-lg shadow-sm border border-blue-200">
+        <div class="p-4 border-b border-gray-200 bg-gradient-to-r from-blue-50 to-indigo-50">
+          <h2 class="text-lg font-semibold text-blue-900 flex items-center">
+            <span class="mr-2">🎯</span>Smart Data Quality
+          </h2>
+        </div>
+        <div class="p-4 space-y-4">
+          
+          <!-- Current Year Selection -->
+          {% if financial_years %}
+          <div class="bg-blue-50 rounded-lg p-3">
+            <form method="post" class="space-y-2">
+              {% csrf_token %}
+              <label class="block text-sm font-medium text-blue-900">
+                Current Financial Year for Data Collection:
+              </label>
+              <div class="flex gap-2">
+                <select name="current_year_id" class="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500 text-sm">
+                  <option value="">Select current year...</option>
+                  {% for year in financial_years %}
+                  <option value="{{ year.id }}" 
+                          {% if year.is_current %}selected{% endif %}>
+                    {{ year.label }}
+                    {% if year.is_current %} (Current){% endif %}
+                    - {{ year.get_figure_count }} figures
+                  </option>
+                  {% endfor %}
+                </select>
+                <button type="submit" name="set_current_year" value="1"
+                        class="px-3 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 text-sm">
+                  Set
+                </button>
+              </div>
+              <p class="text-xs text-blue-600">
+                💡 This determines which years are prioritized in data quality assessments
+              </p>
+            </form>
+          </div>
+          {% endif %}
+          
+          <!-- Data Collection Priorities -->
+          {% if data_priorities.relevant_years %}
+          <div class="bg-gray-50 rounded-lg p-3">
+            <h4 class="text-sm font-semibold text-gray-900 mb-2">Relevant Years for Data Collection:</h4>
+            <div class="grid grid-cols-1 gap-2">
+              {% for year_stat in data_priorities.year_stats %}
+              <div class="flex items-center justify-between p-2 bg-white rounded border text-xs">
+                <div class="flex items-center gap-2">
+                  <span class="font-medium">{{ year_stat.year.label }}</span>
+                  {% if year_stat.is_current %}
+                  <span class="px-2 py-1 bg-green-100 text-green-800 rounded-full">Current</span>
+                  {% endif %}
+                </div>
+                <div class="text-right">
+                  <div class="font-medium">{{ year_stat.completeness|floatformat:1 }}% complete</div>
+                  <div class="text-gray-500">{{ year_stat.submissions }}/{{ year_stat.potential }}</div>
+                </div>
+              </div>
+              {% endfor %}
+            </div>
+          </div>
+          {% endif %}
+          
+          <!-- Assessment Actions -->
+          <div class="space-y-2">
+            <form method="post" class="w-full">
+              {% csrf_token %}
+              <input type="hidden" name="assessment_type" value="smart">
+              <button name="assess_issues" value="1" 
+                      class="w-full inline-flex items-center justify-center px-4 py-3 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors">
+                <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
+                </svg>
+                Smart Data Assessment
+              </button>
+              <p class="text-xs text-blue-600 mt-1">
+                🎯 Only assesses relevant years and realistic missing data
+              </p>
+            </form>
+            
+            <details class="text-xs">
+              <summary class="cursor-pointer text-gray-600 hover:text-gray-800">Alternative Assessment Methods</summary>
+              <div class="mt-2 space-y-2">
+                <form method="post" class="w-full">
+                  {% csrf_token %}
+                  <input type="hidden" name="assessment_type" value="simple">
+                  <button name="assess_issues" value="1" 
+                          class="w-full px-3 py-2 bg-gray-500 text-white rounded-md hover:bg-gray-600 text-xs">
+                    Simple Assessment (Characteristics Only)
+                  </button>
+                </form>
+                
+                <form method="post" class="w-full">
+                  {% csrf_token %}
+                  <input type="hidden" name="assessment_type" value="full">
+                  <button name="assess_issues" value="1" 
+                          class="w-full px-3 py-2 bg-orange-500 text-white rounded-md hover:bg-orange-600 text-xs">
+                    Full Assessment (All Combinations - Slow!)
+                  </button>
+                </form>
+              </div>
+            </details>
+          </div>
+        </div>
+      </div>
+
       <!-- Divine Commands -->
       <div class="bg-white rounded-lg shadow-sm border border-purple-200">
         <div class="p-4 border-b border-gray-200 bg-gradient-to-r from-purple-50 to-indigo-50">
@@ -334,17 +441,6 @@
         </div>
         <div class="p-4">
           <div class="space-y-3">
-            <form method="post" class="w-full">
-              {% csrf_token %}
-              <button name="assess_issues" value="1" 
-                      class="w-full inline-flex items-center justify-center px-4 py-3 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors">
-                <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
-                </svg>
-                Assess Data Issues
-              </button>
-            </form>
-            
             <form method="post" class="w-full">
               {% csrf_token %}
               <button name="reconcile_population" value="1" 

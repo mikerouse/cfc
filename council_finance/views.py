@@ -878,18 +878,27 @@ def contribute_stats(request):
     from .models import DataIssue, Contribution
     
     # Get detailed breakdown of missing data by category - only for active councils
-    missing_total = DataIssue.objects.filter(issue_type='missing', council__status='active').count()
-    missing_characteristics = DataIssue.objects.filter(
-        issue_type='missing', 
-        field__category='characteristic',
-        council__status='active'
-    ).count()
-    missing_financial = DataIssue.objects.filter(
-        issue_type='missing',
-        council__status='active'
-    ).exclude(
-        field__category='characteristic'
-    ).count()
+    # Use smart data quality priorities to get realistic counts
+    try:
+        from .smart_data_quality import get_data_collection_priorities
+        data_priorities = get_data_collection_priorities()
+        missing_characteristics = data_priorities.get('total_characteristics_missing', 0)
+        missing_financial = data_priorities.get('total_financial_missing', 0)
+        missing_total = missing_characteristics + missing_financial
+    except Exception:
+        # Fallback to basic counting if smart system has issues
+        missing_total = DataIssue.objects.filter(issue_type='missing', council__status='active').count()
+        missing_characteristics = DataIssue.objects.filter(
+            issue_type='missing', 
+            field__category='characteristic',
+            council__status='active'
+        ).count()
+        missing_financial = DataIssue.objects.filter(
+            issue_type='missing',
+            council__status='active'
+        ).exclude(
+            field__category='characteristic'
+        ).count()
     
     stats = {
         'missing': missing_total,
@@ -2956,17 +2965,34 @@ def god_mode(request):
         elif "assess_issues" in request.POST:
             try:
                 with transaction.atomic():
-                    count = assess_data_issues()
+                    # Use smart assessment by default, with fallback to simple assessment
+                    assessment_type = request.POST.get('assessment_type', 'smart')
+                    
+                    if assessment_type == 'smart':
+                        from .smart_data_quality import smart_assess_data_issues
+                        count = smart_assess_data_issues()
+                        method_used = "Smart Assessment (relevant years only)"
+                    elif assessment_type == 'simple':
+                        from .data_quality import assess_data_issues_simple
+                        count = assess_data_issues_simple()
+                        method_used = "Simple Assessment (characteristics only)"
+                    else:
+                        # Fallback to original method
+                        count = assess_data_issues()
+                        method_used = "Full Assessment (all combinations)"
+                    
                     action = "assess_issues"
-                    messages.success(request, f"Data quality assessment completed. Processed {count} issues.")
+                    messages.success(request, f"Data quality assessment completed using {method_used}. Processed {count} issues.")
                     
                     # Log the God Mode activity
                     ActivityLog.objects.create(
                         user=request.user,
                         activity_type="bulk_operation",
-                        description=f"Data quality assessment completed",
+                        description=f"Data quality assessment completed using {method_used}",
                         details={
                             "operation": "assess_issues",
+                            "assessment_type": assessment_type,
+                            "method_used": method_used,
                             "issues_processed": count,
                             "execution_time": round(time.time() - start_time, 2)
                         }
@@ -3078,6 +3104,39 @@ def god_mode(request):
                             
             except Exception as e:
                 messages.error(request, f"Failed to create financial year: {str(e)}")
+                
+        elif "set_current_year" in request.POST:
+            try:
+                year_id = request.POST.get('current_year_id')
+                if not year_id:
+                    messages.error(request, "No financial year specified.")
+                else:
+                    # Clear existing current year flags
+                    FinancialYear.objects.filter(is_current=True).update(is_current=False)
+                    
+                    # Set the new current year
+                    year = FinancialYear.objects.filter(id=year_id).first()
+                    if not year:
+                        messages.error(request, "Financial year not found.")
+                    else:
+                        year.is_current = True
+                        year.save()
+                        messages.success(request, f"✅ '{year.label}' marked as current financial year for data collection!")
+                        
+                        # Log the God Mode activity
+                        ActivityLog.objects.create(
+                            user=request.user,
+                            activity_type="system_configuration",
+                            description=f"Financial year '{year.label}' marked as current",
+                            details={
+                                "operation": "set_current_year",
+                                "year_label": year.label,
+                                "year_id": year_id
+                            }
+                        )
+                        
+            except Exception as e:
+                messages.error(request, f"Failed to set current year: {str(e)}")
                 
         elif "delete_financial_year" in request.POST:
             try:
@@ -3292,6 +3351,25 @@ def god_mode(request):
     financial_years = FinancialYear.objects.order_by('-label')
     all_councils = Council.objects.all()
     
+    # Get smart data quality information
+    try:
+        from .smart_data_quality import get_data_collection_priorities
+        data_priorities = get_data_collection_priorities()
+    except Exception as e:
+        # Fallback if smart data quality module has issues
+        data_priorities = {
+            'relevant_years': list(financial_years[:2]),  # Default to 2 most recent
+            'current_year': None,
+            'year_stats': [],
+            'total_characteristics_missing': DataIssue.objects.filter(
+                issue_type='missing',
+                field__category='characteristic'
+            ).count(),
+            'total_financial_missing': DataIssue.objects.filter(
+                issue_type='missing'
+            ).exclude(field__category='characteristic').count(),
+        }
+    
     # Generate recommended year (next financial year)
     try:
         recommended_year = current_financial_year_label()
@@ -3319,6 +3397,11 @@ def god_mode(request):
         'financial_years': financial_years,
         'recommended_year': recommended_year,
         'all_councils': all_councils,
+        # Smart Data Quality Management
+        'data_priorities': data_priorities,
+        'current_financial_year': data_priorities.get('current_year'),
+        'relevant_years': data_priorities.get('relevant_years', []),
+        'year_stats': data_priorities.get('year_stats', []),
         # Additional data for enhanced surveillance
         'recent_rejections': RejectionLog.objects.select_related('council', 'field', 'reviewed_by').order_by('-created')[:20],
         'recent_users': User.objects.filter(date_joined__gte=last_week).order_by('-date_joined')[:10],
