@@ -3037,6 +3037,47 @@ def god_mode(request):
                     )
             except Exception as e:
                 messages.error(request, f"Statistics regeneration failed: {str(e)}")
+                
+        elif "add_financial_year" in request.POST:
+            try:
+                from .year_utils import validate_year_label_format, create_year_with_smart_defaults
+                
+                new_year_label = request.POST.get('new_year_label', '').strip()
+                if not new_year_label:
+                    messages.error(request, "Please enter a financial year label.")
+                else:
+                    # Validate the year format
+                    is_valid, error_message = validate_year_label_format(new_year_label)
+                    if not is_valid:
+                        messages.error(request, f"Invalid year format: {error_message}")
+                    else:
+                        # Create the year with smart defaults
+                        year, created = create_year_with_smart_defaults(
+                            label=new_year_label,
+                            is_current=False,  # Let users manually set current year if needed
+                            user=request.user
+                        )
+                        
+                        if created:
+                            messages.success(request, f"✅ Financial year '{new_year_label}' created successfully!")
+                            
+                            # Log the God Mode activity
+                            ActivityLog.objects.create(
+                                user=request.user,
+                                activity_type="financial_year_creation",
+                                description=f"Financial year '{new_year_label}' created via God Mode",
+                                details={
+                                    "operation": "add_financial_year",
+                                    "year_label": new_year_label,
+                                    "is_forecast": getattr(year, 'is_forecast', False),
+                                    "is_provisional": getattr(year, 'is_provisional', False)
+                                }
+                            )
+                        else:
+                            messages.warning(request, f"⚠️ Financial year '{new_year_label}' already exists.")
+                            
+            except Exception as e:
+                messages.error(request, f"Failed to create financial year: {str(e)}")
         
         # Redirect to avoid form resubmission
         return redirect('god_mode')
