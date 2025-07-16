@@ -212,14 +212,23 @@ def list_field_options(request, slug):
     try:
         field = DataField.objects.get(slug=slug)
     except DataField.DoesNotExist:
-        return JsonResponse({"error": "not_found"}, status=404)
+        return JsonResponse({"error": "Field not found"}, status=404)
 
-    if field.content_type != "list" or not field.dataset_type:
-        return JsonResponse({"error": "invalid"}, status=400)
+    # Only list type fields should have selectable options
+    if field.content_type != "list":
+        return JsonResponse({"error": "Field is not a list type"}, status=400)
+    
+    # Check if the field has a dataset_type configured
+    if not field.dataset_type:
+        return JsonResponse({"error": "Field has no dataset configured"}, status=400)
 
-    model = field.dataset_type.model_class()
-    options = list(model.objects.values("id", "name"))
-    return JsonResponse({"options": options})
+    try:
+        model = field.dataset_type.model_class()
+        options = list(model.objects.values("id", "name"))
+        return JsonResponse({"options": options})
+    except Exception as e:
+        logger.error(f"Error getting field options for {slug}: {str(e)}")
+        return JsonResponse({"error": "Could not load field options"}, status=500)
 
 
 def home(request):
@@ -947,8 +956,99 @@ def contribute_submit(request):
     if request.headers.get("X-Requested-With") != "XMLHttpRequest":
         return HttpResponseBadRequest("XHR required")
     
-    # TODO: Implement contribution submission logic
-    return JsonResponse({"message": "Contribution submission - Implementation needed"})
+    if not request.user.is_authenticated:
+        return JsonResponse({"error": "Login required"}, status=401)
+    
+    try:
+        # Extract form data
+        council_id = request.POST.get("council")
+        field_slug = request.POST.get("field") 
+        year_id = request.POST.get("year")
+        value = request.POST.get("value", "").strip()
+        
+        if not all([council_id, field_slug, value]):
+            return JsonResponse({"error": "Missing required fields"}, status=400)
+        
+        # Validate council
+        try:
+            council = Council.objects.get(slug=council_id)
+        except Council.DoesNotExist:
+            return JsonResponse({"error": "Invalid council"}, status=400)
+        
+        # Validate field
+        try:
+            field = DataField.objects.get(slug=field_slug)
+        except DataField.DoesNotExist:
+            return JsonResponse({"error": "Invalid field"}, status=400)
+        
+        # Validate year (optional for characteristics)
+        year = None
+        if year_id:
+            try:
+                year = FinancialYear.objects.get(pk=year_id)
+            except FinancialYear.DoesNotExist:
+                return JsonResponse({"error": "Invalid year"}, status=400)
+        
+        # Check for existing pending contribution for this field/council/year
+        existing = Contribution.objects.filter(
+            user=request.user,
+            council=council,
+            field=field,
+            year=year,
+            status="pending"
+        ).first()
+        
+        if existing:
+            return JsonResponse({"error": "You already have a pending contribution for this data point"}, status=400)
+        
+        # Create the contribution
+        contribution = Contribution.objects.create(
+            user=request.user,
+            council=council,
+            field=field,
+            year=year,
+            value=value,
+            ip_address=request.META.get('REMOTE_ADDR'),
+            status="pending"
+        )
+        
+        # Remove the corresponding DataIssue if it exists
+        from .models import DataIssue
+        DataIssue.objects.filter(
+            council=council,
+            field=field,
+            year=year,
+            issue_type="missing"
+        ).delete()
+        
+        # Log the activity
+        log_activity(
+            request,
+            council=council,
+            activity="submit_contribution",
+            action=f"submitted {field.name} for {council.name}",
+            extra={
+                "field_slug": field_slug,
+                "year_label": year.label if year else None,
+                "value": value,
+                "contribution_id": contribution.id
+            }
+        )
+        
+        # Award points to user for contribution
+        profile = request.user.profile
+        profile.points += 5  # Base points for contribution
+        profile.save()
+        
+        return JsonResponse({
+            "message": f"Contribution submitted successfully for {field.name}",
+            "status": "success",
+            "contribution_id": contribution.id
+        })
+        
+    except Exception as e:
+        logger.error(f"Error in contribute_submit: {str(e)}", exc_info=True)
+        return JsonResponse({"error": "An error occurred while submitting your contribution"}, status=500)
 
 
 def data_issues_table(request):
@@ -1823,13 +1923,6 @@ def dismiss_notification(request, notification_id):
     from django.http import JsonResponse
     # TODO: Implement notification dismissal logic
     return JsonResponse({"status": "success", "message": "Notification dismissed"})
-
-
-def submit_contribution(request):
-    """Submit a contribution from forms."""
-    # TODO: Implement contribution submission logic
-    from django.http import JsonResponse
-    return JsonResponse({"status": "success", "message": "Contribution submitted"})
 
 
 def review_contribution(request, pk, action):
