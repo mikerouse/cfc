@@ -51,6 +51,18 @@
                   </select>
                 </div>
 
+                <!-- Financial Year Filter (for financial data) -->
+                <div class="flex items-center gap-2" id="year-filter-container" style="display: none;">
+                  <label for="year-filter" class="text-sm font-medium text-gray-700">Year:</label>
+                  <select id="year-filter" class="rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
+                    <option value="all">All Years</option>
+                    <option value="priority">Priority Years</option>
+                    {% for year in financial_years %}
+                      <option value="{{ year.id }}">{{ year.label }}</option>
+                    {% endfor %}
+                  </select>
+                </div>
+
                 <!-- Page Size -->
                 <div class="flex items-center gap-2">
                   <label for="page-size" class="text-sm font-medium text-gray-700">Per page:</label>
@@ -263,6 +275,7 @@ class ContributeManager {
     this.searchQuery = '';
     this.sortBy = 'council';
     this.sortDirection = 'asc';
+    this.yearFilter = 'all';
     
     this.setupEventListeners();
     this.setupWebSocket();
@@ -273,6 +286,14 @@ class ContributeManager {
     // Data type filter
     document.getElementById('data-type-filter').addEventListener('change', (e) => {
       this.currentDataType = e.target.value;
+      this.currentPage = 1;
+      this.updateYearFilterVisibility();
+      this.loadData();
+    });
+    
+    // Year filter
+    document.getElementById('year-filter').addEventListener('change', (e) => {
+      this.yearFilter = e.target.value;
       this.currentPage = 1;
       this.loadData();
     });
@@ -307,6 +328,19 @@ class ContributeManager {
     
     // Edit form
     this.setupEditForm();
+    
+    // Initialize year filter visibility
+    this.updateYearFilterVisibility();
+  }
+  
+  updateYearFilterVisibility() {
+    const yearFilterContainer = document.getElementById('year-filter-container');
+    if (this.currentDataType === 'missing_financial') {
+      yearFilterContainer.style.display = 'flex';
+    } else {
+      yearFilterContainer.style.display = 'none';
+      this.yearFilter = 'all'; // Reset when hidden
+    }
   }
   
   setupWebSocket() {
@@ -364,52 +398,47 @@ class ContributeManager {
     }
     
     try {
-      // Map frontend data types to backend parameters
-      let type, category;
-      switch(this.currentDataType) {
-        case 'missing_characteristics':
-          type = 'missing';
-          category = 'characteristic';
-          break;
-        case 'missing_financial':
-          type = 'missing';
-          category = 'financial';
-          break;
-        case 'pending':
-          type = 'pending';
-          category = null;
-          break;
-        case 'suspicious':
-          type = 'suspicious';
-          category = null;
-          break;
-        default:
-          type = 'missing';
-          category = 'characteristic';
-      }
-      
+      // Build URL parameters based on data type
       const params = new URLSearchParams({
-        type: type,
+        type: this.currentDataType,
         page: this.currentPage,
         page_size: this.pageSize,
-        order: this.sortBy,
-        dir: this.sortDirection,
-        ...(category && { category: category }),
-        ...(this.searchQuery && { q: this.searchQuery }),
+        ...(this.searchQuery && { search: this.searchQuery }),
         ...(refresh && { refresh: '1' })
       });
       
-      const response = await fetch(`/contribute/issues/?${params}`, {
+      // Add year filter for financial data
+      if (this.currentDataType === 'missing_financial') {
+        if (this.yearFilter === 'priority') {
+          params.append('priority', 'high');
+        } else if (this.yearFilter !== 'all') {
+          params.append('year', this.yearFilter);
+        }
+      }
+      
+      console.log('Loading data with params:', params.toString());
+      
+      const response = await fetch(`/contribute/data-issues-table/?${params}`, {
         headers: { 'X-Requested-With': 'XMLHttpRequest' }
       });
       
-      if (!response.ok) throw new Error(`HTTP ${response.status}: Failed to load data`);
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
       
       const data = await response.json();
-      container.innerHTML = data.html;
       
-      // Update pagination if provided
-      if (data.total !== undefined) {
+      // Check if we got the expected structure
+      if (data.html) {
+        container.innerHTML = data.html;
+      } else {
+        throw new Error('Invalid response format');
+      }
+      
+      // Update pagination
+      if (data.pagination_html) {
+        paginationContainer.innerHTML = data.pagination_html;
+      } else {
         this.updatePaginationInfo(data);
       }
       

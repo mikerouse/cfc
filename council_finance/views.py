@@ -809,15 +809,16 @@ def following(request):
 
 
 def contribute(request):
+    """Show a modern, real-time contribute interface with AJAX editing."""
+    
+    from .models import DataIssue, UserProfile, Contribution
+    from .data_quality import assess_data_issues
+
     # God Mode: Mark DataIssue as invalid
     if request.method == "POST" and request.user.is_superuser and "mark_invalid" in request.POST:
         issue_id = request.POST.get("issue_id")
         DataIssue.objects.filter(id=issue_id).delete()
         return JsonResponse({"status": "ok", "message": "Issue marked invalid and removed."})
-    """Show a modern, real-time contribute interface with AJAX editing."""
-
-    from .models import DataIssue, UserProfile
-    from .data_quality import assess_data_issues
 
     # Get initial data for the page - only show active councils in contribution queues
     characteristic_qs = (
@@ -854,6 +855,9 @@ def contribute(request):
         points = profile.points
         rank = UserProfile.objects.filter(points__gt=points).count() + 1
 
+    # Get financial years for the year filter dropdown
+    financial_years = list(FinancialYear.objects.order_by('-label'))
+
     return render(
         request,
         "council_finance/contribute_new.html",
@@ -865,6 +869,7 @@ def contribute(request):
             "my_contribs": my_contribs,
             "points": points,
             "rank": rank,
+            "financial_years": financial_years,
         },
     )
 
@@ -3492,6 +3497,7 @@ def data_issues_table(request):
     """Return paginated data issues for the contribute page AJAX calls with smart prioritization"""
     from django.http import JsonResponse
     from django.core.paginator import Paginator
+    from django.db.models import Q
     from .models import DataIssue
     
     # Check if this is an AJAX request
@@ -3503,6 +3509,8 @@ def data_issues_table(request):
     page_num = int(request.GET.get('page', 1))
     search = request.GET.get('search', '')
     priority_filter = request.GET.get('priority', 'all')  # all, high, normal
+    page_size = int(request.GET.get('page_size', 25))
+    year_filter = request.GET.get('year', 'all')  # all, priority, or specific year ID
     
     # Build the queryset based on data type
     if data_type == 'missing_characteristics':
@@ -3517,7 +3525,22 @@ def data_issues_table(request):
             council__status="active"
         ).exclude(field__category="characteristic")
         
-        # Add smart prioritization for financial data
+        # Apply year filtering
+        if year_filter == 'priority':
+            # Show only current/relevant years
+            try:
+                from .smart_data_quality import get_data_collection_priorities
+                data_priorities = get_data_collection_priorities()
+                relevant_year_ids = [y.id for y in data_priorities.get('relevant_years', [])]
+                if relevant_year_ids:
+                    qs = qs.filter(year_id__in=relevant_year_ids)
+            except Exception:
+                pass  # Fallback to all data if smart system fails
+        elif year_filter != 'all' and year_filter.isdigit():
+            # Filter by specific year ID
+            qs = qs.filter(year_id=int(year_filter))
+        
+        # Add smart prioritization for financial data (when using priority filter)
         if priority_filter == 'high':
             # Show only current/relevant years first
             try:
@@ -3541,14 +3564,28 @@ def data_issues_table(request):
             qs = qs.filter(Q(council__name__icontains=search) | Q(field__name__icontains=search))
         
         # Paginate contributions
-        paginator = Paginator(qs, 25)
+        paginator = Paginator(qs, page_size)
         page_obj = paginator.get_page(page_num)
         
-        # Build HTML for pending contributions
-        rows_html = []
+        # Build HTML for pending contributions table
+        table_html = """
+        <table class="min-w-full divide-y divide-gray-200">
+          <thead class="bg-gray-50">
+            <tr>
+              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Council</th>
+              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Field</th>
+              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Year</th>
+              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Value</th>
+              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">User</th>
+              <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+            </tr>
+          </thead>
+          <tbody class="bg-white divide-y divide-gray-200">
+        """
+        
         for contrib in page_obj:
             year_display = contrib.year.label if contrib.year else "N/A"
-            rows_html.append(f"""
+            table_html += f"""
                 <tr class="hover:bg-gray-50">
                     <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                         {contrib.council.name}
@@ -3569,10 +3606,15 @@ def data_issues_table(request):
                         <span class="text-yellow-600">Pending Review</span>
                     </td>
                 </tr>
-            """)
+            """
+        
+        table_html += """
+          </tbody>
+        </table>
+        """
         
         return JsonResponse({
-            'html': ''.join(rows_html),
+            'html': table_html,
             'total_count': paginator.count,
             'page': page_obj.number,
             'num_pages': paginator.num_pages
@@ -3580,7 +3622,7 @@ def data_issues_table(request):
     else:
         qs = DataIssue.objects.none()
     
-    # Apply search filter
+    # Apply search filter for data issues
     if search:
         qs = qs.filter(Q(council__name__icontains=search) | Q(field__name__icontains=search))
     
@@ -3610,11 +3652,32 @@ def data_issues_table(request):
     qs = qs.select_related("council", "field", "year")
     
     # Paginate
-    paginator = Paginator(qs, 25)
+    paginator = Paginator(qs, page_size)
     page_obj = paginator.get_page(page_num)
     
-    # Build HTML for the table rows
-    rows_html = []
+    # Build HTML table for data issues
+    show_year_column = data_type != 'missing_characteristics'
+    
+    table_html = """
+    <table class="min-w-full divide-y divide-gray-200">
+      <thead class="bg-gray-50">
+        <tr>
+          <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Council</th>
+          <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Field</th>
+    """
+    
+    if show_year_column:
+        table_html += """
+          <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Year</th>
+        """
+    
+    table_html += """
+          <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Action</th>
+        </tr>
+      </thead>
+      <tbody class="bg-white divide-y divide-gray-200">
+    """
+    
     for issue in page_obj:
         year_display = issue.year.label if issue.year else "N/A"
         
@@ -3629,7 +3692,7 @@ def data_issues_table(request):
             except:
                 pass
         
-        rows_html.append(f"""
+        table_html += f"""
             <tr class="hover:bg-gray-50 {priority_class}">
                 <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                     {issue.council.name}
@@ -3638,23 +3701,35 @@ def data_issues_table(request):
                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                     {issue.field.name}
                 </td>
+        """
+        
+        if show_year_column:
+            table_html += f"""
                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                     {year_display}
                 </td>
+            """
+        
+        table_html += f"""
                 <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                     <button onclick="contributeManager.openEditModal({{
                         council: '{issue.council.slug}',
                         field: '{issue.field.slug}',
                         councilName: '{issue.council.name}',
                         fieldName: '{issue.field.name}',
-                        year: '{issue.year.slug if issue.year else ""}',
+                        year: '{issue.year.label if issue.year else ""}',
                         yearName: '{year_display}'
-                    }})" class="text-blue-600 hover:text-blue-900">
+                    }})" class="text-blue-600 hover:text-blue-900 font-medium">
                         Add Data
                     </button>
                 </td>
             </tr>
-        """)
+        """
+    
+    table_html += """
+      </tbody>
+    </table>
+    """
     
     # Build pagination HTML
     pagination_html = ""
@@ -3708,45 +3783,11 @@ def data_issues_table(request):
         """
     
     return JsonResponse({
-        'html': ''.join(rows_html),
+        'html': table_html,
         'pagination_html': pagination_html,
         'total_count': paginator.count,
         'page': page_obj.number,
         'num_pages': paginator.num_pages
-    })
-        pagination_html = f"""
-            <div class="flex items-center justify-between px-6 py-3 bg-gray-50">
-                <div class="text-sm text-gray-700">
-                    Showing {page_obj.start_index()} to {page_obj.end_index()} of {paginator.count} results
-                </div>
-                <div class="flex space-x-1">
-        """
-        
-        if page_obj.has_previous():
-            pagination_html += f"""
-                <button onclick="contributeManager.loadPage({page_obj.previous_page_number()})" 
-                        class="px-3 py-1 rounded-md bg-white border border-gray-300 text-sm text-gray-700 hover:bg-gray-50">
-                    Previous
-                </button>
-            """
-        
-        if page_obj.has_next():
-            pagination_html += f"""
-                <button onclick="contributeManager.loadPage({page_obj.next_page_number()})" 
-                        class="px-3 py-1 rounded-md bg-white border border-gray-300 text-sm text-gray-700 hover:bg-gray-50">
-                    Next
-                </button>
-            """
-        
-        pagination_html += """
-                </div>
-            </div>
-        """
-    
-    return JsonResponse({
-        'html': ''.join(rows_html),
-        'pagination_html': pagination_html,
-        'total_count': paginator.count
     })
 
 def submit_contribution(request):
