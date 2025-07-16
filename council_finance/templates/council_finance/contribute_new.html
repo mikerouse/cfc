@@ -498,6 +498,11 @@ class ContributeManager {
     }
   }
   
+  loadPage(page) {
+    this.currentPage = page;
+    this.loadData();
+  }
+  
   goToPage(page) {
     this.currentPage = page;
     this.loadData();
@@ -727,6 +732,11 @@ class ContributeManager {
           
           editValueSelect.focus();
         }
+      } else if (resp.status === 400) {
+        // Field is not a list type, keep text input
+        console.log(`Field ${fieldSlug} is not a list type, using text input`);
+      } else {
+        console.error(`Failed to load field options for ${fieldSlug}: ${resp.status}`);
       }
     } catch (error) {
       console.error('Failed to load field options:', error);
