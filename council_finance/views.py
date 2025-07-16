@@ -19,6 +19,7 @@ from django.template.loader import render_to_string
 from django.urls import reverse
 from django.core import signing
 from django.views.decorators.http import require_GET, require_POST
+from django.core.exceptions import ValidationError
 
 import ast
 import csv
@@ -2054,21 +2055,111 @@ def review_contribution(request, pk, action):
 # Field management views
 def field_list(request):
     """List all data fields for management."""
-    # TODO: Implement field list with proper models
-    return render(request, "council_finance/field_list.html", {"fields": []})
+    if not request.user.is_authenticated:
+        return redirect('login')
+    
+    # Get all fields grouped by category
+    fields = DataField.objects.all().prefetch_related('council_types').order_by('category', 'name')
+    
+    # Get all available categories for grouping
+    categories = DataField.FIELD_CATEGORIES
+    
+    context = {
+        'title': 'Fields & Characteristics Manager',
+        'fields': fields,
+        'categories': categories,
+    }
+    
+    log_activity(
+        request,
+        activity="field_list_view",
+        action="viewed field management page",
+        extra={'field_count': fields.count()}
+    )
+    
+    return render(request, "council_finance/field_list.html", context)
 
 
 def field_form(request, slug=None):
     """Create or edit a data field."""
-    # TODO: Implement field form with proper models
-    return render(request, "council_finance/field_form.html", {"slug": slug})
+    if not request.user.is_authenticated:
+        return redirect('login')
+    
+    # Determine if we're editing or creating
+    field = None
+    is_edit = False
+    if slug:
+        field = get_object_or_404(DataField, slug=slug)
+        is_edit = True
+    
+    if request.method == 'POST':
+        form = DataFieldForm(request.POST, instance=field)
+        if form.is_valid():
+            field = form.save()
+            
+            action = "updated" if is_edit else "created"
+            messages.success(request, f'Field "{field.name}" {action} successfully.')
+            
+            log_activity(
+                request,
+                activity="field_form",
+                action=f"{action} field: {field.slug}",
+                extra={'field_name': field.name, 'field_category': field.category}
+            )
+            
+            return redirect('field_list')
+    else:
+        form = DataFieldForm(instance=field)
+    
+    context = {
+        'title': f'{"Edit" if is_edit else "Add"} Field',
+        'form': form,
+        'field': field,
+        'is_edit': is_edit,
+    }
+    
+    return render(request, "council_finance/field_form.html", context)
 
 
 def field_delete(request, slug):
     """Delete a data field."""
-    from django.http import JsonResponse
-    # TODO: Implement field deletion
-    return JsonResponse({"status": "success", "message": "Field deleted"})
+    if not request.user.is_authenticated:
+        return redirect('login')
+    
+    field = get_object_or_404(DataField, slug=slug)
+    
+    # Check if field is protected
+    if field.is_protected:
+        messages.error(request, f'Field "{field.name}" is protected and cannot be deleted.')
+        return redirect('field_list')
+    
+    if request.method == 'POST':
+        try:
+            field_name = field.name
+            field.delete()
+            messages.success(request, f'Field "{field_name}" deleted successfully.')
+            
+            log_activity(
+                request,
+                activity="field_delete",
+                action=f"deleted field: {slug}",
+                extra={'field_name': field_name}
+            )
+            
+            return JsonResponse({"status": "success", "message": f"Field '{field_name}' deleted successfully"})
+        except ValidationError as e:
+            return JsonResponse({"status": "error", "message": str(e)}, status=400)
+        except Exception as e:
+            logger.error(f"Error deleting field {slug}: {str(e)}")
+            return JsonResponse({"status": "error", "message": "An error occurred while deleting the field"}, status=500)
+    
+    # For GET requests, show confirmation page
+    context = {
+        'title': f'Delete Field: {field.name}',
+        'field': field,
+    }
+    
+    return render(request, "council_finance/field_delete.html", context)
 
 
 def factoid_list(request):
