@@ -7,6 +7,21 @@ Coding standards, domain knowledge, and preferences that AI should follow.
 
 Read the AGENTS.md file for detailed instructions.
 
+## Creator's rules
+
+- We care about comments. There should be useful and descriptive comments.
+- We care about helpers in the UI for the benefit of users.
+- We care about realtime and live data using websockets or polling.
+- We care about taking a holistic app-wide view - this means if we adjust functionality that affects one place we look around the app to see where else might be affected and act accordingly.
+- We prioritise the user experience and ease-of-use. That means we do not use things like alert() we use modals instead.
+- We care about accessibility, but not when it compromises design. We should do both.
+- We log, log, log.
+- We like loading indicators and progress indicators.
+- We like verbose status and debugging information.
+- We delete old work and replace it with better.
+- We don't do stub implementations, we do things properly.
+- We build with the future in mind.
+
 # Council Finance Counters V3 Instructions
 
 ## 🧪 Testing

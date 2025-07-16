@@ -21,7 +21,7 @@ The emphasis is on 'visually striking' ways to show the data using counters and 
 - Emphasise maintainability, extensibility and portability.
 - Search tools should work as live or predictive features - show the results as the user types a couple or few letters, and allow the user to choose the result they want from a drop-down, which can be enriched with shortcut links or buttons depending upon what context the search is used within. 
 
-## Things the creator cares about:
+## Creator's rules
 
 - We care about comments. There should be useful and descriptive comments.
 - We care about helpers in the UI for the benefit of users.
@@ -30,16 +30,15 @@ The emphasis is on 'visually striking' ways to show the data using counters and 
 - We prioritise the user experience and ease-of-use. That means we do not use things like alert() we use modals instead.
 - We care about accessibility, but not when it compromises design. We should do both.
 - We log, log, log.
-
-## Things the create does NOT care about
-
-- Loading indicators and progress indicators
-- Verbose status and debugging information
-- Deleting old work and replacing it with better
+- We like loading indicators and progress indicators.
+- We like verbose status and debugging information.
+- We delete old work and replace it with better.
+- We don't do stub implementations, we do things properly.
+- We build with the future in mind.
 
 ## OpenAI Integration
 
-- The app will integrate with OpenAI to use models to extract data from provided PDFs
+- The app will integrate with OpenAI to use models to extract data from provided PDFs.
 
 ## Migrating from WordPress Plugin to Django Agent Architecture
 
