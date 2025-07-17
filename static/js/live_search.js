@@ -16,6 +16,7 @@
         setupSearch();
         setupKeyboardShortcuts();
         setupNotifications();
+        setupGodModeDropdown();
     });
 
     function setupSearch() {
@@ -452,6 +453,50 @@
         const div = document.createElement('div');
         div.textContent = text;
         return div.innerHTML;
+    }
+
+    function setupGodModeDropdown() {
+        const godModeToggle = document.getElementById('god-mode-toggle');
+        const godModeMenu = document.getElementById('god-mode-menu');
+
+        if (godModeToggle && godModeMenu) {
+            // Toggle God Mode dropdown
+            godModeToggle.addEventListener('click', function(e) {
+                e.stopPropagation();
+                godModeMenu.classList.toggle('hidden');
+                
+                // Update aria-expanded
+                const isExpanded = !godModeMenu.classList.contains('hidden');
+                godModeToggle.setAttribute('aria-expanded', isExpanded);
+                
+                // Close other dropdowns
+                const notifMenu = document.getElementById('notif-menu');
+                if (notifMenu && isExpanded) {
+                    notifMenu.classList.add('hidden');
+                }
+                
+                if (isExpanded) {
+                    hideResults();
+                }
+            });
+
+            // Close dropdown when clicking outside
+            document.addEventListener('click', function(e) {
+                if (!godModeToggle.contains(e.target) && !godModeMenu.contains(e.target)) {
+                    godModeMenu.classList.add('hidden');
+                    godModeToggle.setAttribute('aria-expanded', 'false');
+                }
+            });
+
+            // Close dropdown when pressing Escape
+            document.addEventListener('keydown', function(e) {
+                if (e.key === 'Escape' && !godModeMenu.classList.contains('hidden')) {
+                    godModeMenu.classList.add('hidden');
+                    godModeToggle.setAttribute('aria-expanded', 'false');
+                    godModeToggle.focus();
+                }
+            });
+        }
     }
 
     function getCsrfToken() {
