@@ -255,11 +255,27 @@ document.addEventListener('DOMContentLoaded', function() {
         loadingSpinner.style.display = 'inline-block';
         this.disabled = true;
         
-        fetch(`/compare/row/?field=${fieldSlug}`)
-            .then(response => response.json())
+        fetch(`/compare/row/?field=${fieldSlug}`, {
+            method: 'GET',
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest',
+                'Accept': 'application/json',
+            }
+        })
+            .then(response => {
+                console.log('Response received:', response);
+                console.log('Response status:', response.status);
+                console.log('Response headers:', response.headers);
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                return response.json();
+            })
             .then(data => {
+                console.log('Data parsed:', data);
                 if (data.status === 'success') {
                     // Add new row to table
+                    console.log('Adding HTML:', data.html);
                     compareRows.insertAdjacentHTML('beforeend', data.html);
                     
                     // Remove the field from dropdown to prevent duplicates
@@ -269,11 +285,18 @@ document.addEventListener('DOMContentLoaded', function() {
                     // Show success message briefly
                     showMessage(`Added ${data.field_name} to comparison`, 'success');
                 } else {
+                    console.error('Server returned error:', data);
                     showMessage(data.message || 'Error adding field', 'error');
                 }
             })
             .catch(error => {
-                console.error('Error:', error);
+                console.error('Fetch error:', error);
+                // Check if error has response text
+                if (error.response) {
+                    error.response.text().then(text => {
+                        console.error('Error response text:', text);
+                    });
+                }
                 showMessage('Error adding field to comparison', 'error');
             })
             .finally(() => {

@@ -2397,11 +2397,18 @@ def compare_row(request):
         'summary': summary
     })
     
+    # Clean up the HTML to prevent JSON issues
+    row_html = row_html.strip()
+    
+    # Temporary debug: let's see if the issue is with the HTML content
+    if not row_html or '<tr' not in row_html:
+        row_html = f'<tr><td colspan="100%">DEBUG: Template render failed or invalid HTML. Field: {field.name}</td></tr>'
+    
     return JsonResponse({
         "status": "success", 
         "html": row_html,
         "field_name": field.name
-    })
+    }, json_dumps_params={'ensure_ascii': False})
 
 
 def compare_basket(request):
