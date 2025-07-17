@@ -242,18 +242,26 @@ document.addEventListener('DOMContentLoaded', function() {
     // Add field to comparison
     fieldSelect.addEventListener('change', function() {
         const fieldSlug = this.value;
+        const selectElement = this; // Store reference for use in promises
+        
         if (!fieldSlug) return;
         
-        // Check if field is already added
-        if (document.querySelector(`[data-field="${fieldSlug}"]`)) {
+        console.log('Attempting to add field:', fieldSlug);
+        
+        // Check if field is already added - be more thorough
+        const existingRows = document.querySelectorAll(`[data-field="${fieldSlug}"]`);
+        console.log('Existing rows found:', existingRows.length);
+        
+        if (existingRows.length > 0) {
+            console.log('Field already exists, aborting');
             showMessage('Field is already in comparison', 'info');
-            this.value = '';
+            selectElement.value = '';
             return;
         }
         
         // Show loading
         loadingSpinner.style.display = 'inline-block';
-        this.disabled = true;
+        selectElement.disabled = true;
         
         // Add loading row temporarily
         const loadingRow = document.createElement('tr');
@@ -300,14 +308,33 @@ document.addEventListener('DOMContentLoaded', function() {
                 
                 // Safety check - make sure we have valid HTML
                 if (htmlContent.trim().startsWith('<tr') && htmlContent.includes('</tr>')) {
-                    compareRows.insertAdjacentHTML('beforeend', htmlContent);
+                    // Double check for duplicates before adding
+                    const existingAfterLoad = document.querySelectorAll(`[data-field="${fieldSlug}"]`);
+                    console.log('Existing rows after load check:', existingAfterLoad.length);
                     
-                    // Remove the field from dropdown to prevent duplicates
-                    this.querySelector(`option[value="${fieldSlug}"]`).remove();
-                    this.value = '';
-                    
-                    // Show success message briefly
-                    showMessage(`Added field to comparison`, 'success');
+                    if (existingAfterLoad.length > 0) {
+                        console.log('Duplicate detected after load, skipping insertion');
+                        showMessage('Field was already added', 'info');
+                    } else {
+                        console.log('Adding row to DOM');
+                        compareRows.insertAdjacentHTML('beforeend', htmlContent);
+                        
+                        // Verify it was added and remove option
+                        const newRow = document.querySelector(`[data-field="${fieldSlug}"]`);
+                        if (newRow) {
+                            console.log('Row successfully added, removing option from dropdown');
+                            const optionToRemove = selectElement.querySelector(`option[value="${fieldSlug}"]`);
+                            if (optionToRemove) {
+                                optionToRemove.remove();
+                                console.log('Option removed from dropdown');
+                            }
+                            selectElement.value = '';
+                            showMessage(`Added field to comparison`, 'success');
+                        } else {
+                            console.error('Row was not found after insertion');
+                            showMessage('Error adding field - row not found', 'error');
+                        }
+                    }
                 } else if (htmlContent.startsWith('ERROR:')) {
                     console.error('Server error:', htmlContent);
                     showMessage(htmlContent, 'error');
@@ -329,7 +356,7 @@ document.addEventListener('DOMContentLoaded', function() {
             })
             .finally(() => {
                 loadingSpinner.style.display = 'none';
-                this.disabled = false;
+                selectElement.disabled = false;
             });
     });
     
