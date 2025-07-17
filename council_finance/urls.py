@@ -34,6 +34,8 @@ urlpatterns = [
         name="confirm_profile_change",
     ),
     path("accounts/notifications/", views.notifications_page, name="notifications"),
+    path("notifications/mark-all-read/", views.mark_all_notifications_read, name="mark_all_notifications_read"),
+    path("notifications/<int:notification_id>/mark-read/", views.mark_notification_read, name="mark_notification_read"),
     path(
         "accounts/notifications/dismiss/<int:notification_id>/",
         views.dismiss_notification,

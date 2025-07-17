@@ -2060,8 +2060,41 @@ def confirm_profile_change(request, token):
 
 def notifications_page(request):
     """Notifications page"""
-    from django.http import HttpResponse
-    return HttpResponse("Notifications - Not implemented yet")
+    if not request.user.is_authenticated:
+        return redirect('login')
+    
+    notifications = request.user.notifications.all().order_by('-created')[:20]
+    return render(request, 'notifications.html', {
+        'notifications': notifications
+    })
+
+
+@require_POST
+def mark_notification_read(request, notification_id):
+    """Mark a single notification as read"""
+    if not request.user.is_authenticated:
+        return JsonResponse({'success': False, 'error': 'Authentication required'})
+    
+    try:
+        notification = request.user.notifications.get(id=notification_id)
+        notification.read = True
+        notification.save()
+        return JsonResponse({'success': True})
+    except:
+        return JsonResponse({'success': False, 'error': 'Notification not found'})
+
+
+@require_POST
+def mark_all_notifications_read(request):
+    """Mark all notifications as read"""
+    if not request.user.is_authenticated:
+        return JsonResponse({'success': False, 'error': 'Authentication required'})
+    
+    try:
+        request.user.notifications.filter(read=False).update(read=True)
+        return JsonResponse({'success': True})
+    except:
+        return JsonResponse({'success': False, 'error': 'Failed to update notifications'})
 
 def council_counters(request, slug):
     """Display counters for a specific council as JSON or HTML."""

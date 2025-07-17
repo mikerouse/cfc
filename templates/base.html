@@ -27,93 +27,303 @@
 <body class="flex flex-col min-h-screen bg-gray-50 {{ accessibility_classes }}" 
       style="font-family: var(--font-family-primary); font-size: var(--font-size-base);" 
       {% if debug %}data-debug="true"{% endif %}>
-    <!-- Site header with brand, navigation and search -->
-    <header class="bg-gray-800 text-white">
-        <div class="max-w-7xl mx-auto flex flex-wrap items-center justify-between p-5">
-            <a href="{% url 'home' %}" class="text-xl font-bold">Council Finance Counters</a>
-            {# Primary navigation is now simplified to just search and icons. #}
-            <!-- Search form to look up councils -->
-            <div class="relative mt-2 sm:mt-0">
-                <form method="get" action="{% url 'home' %}">
-                    <input id="live-search-input" type="text" name="q" placeholder="find your council" class="rounded px-2 py-1 text-black w-72" autocomplete="off" />
-                </form>
-                <div id="live-search-results" class="absolute bg-white text-black border rounded w-full sm:w-48 mt-1 hidden z-50"></div>
-            </div>
-            <div class="flex items-center gap-2">
-            {% if user.is_authenticated %}
-            {% unread_count as unread_count %}
-                <div class="relative pt-2" id="notif-wrapper">
-                    <button id="notif-toggle" class="ml-2" aria-label="Notifications">
-                        <!-- Simple bell icon -->
-                        <svg class="w-6 h-6 fill-current" viewBox="0 0 24 24">
-                            <path d="M12 2a6 6 0 0 0-6 6v3.586l-.707.707A1 1 0 0 0 6 14h12a1 1 0 0 0 .707-1.707L18 11.586V8a6 6 0 0 0-6-6zM5 15a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2H5zm7 7a3 3 0 0 0 3-3H9a3 3 0 0 0 3 3z"/>
-                        </svg>
-                        {% if unread_count %}
-                        <span class="absolute top-0 right-0 block h-2 w-2 rounded-full bg-red-600"></span>
-                        {% endif %}
-                    </button>
-                    <div id="notif-menu" class="hidden absolute right-0 mt-2 w-72 bg-white text-black border rounded shadow-lg z-50">
-                        {% profile_progress as progress %}
-                        <div class="p-2 border-b">
-                            <p class="text-sm mb-1">Profile completion: {{ progress }}%</p>
-                            <div class="w-full bg-gray-200 rounded h-2">
-                                <div class="bg-green-500 h-2 rounded" style="width: {{ progress }}%;"></div>
-                            </div>
+    <!-- Modern site header with enhanced search and notifications -->
+    <header class="bg-gradient-to-r from-gray-800 to-gray-900 text-white shadow-lg relative z-40">
+        <div class="max-w-7xl mx-auto">
+            <!-- Main header row -->
+            <div class="flex items-center justify-between p-4">
+                <!-- Brand -->
+                <div class="flex items-center space-x-4">
+                    <a href="{% url 'home' %}" class="flex items-center space-x-2 group">
+                        <div class="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center group-hover:bg-blue-500 transition-colors">
+                            <svg class="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 20 20">
+                                <path d="M4 4a2 2 0 00-2 2v1h16V6a2 2 0 00-2-2H4zM18 9H2v5a2 2 0 002 2h12a2 2 0 002-2V9zM4 13a1 1 0 011-1h1a1 1 0 110 2H5a1 1 0 01-1-1zm5-1a1 1 0 100 2h1a1 1 0 100-2H9z"/>
+                            </svg>
                         </div>
-                        {% recent_notifications 5 as notes %}
-                        {% for note in notes %}
-                        <div class="p-2 border-b {% if not note.read %}bg-gray-100{% endif %}">
-                            {# Notification messages may contain links, so mark as safe #}
-                            <p class="text-sm">{{ note.message|safe }}</p>
-                            <p class="text-xs text-gray-500">{{ note.created|date:'SHORT_DATETIME_FORMAT' }}</p>
+                        <span class="text-xl font-bold bg-gradient-to-r from-white to-gray-200 bg-clip-text text-transparent">
+                            Council Finance Counters
+                        </span>
+                    </a>
+                </div>
+
+                <!-- Enhanced Search -->
+                <div class="flex-1 max-w-2xl mx-8 relative">
+                    <div class="relative group">
+                        <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                            <svg class="h-5 w-5 text-gray-400 group-focus-within:text-blue-400 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+                            </svg>
                         </div>
-                        {% empty %}
-                        <p class="p-2 text-sm">No notifications.</p>
-                        {% endfor %}
-                        <div class="text-right p-2">
-                            <a href="{% url 'notifications' %}" class="text-blue-600 underline">View all</a>
+                        <input 
+                            id="live-search-input" 
+                            type="text" 
+                            name="q" 
+                            placeholder="Search councils by name, type, or location..."
+                            class="block w-full pl-10 pr-12 py-3 bg-gray-700/50 border border-gray-600 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent focus:bg-gray-700 transition-all duration-200 backdrop-blur-sm"
+                            autocomplete="off"
+                        />
+                        <div class="absolute inset-y-0 right-0 pr-3 flex items-center">
+                            <kbd class="hidden sm:inline-flex items-center px-2 py-1 bg-gray-800 border border-gray-600 rounded text-xs text-gray-400">⌘K</kbd>
+                        </div>
+                    </div>
+                    
+                    <!-- Enhanced Search Results -->
+                    <div id="live-search-results" class="absolute top-full left-0 right-0 mt-2 bg-white rounded-xl shadow-2xl border border-gray-200 hidden z-50 overflow-hidden">
+                        <div class="max-h-96 overflow-y-auto">
+                            <!-- Results will be populated here -->
                         </div>
                     </div>
                 </div>
-            {% endif %}
-            <div class="relative pt-2" id="basket-wrapper">
-                <a href="{% url 'compare_basket' %}" aria-label="Comparison basket" class="relative block">
-                    <svg class="w-6 h-6 fill-current" viewBox="0 0 24 24">
-                        <path d="M6 6h15l-1.5 9h-12zM5 6l-1 2h2l.6-1.2L7 6H5zM9 21a1 1 0 100-2 1 1 0 000 2zm8 0a1 1 0 100-2 1 1 0 000 2z"/>
-                    </svg>
-                    {% if compare_count %}
-                    <span id="basket-count" class="absolute -top-1 -right-1 bg-red-600 text-white text-xs rounded-full px-1">{{ compare_count }}</span>
-                    {% else %}
-                    <span id="basket-count" class="hidden absolute -top-1 -right-1 bg-red-600 text-white text-xs rounded-full px-1"></span>
+
+                <!-- Right side icons -->
+                <div class="flex items-center space-x-4">
+                    {% if user.is_authenticated %}
+                    <!-- Enhanced Notifications -->
+                    {% unread_count as unread_count %}
+                    <div class="relative" id="notif-wrapper">
+                        <button 
+                            id="notif-toggle" 
+                            class="relative p-2 bg-gray-700 hover:bg-gray-600 rounded-lg transition-all duration-200 group focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            aria-label="Notifications"
+                        >
+                            <svg class="w-6 h-6 text-gray-300 group-hover:text-white transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/>
+                            </svg>
+                            {% if unread_count %}
+                            <span class="absolute -top-1 -right-1 h-5 w-5 bg-red-500 rounded-full flex items-center justify-center text-xs font-bold text-white animate-pulse">
+                                {{ unread_count|default:"" }}
+                            </span>
+                            {% endif %}
+                        </button>
+
+                        <!-- Enhanced Notification Dropdown -->
+                        <div id="notif-menu" class="absolute right-0 mt-2 w-96 bg-white rounded-xl shadow-2xl border border-gray-200 hidden z-50 overflow-hidden">
+                            <!-- Header -->
+                            <div class="bg-gradient-to-r from-blue-50 to-indigo-50 px-6 py-4 border-b border-gray-200">
+                                <div class="flex items-center justify-between">
+                                    <h3 class="text-lg font-semibold text-gray-900">Notifications</h3>
+                                    {% if unread_count %}
+                                    <button id="mark-all-read" class="text-sm text-blue-600 hover:text-blue-800 font-medium">
+                                        Mark all read
+                                    </button>
+                                    {% endif %}
+                                </div>
+                            </div>
+
+                            <!-- Profile Progress -->
+                            {% profile_progress as progress %}
+                            <div class="px-6 py-4 bg-gradient-to-r from-green-50 to-emerald-50 border-b border-gray-100">
+                                <div class="flex items-center justify-between mb-2">
+                                    <span class="text-sm font-medium text-gray-700">Profile Completion</span>
+                                    <span class="text-sm font-bold text-green-600">{{ progress }}%</span>
+                                </div>
+                                <div class="w-full bg-gray-200 rounded-full h-2">
+                                    <div class="bg-gradient-to-r from-green-500 to-emerald-500 h-2 rounded-full transition-all duration-500" style="width: {{ progress }}%;"></div>
+                                </div>
+                            </div>
+
+                            <!-- Notifications List -->
+                            <div class="max-h-80 overflow-y-auto">
+                                {% recent_notifications 5 as notes %}
+                                {% for note in notes %}
+                                <div class="notification-item px-6 py-4 border-b border-gray-100 hover:bg-gray-50 transition-colors cursor-pointer {% if not note.read %}bg-blue-50 border-l-4 border-l-blue-500{% endif %}" 
+                                     data-notification-id="{{ note.id }}"
+                                     data-read="{{ note.read|yesno:'true,false' }}">
+                                    <div class="flex items-start space-x-3">
+                                        <!-- Notification Icon -->
+                                        <div class="flex-shrink-0 mt-1">
+                                            {% if 'contribution' in note.message|lower %}
+                                                <div class="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
+                                                    <svg class="w-4 h-4 text-blue-600" fill="currentColor" viewBox="0 0 20 20">
+                                                        <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/>
+                                                    </svg>
+                                                </div>
+                                            {% elif 'points' in note.message|lower %}
+                                                <div class="w-8 h-8 bg-yellow-100 rounded-full flex items-center justify-center">
+                                                    <svg class="w-4 h-4 text-yellow-600" fill="currentColor" viewBox="0 0 20 20">
+                                                        <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/>
+                                                    </svg>
+                                                </div>
+                                            {% else %}
+                                                <div class="w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center">
+                                                    <svg class="w-4 h-4 text-gray-600" fill="currentColor" viewBox="0 0 20 20">
+                                                        <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"/>
+                                                    </svg>
+                                                </div>
+                                            {% endif %}
+                                        </div>
+                                        
+                                        <div class="flex-1 min-w-0">
+                                            <p class="text-sm text-gray-900 mb-1">{{ note.message|safe }}</p>
+                                            <p class="text-xs text-gray-500 flex items-center">
+                                                <svg class="w-3 h-3 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                                                </svg>
+                                                {{ note.created|timesince }} ago
+                                            </p>
+                                        </div>
+                                        
+                                        {% if not note.read %}
+                                        <div class="flex-shrink-0">
+                                            <div class="w-2 h-2 bg-blue-500 rounded-full"></div>
+                                        </div>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                                {% empty %}
+                                <div class="px-6 py-8 text-center">
+                                    <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4"/>
+                                    </svg>
+                                    <h3 class="mt-2 text-sm font-medium text-gray-900">No notifications</h3>
+                                    <p class="mt-1 text-sm text-gray-500">You're all caught up!</p>
+                                </div>
+                                {% endfor %}
+                            </div>
+
+                            <!-- Footer -->
+                            <div class="px-6 py-3 bg-gray-50 border-t border-gray-200">
+                                <a href="{% url 'notifications' %}" class="text-sm text-blue-600 hover:text-blue-800 font-medium flex items-center justify-center">
+                                    View all notifications
+                                    <svg class="ml-1 w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+                                    </svg>
+                                </a>
+                            </div>
+                        </div>
+                    </div>
                     {% endif %}
-                </a>
+
+                    <!-- Comparison Basket -->
+                    <div class="relative">
+                        <a href="{% url 'compare_basket' %}" 
+                           class="relative p-2 bg-gray-700 hover:bg-gray-600 rounded-lg transition-all duration-200 group focus:outline-none focus:ring-2 focus:ring-blue-500"
+                           aria-label="Comparison basket">
+                            <svg class="w-6 h-6 text-gray-300 group-hover:text-white transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4m0 0L7 13m0 0l-2.293 2.293a1 1 0 000 1.414L6 18h12M7 13v8a2 2 0 002 2h6a2 2 0 002-2v-8"/>
+                            </svg>
+                            {% if compare_count %}
+                            <span class="absolute -top-1 -right-1 h-5 w-5 bg-green-500 rounded-full flex items-center justify-center text-xs font-bold text-white">
+                                {{ compare_count }}
+                            </span>
+                            {% else %}
+                            <span id="basket-count" class="hidden absolute -top-1 -right-1 h-5 w-5 bg-green-500 rounded-full flex items-center justify-center text-xs font-bold text-white"></span>
+                            {% endif %}
+                        </a>
+                    </div>
+
+                    <!-- User Menu -->
+                    {% if user.is_authenticated %}
+                    <div class="relative" id="user-menu">
+                        <button class="flex items-center space-x-2 p-2 bg-gray-700 hover:bg-gray-600 rounded-lg transition-all duration-200 group focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            <div class="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white font-semibold text-sm">
+                                {{ user.first_name.0|default:user.username.0|upper }}
+                            </div>
+                            <svg class="w-4 h-4 text-gray-400 group-hover:text-white transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                            </svg>
+                        </button>
+                    </div>
+                    {% else %}
+                    <a href="{% url 'login' %}" class="bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded-lg font-medium transition-colors">
+                        Sign In
+                    </a>
+                    {% endif %}
+                </div>
             </div>
+
+            <!-- Navigation Bar -->
+            <div class="bg-gray-700/50 backdrop-blur-sm border-t border-gray-600">
+                <nav class="flex items-center space-x-8 px-4 py-3 overflow-x-auto">
+                    <a href="{% url 'home' %}" class="flex items-center space-x-2 text-gray-300 hover:text-white transition-colors whitespace-nowrap">
+                        <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                            <path d="M10.707 2.293a1 1 0 00-1.414 0l-7 7a1 1 0 001.414 1.414L4 10.414V17a1 1 0 001 1h2a1 1 0 001-1v-2a1 1 0 011-1h2a1 1 0 011 1v2a1 1 0 001 1h2a1 1 0 001-1v-6.586l.293.293a1 1 0 001.414-1.414l-7-7z"/>
+                        </svg>
+                        <span>Home</span>
+                    </a>
+                    
+                    <a href="{% url 'leaderboards' %}" class="flex items-center space-x-2 text-gray-300 hover:text-white transition-colors whitespace-nowrap">
+                        <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                            <path d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z"/>
+                        </svg>
+                        <span>Leaderboards</span>
+                    </a>
+
+                    {% if user.is_authenticated %}
+                    <a href="{% url 'my_lists' %}" class="flex items-center space-x-2 text-gray-300 hover:text-white transition-colors whitespace-nowrap">
+                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"/>
+                        </svg>
+                        <span>My Lists</span>
+                    </a>
+
+                    <a href="{% url 'following' %}" class="flex items-center space-x-2 text-gray-300 hover:text-white transition-colors whitespace-nowrap">
+                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/>
+                        </svg>
+                        <span>Following</span>
+                    </a>
+                    {% endif %}
+
+                    <a href="{% url 'contribute' %}" class="flex items-center space-x-2 text-gray-300 hover:text-white transition-colors whitespace-nowrap">
+                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/>
+                        </svg>
+                        <span>Contribute</span>
+                    </a>
+
+                    {% if user.is_authenticated %}
+                    <a href="{% url 'profile' %}" class="flex items-center space-x-2 text-gray-300 hover:text-white transition-colors whitespace-nowrap">
+                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
+                        </svg>
+                        <span>Profile</span>
+                    </a>
+                    {% endif %}
+
+                    {% if user.is_superuser or user.profile.tier.level|default:0 >= 4 %}
+                    <div class="h-4 border-l border-gray-600"></div>
+                    
+                    <a href="{% url 'counter_definitions' %}" class="flex items-center space-x-2 text-gray-300 hover:text-white transition-colors whitespace-nowrap">
+                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
+                        </svg>
+                        <span>Counters</span>
+                    </a>
+
+                    <a href="{% url 'factoid_list' %}" class="flex items-center space-x-2 text-gray-300 hover:text-white transition-colors whitespace-nowrap">
+                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                        </svg>
+                        <span>Factoids</span>
+                    </a>
+
+                    <a href="{% url 'field_list' %}" class="flex items-center space-x-2 text-gray-300 hover:text-white transition-colors whitespace-nowrap">
+                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                        </svg>
+                        <span>Fields</span>
+                    </a>
+                    {% endif %}
+
+                    {% if user.is_superuser or user.profile.tier.level|default:0 >= 5 %}
+                    <a href="{% url 'god_mode' %}" class="flex items-center space-x-2 text-red-400 hover:text-red-300 transition-colors whitespace-nowrap">
+                        <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M2.166 4.999A11.954 11.954 0 0010 1.944 11.954 11.954 0 0017.834 5c.11.65.166 1.32.166 2.001 0 5.225-3.34 9.67-8 11.317C5.34 16.67 2 12.225 2 7c0-.682.057-1.35.166-2.001zm11.541 3.708a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+                        </svg>
+                        <span>God Mode</span>
+                    </a>
+
+                    <a href="{% url 'admin:index' %}" class="flex items-center space-x-2 text-red-400 hover:text-red-300 transition-colors whitespace-nowrap">
+                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/>
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                        </svg>
+                        <span>Admin</span>
+                    </a>
+                    {% endif %}
+                </nav>
             </div>
-        </div>
-        <div class="bg-gray-700 p-3">
-            <nav class="max-w-7xl mx-auto flex flex-wrap gap-4 p-2 pl-5">
-                <a href="{% url 'home' %}" class="hover:underline">Home</a>
-                <a href="{% url 'leaderboards' %}" class="hover:underline">Leaderboards</a>
-                {% if user.is_authenticated %}
-                <a href="{% url 'my_lists' %}" class="hover:underline">My Lists</a>
-                {% endif %}
-                <a href="{% url 'following' %}" class="hover:underline">Following</a>
-                <a href="{% url 'contribute' %}" class="hover:underline">Contribute</a>
-                {% if user.is_authenticated %}
-                <a href="{% url 'profile' %}" class="hover:underline">My Profile</a>
-                {% else %}
-                <a href="{% url 'login' %}" class="hover:underline">Login/Register</a>
-                {% endif %}
-                {% if user.is_superuser or user.profile.tier.level|default:0 >= 4 %}
-                <a href="{% url 'counter_definitions' %}" class="hover:underline">Counters</a>
-                <a href="{% url 'factoid_list' %}" class="hover:underline">Factoids</a>
-                <a href="{% url 'field_list' %}" class="hover:underline">Fields &amp; Characteristics</a>
-                {% endif %}
-                {% if user.is_superuser or user.profile.tier.level|default:0 >= 5 %}
-                <a href="{% url 'god_mode' %}" class="hover:underline">God Mode</a>
-                <a href="{% url 'admin:index' %}" class="hover:underline">Admin</a>
-                {% endif %}
-            </nav>
         </div>
     </header>
     <!-- Shared helpers for live search and numeric entry formatting -->
