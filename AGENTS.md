@@ -36,18 +36,19 @@ The 'Lists' section allows users to create custom lists, similar to how 'wish li
 
 Data and counters can then be applied to the lists, allowing users to see totals such as total debt levels for all councils in a given list. 
 
-## Coding standards and expectations
+## The 'Following' Page 
 
-- Use internal APIs and AJAX or other similar methods to get figures from the system and display them with JavaScript animations.
-- Counters should always be animated using a CountUp method, ensuring each digit is animated, not the whole number or surrounding DIV.
-- Prefer buttons over links, except for the proper names of things.
-- Always provide progress updates and feedback to the user in the UI so they know what's happening and can be assured that actions they have requested have been executed.
-- Write comments around your code to explain what you are doing and more importantly why you are doing it.
-- Decorate code blocks with comments to explain what they do, how they interact, what they depend upon and any other requirements.
-- Adhere to requirements such as spacing and indentations.
-- Prioritise code that can be interrogated by humans more easily than code that is efficient but dense.
-- Emphasise maintainability, extensibility and portability.
-- Search tools should work as live or predictive features - show the results as the user types a couple or few letters, and allow the user to choose the result they want from a drop-down, which can be enriched with shortcut links or buttons depending upon what context the search is used within. 
+Users can 'follow' councils, similar to how people follow accounts on social media websites. This allows them to see updates relating to their followed councils. This can include financial updates, such as new reports being published or new financial information being made available. When contributions are approved they should push an update to the feed. Users can comment on these feed items. Updates to the council's feed on the 'Following' page won't just be restricted to financial updates, but can also include other relevant information such as changes in council leadership, new initiatives, or community events. This helps to keep users engaged and informed about the councils they care about. This also acts as a hook for the council to engage with the platform to let people know what's going on. 
+
+Users can also 'follow' lists, allowing them to see updates relating to the lists they are interested in. This could include new councils being added to a list, changes in the financial figures of councils within a list, or other relevant updates. The 'Following' page is designed to be a central hub for users to stay connected with the councils and lists they care about, providing a personalized feed of updates and information.
+
+Users can also 'follow' individual financial figures, allowing them to see updates and changes to specific financial metrics across all councils. This could include changes in debt levels, budget allocations, or other key financial indicators. By following these figures, users can stay informed about trends and developments in council finances that are of particular interest to them.
+
+Users can also 'follow' specific contributors, allowing them to see updates and contributions made by those users. This could include new data submissions, comments on council pages, or other relevant contributions. By following contributors, users can engage more deeply with the community and stay informed about the work being done by others in the platform.
+
+Users can prioritise which updates they see first, allowing them to customize their feed based on their interests and preferences. This could include options to filter updates by council, list, financial figure, or contributor, ensuring that users can easily find the information that matters most to them. Users can choose to receive notifications about updates to their followed councils, lists, financial figures, or contributors. This could include email notifications, in-app alerts, or push notifications on mobile devices. By providing these options, users can stay informed about the latest developments and contributions in the platform without having to constantly check for updates.
+
+Data and telemetry based on the 'Following' page and interactions therein should be collected to help improve the user experience and trigger algorithm-based features such as which council to promote to the home page. For instance, where a council is suddenly getting a lot of follows, comments or visits we would want to look to promote that council and understand the reason for the attention. For instance, if a council is getting a lot of follows it may be because they are doing something interesting or have recently made a significant change that users want to know more about. This could be a new initiative, a change in leadership, or a significant financial update. By promoting these councils on the home page, we can help users discover new and relevant information that they may not have been aware of otherwise.
 
 ## Creator's rules
 
@@ -63,6 +64,8 @@ Data and counters can then be applied to the lists, allowing users to see totals
 - We delete old work and replace it with better.
 - We don't do stub implementations, we do things properly.
 - We build with the future in mind.
+- We use Tailwind CSS for styling. We do not need to use Bootstrap or any other CSS framework, even if it was used in the past.
+- We do not break other parts of the system when fixing things, and we do not stub things out.
 
 ## OpenAI Integration
 
