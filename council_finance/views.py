@@ -2207,10 +2207,196 @@ def dismiss_notification(request, notification_id):
 
 
 def review_contribution(request, pk, action):
-    """Review a contribution (approve/reject)."""
+    """Review a contribution (approve/reject/delete)."""
     from django.http import JsonResponse
-    # TODO: Implement contribution review logic
-    return JsonResponse({"status": "success", "message": f"Contribution {action}ed"})
+    from django.shortcuts import get_object_or_404
+    from django.db import transaction
+    from django.contrib import messages
+    from django.urls import reverse
+    from .models import Contribution, FigureSubmission
+    
+    # Check permissions
+    if not request.user.is_authenticated:
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return JsonResponse({"error": "Authentication required"}, status=401)
+        return redirect('login')
+    
+    # Get the contribution
+    try:
+        contribution = get_object_or_404(Contribution, pk=pk)
+    except Exception as e:
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return JsonResponse({"error": f"Contribution not found: {str(e)}"}, status=404)
+        messages.error(request, "Contribution not found.")
+        return redirect('contribute')
+    
+    # Check if user has permission to moderate
+    user_can_moderate = request.user.is_superuser
+    
+    # Check if user has a profile with tier (safely handle missing profile)
+    if hasattr(request.user, 'profile') and request.user.profile:
+        try:
+            if hasattr(request.user.profile, 'tier') and request.user.profile.tier:
+                user_can_moderate = user_can_moderate or request.user.profile.tier.level >= 3
+        except Exception:
+            pass  # Safely ignore tier check if profile structure is different
+    
+    if not user_can_moderate:
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return JsonResponse({"error": "Insufficient permissions"}, status=403)
+        messages.error(request, "You don't have permission to moderate contributions.")
+        return redirect('contribute')
+    
+    try:
+        with transaction.atomic():
+            if action == 'approve':
+                contribution.status = 'approved'
+                contribution.save()
+                
+                # Apply the contribution to the actual data
+                success = _apply_contribution(contribution)
+                
+                if success:
+                    # Log the activity
+                    log_activity(
+                        request,
+                        activity="contribution_approved",
+                        action=f"approved contribution for {contribution.council.name} - {contribution.field.name}",
+                        extra={
+                            'contribution_id': contribution.id,
+                            'council': contribution.council.slug,
+                            'field': contribution.field.slug,
+                            'old_value': contribution.old_value,
+                            'new_value': contribution.value
+                        }
+                    )
+                    
+                    message = f"Contribution approved and applied successfully"
+                else:
+                    message = f"Contribution approved but failed to apply changes"
+                    
+            elif action == 'reject':
+                contribution.status = 'rejected'
+                contribution.save()
+                
+                log_activity(
+                    request,
+                    activity="contribution_rejected",
+                    action=f"rejected contribution for {contribution.council.name} - {contribution.field.name}",
+                    extra={
+                        'contribution_id': contribution.id,
+                        'council': contribution.council.slug,
+                        'field': contribution.field.slug,
+                        'reason': request.POST.get('reason', 'No reason provided')
+                    }
+                )
+                
+                message = f"Contribution rejected successfully"
+                
+            elif action == 'delete':
+                # Only superusers can delete for now (simplified permission check)
+                if not request.user.is_superuser:
+                    if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                        return JsonResponse({"error": "Insufficient permissions to delete"}, status=403)
+                    messages.error(request, "You don't have permission to delete contributions.")
+                    return redirect('contribute')
+                
+                log_activity(
+                    request,
+                    activity="contribution_deleted",
+                    action=f"deleted contribution for {contribution.council.name} - {contribution.field.name}",
+                    extra={
+                        'contribution_id': contribution.id,
+                        'council': contribution.council.slug,
+                        'field': contribution.field.slug
+                    }
+                )
+                
+                contribution.delete()
+                message = f"Contribution deleted successfully"
+                
+            else:
+                if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                    return JsonResponse({"error": "Invalid action"}, status=400)
+                messages.error(request, "Invalid action specified.")
+                return redirect('contribute')
+    
+    except Exception as e:
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return JsonResponse({"error": f"Error processing contribution: {str(e)}"}, status=500)
+        messages.error(request, f"Error processing contribution: {str(e)}")
+        return redirect('contribute')
+    
+    # Return appropriate response
+    if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+        return JsonResponse({
+            "status": "success", 
+            "message": message,
+            "action": action
+        })
+    else:
+        messages.success(request, message)
+        return redirect('contribute')
+
+
+def _apply_contribution(contribution):
+    """Apply an approved contribution to the actual data."""
+    try:
+        field = contribution.field
+        council = contribution.council
+        value = contribution.value
+        
+        # Handle different field types
+        if field.slug == "council_website":
+            council.website = value
+            council.save()
+            
+        elif field.slug == "council_type":
+            # Value should be the ID of a CouncilType
+            try:
+                from .models import CouncilType
+                council_type = CouncilType.objects.get(id=int(value))
+                council.council_type = council_type
+                council.save()
+            except (ValueError, CouncilType.DoesNotExist):
+                return False
+                
+        elif field.slug == "council_nation":
+            # Value should be the ID of a CouncilNation
+            try:
+                from .models import CouncilNation
+                council_nation = CouncilNation.objects.get(id=int(value))
+                council.council_nation = council_nation
+                council.save()
+            except (ValueError, CouncilNation.DoesNotExist):
+                return False
+                
+        elif field.slug == "council_name":
+            council.name = value
+            council.save()
+            
+        else:
+            # For other fields, create or update a FigureSubmission
+            from .models import FigureSubmission
+            figure, created = FigureSubmission.objects.get_or_create(
+                council=council,
+                field=field,
+                year=contribution.year,
+                defaults={'value': value}
+            )
+            
+            if not created:
+                figure.value = value
+                figure.save()
+        
+        return True
+        
+    except Exception as e:
+        # Log the error
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.error(f"Failed to apply contribution {contribution.id}: {str(e)}")
+        return False
 
 
 def edit_figures_table(request, slug):
@@ -2821,13 +3007,6 @@ def submit_contribution(request):
         
         messages.error(request, "An error occurred while submitting your contribution. Please try again.")
         return redirect('council_detail', slug=council_slug)
-
-
-def review_contribution(request, pk, action):
-    """Review a contribution."""
-    from django.http import JsonResponse
-    # TODO: Implement contribution review
-    return JsonResponse({"status": "success"})
 
 
 # Field management views

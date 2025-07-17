@@ -98,7 +98,7 @@ class ContributeManager {
     const type = this.typeSelect.value;
     const category = this.categorySelect.value;
     
-    let url = `/contribute/issues/?type=${type}&page=${page}&order=${order}&dir=${dir}&page_size=${pageSize}`;
+    let url = `/contribute/data-issues-table/?type=${type}&page=${page}&order=${order}&dir=${dir}&page_size=${pageSize}`;
     if (q) url += `&q=${encodeURIComponent(q)}`;
     if (category) url += `&category=${category}`;
     if (params.refresh) url += '&refresh=1';
@@ -120,6 +120,7 @@ class ContributeManager {
       this.updateResultsInfo(data);
       this.attachTableHandlers();
       this.attachEditHandlers();
+      this.attachModeratorHandlers(); // Make sure this is called after loading new content
       
     } catch (error) {
       console.error('Failed to load data:', error);
@@ -198,8 +199,8 @@ class ContributeManager {
   }
   
   attachModeratorHandlers() {
-    // Approve buttons
-    document.querySelectorAll('.approve-btn').forEach(btn => {
+    // Approve buttons - scope to the container to find buttons in dynamically loaded content
+    this.container.querySelectorAll('.approve-btn').forEach(btn => {
       btn.addEventListener('click', async (e) => {
         e.preventDefault();
         await this.moderateContribution(btn.dataset.url, 'approve');
@@ -207,47 +208,76 @@ class ContributeManager {
     });
     
     // Reject buttons
-    document.querySelectorAll('.reject-btn').forEach(btn => {
+    this.container.querySelectorAll('.reject-btn').forEach(btn => {
       btn.addEventListener('click', (e) => {
         e.preventDefault();
         // Show reject modal (existing functionality)
-        document.getElementById('reject-form').action = btn.dataset.url;
-        document.getElementById('reject-modal').classList.remove('hidden');
+        const rejectModal = document.getElementById('reject-modal');
+        const rejectForm = document.getElementById('reject-form');
+        if (rejectForm && rejectModal) {
+          rejectForm.action = btn.dataset.url;
+          rejectModal.classList.remove('hidden');
+        } else {
+          // Fallback - just send reject request
+          this.moderateContribution(btn.dataset.url, 'reject');
+        }
       });
     });
     
     // Delete buttons
-    document.querySelectorAll('.delete-btn').forEach(btn => {
+    this.container.querySelectorAll('.delete-btn').forEach(btn => {
       btn.addEventListener('click', (e) => {
         e.preventDefault();
-        // Show delete modal (existing functionality)
-        document.getElementById('delete-form').action = btn.dataset.url;
-        document.getElementById('delete-modal').classList.remove('hidden');
+        if (confirm('Are you sure you want to delete this contribution? This action cannot be undone.')) {
+          this.moderateContribution(btn.dataset.url, 'delete');
+        }
       });
     });
   }
   
   async moderateContribution(url, action) {
     try {
+      const csrfToken = this.getCSRFToken();
+      if (!csrfToken) {
+        throw new Error('CSRF token not found. Please refresh the page.');
+      }
+      
       const resp = await fetch(url, {
         method: 'POST',
         headers: {
           'X-Requested-With': 'XMLHttpRequest',
-          'X-CSRFToken': this.getCSRFToken()
+          'X-CSRFToken': csrfToken,
+          'Content-Type': 'application/x-www-form-urlencoded',
         }
       });
       
-      if (resp.ok) {
-        this.showMessage(`Contribution ${action}d successfully`, 'success');
+      if (!resp.ok) {
+        let errorMsg = `HTTP ${resp.status}: ${resp.statusText}`;
+        try {
+          const errorData = await resp.json();
+          if (errorData.error) {
+            errorMsg = errorData.error;
+          }
+        } catch (e) {
+          // If JSON parsing fails, use the default error message
+        }
+        throw new Error(errorMsg);
+      }
+      
+      const data = await resp.json();
+      
+      if (data.status === 'success') {
+        this.showMessage(data.message || `Contribution ${action}d successfully`, 'success');
+        // Reload the current page data
         this.load({ page: this.container.dataset.page });
         this.loadStats();
         this.loadModeratorPanel();
       } else {
-        throw new Error(`Failed to ${action} contribution`);
+        throw new Error(data.error || `Failed to ${action} contribution`);
       }
     } catch (error) {
       console.error(`Error ${action}ing contribution:`, error);
-      this.showMessage(`Failed to ${action} contribution`, 'error');
+      this.showMessage(`Failed to ${action} contribution: ${error.message}`, 'error');
     }
   }
   
@@ -366,8 +396,26 @@ class ContributeManager {
   }
   
   getCSRFToken() {
-    return document.querySelector('[name=csrfmiddlewaretoken]')?.value || 
-           document.querySelector('meta[name=csrf-token]')?.content || '';
+    // Try multiple ways to get CSRF token
+    let token = document.querySelector('[name=csrfmiddlewaretoken]')?.value;
+    if (!token) {
+      token = document.querySelector('meta[name=csrf-token]')?.content;
+    }
+    if (!token) {
+      // Try to get from cookies
+      const cookies = document.cookie.split(';');
+      for (let cookie of cookies) {
+        const [name, value] = cookie.trim().split('=');
+        if (name === 'csrftoken') {
+          token = value;
+          break;
+        }
+      }
+    }
+    if (!token) {
+      console.warn('CSRF token not found');
+    }
+    return token || '';
   }
 }
 
