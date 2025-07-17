@@ -88,6 +88,10 @@ urlpatterns = [
     path("updates/<int:update_id>/like/", views.like_update, name="like_update"),
     path("updates/<int:update_id>/comment/", views.comment_update, name="comment_update"),
     path("contribute/", views.contribute, name="contribute"),
+    # Enhanced editing API endpoints
+    path("api/field/<slug:field_slug>/info/", views.field_info_api, name="field_info_api"),
+    path("api/council/<slug:council_slug>/recent-activity/", views.council_recent_activity_api, name="council_recent_activity_api"),
+    path("api/council/<slug:council_slug>/recent-activity/<slug:field_slug>/", views.field_recent_activity_api, name="field_recent_activity_api"),
     path("contribute/data-issues-table/", views.data_issues_table, name="data_issues_table"),
     path("contribute/stats/", views.contribute_stats, name="contribute_stats"),
     path("contribute/submit/", views.contribute_submit, name="submit_contribution"),

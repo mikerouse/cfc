@@ -1,0 +1,180 @@
+{% load humanize %}
+<!-- Enhanced Edit Figures Table -->
+<div class="table-responsive">
+  <table class="table table-hover" aria-describedby="figures-help">
+    <caption id="figures-help" class="visually-hidden">Financial figures that can be edited</caption>
+    <thead class="table-light">
+      <tr>
+        <th scope="col" class="text-start">
+          Field
+        </th>
+        <th scope="col" class="text-start">
+          Current Value
+        </th>
+        <th scope="col" class="text-start">
+          Source
+        </th>
+        <th scope="col" class="text-start">
+          Status
+        </th>
+        <th scope="col" class="text-start">
+          Action
+        </th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for fig in figures %}
+        {% with key=fig.field.slug|add:'-'|add:fig.year.id %}
+        <tr data-field="{{ fig.field.slug }}" data-year="{{ fig.year.id }}">
+          <!-- Field Name -->
+          <td>
+            <div class="d-flex align-items-center">
+              <div>
+                <div class="fw-semibold">{{ fig.field.name|capfirst }}</div>
+                {% if fig.field.help_text %}
+                  <small class="text-muted">{{ fig.field.help_text|truncatechars:60 }}</small>
+                {% endif %}
+              </div>
+              <div class="ms-2">
+                <span class="badge 
+                  {% if fig.field.data_type == 'currency' %}bg-success
+                  {% elif fig.field.data_type == 'number' %}bg-primary
+                  {% elif fig.field.data_type == 'text' %}bg-secondary
+                  {% elif fig.field.data_type == 'url' %}bg-info
+                  {% else %}bg-light text-dark{% endif %}">
+                  {{ fig.field.get_data_type_display|default:fig.field.data_type }}
+                </span>
+              </div>
+            </div>
+          </td>
+          
+          <!-- Current Value -->
+          <td>
+            <div>
+              {% if fig.value is not None %}
+                {% if fig.field.data_type == 'currency' %}
+                  <span class="fw-bold text-success">£{{ fig.value|floatformat:0|intcomma }}</span>
+                {% elif fig.field.data_type == 'percentage' %}
+                  <span class="fw-bold text-info">{{ fig.value|floatformat:2 }}%</span>
+                {% elif fig.field.data_type == 'number' %}
+                  <span class="fw-bold text-primary">{{ fig.value|floatformat:0|intcomma }}</span>
+                {% elif fig.field.data_type == 'boolean' %}
+                  {% if fig.value %}
+                    <span class="badge bg-success">Yes</span>
+                  {% else %}
+                    <span class="badge bg-secondary">No</span>
+                  {% endif %}
+                {% else %}
+                  <span class="font-monospace">{{ fig.value }}</span>
+                {% endif %}
+              {% else %}
+                <span class="text-muted fst-italic">No data</span>
+              {% endif %}
+            </div>
+            {% if fig.last_updated %}
+              <small class="text-muted">
+                <i class="bi bi-clock-history"></i> {{ fig.last_updated|timesince }} ago
+              </small>
+            {% endif %}
+          </td>
+          
+          <!-- Source -->
+          <td>
+            <div class="text-muted">
+              {% if fig.source %}
+                <span title="{{ fig.source }}">{{ fig.source|truncatechars:30 }}</span>
+              {% else %}
+                <span class="fst-italic">No source</span>
+              {% endif %}
+            </div>
+          </td>
+          
+          <!-- Status -->
+          <td>
+            {% if key in pending_pairs %}
+              <span class="badge bg-warning">
+                <i class="bi bi-clock"></i> Pending Review
+              </span>
+            {% elif fig.value is not None %}
+              <span class="badge bg-success">
+                <i class="bi bi-check-circle"></i> Complete
+              </span>
+            {% else %}
+              <span class="badge bg-danger">
+                <i class="bi bi-x-circle"></i> Missing
+                {% if fig.field.is_required %}
+                  <small class="ms-1">(Required)</small>
+                {% endif %}
+              </span>
+            {% endif %}
+          </td>
+          
+          <!-- Action -->
+          <td>
+            {% if key in pending_pairs %}
+              <button type="button" disabled class="btn btn-outline-secondary btn-sm">
+                <i class="bi bi-clock"></i> Pending
+              </button>
+            {% else %}
+              <button type="button" 
+                      class="btn {% if fig.value is not None %}btn-outline-primary{% else %}btn-primary{% endif %} btn-sm edit-field-btn"
+                      data-field-slug="{{ fig.field.slug }}"
+                      data-field-name="{{ fig.field.name }}"
+                      data-field-type="{{ fig.field.data_type }}"
+                      data-year-id="{{ fig.year.id }}"
+                      data-current-value="{% if fig.value is not None %}{{ fig.value }}{% endif %}"
+                      data-is-required="{{ fig.field.is_required|yesno:'true,false' }}"
+                      data-help-text="{{ fig.field.help_text|default:'' }}"
+                      data-bs-toggle="tooltip" 
+                      title="{% if fig.value is not None %}Edit{% else %}Add{% endif %} {{ fig.field.name }}">
+                <i class="bi bi-{% if fig.value is not None %}pencil{% else %}plus{% endif %}"></i>
+                {% if fig.value is not None %}Edit{% else %}Add Data{% endif %}
+              </button>
+            {% endif %}
+          </td>
+        </tr>
+        {% endwith %}
+      {% empty %}
+        <tr>
+          <td class="text-center text-muted py-5" colspan="5">
+            <div class="d-flex flex-column align-items-center">
+              <i class="bi bi-file-earmark-text display-1 text-muted mb-3"></i>
+              <h5 class="fw-semibold">No financial data found</h5>
+              <p class="mb-0">Select a different year or add new data</p>
+            </div>
+          </td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<!-- Quick Add Section -->
+{% if not figures %}
+<div class="mt-4 p-4 bg-light border rounded">
+  <div class="d-flex align-items-start gap-3">
+    <div class="bg-primary bg-opacity-10 rounded-circle p-3">
+      <i class="bi bi-plus-circle text-primary fs-4"></i>
+    </div>
+    <div>
+      <h5 class="fw-semibold text-primary mb-2">No Data Available</h5>
+      <p class="text-muted mb-3">This council doesn't have any financial data for the selected year. You can help by adding some!</p>
+      <a href="{% url 'contribute' %}" 
+         class="btn btn-primary">
+        <i class="bi bi-plus-circle me-2"></i>
+        Browse Available Fields
+      </a>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+<script>
+// Initialize tooltips for this table
+document.addEventListener('DOMContentLoaded', function() {
+    var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+    var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+        return new bootstrap.Tooltip(tooltipTriggerEl);
+    });
+});
+</script>

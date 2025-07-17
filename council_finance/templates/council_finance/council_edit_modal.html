@@ -1,0 +1,198 @@
+{% load static %}
+<!-- Enhanced Council Edit Modal - Wikipedia/IMDB Style -->
+<div id="edit-modal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50 hidden" role="dialog" aria-labelledby="modal-title" aria-describedby="modal-description">
+  <div class="relative top-20 mx-auto p-5 border w-11/12 max-w-4xl shadow-lg rounded-md bg-white">
+    <!-- Modal Header -->
+    <div class="flex items-center justify-between border-b pb-4 mb-4">
+      <div>
+        <h3 id="modal-title" class="text-lg font-semibold text-gray-900">
+          Edit <span id="modal-field-name">Field</span> for <span id="modal-council-name">{{ council.name }}</span>
+        </h3>
+        <p id="modal-description" class="text-sm text-gray-600 mt-1">
+          Help improve council transparency by contributing accurate data
+        </p>
+      </div>
+      <button id="close-modal" type="button" class="text-gray-400 hover:text-gray-600 transition-colors" aria-label="Close modal">
+        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+        </svg>
+      </button>
+    </div>
+
+    <!-- Modal Content -->
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <!-- Main Form - Left Side -->
+      <div class="lg:col-span-2">
+        <form id="edit-form" method="post" action="{% url 'submit_contribution' %}">
+          {% csrf_token %}
+          <input type="hidden" name="council" value="{{ council.slug }}">
+          <input type="hidden" id="edit-field" name="field" value="">
+          <input type="hidden" id="edit-year" name="year" value="">
+          
+          <!-- Field Info Card -->
+          <div id="field-info" class="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+            <div class="flex items-start gap-3">
+              <div class="bg-blue-100 rounded-full p-2">
+                <svg class="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                </svg>
+              </div>
+              <div class="flex-1">
+                <h4 class="font-medium text-blue-900" id="field-info-title">Field Information</h4>
+                <p class="text-sm text-blue-700 mt-1" id="field-info-description">Loading field information...</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Value Input Section -->
+          <div class="space-y-4">
+            <div>
+              <label for="contribution-value" class="block text-sm font-medium text-gray-700 mb-2">
+                <span id="input-label">Value</span>
+                <span class="text-red-500">*</span>
+              </label>
+              
+              <!-- Dynamic input will be inserted here -->
+              <div id="input-container">
+                <input type="text" 
+                       id="contribution-value" 
+                       name="value" 
+                       class="block w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                       placeholder="Enter value..." 
+                       required>
+              </div>
+              
+              <!-- Real-time Helper Text -->
+              <div id="input-helper" class="mt-2 text-sm text-gray-600">
+                <div class="flex items-center gap-2">
+                  <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                  </svg>
+                  <span id="helper-text">Please enter a valid value</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Year Selection (for financial data) -->
+            <div id="year-selection" class="hidden">
+              <label for="year-select" class="block text-sm font-medium text-gray-700 mb-2">
+                Financial Year
+                <span class="text-red-500">*</span>
+              </label>
+              <select id="year-select" name="display_year" class="block w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                {% for year in edit_years %}
+                <option value="{{ year.id }}" {% if year.id == edit_selected_year.id %}selected{% endif %}>{{ year.display }}</option>
+                {% endfor %}
+              </select>
+            </div>
+
+            <!-- Source Information -->
+            <div>
+              <label for="contribution-source" class="block text-sm font-medium text-gray-700 mb-2">
+                Source Document (Optional)
+              </label>
+              <input type="text" 
+                     id="contribution-source" 
+                     name="source" 
+                     class="block w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                     placeholder="e.g., Annual Statement of Accounts 2023/24, Budget Report, etc.">
+              <p class="mt-1 text-xs text-gray-500">Help other users verify this data by citing your source</p>
+            </div>
+
+            <!-- Additional Notes -->
+            <div>
+              <label for="contribution-notes" class="block text-sm font-medium text-gray-700 mb-2">
+                Notes (Optional)
+              </label>
+              <textarea id="contribution-notes" 
+                        name="notes" 
+                        rows="3"
+                        class="block w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        placeholder="Any additional context or explanation for this contribution..."></textarea>
+            </div>
+          </div>
+
+          <!-- Form Actions -->
+          <div class="flex items-center justify-between pt-6 border-t mt-6">
+            <button type="button" id="cancel-edit" class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors">
+              Cancel
+            </button>
+            <button type="submit" id="submit-edit" class="px-6 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors">
+              <span class="inline-flex items-center">
+                <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+                </svg>
+                Contribute Data
+              </span>
+            </button>
+          </div>
+        </form>
+      </div>
+
+      <!-- Sidebar - Right Side -->
+      <div class="lg:col-span-1 space-y-6">
+        <!-- Current Value Card -->
+        <div id="current-value-card" class="bg-gray-50 border border-gray-200 rounded-lg p-4">
+          <h4 class="font-medium text-gray-900 mb-2">Current Value</h4>
+          <div id="current-value" class="text-lg font-mono text-gray-700">No data</div>
+          <div id="current-source" class="text-xs text-gray-500 mt-1">No source information</div>
+        </div>
+
+        <!-- Progress Indicator -->
+        <div class="bg-green-50 border border-green-200 rounded-lg p-4">
+          <h4 class="font-medium text-green-900 mb-2">
+            <svg class="w-4 h-4 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+            </svg>
+            Making a Difference
+          </h4>
+          <p class="text-sm text-green-700">Your contributions help improve transparency and accountability in local government.</p>
+        </div>
+
+        <!-- Tips Card -->
+        <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+          <h4 class="font-medium text-yellow-900 mb-2">
+            <svg class="w-4 h-4 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+            </svg>
+            Tips for Success
+          </h4>
+          <ul class="text-sm text-yellow-700 space-y-1">
+            <li>• Double-check figures for accuracy</li>
+            <li>• Provide source documents when possible</li>
+            <li>• Use the most recent available data</li>
+            <li>• Contact us if you're unsure about format</li>
+          </ul>
+        </div>
+
+        <!-- Recent Activity -->
+        <div id="recent-activity" class="bg-white border border-gray-200 rounded-lg p-4">
+          <h4 class="font-medium text-gray-900 mb-2">Recent Edits</h4>
+          <div id="recent-list" class="space-y-2 text-sm text-gray-600">
+            <div class="text-center text-gray-400 py-2">Loading recent activity...</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Success Toast -->
+<div id="success-toast" class="fixed top-4 right-4 bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded-lg shadow-lg z-50 hidden" role="alert">
+  <div class="flex items-center">
+    <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+    </svg>
+    <span id="success-message">Contribution submitted successfully!</span>
+  </div>
+</div>
+
+<!-- Error Toast -->
+<div id="error-toast" class="fixed top-4 right-4 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-lg shadow-lg z-50 hidden" role="alert">
+  <div class="flex items-center">
+    <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+    </svg>
+    <span id="error-message">There was an error submitting your contribution.</span>
+  </div>
+</div>

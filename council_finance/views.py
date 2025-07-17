@@ -654,10 +654,14 @@ def council_detail(request, slug):
         "recent_merge_activity": recent_merge_activity,
         "recent_flag_activity": recent_flag_activity,
     }
-    # No extra context is required when editing since characteristic drop-downs
-    # were replaced by the missing-characteristics table.
 
-    return render(request, "council_finance/council_detail.html", context)
+    # Use enhanced edit template for edit tab
+    if tab == 'edit':
+        template_name = "council_finance/council_detail_edit.html"
+    else:
+        template_name = "council_finance/council_detail.html"
+
+    return render(request, template_name, context)
 
 
 # ---------------------------------------------------------------------------
@@ -2207,10 +2211,61 @@ def review_contribution(request, pk, action):
 
 
 def edit_figures_table(request, slug):
-    """Edit figures table for a council via AJAX."""
-    from django.http import JsonResponse
-    # TODO: Implement figures table editing
-    return JsonResponse({"status": "success", "message": "Table edit interface"})
+    """Return the edit figures table for a specific year via AJAX."""
+    council = get_object_or_404(Council, slug=slug)
+    year_label = request.GET.get('year')
+    
+    if not year_label:
+        return JsonResponse({'error': 'Year parameter required'}, status=400)
+    
+    try:
+        year = get_object_or_404(FinancialYear, label=year_label)
+        
+        # Get figures for this council and year
+        figures = FigureSubmission.objects.filter(
+            council=council, 
+            year=year
+        ).select_related('field', 'year')
+        
+        # Filter by council type if applicable
+        if council.council_type_id:
+            figures = figures.filter(
+                Q(field__council_types__isnull=True)
+                | Q(field__council_types=council.council_type)
+            )
+        else:
+            figures = figures.filter(field__council_types__isnull=True)
+        
+        figures = figures.order_by('field__name').distinct()
+        
+        # Get pending contributions
+        pending_pairs = set(
+            f"{field_slug}-{year_id or 'none'}"
+            for field_slug, year_id in Contribution.objects.filter(
+                council=council, status="pending"
+            ).values_list("field__slug", "year_id")
+        )
+        
+        # Render the table template
+        from django.template.loader import render_to_string
+        html = render_to_string(
+            'council_finance/enhanced_edit_figures_table.html',
+            {
+                'figures': figures,
+                'council': council,
+                'pending_pairs': pending_pairs
+            },
+            request=request
+        )
+        
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return JsonResponse({'html': html, 'success': True})
+        else:
+            return HttpResponse(html)
+            
+    except Exception as e:
+        logger.error(f"Error loading edit figures table: {str(e)}")
+        return JsonResponse({'error': 'Failed to load data'}, status=500)
 
 
 def add_favourite(request):
@@ -2408,6 +2463,108 @@ def compare_row(request):
 
 
 def compare_basket(request):
+    """Show the comparison basket with selected councils."""
+    from django.template.loader import render_to_string
+    basket_slugs = request.session.get('compare_basket', [])
+    councils = Council.objects.filter(slug__in=basket_slugs).order_by('name')
+    
+    context = {
+        'councils': councils,
+        'basket_count': len(basket_slugs)
+    }
+    
+    return render(request, 'council_finance/comparison_basket.html', context)
+
+
+# ---------------------------------------------------------------------------
+# Enhanced Editing API Endpoints
+# ---------------------------------------------------------------------------
+
+@require_GET
+def field_info_api(request, field_slug):
+    """Get detailed information about a specific field for the edit modal."""
+    try:
+        field = get_object_or_404(DataField, slug=field_slug)
+        
+        data = {
+            'slug': field.slug,
+            'name': field.name,
+            'description': field.description,
+            'category': field.category,
+            'content_type': field.content_type,
+            'content_type_display': field.get_content_type_display(),
+            'unit': field.unit,
+            'help_text': field.help_text,
+        }
+        
+        return JsonResponse(data)
+        
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=404)
+
+
+@require_GET  
+def council_recent_activity_api(request, council_slug):
+    """Get recent editing activity for a specific council."""
+    try:
+        council = get_object_or_404(Council, slug=council_slug)
+        
+        # Get recent contributions for this council
+        recent_contributions = Contribution.objects.filter(
+            council=council,
+            status__in=['approved', 'pending']
+        ).select_related('field', 'user', 'year').order_by('-created')[:10]
+        
+        activities = []
+        for contrib in recent_contributions:
+            activities.append({
+                'field_name': contrib.field.name,
+                'field_slug': contrib.field.slug,
+                'value': contrib.value,
+                'user': contrib.user.username if contrib.user else 'Anonymous',
+                'status': contrib.status,
+                'time_ago': contrib.created.strftime('%b %d, %Y'),
+                'year': contrib.year.label if contrib.year else None,
+            })
+        
+        return JsonResponse(activities, safe=False)
+        
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=404)
+
+
+@require_GET
+def field_recent_activity_api(request, council_slug, field_slug):
+    """Get recent editing activity for a specific field on a council."""
+    try:
+        council = get_object_or_404(Council, slug=council_slug)
+        field = get_object_or_404(DataField, slug=field_slug)
+        
+        # Get recent contributions for this field/council combination
+        recent_contributions = Contribution.objects.filter(
+            council=council,
+            field=field,
+            status__in=['approved', 'pending']
+        ).select_related('user', 'year').order_by('-created')[:5]
+        
+        activities = []
+        for contrib in recent_contributions:
+            activities.append({
+                'field_name': contrib.field.name,
+                'value': contrib.value,
+                'user': contrib.user.username if contrib.user else 'Anonymous',
+                'status': contrib.status,
+                'time_ago': contrib.created.strftime('%b %d, %Y'),
+                'year': contrib.year.label if contrib.year else None,
+            })
+        
+        return JsonResponse(activities, safe=False)
+        
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=404)
+
+
+def compare_basket(request):
     """Display comparison basket page with e-commerce style comparison tool."""
     from django.shortcuts import redirect
     from django.utils import timezone
@@ -2561,11 +2718,107 @@ def comment_update(request, update_id):
 
 
 # Contribution views
+@require_POST
 def submit_contribution(request):
-    """Submit a contribution."""
-    from django.http import JsonResponse
-    # TODO: Implement contribution submission
-    return JsonResponse({"status": "success"})
+    """Submit a contribution from the enhanced edit modal."""
+    if not request.user.is_authenticated:
+        return JsonResponse({"success": False, "message": "You must be logged in to contribute"}, status=401)
+    
+    try:
+        # Get form data
+        council_slug = request.POST.get('council')
+        field_slug = request.POST.get('field')
+        year_id = request.POST.get('year')
+        value = request.POST.get('value', '').strip()
+        source = request.POST.get('source', '').strip()
+        notes = request.POST.get('notes', '').strip()
+        
+        # Validate required fields
+        if not all([council_slug, field_slug, value]):
+            return JsonResponse({
+                "success": False, 
+                "message": "Council, field, and value are required"
+            }, status=400)
+        
+        # Get related objects
+        council = get_object_or_404(Council, slug=council_slug)
+        field = get_object_or_404(DataField, slug=field_slug)
+        year = None
+        if year_id and year_id != 'none':
+            year = get_object_or_404(FinancialYear, id=year_id)
+        
+        # Check if there's already a pending contribution for this field/council/year
+        existing = Contribution.objects.filter(
+            council=council,
+            field=field,
+            year=year,
+            status='pending'
+        ).first()
+        
+        if existing:
+            return JsonResponse({
+                "success": False,
+                "message": "There is already a pending contribution for this field. Please wait for it to be reviewed."
+            }, status=400)
+        
+        # Create the contribution
+        contribution = Contribution.objects.create(
+            council=council,
+            field=field,
+            year=year,
+            value=value,
+            source=source if source else None,
+            notes=notes if notes else None,
+            user=request.user,
+            status='pending'
+        )
+        
+        # Log the activity
+        log_activity(
+            request,
+            activity="submit_contribution",
+            action=f"submitted contribution for {field.name}",
+            council=council,
+            extra={
+                'field_slug': field_slug,
+                'year_label': year.label if year else None,
+                'value': value,
+                'contribution_id': contribution.id
+            }
+        )
+        
+        # Create notification for moderators if needed
+        from .notifications import create_notification
+        create_notification(
+            title=f"New contribution for {council.name}",
+            message=f"User {request.user.username} submitted a contribution for {field.name}",
+            notification_type='contribution',
+            related_object=contribution,
+            for_moderators=True
+        )
+        
+        # Return success response for AJAX
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return JsonResponse({
+                "success": True,
+                "message": f"Thank you! Your contribution for {field.name} has been submitted for review."
+            })
+        
+        # Handle regular form submission
+        messages.success(request, f"Thank you! Your contribution for {field.name} has been submitted for review.")
+        return redirect('council_detail', slug=council_slug)
+        
+    except Exception as e:
+        logger.error(f"Error submitting contribution: {str(e)}")
+        
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return JsonResponse({
+                "success": False,
+                "message": "An error occurred while submitting your contribution. Please try again."
+            }, status=500)
+        
+        messages.error(request, "An error occurred while submitting your contribution. Please try again.")
+        return redirect('council_detail', slug=council_slug)
 
 
 def review_contribution(request, pk, action):
