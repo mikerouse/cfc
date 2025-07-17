@@ -1077,6 +1077,308 @@ def following(request):
     return render(request, "council_finance/following.html", context)
 
 
+# Flagging System Views
+
+@login_required
+@require_POST
+def flag_content(request):
+    """Flag content for community review."""
+    from django.http import JsonResponse
+    from django.shortcuts import get_object_or_404
+    from django.contrib.contenttypes.models import ContentType
+    from .models import Flag, Contribution, Council
+    from .services.flagging_services import FlaggingService
+    
+    try:
+        content_type_id = request.POST.get('content_type')
+        object_id = request.POST.get('object_id')
+        flag_type = request.POST.get('flag_type')
+        description = request.POST.get('description', '').strip()
+        priority = request.POST.get('priority', 'medium')
+        
+        if not all([content_type_id, object_id, flag_type, description]):
+            return JsonResponse({
+                'success': False,
+                'error': 'All fields are required'
+            }, status=400)
+        
+        # Get the content object
+        content_type = get_object_or_404(ContentType, id=content_type_id)
+        model_class = content_type.model_class()
+        content_object = get_object_or_404(model_class, id=object_id)
+        
+        # Get user's IP address
+        ip_address = request.META.get('HTTP_X_FORWARDED_FOR', '').split(',')[0] or request.META.get('REMOTE_ADDR')
+        
+        # Flag the content
+        result = FlaggingService.flag_content(
+            user=request.user,
+            content_object=content_object,
+            flag_type=flag_type,
+            description=description,
+            priority=priority,
+            ip_address=ip_address
+        )
+        
+        if result['success']:
+            message = "Thank you for flagging this content. It will be reviewed by moderators."
+            if result['auto_escalated']:
+                message += " This content has been escalated for immediate review."
+            
+            return JsonResponse({
+                'success': True,
+                'message': message,
+                'flag_id': result['flag'].id
+            })
+        else:
+            return JsonResponse({
+                'success': False,
+                'error': result['error']
+            }, status=400)
+            
+    except Exception as e:
+        logger.error(f"Error flagging content: {str(e)}")
+        return JsonResponse({
+            'success': False,
+            'error': 'An error occurred while submitting your flag'
+        }, status=500)
+
+
+@login_required
+def flagged_content_list(request):
+    """View flagged content for moderation."""
+    from .services.flagging_services import FlaggingService
+    from .models import FlaggedContent
+    
+    # Check permissions
+    if not request.user.is_superuser and (not hasattr(request.user, 'profile') or request.user.profile.tier.level < 3):
+        return JsonResponse({'error': 'Insufficient permissions'}, status=403)
+    
+    status_filter = request.GET.get('status', 'open')
+    priority_filter = request.GET.get('priority')
+    content_type_filter = request.GET.get('content_type')
+    search_filter = request.GET.get('search')
+    
+    flagged_content = FlaggingService.get_flagged_content(
+        status=status_filter,
+        content_type=content_type_filter,
+        limit=50
+    )
+    
+    # Apply additional filters manually if the service doesn't support them
+    if priority_filter:
+        # Filter by priority from associated flags since FlaggedContent doesn't have priority directly
+        filtered_content = []
+        for item in flagged_content:
+            # Get flags for this content to check priority
+            flags = item.flags.all() if hasattr(item, 'flags') else []
+            if any(flag.priority == priority_filter for flag in flags):
+                filtered_content.append(item)
+        flagged_content = filtered_content
+    
+    if search_filter:
+        flagged_content = [item for item in flagged_content if search_filter.lower() in str(item.content_object).lower()]
+    
+    # Get counts for statistics (using correct field names)
+    total_count = FlaggedContent.objects.count()
+    open_count = FlaggedContent.objects.filter(is_resolved=False, is_under_review=False).count()
+    resolved_count = FlaggedContent.objects.filter(is_resolved=True).count()
+    
+    # Critical count - need to count flags with critical priority
+    from .models import Flag
+    critical_count = Flag.objects.filter(priority='critical', status='open').values('content_type', 'object_id').distinct().count()
+    
+    context = {
+        'flagged_content': flagged_content,
+        'status_filter': status_filter,
+        'priority_filter': priority_filter,
+        'content_type_filter': content_type_filter,
+        'search_filter': search_filter,
+        'total_count': total_count,
+        'open_count': open_count,
+        'resolved_count': resolved_count,
+        'critical_count': critical_count,
+        'moderation_stats': FlaggingService.get_moderation_stats()
+    }
+    
+    return render(request, 'council_finance/flagged_content.html', context)
+
+
+@login_required
+@require_POST
+def resolve_flag(request, flag_id):
+    """Resolve a flag."""
+    from .models import Flag
+    from .services.flagging_services import FlaggingService
+    
+    # Check permissions
+    if not request.user.is_superuser and (not hasattr(request.user, 'profile') or request.user.profile.tier.level < 3):
+        return JsonResponse({'error': 'Insufficient permissions'}, status=403)
+    
+    try:
+        flag = get_object_or_404(Flag, id=flag_id)
+        action = request.POST.get('action')
+        notes = request.POST.get('notes', '')
+        
+        if action == 'resolve':
+            FlaggingService.resolve_flag(flag, request.user, notes)
+            message = "Flag resolved successfully"
+        elif action == 'dismiss':
+            FlaggingService.dismiss_flag(flag, request.user, notes)
+            message = "Flag dismissed successfully"
+        else:
+            return JsonResponse({'error': 'Invalid action'}, status=400)
+        
+        return JsonResponse({
+            'success': True,
+            'message': message
+        })
+        
+    except Exception as e:
+        logger.error(f"Error resolving flag: {str(e)}")
+        return JsonResponse({
+            'success': False,
+            'error': 'Error resolving flag'
+        }, status=500)
+
+
+@login_required
+@require_POST
+def take_content_action(request, flagged_content_id):
+    """Take moderation action on flagged content (edit, remove, reinstate)."""
+    from .models import FlaggedContent
+    from .services.flagging_services import FlaggingService
+    
+    # Check permissions
+    if not request.user.is_superuser and (not hasattr(request.user, 'profile') or request.user.profile.tier.level < 3):
+        return JsonResponse({'error': 'Insufficient permissions'}, status=403)
+    
+    try:
+        flagged_content = get_object_or_404(FlaggedContent, id=flagged_content_id)
+        action = request.POST.get('action')
+        
+        if action not in ['edit', 'remove', 'reinstate']:
+            return JsonResponse({'error': 'Invalid action'}, status=400)
+        
+        # Prepare action parameters
+        kwargs = {}
+        if action == 'edit':
+            kwargs['new_value'] = request.POST.get('new_value', '').strip()
+            if not kwargs['new_value']:
+                return JsonResponse({'error': 'New value is required for edit action'}, status=400)
+        
+        # Execute the action
+        result = FlaggingService.take_content_action(
+            flagged_content=flagged_content,
+            action=action,
+            moderator=request.user,
+            **kwargs
+        )
+        
+        if result['success']:
+            return JsonResponse({
+                'success': True,
+                'message': result['message']
+            })
+        else:
+            return JsonResponse({
+                'success': False,
+                'error': result['error']
+            }, status=400)
+            
+    except Exception as e:
+        logger.error(f"Error taking content action: {str(e)}")
+        return JsonResponse({
+            'success': False,
+            'error': 'Error executing action'
+        }, status=500)
+
+
+@login_required
+@require_POST
+def take_user_action(request, user_id):
+    """Take moderation action on a flagged user (release, restrict, suspend, ban)."""
+    from django.contrib.auth.models import User
+    from .services.flagging_services import FlaggingService
+    
+    # Check permissions
+    if not request.user.is_superuser and (not hasattr(request.user, 'profile') or request.user.profile.tier.level < 4):
+        return JsonResponse({'error': 'Insufficient permissions'}, status=403)
+    
+    try:
+        target_user = get_object_or_404(User, id=user_id)
+        action = request.POST.get('action')
+        
+        if action not in ['release', 'restrict', 'suspend', 'ban']:
+            return JsonResponse({'error': 'Invalid action'}, status=400)
+        
+        # Prepare action parameters
+        kwargs = {}
+        if action in ['restrict', 'suspend']:
+            duration_days = request.POST.get('duration_days')
+            if duration_days:
+                try:
+                    kwargs['duration_days'] = int(duration_days)
+                except ValueError:
+                    return JsonResponse({'error': 'Invalid duration'}, status=400)
+        
+        if action == 'ban':
+            duration_days = request.POST.get('duration_days')
+            if duration_days and duration_days != 'permanent':
+                try:
+                    kwargs['duration_days'] = int(duration_days)
+                except ValueError:
+                    return JsonResponse({'error': 'Invalid duration'}, status=400)
+        
+        kwargs['reason'] = request.POST.get('reason', '').strip()
+        kwargs['notes'] = request.POST.get('notes', '').strip()
+        
+        if action == 'restrict':
+            kwargs['restriction_type'] = request.POST.get('restriction_type', 'contribution_limit')
+        
+        # Execute the action
+        result = FlaggingService.take_user_action(
+            user=target_user,
+            action=action,
+            moderator=request.user,
+            **kwargs
+        )
+        
+        if result['success']:
+            return JsonResponse({
+                'success': True,
+                'message': result['message']
+            })
+        else:
+            return JsonResponse({
+                'success': False,
+                'error': result['error']
+            }, status=400)
+            
+    except Exception as e:
+        logger.error(f"Error taking user action: {str(e)}")
+        return JsonResponse({
+            'success': False,
+            'error': 'Error executing action'
+        }, status=500)
+
+
+@login_required
+def my_flags(request):
+    """View user's own flags."""
+    from .services.flagging_services import FlaggingService
+    
+    status_filter = request.GET.get('status')
+    flags = FlaggingService.get_user_flags(request.user, status_filter)
+    
+    context = {
+        'flags': flags,
+        'status_filter': status_filter
+    }
+    
+    return render(request, 'council_finance/my_flags.html', context)
+
+
 # Following System API Endpoints
 
 @csrf_exempt
@@ -1706,18 +2008,29 @@ def data_issues_table(request):
 
 
 def moderator_panel(request):
-    """Return the moderator side panel HTML."""
+    """Return the moderator side panel HTML with flagged content."""
     if not request.user.is_authenticated or request.user.profile.tier.level < 3:
         return HttpResponseBadRequest("permission denied")
 
-    pending = (
-        Contribution.objects.filter(status="pending")
-        .select_related("council", "field", "user", "year")[:10]
+    # Get flagged content instead of pending contributions
+    from .services.flagging_services import FlaggingService
+    from .models import FlaggedContent
+    
+    flagged_content = FlaggingService.get_flagged_content(
+        status='open',
+        limit=10
     )
+    
+    # Get moderation stats
+    moderation_stats = FlaggingService.get_moderation_stats()
 
     html = render_to_string(
         "council_finance/moderator_panel.html",
-        {"pending": pending},
+        {
+            "flagged_content": flagged_content,
+            "moderation_stats": moderation_stats,
+            "show_flagged_content": True  # Flag to indicate new system
+        },
         request=request,
     )
     return JsonResponse({"html": html})
@@ -2551,8 +2864,9 @@ def profile_view(request):
 
 def user_preferences_view(request):
     """User preferences view"""
-    from django.http import HttpResponse
-    return HttpResponse("User Preferences - Not implemented yet")
+    # This view renders the comprehensive user preferences page
+    # that includes font, accessibility, and theme settings
+    return render(request, 'council_finance/user_preferences.html')
 
 def user_preferences_ajax(request):
     """User preferences AJAX"""
@@ -3503,7 +3817,7 @@ def submit_contribution(request):
                 "message": "There is already a pending contribution for this field. Please wait for it to be reviewed."
             }, status=400)
         
-        # Create the contribution
+        # Create the contribution - now auto-approved
         contribution = Contribution.objects.create(
             council=council,
             field=field,
@@ -3512,42 +3826,69 @@ def submit_contribution(request):
             source=source if source else None,
             notes=notes if notes else None,
             user=request.user,
-            status='pending'
+            status='approved'  # Auto-approve all contributions
         )
+        
+        # Apply the contribution immediately using V2 system
+        try:
+            _apply_contribution_v2(contribution, request.user, request)
+            
+            # Award points for successful contribution
+            points = 3 if field.category == "characteristic" else 2
+            profile = request.user.profile
+            profile.points += points
+            profile.approved_submission_count += 1
+            profile.save()
+            
+            applied_successfully = True
+            
+        except Exception as e:
+            logger.error(f"Error applying contribution {contribution.id}: {str(e)}")
+            applied_successfully = False
         
         # Log the activity
         log_activity(
             request,
             activity="submit_contribution",
-            action=f"submitted contribution for {field.name}",
+            action=f"submitted and applied contribution for {field.name}",
             council=council,
             extra={
                 'field_slug': field_slug,
                 'year_label': year.label if year else None,
                 'value': value,
-                'contribution_id': contribution.id
+                'contribution_id': contribution.id,
+                'applied_successfully': applied_successfully
             }
         )
         
-        # Create notification for moderators if needed
+        # Create notification for user about successful contribution
         from .notifications import create_notification
+        
+        success_message = f"Your contribution for {field.name} has been accepted and applied!"
+        if applied_successfully:
+            success_message += f" You earned {points} points. Thank you!"
+        else:
+            success_message += " However, there was an issue applying the data. Moderators will review this."
+        
         create_notification(
-            title=f"New contribution for {council.name}",
-            message=f"User {request.user.username} submitted a contribution for {field.name}",
-            notification_type='contribution',
-            related_object=contribution,
-            for_moderators=True
+            user=request.user,
+            title=f"Contribution accepted for {council.name}",
+            message=success_message,
+            notification_type='contribution_accepted',
+            related_object=contribution
         )
         
         # Return success response for AJAX
         if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
             return JsonResponse({
                 "success": True,
-                "message": f"Thank you! Your contribution for {field.name} has been submitted for review."
+                "message": success_message,
+                "status": "approved",
+                "points_awarded": points if applied_successfully else 0
             })
         
         # Handle regular form submission
-        messages.success(request, f"Thank you! Your contribution for {field.name} has been submitted for review.")
+        messages.success(request, success_message)
         return redirect('council_detail', slug=council_slug)
         
     except Exception as e:

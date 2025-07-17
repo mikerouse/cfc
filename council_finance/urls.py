@@ -108,6 +108,13 @@ urlpatterns = [
     path("fields/<slug:slug>/options/", views.list_field_options, name="list_field_options"),
     path("contribute/<int:pk>/<str:action>/", views.review_contribution, name="review_contribution"),
     path("contribute/mod-panel/", views.moderator_panel, name="moderator_panel"),
+    # Flagging system
+    path("ajax/flag-content/", views.flag_content, name="flag_content"),
+    path("moderation/flagged-content/", views.flagged_content_list, name="flagged_content_list"),
+    path("ajax/resolve-flag/<int:flag_id>/", views.resolve_flag, name="resolve_flag"),
+    path("ajax/content-action/<int:flagged_content_id>/", views.take_content_action, name="take_content_action"),
+    path("ajax/user-action/<int:user_id>/", views.take_user_action, name="take_user_action"),
+    path("my-flags/", views.my_flags, name="my_flags"),
     path("submit/", views.contribute),
     path("profile/", views.my_profile, name="my_profile"),
     path("about/", views.about, name="about"),

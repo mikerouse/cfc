@@ -46,6 +46,12 @@ from .follow_models import (
     UserFeedPreferences,
     TrendingContent,
 )
+from .flagging_system import (
+    Flag,
+    FlaggedContent,
+    UserModerationRecord,
+    FlagComment,
+)
 
 __all__ = [
     'Council',
@@ -90,4 +96,8 @@ __all__ = [
     'FeedComment',
     'UserFeedPreferences',
     'TrendingContent',
+    'Flag',
+    'FlaggedContent',
+    'UserModerationRecord',
+    'FlagComment',
 ]

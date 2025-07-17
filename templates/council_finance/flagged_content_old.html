@@ -1,0 +1,1265 @@
+{% extends "base.html" %}
+{% load humanize %}
+
+{% block title %}Flagged Content - Council Finance Counters{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto px-4 py-6">
+    <!-- Header Section -->
+    <div class="mb-8">
+        <div class="flex items-center justify-between">
+            <div>
+                <h1 class="text-3xl font-bold text-gray-900 mb-2 flex items-center">
+                    <svg class="w-8 h-8 text-orange-500 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.732-.833-2.5 0L4.232 16.5c-.77.833.192 2.5 1.732 2.5z"/>
+                    </svg>
+                    Flagged Content Moderation
+                </h1>
+                <p class="text-gray-600">Review and moderate content flagged by the community</p>
+            </div>
+            <div class="flex items-center space-x-4">
+                <a href="{% url 'god_mode' %}" class="bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2 rounded-lg font-medium transition-colors flex items-center">
+                    <svg class="w-4 h-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m0 7h18"/>
+                    </svg>
+                    Back to God Mode
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Moderation Stats -->
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+        <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+            <div class="flex items-center">
+                <div class="flex-shrink-0">
+                    <div class="w-10 h-10 bg-red-100 rounded-lg flex items-center justify-center">
+                        <svg class="w-6 h-6 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                        </svg>
+                    </div>
+                </div>
+                <div class="ml-4">
+                    <div class="text-2xl font-bold text-gray-900">{{ moderation_stats.open_flags|default:0 }}</div>
+                    <div class="text-sm text-gray-500">Open Flags</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+            <div class="flex items-center">
+                <div class="flex-shrink-0">
+                    <div class="w-10 h-10 bg-yellow-100 rounded-lg flex items-center justify-center">
+                        <svg class="w-6 h-6 text-yellow-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                        </svg>
+                    </div>
+                </div>
+                <div class="ml-4">
+                    <div class="text-2xl font-bold text-gray-900">{{ moderation_stats.pending_review|default:0 }}</div>
+                    <div class="text-sm text-gray-500">Pending Review</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+            <div class="flex items-center">
+                <div class="flex-shrink-0">
+                    <div class="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
+                        <svg class="w-6 h-6 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                        </svg>
+                    </div>
+                </div>
+                <div class="ml-4">
+                    <div class="text-2xl font-bold text-gray-900">{{ moderation_stats.resolved_today|default:0 }}</div>
+                    <div class="text-sm text-gray-500">Resolved Today</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+            <div class="flex items-center">
+                <div class="flex-shrink-0">
+                    <div class="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
+                        <svg class="w-6 h-6 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/>
+                        </svg>
+                    </div>
+                </div>
+                <div class="ml-4">
+                    <div class="text-2xl font-bold text-gray-900">{{ moderation_stats.avg_resolution_time|default:0 }}h</div>
+                    <div class="text-sm text-gray-500">Avg Resolution</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filters -->
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200 mb-8">
+        <div class="p-6">
+            <h3 class="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                <svg class="w-5 h-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.414A1 1 0 013 6.707V4z"/>
+                </svg>
+                Filters
+            </h3>
+            <form method="get" class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div>
+                    <label for="status" class="block text-sm font-medium text-gray-700 mb-2">Status</label>
+                    <select name="status" id="status" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                        <option value="open" {% if status_filter == 'open' %}selected{% endif %}>Open</option>
+                        <option value="resolved" {% if status_filter == 'resolved' %}selected{% endif %}>Resolved</option>
+                        <option value="dismissed" {% if status_filter == 'dismissed' %}selected{% endif %}>Dismissed</option>
+                        <option value="all" {% if status_filter == 'all' %}selected{% endif %}>All</option>
+                    </select>
+                </div>
+                <div>
+                    <label for="content_type" class="block text-sm font-medium text-gray-700 mb-2">Content Type</label>
+                    <select name="content_type" id="content_type" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                        <option value="">All Types</option>
+                        <option value="contribution" {% if content_type_filter == 'contribution' %}selected{% endif %}>Contributions</option>
+                        <option value="council" {% if content_type_filter == 'council' %}selected{% endif %}>Councils</option>
+                        <option value="user" {% if content_type_filter == 'user' %}selected{% endif %}>Users</option>
+                        <option value="comment" {% if content_type_filter == 'comment' %}selected{% endif %}>Comments</option>
+                    </select>
+                </div>
+                <div>
+                    <label for="priority" class="block text-sm font-medium text-gray-700 mb-2">Priority</label>
+                    <select name="priority" id="priority" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                        <option value="">All Priorities</option>
+                        <option value="critical">Critical</option>
+                        <option value="high">High</option>
+                        <option value="medium">Medium</option>
+                        <option value="low">Low</option>
+                    </select>
+                </div>
+                <div class="flex items-end space-x-2">
+                    <button type="submit" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium transition-colors">
+                        Apply Filters
+                    </button>
+                    <a href="{% url 'flagged_content_list' %}" class="bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2 rounded-lg font-medium transition-colors">
+                        Reset
+                    </a>
+                </div>
+            </form>
+        </div>
+    </div>
+    .status-badge {
+        font-size: 0.875rem;
+        padding: 4px 8px;
+        border-radius: 4px;
+        font-weight: 600;
+    }
+    .status-open { background: #dc3545; color: white; }
+    .status-resolved { background: #28a745; color: white; }
+    .status-dismissed { background: #6c757d; color: white; }
+    .action-buttons {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        margin-top: 20px;
+        padding-top: 15px;
+        border-top: 1px solid #e9ecef;
+    }
+    .action-btn {
+        border: none;
+        padding: 8px 16px;
+        border-radius: 6px;
+        font-size: 0.875rem;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+    }
+    .action-btn:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    .action-btn-edit { background: #007bff; color: white; }
+    .action-btn-edit:hover { background: #0056b3; }
+    .action-btn-remove { background: #dc3545; color: white; }
+    .action-btn-remove:hover { background: #c82333; }
+    .action-btn-reinstate { background: #28a745; color: white; }
+    .action-btn-reinstate:hover { background: #1e7e34; }
+    .action-btn-release { background: #17a2b8; color: white; }
+    .action-btn-release:hover { background: #138496; }
+    .action-btn-restrict { background: #ffc107; color: #212529; }
+    .action-btn-restrict:hover { background: #e0a800; }
+    .action-btn-suspend { background: #fd7e14; color: white; }
+    .action-btn-suspend:hover { background: #e8630a; }
+    .action-btn-ban { background: #6f42c1; color: white; }
+    .action-btn-ban:hover { background: #59359a; }
+    .loading {
+        opacity: 0.6;
+        pointer-events: none;
+    }
+    .content-preview {
+        background: #f8f9fa;
+        border: 1px solid #e9ecef;
+        border-left: 4px solid #007bff;
+        border-radius: 4px;
+        padding: 15px;
+        margin: 10px 0;
+    }
+    .flag-details {
+        background: #fff3cd;
+        border: 1px solid #ffeaa7;
+        border-radius: 4px;
+        padding: 12px;
+        margin: 10px 0;
+    }
+    .user-info {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 4px 8px;
+        background: #e9ecef;
+        border-radius: 4px;
+        font-size: 0.875rem;
+    }
+    .inline-edit-form {
+        display: none;
+        margin-top: 10px;
+        padding: 15px;
+        background: #f8f9fa;
+        border-radius: 6px;
+        border: 1px solid #dee2e6;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <div class="row">
+        <div class="col-md-12">
+            <div class="d-flex align-items-center justify-content-between mb-4">
+                <div>
+                    <h2><i class="fas fa-shield-alt text-warning"></i> Flagged Content Moderation</h2>
+                    <p class="text-muted">Review and moderate content flagged by the community</p>
+                </div>
+                <div class="text-right">
+                    <a href="{% url 'god_mode' %}" class="btn btn-outline-secondary">
+                        <i class="fas fa-arrow-left"></i> Back to God Mode
+                    </a>
+                </div>
+            </div>
+            
+            <!-- Moderation Stats -->
+            <div class="moderation-stats">
+                <h4><i class="fas fa-chart-bar"></i> Moderation Overview</h4>
+                <div class="row mt-3">
+                    <div class="col-md-3">
+                        <div class="text-center">
+                            <h3 class="text-danger mb-1">{{ moderation_stats.open_flags }}</h3>
+                            <p class="mb-0 text-muted">Open Flags</p>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="text-center">
+                            <h3 class="text-warning mb-1">{{ moderation_stats.pending_review }}</h3>
+                            <p class="mb-0 text-muted">Pending Review</p>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="text-center">
+                            <h3 class="text-success mb-1">{{ moderation_stats.resolved_today }}</h3>
+                            <p class="mb-0 text-muted">Resolved Today</p>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="text-center">
+                            <h3 class="text-info mb-1">{{ moderation_stats.avg_resolution_time }}</h3>
+                            <p class="mb-0 text-muted">Avg Resolution (hrs)</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Filters -->
+            <div class="card mb-4">
+                <div class="card-body">
+                    <h5><i class="fas fa-filter"></i> Filters</h5>
+                    <form method="get" class="row">
+                        <div class="col-md-3">
+                            <label for="status">Status:</label>
+                            <select name="status" id="status" class="form-control">
+                                <option value="open" {% if status_filter == 'open' %}selected{% endif %}>Open</option>
+                                <option value="resolved" {% if status_filter == 'resolved' %}selected{% endif %}>Resolved</option>
+                                <option value="dismissed" {% if status_filter == 'dismissed' %}selected{% endif %}>Dismissed</option>
+                                <option value="all" {% if status_filter == 'all' %}selected{% endif %}>All</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <label for="content_type">Content Type:</label>
+                            <select name="content_type" id="content_type" class="form-control">
+                                <option value="">All Types</option>
+                                <option value="contribution" {% if content_type_filter == 'contribution' %}selected{% endif %}>Contributions</option>
+                                <option value="council" {% if content_type_filter == 'council' %}selected{% endif %}>Councils</option>
+                                <option value="user" {% if content_type_filter == 'user' %}selected{% endif %}>Users</option>
+                                <option value="comment" {% if content_type_filter == 'comment' %}selected{% endif %}>Comments</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <label for="priority">Priority:</label>
+                            <select name="priority" id="priority" class="form-control">
+                                <option value="">All Priorities</option>
+                                <option value="critical">Critical</option>
+                                <option value="high">High</option>
+                                <option value="medium">Medium</option>
+                                <option value="low">Low</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <label>&nbsp;</label>
+                            <div>
+                                <button type="submit" class="btn btn-primary">
+                                    <i class="fas fa-search"></i> Apply Filters
+                                </button>
+                                <a href="{% url 'flagged_content_list' %}" class="btn btn-secondary">
+                                    <i class="fas fa-times"></i> Reset
+                                </a>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+            
+    <!-- Flagged Content List -->
+    {% if flagged_content %}
+        <div class="space-y-6">
+            {% for flagged_item in flagged_content %}
+                <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden hover:shadow-md transition-shadow" data-flagged-content-id="{{ flagged_item.id }}">
+                    <!-- Flag Header -->
+                    <div class="px-6 py-4 {% if flagged_item.priority == 'critical' %}bg-purple-50 border-l-4 border-purple-500{% elif flagged_item.priority == 'high' %}bg-red-50 border-l-4 border-red-500{% elif flagged_item.priority == 'medium' %}bg-yellow-50 border-l-4 border-yellow-500{% else %}bg-green-50 border-l-4 border-green-500{% endif %}">
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center space-x-4">
+                                <div class="flex items-center space-x-2">
+                                    <!-- Status Badge -->
+                                    {% if flagged_item.status == 'open' %}
+                                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                                            <svg class="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 8 8">
+                                                <circle cx="4" cy="4" r="3"/>
+                                            </svg>
+                                            Open
+                                        </span>
+                                    {% elif flagged_item.status == 'resolved' %}
+                                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                            <svg class="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 8 8">
+                                                <circle cx="4" cy="4" r="3"/>
+                                            </svg>
+                                            Resolved
+                                        </span>
+                                    {% else %}
+                                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+                                            <svg class="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 8 8">
+                                                <circle cx="4" cy="4" r="3"/>
+                                            </svg>
+                                            Dismissed
+                                        </span>
+                                    {% endif %}
+
+                                    <!-- Priority Badge -->
+                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium {% if flagged_item.priority == 'critical' %}bg-purple-100 text-purple-800{% elif flagged_item.priority == 'high' %}bg-red-100 text-red-800{% elif flagged_item.priority == 'medium' %}bg-yellow-100 text-yellow-800{% else %}bg-green-100 text-green-800{% endif %}">
+                                        {{ flagged_item.get_priority_display|title }}
+                                    </span>
+                                </div>
+
+                                <div>
+                                    <h3 class="text-lg font-semibold text-gray-900">
+                                        {{ flagged_item.content_type|title }}: {{ flagged_item.content_object|truncatechars:80 }}
+                                    </h3>
+                                    <p class="text-sm text-gray-500">
+                                        Flagged {{ flagged_item.created_at|naturaltime }} by {{ flagged_item.flags.first.flagged_by.username }}
+                                        • {{ flagged_item.flag_count }} total flags
+                                    </p>
+                                </div>
+                            </div>
+
+                            <div class="text-right">
+                                <div class="text-sm font-medium text-gray-900">{{ flagged_item.flag_count }} flag{{ flagged_item.flag_count|pluralize }}</div>
+                                <div class="text-sm text-gray-500">{{ flagged_item.content_type|title }}</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Flag Content -->
+                    <div class="p-6">
+                        <!-- Primary Flag Report -->
+                        <div class="mb-6">
+                            <h4 class="text-sm font-semibold text-gray-900 mb-2 flex items-center">
+                                <svg class="w-4 h-4 text-orange-500 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.732-.833-2.5 0L4.232 16.5c-.77.833.192 2.5 1.732 2.5z"/>
+                                </svg>
+                                Primary Flag Report
+                            </h4>
+                            <div class="bg-orange-50 border border-orange-200 rounded-lg p-4">
+                                <p class="text-gray-900 mb-2">{{ flagged_item.flags.first.description }}</p>
+                                <div class="flex items-center space-x-4 text-sm text-gray-600">
+                                    <span><strong>Type:</strong> {{ flagged_item.flags.first.get_flag_type_display }}</span>
+                                    {% if flagged_item.flags.first.ip_address %}
+                                        <span><strong>IP:</strong> {{ flagged_item.flags.first.ip_address }}</span>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Content Preview -->
+                        <div class="mb-6">
+                            <h4 class="text-sm font-semibold text-gray-900 mb-2 flex items-center">
+                                <svg class="w-4 h-4 text-blue-500 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                                </svg>
+                                Content Details
+                            </h4>
+                            <div class="bg-gray-50 border border-gray-200 rounded-lg p-4">
+                                {% if flagged_item.content_type.model == 'contribution' %}
+                                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        <div>
+                                            <div class="text-sm font-medium text-gray-700">Council</div>
+                                            <div class="text-gray-900">{{ flagged_item.content_object.council.name }}</div>
+                                        </div>
+                                        <div>
+                                            <div class="text-sm font-medium text-gray-700">Field</div>
+                                            <div class="text-gray-900">{{ flagged_item.content_object.field.name }}</div>
+                                        </div>
+                                        <div class="md:col-span-2">
+                                            <div class="text-sm font-medium text-gray-700">Value</div>
+                                            <div class="text-gray-900 font-mono bg-white p-2 rounded border">{{ flagged_item.content_object.value }}</div>
+                                        </div>
+                                        {% if flagged_item.content_object.notes %}
+                                        <div class="md:col-span-2">
+                                            <div class="text-sm font-medium text-gray-700">Notes</div>
+                                            <div class="text-gray-900">{{ flagged_item.content_object.notes }}</div>
+                                        </div>
+                                        {% endif %}
+                                        <div>
+                                            <div class="text-sm font-medium text-gray-700">Contributor</div>
+                                            <div class="text-gray-900">{{ flagged_item.content_object.user.username }}</div>
+                                        </div>
+                                    </div>
+                                {% elif flagged_item.content_type.model == 'user' %}
+                                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        <div>
+                                            <div class="text-sm font-medium text-gray-700">Username</div>
+                                            <div class="text-gray-900">{{ flagged_item.content_object.username }}</div>
+                                        </div>
+                                        <div>
+                                            <div class="text-sm font-medium text-gray-700">Join Date</div>
+                                            <div class="text-gray-900">{{ flagged_item.content_object.date_joined|date:"M d, Y" }}</div>
+                                        </div>
+                                        <div>
+                                            <div class="text-sm font-medium text-gray-700">Status</div>
+                                            <div class="text-gray-900">
+                                                {% if flagged_item.content_object.is_active %}
+                                                    <span class="text-green-600">Active</span>
+                                                {% else %}
+                                                    <span class="text-red-600">Inactive</span>
+                                                {% endif %}
+                                            </div>
+                                        </div>
+                                    </div>
+                                {% else %}
+                                    <p class="text-gray-900">{{ flagged_item.content_object|truncatechars:300 }}</p>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <!-- Additional Flags -->
+                        {% if flagged_item.flags.count > 1 %}
+                            <div class="mb-6">
+                                <h4 class="text-sm font-semibold text-gray-900 mb-2 flex items-center">
+                                    <svg class="w-4 h-4 text-gray-500 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16"/>
+                                    </svg>
+                                    All Flags ({{ flagged_item.flags.count }})
+                                </h4>
+                                <div class="space-y-3">
+                                    {% for flag in flagged_item.flags.all %}
+                                        <div class="bg-white border border-gray-200 rounded-lg p-3">
+                                            <div class="flex items-start justify-between">
+                                                <div class="flex-1">
+                                                    <div class="flex items-center space-x-2 mb-1">
+                                                        <span class="font-medium text-gray-900">{{ flag.flagged_by.username }}</span>
+                                                        <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800">
+                                                            {{ flag.get_flag_type_display }}
+                                                        </span>
+                                                    </div>
+                                                    <p class="text-gray-700 text-sm mb-1">{{ flag.description }}</p>
+                                                    <p class="text-xs text-gray-500">{{ flag.created_at|naturaltime }}</p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    {% endfor %}
+                                </div>
+                            </div>
+                        {% endif %}
+
+                        <!-- Moderation Actions -->
+                        {% if flagged_item.status == 'open' %}
+                            <div class="border-t border-gray-200 pt-6">
+                                <h4 class="text-sm font-semibold text-gray-900 mb-4 flex items-center">
+                                    <svg class="w-4 h-4 text-indigo-500 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/>
+                                    </svg>
+                                    Moderation Actions
+                                </h4>
+                                <div class="flex flex-wrap gap-3">
+                                    {% if flagged_item.content_type.model == 'contribution' %}
+                                        <!-- Content Actions -->
+                                        <button type="button" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium transition-colors flex items-center" 
+                                                onclick="showEditForm('{{ flagged_item.id }}')">
+                                            <svg class="w-4 h-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+                                            </svg>
+                                            Edit
+                                        </button>
+                                        <button type="button" class="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg font-medium transition-colors flex items-center" 
+                                                onclick="confirmContentAction('{{ flagged_item.id }}', 'remove')">
+                                            <svg class="w-4 h-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                                            </svg>
+                                            Remove
+                                        </button>
+                                        <button type="button" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg font-medium transition-colors flex items-center" 
+                                                onclick="confirmContentAction('{{ flagged_item.id }}', 'reinstate')">
+                                            <svg class="w-4 h-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                                            </svg>
+                                            Reinstate
+                                        </button>
+                                    {% elif flagged_item.content_type.model == 'user' %}
+                                        <!-- User Actions -->
+                                        <button type="button" class="bg-teal-600 hover:bg-teal-700 text-white px-4 py-2 rounded-lg font-medium transition-colors flex items-center" 
+                                                onclick="confirmUserAction('{{ flagged_item.content_object.id }}', 'release')">
+                                            <svg class="w-4 h-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 11V7a4 4 0 118 0m-4 8v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2z"/>
+                                            </svg>
+                                            Release
+                                        </button>
+                                        <button type="button" class="bg-yellow-600 hover:bg-yellow-700 text-white px-4 py-2 rounded-lg font-medium transition-colors flex items-center" 
+                                                onclick="showUserActionForm('{{ flagged_item.content_object.id }}', 'restrict')">
+                                            <svg class="w-4 h-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728L5.636 5.636m12.728 12.728L5.636 5.636"/>
+                                            </svg>
+                                            Restrict
+                                        </button>
+                                        <button type="button" class="bg-orange-600 hover:bg-orange-700 text-white px-4 py-2 rounded-lg font-medium transition-colors flex items-center" 
+                                                onclick="showUserActionForm('{{ flagged_item.content_object.id }}', 'suspend')">
+                                            <svg class="w-4 h-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                                            </svg>
+                                            Suspend
+                                        </button>
+                                        <button type="button" class="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg font-medium transition-colors flex items-center" 
+                                                onclick="showUserActionForm('{{ flagged_item.content_object.id }}', 'ban')">
+                                            <svg class="w-4 h-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728L5.636 5.636m12.728 12.728L5.636 5.636"/>
+                                            </svg>
+                                            Ban
+                                        </button>
+                                    {% else %}
+                                        <!-- Generic Actions -->
+                                        <button type="button" class="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg font-medium transition-colors flex items-center" 
+                                                onclick="confirmContentAction('{{ flagged_item.id }}', 'remove')">
+                                            <svg class="w-4 h-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                                            </svg>
+                                            Remove
+                                        </button>
+                                        <button type="button" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg font-medium transition-colors flex items-center" 
+                                                onclick="confirmContentAction('{{ flagged_item.id }}', 'reinstate')">
+                                            <svg class="w-4 h-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                                            </svg>
+                                            Reinstate
+                                        </button>
+                                    {% endif %}
+                                </div>
+                                
+                                <!-- Inline Edit Form for Content -->
+                                {% if flagged_item.content_type.model == 'contribution' %}
+                                <div class="hidden mt-6 bg-gray-50 rounded-lg p-4" id="edit-form-{{ flagged_item.id }}">
+                                    <h6 class="font-semibold text-gray-900 mb-3 flex items-center">
+                                        <svg class="w-4 h-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+                                        </svg>
+                                        Edit Content
+                                    </h6>
+                                    <form onsubmit="submitContentEdit(event, '{{ flagged_item.id }}')">
+                                        <div class="mb-4">
+                                            <label for="new-value-{{ flagged_item.id }}" class="block text-sm font-medium text-gray-700 mb-2">New Value:</label>
+                                            <input type="text" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" 
+                                                   id="new-value-{{ flagged_item.id }}" value="{{ flagged_item.content_object.value }}" required>
+                                        </div>
+                                        <div class="flex space-x-3">
+                                            <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium transition-colors flex items-center">
+                                                <svg class="w-4 h-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4"/>
+                                                </svg>
+                                                Save Changes
+                                            </button>
+                                            <button type="button" class="bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2 rounded-lg font-medium transition-colors" 
+                                                    onclick="hideEditForm('{{ flagged_item.id }}')">
+                                                Cancel
+                                            </button>
+                                        </div>
+                                    </form>
+                                </div>
+                                {% endif %}
+                            </div>
+                        {% else %}
+                            <div class="border-t border-gray-200 pt-6">
+                                <div class="bg-{% if flagged_item.status == 'resolved' %}green{% else %}gray{% endif %}-50 border border-{% if flagged_item.status == 'resolved' %}green{% else %}gray{% endif %}-200 rounded-lg p-4">
+                                    <div class="flex items-start space-x-3">
+                                        <div class="flex-shrink-0">
+                                            {% if flagged_item.status == 'resolved' %}
+                                                <svg class="w-5 h-5 text-green-600" fill="currentColor" viewBox="0 0 20 20">
+                                                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+                                                </svg>
+                                            {% else %}
+                                                <svg class="w-5 h-5 text-gray-500" fill="currentColor" viewBox="0 0 20 20">
+                                                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"/>
+                                                </svg>
+                                            {% endif %}
+                                        </div>
+                                        <div class="flex-1">
+                                            <p class="text-sm text-gray-900">
+                                                <strong>{{ flagged_item.get_status_display }}</strong> 
+                                                {{ flagged_item.resolved_at|naturaltime }} 
+                                                by {{ flagged_item.resolved_by.username }}
+                                            </p>
+                                            {% if flagged_item.resolution_notes %}
+                                                <div class="mt-2">
+                                                    <p class="text-sm font-medium text-gray-700">Moderator Notes:</p>
+                                                    <p class="text-sm text-gray-900 mt-1">{{ flagged_item.resolution_notes }}</p>
+                                                </div>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+            {% endfor %}
+        </div>
+    {% else %}
+        <!-- Empty State -->
+        <div class="text-center py-16 bg-white rounded-xl shadow-sm border border-gray-200">
+            <div class="max-w-md mx-auto">
+                <svg class="mx-auto h-16 w-16 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/>
+                </svg>
+                <h3 class="text-lg font-semibold text-gray-900 mt-4">No Flagged Content</h3>
+                <p class="text-gray-600 mt-2">No content matches your current filters.</p>
+                <p class="text-gray-500 text-sm mt-1">The community is doing great!</p>
+            </div>
+        </div>
+    {% endif %}
+</div>
+                            
+                            <!-- Content Preview -->
+                            <div class="content-preview">
+                                <strong><i class="fas fa-file-alt"></i> Content Details:</strong>
+                                {% if flagged_item.content_type.model == 'contribution' %}
+                                    <div class="mt-2">
+                                        <div class="row">
+                                            <div class="col-md-3"><strong>Council:</strong></div>
+                                            <div class="col-md-9">{{ flagged_item.content_object.council.name }}</div>
+                                        </div>
+                                        <div class="row">
+                                            <div class="col-md-3"><strong>Field:</strong></div>
+                                            <div class="col-md-9">{{ flagged_item.content_object.field.name }}</div>
+                                        </div>
+                                        <div class="row">
+                                            <div class="col-md-3"><strong>Value:</strong></div>
+                                            <div class="col-md-9">
+                                                <code class="bg-light p-1 rounded">{{ flagged_item.content_object.value }}</code>
+                                            </div>
+                                        </div>
+                                        {% if flagged_item.content_object.notes %}
+                                        <div class="row">
+                                            <div class="col-md-3"><strong>Notes:</strong></div>
+                                            <div class="col-md-9">{{ flagged_item.content_object.notes }}</div>
+                                        </div>
+                                        {% endif %}
+                                        <div class="row">
+                                            <div class="col-md-3"><strong>Contributor:</strong></div>
+                                            <div class="col-md-9">{{ flagged_item.content_object.user.username }}</div>
+                                        </div>
+                                    </div>
+                                {% elif flagged_item.content_type.model == 'user' %}
+                                    <div class="mt-2">
+                                        <div class="row">
+                                            <div class="col-md-3"><strong>Username:</strong></div>
+                                            <div class="col-md-9">{{ flagged_item.content_object.username }}</div>
+                                        </div>
+                                        <div class="row">
+                                            <div class="col-md-3"><strong>Join Date:</strong></div>
+                                            <div class="col-md-9">{{ flagged_item.content_object.date_joined|date:"M d, Y" }}</div>
+                                        </div>
+                                        <div class="row">
+                                            <div class="col-md-3"><strong>Active:</strong></div>
+                                            <div class="col-md-9">
+                                                <span class="badge {% if flagged_item.content_object.is_active %}badge-success{% else %}badge-danger{% endif %}">
+                                                    {% if flagged_item.content_object.is_active %}Active{% else %}Inactive{% endif %}
+                                                </span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                {% else %}
+                                    <div class="mt-2">
+                                        <p>{{ flagged_item.content_object|truncatechars:300 }}</p>
+                                    </div>
+                                {% endif %}
+                            </div>
+                            
+                            <!-- Additional Flags -->
+                            {% if flagged_item.flags.count > 1 %}
+                                <div class="mt-3">
+                                    <strong><i class="fas fa-list"></i> All Flags ({{ flagged_item.flags.count }}):</strong>
+                                    <div class="mt-2">
+                                        {% for flag in flagged_item.flags.all %}
+                                            <div class="border p-2 mb-2 bg-white rounded">
+                                                <div class="d-flex justify-content-between align-items-start">
+                                                    <div class="flex-grow-1">
+                                                        <strong>{{ flag.flagged_by.username }}</strong>
+                                                        <span class="badge badge-secondary">{{ flag.get_flag_type_display }}</span>
+                                                        <br>
+                                                        <small class="text-muted">{{ flag.created_at|naturaltime }}</small>
+                                                        <p class="mb-0 mt-1">{{ flag.description }}</p>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        {% endfor %}
+                                    </div>
+                                </div>
+                            {% endif %}
+                            
+                            <!-- Moderation Actions -->
+                            {% if flagged_item.status == 'open' %}
+                                <div class="action-buttons">
+                                    {% if flagged_item.content_type.model == 'contribution' %}
+                                        <!-- Content Actions -->
+                                        <button type="button" class="action-btn action-btn-edit" 
+                                                onclick="showEditForm('{{ flagged_item.id }}')">
+                                            <i class="fas fa-edit"></i> Edit
+                                        </button>
+                                        <button type="button" class="action-btn action-btn-remove" 
+                                                onclick="confirmContentAction('{{ flagged_item.id }}', 'remove')">
+                                            <i class="fas fa-trash"></i> Remove
+                                        </button>
+                                        <button type="button" class="action-btn action-btn-reinstate" 
+                                                onclick="confirmContentAction('{{ flagged_item.id }}', 'reinstate')">
+                                            <i class="fas fa-check-circle"></i> Reinstate
+                                        </button>
+                                    {% elif flagged_item.content_type.model == 'user' %}
+                                        <!-- User Actions -->
+                                        <button type="button" class="action-btn action-btn-release" 
+                                                onclick="confirmUserAction('{{ flagged_item.content_object.id }}', 'release')">
+                                            <i class="fas fa-unlock"></i> Release
+                                        </button>
+                                        <button type="button" class="action-btn action-btn-restrict" 
+                                                onclick="showUserActionForm('{{ flagged_item.content_object.id }}', 'restrict')">
+                                            <i class="fas fa-hand-paper"></i> Restrict
+                                        </button>
+                                        <button type="button" class="action-btn action-btn-suspend" 
+                                                onclick="showUserActionForm('{{ flagged_item.content_object.id }}', 'suspend')">
+                                            <i class="fas fa-pause-circle"></i> Suspend
+                                        </button>
+                                        <button type="button" class="action-btn action-btn-ban" 
+                                                onclick="showUserActionForm('{{ flagged_item.content_object.id }}', 'ban')">
+                                            <i class="fas fa-ban"></i> Ban
+                                        </button>
+                                    {% else %}
+                                        <!-- Generic Actions -->
+                                        <button type="button" class="action-btn action-btn-remove" 
+                                                onclick="confirmContentAction('{{ flagged_item.id }}', 'remove')">
+                                            <i class="fas fa-trash"></i> Remove
+                                        </button>
+                                        <button type="button" class="action-btn action-btn-reinstate" 
+                                                onclick="confirmContentAction('{{ flagged_item.id }}', 'reinstate')">
+                                            <i class="fas fa-check-circle"></i> Reinstate
+                                        </button>
+                                    {% endif %}
+                                </div>
+                                
+                                <!-- Inline Edit Form for Content -->
+                                {% if flagged_item.content_type.model == 'contribution' %}
+                                <div class="inline-edit-form" id="edit-form-{{ flagged_item.id }}">
+                                    <h6><i class="fas fa-edit"></i> Edit Content</h6>
+                                    <form onsubmit="submitContentEdit(event, '{{ flagged_item.id }}')">
+                                        <div class="form-group">
+                                            <label for="new-value-{{ flagged_item.id }}">New Value:</label>
+                                            <input type="text" class="form-control" id="new-value-{{ flagged_item.id }}" 
+                                                   value="{{ flagged_item.content_object.value }}" required>
+                                        </div>
+                                        <div class="d-flex gap-2">
+                                            <button type="submit" class="btn btn-primary">
+                                                <i class="fas fa-save"></i> Save Changes
+                                            </button>
+                                            <button type="button" class="btn btn-secondary" 
+                                                    onclick="hideEditForm('{{ flagged_item.id }}')">
+                                                <i class="fas fa-times"></i> Cancel
+                                            </button>
+                                        </div>
+                                    </form>
+                                </div>
+                                {% endif %}
+                                
+                            {% else %}
+                                <div class="alert alert-info">
+                                    <i class="fas fa-info-circle"></i>
+                                    <strong>Status:</strong> {{ flagged_item.get_status_display }}
+                                    <br>
+                                    <strong>Resolved:</strong> {{ flagged_item.resolved_at|naturaltime }} by {{ flagged_item.resolved_by.username }}
+                                    {% if flagged_item.resolution_notes %}
+                                        <br><strong>Notes:</strong> {{ flagged_item.resolution_notes }}
+                                    {% endif %}
+                                </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                {% endfor %}
+            {% else %}
+                <div class="text-center py-5">
+                    <i class="fas fa-shield-check fa-4x text-success mb-3"></i>
+                    <h4>No Flagged Content</h4>
+                    <p class="text-muted">No content matches your current filters.</p>
+                    <p class="text-muted">The community is doing great!</p>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- User Action Modal -->
+<div class="modal fade" id="userActionModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="userActionModalTitle">User Action</h5>
+                <button type="button" class="close" data-dismiss="modal">
+                    <span>&times;</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                <form id="userActionForm">
+                    <input type="hidden" id="userActionUserId">
+                    <input type="hidden" id="userActionType">
+                    
+                    <div class="form-group" id="durationGroup">
+                        <label for="userActionDuration">Duration (days):</label>
+                        <select class="form-control" id="userActionDuration">
+                            <option value="1">1 day</option>
+                            <option value="3">3 days</option>
+                            <option value="7" selected>1 week</option>
+                            <option value="14">2 weeks</option>
+                            <option value="30">1 month</option>
+                            <option value="90">3 months</option>
+                            <option value="permanent">Permanent</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group" id="restrictionTypeGroup" style="display: none;">
+                        <label for="restrictionType">Restriction Type:</label>
+                        <select class="form-control" id="restrictionType">
+                            <option value="contribution_limit">Limit Contributions</option>
+                            <option value="flag_limit">Limit Flagging</option>
+                            <option value="comment_limit">Limit Comments</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="userActionReason">Reason:</label>
+                        <input type="text" class="form-control" id="userActionReason" 
+                               placeholder="Brief reason for this action">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="userActionNotes">Notes (optional):</label>
+                        <textarea class="form-control" id="userActionNotes" rows="3"
+                                  placeholder="Additional details about this moderation action..."></textarea>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-warning" id="confirmUserAction">Confirm Action</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Enhanced moderation interface functionality
+function showEditForm(flaggedContentId) {
+    document.getElementById(`edit-form-${flaggedContentId}`).style.display = 'block';
+}
+
+function hideEditForm(flaggedContentId) {
+    document.getElementById(`edit-form-${flaggedContentId}`).style.display = 'none';
+}
+
+function submitContentEdit(event, flaggedContentId) {
+    event.preventDefault();
+    const newValue = document.getElementById(`new-value-${flaggedContentId}`).value.trim();
+    
+    if (!newValue) {
+        showNotification('Please enter a new value', 'error');
+        return;
+    }
+    
+    executeContentAction(flaggedContentId, 'edit', { new_value: newValue });
+}
+
+function confirmContentAction(flaggedContentId, action) {
+    const actionNames = {
+        'remove': 'remove this content and return it to the contribution queue',
+        'reinstate': 'reinstate this content as valid'
+    };
+    
+    if (confirm(`Are you sure you want to ${actionNames[action]}?`)) {
+        executeContentAction(flaggedContentId, action);
+    }
+}
+
+function executeContentAction(flaggedContentId, action, extraData = {}) {
+    const formData = new FormData();
+    formData.append('action', action);
+    
+    Object.keys(extraData).forEach(key => {
+        formData.append(key, extraData[key]);
+    });
+    
+    fetch(`/ajax/content-action/${flaggedContentId}/`, {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': getCookie('csrftoken')
+        },
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showNotification(data.message, 'success');
+            // Update UI to show resolved state
+            const flagItem = document.querySelector(`[data-flagged-content-id="${flaggedContentId}"]`);
+            if (flagItem) {
+                flagItem.style.opacity = '0.7';
+                flagItem.querySelector('.action-buttons').innerHTML = 
+                    `<div class="alert alert-success mb-0"><i class="fas fa-check"></i> ${data.message}</div>`;
+            }
+            
+            // Reload page after short delay
+            setTimeout(() => window.location.reload(), 2000);
+        } else {
+            showNotification(data.error || 'Error executing action', 'error');
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        showNotification('Network error occurred', 'error');
+    });
+}
+
+function showUserActionForm(userId, action) {
+    const modal = document.getElementById('userActionModal');
+    const title = document.getElementById('userActionModalTitle');
+    const actionType = document.getElementById('userActionType');
+    const userIdField = document.getElementById('userActionUserId');
+    const durationGroup = document.getElementById('durationGroup');
+    const restrictionTypeGroup = document.getElementById('restrictionTypeGroup');
+    
+    userIdField.value = userId;
+    actionType.value = action;
+    
+    const actionNames = {
+        'restrict': 'Restrict User',
+        'suspend': 'Suspend User', 
+        'ban': 'Ban User'
+    };
+    
+    title.textContent = actionNames[action];
+    
+    // Show/hide relevant fields
+    durationGroup.style.display = action !== 'release' ? 'block' : 'none';
+    restrictionTypeGroup.style.display = action === 'restrict' ? 'block' : 'none';
+    
+    $(modal).modal('show');
+}
+
+function confirmUserAction(userId, action) {
+    if (action === 'release') {
+        if (confirm('Are you sure you want to release this user from all restrictions?')) {
+            executeUserAction(userId, action);
+        }
+    } else {
+        showUserActionForm(userId, action);
+    }
+}
+
+function executeUserAction(userId, action, extraData = {}) {
+    const formData = new FormData();
+    formData.append('action', action);
+    
+    Object.keys(extraData).forEach(key => {
+        formData.append(key, extraData[key]);
+    });
+    
+    fetch(`/ajax/user-action/${userId}/`, {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': getCookie('csrftoken')
+        },
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showNotification(data.message, 'success');
+            $('#userActionModal').modal('hide');
+            setTimeout(() => window.location.reload(), 2000);
+        } else {
+            showNotification(data.error || 'Error executing action', 'error');
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        showNotification('Network error occurred', 'error');
+    });
+}
+
+// Event listeners
+document.addEventListener('DOMContentLoaded', function() {
+    // Handle user action confirmation
+    document.getElementById('confirmUserAction').addEventListener('click', function() {
+        const userId = document.getElementById('userActionUserId').value;
+        const action = document.getElementById('userActionType').value;
+        const duration = document.getElementById('userActionDuration').value;
+        const reason = document.getElementById('userActionReason').value.trim();
+        const notes = document.getElementById('userActionNotes').value.trim();
+        const restrictionType = document.getElementById('restrictionType').value;
+        
+        if (!reason) {
+            showNotification('Please provide a reason for this action', 'error');
+            return;
+        }
+        
+        const extraData = {
+            reason: reason,
+            notes: notes
+        };
+        
+        if (duration && duration !== 'permanent') {
+            extraData.duration_days = duration;
+        }
+<script>
+// Modern Flagged Content Moderation System
+document.addEventListener('DOMContentLoaded', function() {
+    // Initialize all event listeners
+    initializeModerationSystem();
+});
+
+function initializeModerationSystem() {
+    console.log('Flagged Content moderation system initialized');
+}
+
+// Show edit form for content
+function showEditForm(flaggedItemId) {
+    const form = document.getElementById(`edit-form-${flaggedItemId}`);
+    if (form) {
+        form.classList.remove('hidden');
+    }
+}
+
+// Hide edit form for content
+function hideEditForm(flaggedItemId) {
+    const form = document.getElementById(`edit-form-${flaggedItemId}`);
+    if (form) {
+        form.classList.add('hidden');
+    }
+}
+
+// Submit content edit
+function submitContentEdit(event, flaggedItemId) {
+    event.preventDefault();
+    
+    const newValue = document.getElementById(`new-value-${flaggedItemId}`).value;
+    
+    if (!newValue.trim()) {
+        showNotification('Please enter a valid value', 'error');
+        return;
+    }
+    
+    // Make AJAX request to update content
+    fetch(`/flagged-content/${flaggedItemId}/edit/`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCookie('csrftoken')
+        },
+        body: JSON.stringify({
+            action: 'edit',
+            new_value: newValue
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showNotification('Content updated successfully', 'success');
+            hideEditForm(flaggedItemId);
+            // Refresh the page to show updated content
+            setTimeout(() => location.reload(), 1500);
+        } else {
+            showNotification(data.error || 'Failed to update content', 'error');
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        showNotification('An error occurred while updating content', 'error');
+    });
+}
+
+// Confirm content action (remove/reinstate)
+function confirmContentAction(flaggedItemId, action) {
+    const actionText = action === 'remove' ? 'remove' : 'reinstate';
+    const confirmMessage = `Are you sure you want to ${actionText} this content?`;
+    
+    if (confirm(confirmMessage)) {
+        executeContentAction(flaggedItemId, action);
+    }
+}
+
+// Execute content action
+function executeContentAction(flaggedItemId, action) {
+    fetch(`/flagged-content/${flaggedItemId}/action/`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCookie('csrftoken')
+        },
+        body: JSON.stringify({ action: action })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showNotification(`Content ${action}d successfully`, 'success');
+            // Remove the item from the page or refresh
+            setTimeout(() => location.reload(), 1500);
+        } else {
+            showNotification(data.error || `Failed to ${action} content`, 'error');
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        showNotification(`An error occurred while ${action}ing content`, 'error');
+    });
+}
+
+// Show user action form
+function showUserActionForm(userId, action) {
+    // For now, just prompt for basic information
+    let duration = '';
+    let reason = '';
+    
+    if (action === 'suspend' || action === 'ban') {
+        duration = prompt(`Enter duration for ${action} (e.g., "7 days", "1 month", "permanent"):`);
+        if (!duration) return;
+    }
+    
+    reason = prompt(`Enter reason for ${action}:`);
+    if (!reason) return;
+    
+    confirmUserAction(userId, action, { duration: duration, reason: reason });
+}
+
+// Confirm user action
+function confirmUserAction(userId, action, extraData = {}) {
+    const confirmMessage = `Are you sure you want to ${action} this user?`;
+    
+    if (confirm(confirmMessage)) {
+        executeUserAction(userId, action, extraData);
+    }
+}
+
+// Execute user action
+function executeUserAction(userId, action, extraData = {}) {
+    fetch(`/user/${userId}/moderate/`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCookie('csrftoken')
+        },
+        body: JSON.stringify({
+            action: action,
+            ...extraData
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showNotification(`User ${action}ed successfully`, 'success');
+            setTimeout(() => location.reload(), 1500);
+        } else {
+            showNotification(data.error || `Failed to ${action} user`, 'error');
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        showNotification(`An error occurred while ${action}ing user`, 'error');
+    });
+}
+
+// Get CSRF cookie
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+
+// Show notification with modern styling
+function showNotification(message, type) {
+    const notification = document.createElement('div');
+    notification.className = `fixed top-4 right-4 z-50 max-w-sm w-full`;
+    
+    const bgColor = type === 'success' ? 'bg-green-500' : 'bg-red-500';
+    const icon = type === 'success' ? 
+        '<svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg>' :
+        '<svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/></svg>';
+    
+    notification.innerHTML = `
+        <div class="${bgColor} text-white p-4 rounded-lg shadow-lg flex items-center space-x-3">
+            <div class="flex-shrink-0">${icon}</div>
+            <div class="flex-1">${message}</div>
+            <button onclick="this.parentElement.parentElement.remove()" class="flex-shrink-0 text-white hover:text-gray-200">
+                <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"/>
+                </svg>
+            </button>
+        </div>
+    `;
+    
+    document.body.appendChild(notification);
+    
+    // Auto-remove after 5 seconds
+    setTimeout(() => {
+        if (notification.parentNode) {
+            notification.remove();
+        }
+    }, 5000);
+}
+</script>
+{% endblock %}

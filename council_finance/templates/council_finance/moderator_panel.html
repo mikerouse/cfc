@@ -1,3 +1,159 @@
+{% if show_flagged_content %}
+<!-- Flagged Content Moderation Panel -->
+<div class="space-y-2" aria-live="polite" id="mod-items">
+  <!-- Moderation Stats Summary -->
+  <div class="p-3 bg-blue-50 border border-blue-200 rounded">
+    <h4 class="font-semibold text-blue-900 text-sm">Moderation Overview</h4>
+    <div class="grid grid-cols-2 gap-2 mt-1 text-xs">
+      <div>Open Flags: <span class="font-bold text-red-600">{{ moderation_stats.open_flags }}</span></div>
+      <div>Pending: <span class="font-bold text-yellow-600">{{ moderation_stats.pending_review }}</span></div>
+      <div>Today: <span class="font-bold text-green-600">{{ moderation_stats.resolved_today }}</span></div>
+      <div>Avg Time: <span class="font-bold">{{ moderation_stats.avg_resolution_time }}h</span></div>
+    </div>
+    <div class="mt-2">
+      <a href="{% url 'flagged_content_list' %}" class="text-xs bg-blue-600 text-white px-2 py-1 rounded hover:bg-blue-700">
+        View All Flagged Content
+      </a>
+    </div>
+  </div>
+  
+  <!-- Flagged Content Items -->
+  {% for flagged_item in flagged_content %}
+  <div class="p-2 border rounded bg-white" data-flag-id="{{ flagged_item.id }}">
+    <div class="flex items-start justify-between">
+      <div class="flex-1 min-w-0">
+        <p class="text-sm font-medium truncate">
+          <span class="inline-block w-2 h-2 rounded-full mr-1 
+                {% if flagged_item.priority == 'critical' %}bg-purple-500
+                {% elif flagged_item.priority == 'high' %}bg-red-500
+                {% elif flagged_item.priority == 'medium' %}bg-yellow-500
+                {% else %}bg-green-500{% endif %}"></span>
+          {{ flagged_item.content_type|title }}
+        </p>
+        <p class="text-xs text-gray-600 truncate">
+          {% if flagged_item.content_type.model == 'contribution' %}
+            {{ flagged_item.content_object.council.name }} - {{ flagged_item.content_object.field.name }}
+          {% else %}
+            {{ flagged_item.content_object|truncatechars:40 }}
+          {% endif %}
+        </p>
+        <p class="text-xs text-gray-500">
+          {{ flagged_item.flag_count }} flag{{ flagged_item.flag_count|pluralize }} • 
+          {{ flagged_item.created_at|timesince }} ago
+        </p>
+      </div>
+      <div class="flex-shrink-0 ml-2">
+        <span class="inline-block px-1 py-0.5 text-xs rounded
+              {% if flagged_item.priority == 'critical' %}bg-purple-100 text-purple-800
+              {% elif flagged_item.priority == 'high' %}bg-red-100 text-red-800
+              {% elif flagged_item.priority == 'medium' %}bg-yellow-100 text-yellow-800
+              {% else %}bg-green-100 text-green-800{% endif %}">
+          {{ flagged_item.get_priority_display|title }}
+        </span>
+      </div>
+    </div>
+    
+    <!-- Latest Flag Info -->
+    <div class="mt-1 p-1 bg-gray-50 rounded text-xs">
+      <strong>{{ flagged_item.flags.first.get_flag_type_display }}:</strong>
+      {{ flagged_item.flags.first.description|truncatechars:80 }}
+    </div>
+    
+    <!-- Quick Actions -->
+    <div class="mt-2 space-x-1">
+      <button type="button" 
+              class="quick-resolve-flag bg-green-600 text-white px-2 py-0.5 rounded text-xs hover:bg-green-700" 
+              data-flag-id="{{ flagged_item.flags.first.id }}" 
+              data-action="resolve">
+        Resolve
+      </button>
+      <button type="button" 
+              class="quick-dismiss-flag bg-gray-600 text-white px-2 py-0.5 rounded text-xs hover:bg-gray-700" 
+              data-flag-id="{{ flagged_item.flags.first.id }}" 
+              data-action="dismiss">
+        Dismiss
+      </button>
+      <a href="{% url 'flagged_content_list' %}?content_type={{ flagged_item.content_type.model }}" 
+         class="inline-block bg-blue-600 text-white px-2 py-0.5 rounded text-xs hover:bg-blue-700">
+        Details
+      </a>
+    </div>
+  </div>
+  {% empty %}
+  <div class="p-3 text-center text-gray-500 bg-green-50 border border-green-200 rounded">
+    <p class="text-sm">🎉 No flagged content!</p>
+    <p class="text-xs">All content has been moderated.</p>
+  </div>
+  {% endfor %}
+</div>
+
+<script>
+// Quick moderation actions
+document.addEventListener('click', function(e) {
+  if (e.target.matches('.quick-resolve-flag, .quick-dismiss-flag')) {
+    const button = e.target;
+    const flagId = button.dataset.flagId;
+    const action = button.dataset.action;
+    const actionText = action === 'resolve' ? 'resolve' : 'dismiss';
+    
+    if (confirm(`Are you sure you want to ${actionText} this flag?`)) {
+      button.disabled = true;
+      button.innerHTML = '<span class="animate-spin">⟳</span>';
+      
+      fetch(`/ajax/resolve-flag/${flagId}/`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+          'X-CSRFToken': getCsrfToken()
+        },
+        body: `action=${action}&notes=Quick ${actionText} from moderator panel`
+      })
+      .then(response => response.json())
+      .then(data => {
+        if (data.success) {
+          // Remove the item from the panel
+          const flagItem = button.closest('[data-flag-id]');
+          flagItem.style.opacity = '0.5';
+          flagItem.innerHTML = `<div class="p-2 text-center text-green-600">
+            <i class="fas fa-check"></i> ${data.message}
+          </div>`;
+          
+          // Refresh the moderator panel after a short delay
+          setTimeout(() => {
+            if (typeof refreshModeratorPanel === 'function') {
+              refreshModeratorPanel();
+            }
+          }, 1500);
+        } else {
+          alert(data.error || 'Error processing flag');
+          button.disabled = false;
+          button.innerHTML = actionText.charAt(0).toUpperCase() + actionText.slice(1);
+        }
+      })
+      .catch(error => {
+        console.error('Error:', error);
+        alert('Network error occurred');
+        button.disabled = false;
+        button.innerHTML = actionText.charAt(0).toUpperCase() + actionText.slice(1);
+      });
+    }
+  }
+});
+
+function getCsrfToken() {
+  const cookies = document.cookie.split(';');
+  for (let cookie of cookies) {
+    const [name, value] = cookie.trim().split('=');
+    if (name === 'csrftoken') {
+      return decodeURIComponent(value);
+    }
+  }
+  return '';
+}
+</script>
+
+{% else %}
+<!-- Legacy Pending Contributions Panel (fallback) -->
 <div class="space-y-2" aria-live="polite" id="mod-items">
   {% for c in pending %}
   <div class="p-2 border rounded bg-white" data-id="{{ c.id }}">
@@ -17,3 +173,4 @@
   <p>No pending contributions.</p>
   {% endfor %}
 </div>
+{% endif %}
