@@ -1,0 +1,607 @@
+{% extends "base.html" %}
+{% load static %}
+{% block title %}{{ council.name }} - Council Finance Counters{% endblock %}
+{% block content %}
+<h1 class="text-3xl sm:text-4xl font-extrabold mb-4 text-left pt-5 flex items-left justify-left gap-2">
+  <span class="w-8 h-8 bg-gray-300 rounded-full"></span>
+  {{ council.name }}
+</h1>
+{% if user.is_authenticated %}
+  <button id="follow-btn" class="mb-2 bg-blue-600 text-white px-2 py-1 rounded" data-following="{{ is_following|yesno:'true,false' }}" data-slug="{{ council.slug }}">
+    {% if is_following %}Unfollow{% else %}Follow{% endif %}
+  </button>
+  <button id="compare-btn" class="mb-2 bg-purple-600 text-white px-2 py-1 rounded" data-slug="{{ council.slug }}">Compare</button>
+{% endif %}
+<div class="council-meta-in-header flex flex-row items-center gap-4 text-gray-500 text-sm mb-2">
+  <div class="council-type-in-header">
+    {% if council.council_type %}
+      <span>{{ council.council_type.name }}</span>
+    {% elif 'council_type' in pending_slugs %}
+      <span><i class="fas fa-clock mr-1"></i>Council type pending confirmation</span>
+    {% else %}
+      <span>
+        <a href="{% url 'council_detail' council.slug %}?tab=edit&focus=council_type" class="text-blue-700 hover:underline">Contribute council type</a>
+      </span>
+    {% endif %}
+  </div>
+  <span class="mx-2">|</span>
+  <div class="council-website-in-header">
+    {% if council.website %}
+      <span>
+        <a href="{{ council.website }}" class="text-blue-700 hover:underline">{{ council.website }}</a>
+      </span>
+    {% elif 'council_website' in pending_slugs %}
+      <span><i class="fas fa-clock mr-1"></i>Website pending confirmation</span>
+    {% else %}
+      <span>
+        <a href="{% url 'council_detail' council.slug %}?tab=edit&focus=council_website" class="text-blue-700 hover:underline">Contribute website address</a>
+      </span>
+    {% endif %}
+  </div>
+  <span class="mx-2">|</span>
+  <div class="council-nation-in-header">
+    {% if council.council_nation %}
+      <span>{{ council.council_nation.name }}</span>
+    {% elif 'council_nation' in pending_slugs %}
+      <span><i class="fas fa-clock mr-1"></i>Council nation pending confirmation</span>
+    {% else %}
+      <span>
+        <a href="{% url 'council_detail' council.slug %}?tab=edit&focus=council_nation" class="text-blue-700 hover:underline">Contribute council nation</a>
+      </span>
+    {% endif %}
+  </div>
+</div>
+<div class="mb-4 border-b text-center">
+  <nav class="inline-flex gap-4">
+    <a href="{% url 'council_detail' council.slug %}" class="py-2 px-4 border-b-2 {% if tab != 'edit' %}border-blue-600 font-semibold{% else %}border-transparent{% endif %}">View</a>
+    <a href="{% url 'council_detail' council.slug %}?tab=edit" class="py-2 px-4 border-b-2 {% if tab == 'edit' %}border-blue-600 font-semibold{% else %}border-transparent{% endif %}">Edit</a>
+    <a href="{% url 'council_change_log' council.slug %}" class="py-2 px-4 border-b-2 {% if tab == 'log' %}border-blue-600 font-semibold{% else %}border-transparent{% endif %}">Log</a>
+  </nav>
+</div>
+
+<!-- Administrative Messages -->
+{% if administrative_messages %}
+  {% for message in administrative_messages %}
+    <div class="mb-4 p-4 rounded-lg border-l-4 
+      {% if message.type == 'merge' %}bg-blue-50 border-blue-400 text-blue-800
+      {% elif message.type == 'flag' %}bg-yellow-50 border-yellow-400 text-yellow-800
+      {% elif message.type == 'defunct' %}bg-red-50 border-red-400 text-red-800
+      {% else %}bg-gray-50 border-gray-400 text-gray-800{% endif %}">
+      <div class="flex items-start">
+        <div class="flex-shrink-0 mr-3">
+          {% if message.type == 'merge' %}
+            <svg class="w-5 h-5 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+              <path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd"/>
+            </svg>
+          {% elif message.type == 'flag' %}
+            <svg class="w-5 h-5 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+              <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"/>
+            </svg>
+          {% elif message.type == 'defunct' %}
+            <svg class="w-5 h-5 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+              <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"/>
+            </svg>
+          {% endif %}
+        </div>
+        <div class="flex-1">
+          <p class="text-sm font-medium">{{ message.message }}</p>
+          {% if message.timestamp %}
+            <p class="text-xs opacity-75 mt-1">{{ message.timestamp|date:"F j, Y \a\t g:i A" }}</p>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  {% endfor %}
+{% endif %}
+
+{% if tab == 'edit' %}
+  {% include 'council_finance/enhanced_council_edit.html' %}
+{% endif %}
+
+  {% if tab != 'edit' %}
+<div class="mt-2 flex flex-col sm:flex-row items-center gap-4 justify-between">
+  <div class="flex-1 flex items-center">
+    <label for="year-select" class="sr-only">Financial year</label>
+    <select id="year-select" class="border rounded px-2 py-1 bg-gray-100">
+      {% for y in years %}
+        <option value="{{ y.label }}" {% if y.label == selected_year.label %}selected{% endif %}>{{ y.display }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <div class="flex-1 flex justify-end">
+    <button id="drawer-toggle" class="bg-gray-50 text-gray-500 px-3 p-2">
+      <i class="fas fa-cog"></i>
+      Customise Counters &amp; Display
+    </button>
+  </div>
+</div>
+<div id="counter-drawer" class="overflow-hidden max-h-0 transition-all">
+  <div class="p-4">
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <!-- Left: Counter selection -->
+      <form class="p-4 space-y-2 bg-gray-50 rounded" onsubmit="return false;">
+        <h2 class="text-lg font-bold mb-2">Select Counters</h2>
+        <p class="text-sm text-gray-600 mb-2">Choose which financial counters to display for this council.</p>
+        {% for item in counters %}
+        <label class="block"><input type="checkbox" data-slug="{{ item.counter.slug }}" class="mr-2">{{ item.counter.name }}</label>
+        {% endfor %}
+        <button id="drawer-apply" class="mt-2 bg-blue-600 text-white px-2 py-1 rounded">
+          <i class="fas fa-check"></i>
+          Apply
+        </button>
+        <button id="drawer-reset" class="mt-2 bg-gray-200 text-gray-700 px-2 py-1 rounded">
+          <i class="fas fa-undo"></i>
+          Reset to Defaults
+        </button>
+      </form>
+      <!-- Right: Display & Sharing Settings -->
+      <div class="p-4 space-y-4 bg-gray-50 rounded">
+        <h2 class="text-lg font-bold mb-2">Display &amp; Sharing Settings</h2>
+        <div class="flex items-center gap-2">
+          <label for="column-slider" class="text-sm">Columns</label>
+          <input id="column-slider" type="range" min="1" max="3" step="1" class="w-40">
+          <span id="column-count" class="text-sm">3</span>
+        </div>
+        <div class="space-y-2">
+          <label class="block text-sm">Decimal Precision
+            <select id="precision-select" class="border rounded px-2 py-1 ml-2">
+              <option value="">Default</option>
+              <option value="0">0</option>
+              <option value="1">1</option>
+              <option value="2">2</option>
+              <option value="3">3</option>
+            </select>
+          </label>
+          <label class="block text-sm">
+            <input type="checkbox" id="thousands-check" class="mr-2">Thousands Separator
+          </label>
+          <label class="block text-sm">
+            <input type="checkbox" id="friendly-check" class="mr-2">Friendly Format
+          </label>
+        </div>
+        <!-- Add more display/sharing settings here as needed -->
+        <div>
+          <!-- TODO: Add section to 'Share this view' which will share the page in the format the the user has created, not the default-->
+          <p class="text-sm text-gray-600">Share this view:</p>
+          <p class="text-sm text-blue-700 hover:underline cursor-pointer" id="share-link">Generate Shareable Link</p>
+          <p class="text-xs text-gray-500">This will create a link that retains your current settings for counters and display options.</p>
+          <input type="text" id="share-url" class="border rounded px-2 py-1 w-full" readonly>
+          <button id="copy-share-link" class="mt-2 bg-gray-200 text-gray-700 px-2 py-1 rounded">
+            <i class="fas fa-copy"></i>
+            Copy Link
+          </button>
+          <script>
+            document.getElementById('share-link').addEventListener('click', async () => {
+              const endpoint = new URL('{% url "generate_share_link" council.slug %}', window.location.origin);
+              const year = document.getElementById('year-select').value;
+              const selectedCounters = Array.from(document.querySelectorAll('#counters-grid [data-counter]'))
+                .filter(el => el.style.display !== 'none')
+                .map(el => el.dataset.counter);
+              endpoint.searchParams.set('year', year);
+              endpoint.searchParams.set('counters', selectedCounters.join(','));
+              endpoint.searchParams.set('precision', precisionSelect.value || '');
+              endpoint.searchParams.set('thousands', thousandsCheck.checked);
+              endpoint.searchParams.set('friendly', friendlyCheck.checked);
+              try {
+                const resp = await fetch(endpoint, {headers: {'X-Requested-With': 'XMLHttpRequest'}});
+                const data = await resp.json();
+                document.getElementById('share-url').value = data.url || '';
+              } catch (e) {
+                document.getElementById('share-url').value = 'Error generating link';
+              }
+            });
+            document.getElementById('copy-share-link').addEventListener('click', () => {
+              const shareUrl = document.getElementById('share-url');
+              shareUrl.select();
+              document.execCommand('copy');
+              alert('Shareable link copied to clipboard!');
+            });
+          </script>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% if counters %}
+<div id="counters-grid" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 my-6">
+    {% for item in counters %}
+    <div id="counter-{{ item.counter.slug }}" class="bg-gray-50 p-10 rounded shadow text-center {% if item.counter.headline %}md:col-span-3{% endif %}" data-counter="{{ item.counter.slug }}" {% if item.counter.headline %}style="grid-column: span 3"{% endif %}>
+        <p class="text-sm text-gray-600">{{ item.counter.name }}</p>
+        <p class="text-red-700 text-sm counter-error" {% if not item.error %}style="display:none"{% endif %}>{{ item.error }}</p>
+        <p class="{% if item.counter.headline %}text-6xl{% else %}text-4xl{% endif %} font-bold counter-value"
+           {% if item.value is not None %}
+           data-duration="{{ item.counter.duration }}"
+           data-value="{{ item.value }}"
+           data-formatted="{{ item.formatted }}"
+           {% endif %}
+           data-precision="{{ item.counter.precision }}"
+           data-show-currency="{{ item.counter.show_currency|yesno:'true,false' }}"
+           data-friendly="{{ item.counter.friendly_format|yesno:'true,false' }}"
+           {% if item.error %}style="display:none"{% endif %}>{% if item.value is not None %}{{ item.formatted }}{% else %}No data{% endif %}</p>
+        <p class="counter-factoid text-sm text-gray-600"></p>
+        <p class="text-xs mt-1">{{ item.counter.explanation }}</p>
+        {% with sid='factoids-'|add:item.counter.slug %}
+        {{ item.factoids|json_script:sid }}
+        {% endwith %}
+    </div>
+    {% endfor %}
+</div>
+{{ default_counter_slugs|json_script:"default-slugs" }}
+{% if share_data %}{{ share_data|json_script:"share-data" }}{% endif %}
+<script src="{% static 'js/countUp.umd.js' %}"></script>
+<style>
+  .counter-factoid{max-height:0;overflow:hidden;transition:max-height 0.5s ease;}
+  .counter-factoid.show{max-height:3rem;}
+</style>
+<script>
+function animateCounters() {
+  document.querySelectorAll('.counter-value').forEach(el => {
+    if (!el.dataset.value) return;
+    const end = parseFloat(el.dataset.value || '0');
+    const dur = parseInt(el.dataset.duration || '0') / 1000;
+    const display = el.dataset.formatted || end.toLocaleString();
+    // Create an animator instance from the CountUp library. The global
+    // object exposes the constructor as `countUp.CountUp` when using the
+    // UMD build we load above.
+    // Determine how the number should be formatted during the animation.
+    // We honour user overrides for precision and thousands separators so
+    // that the animated value looks similar to the final formatted result.
+    // dataset values might be capitalised; normalise to handle both cases.
+    const showCurrency = (el.dataset.showCurrency || 'false').toLowerCase() === 'true';
+    const precision = overridePrecision !== null ? parseInt(overridePrecision, 10)
+      : parseInt(el.dataset.precision || '0', 10);
+    const thousands = overrideThousands !== null ? overrideThousands === 'true'
+      : showCurrency;
+
+    const cu = new countUp.CountUp(el, end, {
+      duration: dur,
+      decimalPlaces: precision,
+      separator: thousands ? ',' : '',
+      prefix: showCurrency ? '£' : '',
+      easingFn: (t, b, c, d) => {
+        // linear deceleration - progressively slows towards the end
+        t /= d; return c * (2 - t) * t * 0.5 + b;
+      }
+    });
+    // show prefix and separator immediately
+    if (cu.printValue) {
+      cu.printValue(0);
+    } else {
+      el.textContent = cu.formattingFn(0);
+    }
+    const container = el.parentElement;
+    const factEl = container.querySelector('.counter-factoid');
+    let facts = [];
+    const script = document.getElementById('factoids-' + container.dataset.counter);
+    if (script) {
+      try { facts = JSON.parse(script.textContent); } catch(e){ facts = []; }
+    }
+    function cycleFacts(i=0){
+      if(!factEl || !facts.length) return;
+      const f = facts[i];
+      factEl.innerHTML = f.icon ? `<i class='fas ${f.icon}'></i> ${f.text}` : f.text;
+      factEl.classList.add('show');
+      setTimeout(() => {
+        factEl.classList.remove('show');
+        setTimeout(() => cycleFacts((i+1)%facts.length), 500);
+      }, 4000);
+    }
+    if (!cu.error) {
+      cu.start(cycleFacts);
+    } else {
+      el.textContent = display;
+      cycleFacts();
+    }
+  });
+}
+
+async function loadCounters(year) {
+  const url = `{% url 'council_counters' council.slug %}?year=${encodeURIComponent(year)}`;
+  try {
+    const resp = await fetch(url, {headers: {'X-Requested-With': 'XMLHttpRequest'}});
+    const data = await resp.json();
+    Object.entries(data.counters).forEach(([slug, info]) => {
+      const container = document.querySelector(`[data-counter="${slug}"]`);
+      if (!container) return;
+      const valEl = container.querySelector('.counter-value');
+      const errEl = container.querySelector('.counter-error');
+      if (info.error) {
+        if (errEl) { errEl.textContent = info.error; errEl.style.display = ''; }
+        if (valEl) { valEl.style.display = 'none'; }
+      } else {
+        if (errEl) { errEl.textContent = ''; errEl.style.display = 'none'; }
+        if (valEl) {
+          if (info.value === null) {
+            valEl.removeAttribute('data-value');
+            valEl.removeAttribute('data-formatted');
+            valEl.textContent = 'No data';
+          } else {
+            valEl.dataset.value = info.value;
+            valEl.dataset.formatted = info.formatted;
+            valEl.textContent = '0';
+          }
+          valEl.dataset.duration = info.duration;
+          valEl.dataset.precision = info.precision;
+          valEl.dataset.showCurrency = info.show_currency;
+          valEl.dataset.friendly = info.friendly_format;
+          valEl.style.display = '';
+        }
+      }
+    });
+    formatAllCounters();
+    animateCounters();
+  } catch (e) {
+    console.error('Failed to load counters', e);
+  }
+}
+
+document.getElementById('year-select').addEventListener('change', e => {
+  loadCounters(e.target.value);
+});
+
+const councilSlug = '{{ council.slug }}';
+const grid = document.getElementById('counters-grid');
+const slider = document.getElementById('column-slider');
+const drawer = document.getElementById('counter-drawer');
+const toggleBtn = document.getElementById('drawer-toggle');
+const applyBtn = document.getElementById('drawer-apply');
+const resetBtn = document.getElementById('drawer-reset');
+const precisionSelect = document.getElementById('precision-select');
+const thousandsCheck = document.getElementById('thousands-check');
+const friendlyCheck = document.getElementById('friendly-check');
+
+// Retrieve saved formatting overrides or fall back to null which means
+// "use whatever the counter defines".
+let overridePrecision = localStorage.getItem(`precision_${councilSlug}`);
+let overrideThousands = localStorage.getItem(`thousands_${councilSlug}`);
+let overrideFriendly = localStorage.getItem(`friendly_${councilSlug}`);
+
+const shareEl = document.getElementById('share-data');
+let sharePrefs = null;
+if (shareEl) {
+  try { sharePrefs = JSON.parse(shareEl.textContent); } catch (e) { sharePrefs = null; }
+}
+if (sharePrefs) {
+  if (sharePrefs.precision !== undefined && sharePrefs.precision !== null) {
+    overridePrecision = sharePrefs.precision;
+    localStorage.setItem(`precision_${councilSlug}`, sharePrefs.precision);
+  }
+  if (sharePrefs.thousands !== undefined) {
+    overrideThousands = sharePrefs.thousands ? 'true' : 'false';
+    localStorage.setItem(`thousands_${councilSlug}`, overrideThousands);
+  }
+  if (sharePrefs.friendly !== undefined) {
+    overrideFriendly = sharePrefs.friendly ? 'true' : 'false';
+    localStorage.setItem(`friendly_${councilSlug}`, overrideFriendly);
+  }
+  if (Array.isArray(sharePrefs.counters)) {
+    localStorage.setItem(`counters_${councilSlug}`, JSON.stringify(sharePrefs.counters));
+  }
+  if (sharePrefs.year) {
+    document.getElementById('year-select').value = sharePrefs.year;
+  }
+}
+
+if (overridePrecision !== null) precisionSelect.value = overridePrecision;
+if (overrideThousands !== null) thousandsCheck.checked = overrideThousands === 'true';
+if (overrideFriendly !== null) friendlyCheck.checked = overrideFriendly === 'true';
+
+function defaultCols() {
+  if (window.innerWidth < 640) return 1;
+  if (window.innerWidth < 768) return 2;
+  return 3;
+}
+
+function setCols(n) {
+  grid.style.gridTemplateColumns = `repeat(${n}, minmax(0,1fr))`;
+}
+
+function formatNumber(value, precision, thousands) {
+  let num = Number(value);
+  if (thousands) {
+    return num.toLocaleString(undefined, {
+      minimumFractionDigits: precision,
+      maximumFractionDigits: precision
+    });
+  }
+  return num.toFixed(precision);
+}
+
+function formatValue(value, counter) {
+  // Normalise boolean-like strings so they work regardless of case
+  const showCurrency = (counter.showCurrency || 'false').toLowerCase() === 'true';
+  const basePrecision = parseInt(counter.precision || '0', 10);
+  const baseFriendly = (counter.friendly || 'false').toLowerCase() === 'true';
+
+  const precision = overridePrecision !== null ? parseInt(overridePrecision, 10) : basePrecision;
+  const friendly = overrideFriendly !== null ? (overrideFriendly === 'true') : baseFriendly;
+  const thousands = overrideThousands !== null ? (overrideThousands === 'true') : showCurrency;
+
+  let result = '';
+  let val = Number(value);
+  if (friendly) {
+    let suffix = '';
+    let displayVal = val;
+    const absVal = Math.abs(val);
+    if (absVal >= 1e9) { displayVal = val / 1e9; suffix = 'b'; }
+    else if (absVal >= 1e6) { displayVal = val / 1e6; suffix = 'm'; }
+    else if (absVal >= 1e3) { displayVal = val / 1e3; suffix = 'k'; }
+    result = formatNumber(displayVal, precision, thousands) + suffix;
+  } else {
+    result = formatNumber(val, precision, thousands);
+  }
+  if (showCurrency) {
+    result = '£' + result;
+  }
+  return result;
+}
+
+function formatAllCounters() {
+  document.querySelectorAll('.counter-value').forEach(el => {
+    if (!el.dataset.value) return;
+    const counter = {
+      showCurrency: el.dataset.showCurrency,
+      precision: el.dataset.precision,
+      friendly: el.dataset.friendly,
+    };
+    el.dataset.formatted = formatValue(el.dataset.value, counter);
+  });
+}
+
+const storedCols = localStorage.getItem(`cols_${councilSlug}`);
+const cols = storedCols ? parseInt(storedCols, 10) : defaultCols();
+slider.value = cols;
+setCols(cols);
+
+slider.addEventListener('input', e => {
+  const val = parseInt(e.target.value, 10);
+  setCols(val);
+  localStorage.setItem(`cols_${councilSlug}`, val);
+});
+
+function saveFormatting() {
+  overridePrecision = precisionSelect.value || null;
+  overrideThousands = thousandsCheck.checked ? 'true' : 'false';
+  overrideFriendly = friendlyCheck.checked ? 'true' : 'false';
+  if (overridePrecision !== null && overridePrecision !== '') {
+    localStorage.setItem(`precision_${councilSlug}`, overridePrecision);
+  } else {
+    localStorage.removeItem(`precision_${councilSlug}`);
+    overridePrecision = null;
+  }
+  localStorage.setItem(`thousands_${councilSlug}`, overrideThousands);
+  localStorage.setItem(`friendly_${councilSlug}`, overrideFriendly);
+  formatAllCounters();
+  animateCounters();
+}
+
+precisionSelect.addEventListener('change', saveFormatting);
+thousandsCheck.addEventListener('change', saveFormatting);
+friendlyCheck.addEventListener('change', saveFormatting);
+
+const defaultSlugs = JSON.parse(document.getElementById('default-slugs').textContent);
+
+function applyPrefs(slugs) {
+  document.querySelectorAll('#counter-drawer input[type=checkbox]').forEach(cb => {
+    cb.checked = slugs.includes(cb.dataset.slug);
+  });
+  document.querySelectorAll('#counters-grid [data-counter]').forEach(div => {
+    div.style.display = slugs.includes(div.dataset.counter) ? '' : 'none';
+  });
+  formatAllCounters();
+  animateCounters();
+}
+
+let savedSlugs;
+try {
+  savedSlugs = JSON.parse(localStorage.getItem(`counters_${councilSlug}`));
+} catch (err) { savedSlugs = null; }
+applyPrefs(savedSlugs || defaultSlugs);
+
+applyBtn.addEventListener('click', () => {
+  const selected = Array.from(document.querySelectorAll('#counter-drawer input[type=checkbox]:checked')).map(cb => cb.dataset.slug);
+  localStorage.setItem(`counters_${councilSlug}`, JSON.stringify(selected));
+  applyPrefs(selected);
+  drawer.style.maxHeight = null;
+});
+
+resetBtn.addEventListener('click', () => {
+  localStorage.removeItem(`counters_${councilSlug}`);
+  applyPrefs(defaultSlugs);
+  drawer.style.maxHeight = null;
+});
+
+toggleBtn.addEventListener('click', () => {
+  if (drawer.style.maxHeight) {
+    drawer.style.maxHeight = null;
+  } else {
+    drawer.style.maxHeight = drawer.scrollHeight + 'px';
+  }
+});
+
+</script>
+{% endif %}
+{% endif %}
+<script>
+function getCookie(name){const m=document.cookie.match('(^|;)\\s*'+name+'\\s*=\\s*([^;]+)');return m?m.pop():'';}
+const followBtn=document.getElementById('follow-btn');
+if(followBtn){
+  const csrftoken=getCookie('csrftoken');
+  followBtn.addEventListener('click',()=>{
+    const slug=followBtn.dataset.slug;
+    const following=followBtn.dataset.following==='true';
+    const url=following?`/unfollow/${slug}/`:`/follow/${slug}/`;
+    fetch(url,{method:'POST',headers:{'X-CSRFToken':csrftoken}}).then(r=>r.json()).then(()=>{
+      followBtn.dataset.following=following?'false':'true';
+      followBtn.textContent=following?'Follow':'Unfollow';
+    });
+  });
+}
+
+// Compare button functionality
+const compareBtn=document.getElementById('compare-btn');
+if(compareBtn){
+  const csrftoken=getCookie('csrftoken');
+  compareBtn.addEventListener('click',()=>{
+    const slug=compareBtn.dataset.slug;
+    fetch(`/compare/add/${slug}/`,{
+      method:'POST',
+      headers:{'X-CSRFToken':csrftoken}
+    })
+    .then(r=>r.json())
+    .then(data=>{
+      if(data.status==='success'){
+        // Update button to show added state
+        compareBtn.style.backgroundColor='#10b981';
+        compareBtn.textContent=`Added (${data.count})`;
+        
+        // Update header basket count if it exists
+        const basketCount=document.querySelector('.compare-count');
+        if(basketCount){
+          basketCount.textContent=data.count;
+          basketCount.parentElement.style.display=data.count>0?'flex':'none';
+        }
+        
+        setTimeout(()=>{
+          compareBtn.style.backgroundColor='#7c3aed';
+          compareBtn.textContent='Compare';
+        },2000);
+      } else {
+        // Show error message
+        compareBtn.style.backgroundColor='#ef4444';
+        compareBtn.textContent=data.message||'Error';
+        setTimeout(()=>{
+          compareBtn.style.backgroundColor='#7c3aed';
+          compareBtn.textContent='Compare';
+        },2000);
+      }
+    })
+    .catch(()=>{
+      compareBtn.style.backgroundColor='#ef4444';
+      compareBtn.textContent='Error';
+      setTimeout(()=>{
+        compareBtn.style.backgroundColor='#7c3aed';
+        compareBtn.textContent='Compare';
+      },2000);
+    });
+  });
+}
+</script>
+{% if meta_values %}
+<div id="meta-zone" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 my-6">
+    {% for m in meta_values %}
+    <div class="bg-green-50 p-6 rounded shadow text-center">
+        <p class="text-sm text-gray-600">{{ m.field.name|capfirst }}</p>
+        <p class="text-2xl font-bold">{{ m.value }}</p>
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
+{% comment %}
+When in edit mode users can update figures for a specific year. The
+table loads via AJAX when the year selector changes so we always edit
+the correct records.
+{% endcomment %}
+<p class="mt-4"><a href="{% url 'council_list' %}" class="text-blue-700 hover:underline">Back to all councils</a></p>
+{% endblock %}
+
