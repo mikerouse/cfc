@@ -3,152 +3,186 @@
 {% block title %}Edit {{ council.name }} - Council Finance Counters{% endblock %}
 
 {% block content %}
-<!-- Enhanced Edit Header -->
-<div class="border-b border-gray-200 pb-6 mb-6">
-  <div class="flex items-center justify-between">
-    <div>
-      <h1 class="text-3xl sm:text-4xl font-extrabold text-gray-900 flex items-center gap-3">
-        <span class="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
-          <svg class="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
-          </svg>
-        </span>
-        {{ council.name }}
-      </h1>
-      <div class="council-meta-in-header flex flex-row items-center gap-4 text-gray-500 text-sm mt-2">
-        <div class="council-type-in-header">
-          {% if council.council_type %}
-            <span>{{ council.council_type.name }}</span>
-          {% elif 'council_type' in pending_slugs %}
-            <span><i class="fas fa-clock mr-1"></i>Council type pending confirmation</span>
-          {% else %}
-            <span class="text-red-600">Council type missing</span>
-          {% endif %}
+<div class="max-w-7xl mx-auto px-4 py-6">
+  <!-- Council Header -->
+  <div class="bg-white border border-gray-200 rounded-xl shadow-sm mb-6">
+    <div class="px-8 py-6">
+      <!-- Council Title and Meta -->
+      <div class="flex items-start justify-between mb-6">
+        <div class="flex-1">
+          <div class="flex items-center space-x-4 mb-4">
+            <div class="w-16 h-16 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl flex items-center justify-center shadow-lg">
+              <svg class="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+              </svg>
+            </div>
+            <div>
+              <h1 class="text-3xl font-bold text-gray-900">Edit {{ council.name }}</h1>
+              <div class="flex items-center space-x-6 text-sm text-gray-600 mt-2">
+                <div class="flex items-center space-x-2">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/>
+                  </svg>
+                  <span>
+                    {% if council.council_type %}
+                      {{ council.council_type.name }}
+                    {% elif 'council_type' in pending_slugs %}
+                      <span class="text-orange-600"><i class="fas fa-clock mr-1"></i>Council type pending confirmation</span>
+                    {% else %}
+                      <a href="{% url 'council_detail' council.slug %}?tab=edit&focus=council_type" class="text-blue-600 hover:text-blue-800 underline">Contribute council type</a>
+                    {% endif %}
+                  </span>
+                </div>
+                
+                <div class="flex items-center space-x-2">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                  </svg>
+                  <span>
+                    {% if council.council_nation %}
+                      {{ council.council_nation.name }}
+                    {% elif 'council_nation' in pending_slugs %}
+                      <span class="text-orange-600"><i class="fas fa-clock mr-1"></i>Council nation pending confirmation</span>
+                    {% else %}
+                      <a href="{% url 'council_detail' council.slug %}?tab=edit&focus=council_nation" class="text-blue-600 hover:text-blue-800 underline">Contribute council nation</a>
+                    {% endif %}
+                  </span>
+                </div>
+
+                <div class="flex items-center space-x-2">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9v-9m0-9v9"/>
+                  </svg>
+                  <span>
+                    {% if council.website %}
+                      <a href="{{ council.website }}" target="_blank" class="text-blue-600 hover:text-blue-800 underline">{{ council.website|truncatechars:30 }}</a>
+                    {% elif 'council_website' in pending_slugs %}
+                      <span class="text-orange-600"><i class="fas fa-clock mr-1"></i>Website pending confirmation</span>
+                    {% else %}
+                      <a href="{% url 'council_detail' council.slug %}?tab=edit&focus=council_website" class="text-blue-600 hover:text-blue-800 underline">Contribute website address</a>
+                    {% endif %}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
-        <span class="mx-2">|</span>
-        <div class="council-website-in-header">
-          {% if council.website %}
-            <span>
-              <a href="{{ council.website }}" class="text-blue-700 hover:underline" target="_blank">{{ council.website }}</a>
-            </span>
-          {% elif 'council_website' in pending_slugs %}
-            <span><i class="fas fa-clock mr-1"></i>Website pending confirmation</span>
-          {% else %}
-            <span class="text-red-600">Website missing</span>
-          {% endif %}
-        </div>
-        <span class="mx-2">|</span>
-        <div class="council-nation-in-header">
-          {% if council.council_nation %}
-            <span>{{ council.council_nation.name }}</span>
-          {% elif 'council_nation' in pending_slugs %}
-            <span><i class="fas fa-clock mr-1"></i>Council nation pending confirmation</span>
-          {% else %}
-            <span class="text-red-600">Council nation missing</span>
-          {% endif %}
-        </div>
+
+        <!-- Action Buttons -->
+        {% if user.is_authenticated %}
+          <div class="flex items-center space-x-3">
+            <button id="follow-btn" 
+                    class="inline-flex items-center px-4 py-2 border border-blue-300 text-sm font-medium rounded-lg text-blue-700 bg-blue-50 hover:bg-blue-100 transition-colors" 
+                    data-following="{{ is_following|yesno:'true,false' }}" 
+                    data-slug="{{ council.slug }}">
+              <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                {% if is_following %}
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                {% else %}
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/>
+                {% endif %}
+              </svg>
+              {% if is_following %}Unfollow{% else %}Follow{% endif %}
+            </button>
+            
+            <button id="compare-btn" 
+                    class="inline-flex items-center px-4 py-2 border border-purple-300 text-sm font-medium rounded-lg text-purple-700 bg-purple-50 hover:bg-purple-100 transition-colors" 
+                    data-slug="{{ council.slug }}">
+              <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
+              </svg>
+              Compare
+            </button>
+          </div>
+        {% endif %}
+      </div>
+
+      <!-- Navigation Tabs -->
+      <div class="border-b border-gray-200">
+        <nav class="flex space-x-8">
+          <a href="{% url 'council_detail' council.slug %}" 
+             class="py-3 px-1 border-b-2 border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 font-medium text-sm transition-colors">
+            <div class="flex items-center space-x-2">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
+              </svg>
+              <span>Financial Data</span>
+            </div>
+          </a>
+          
+          <a href="{% url 'council_detail' council.slug %}?tab=edit" 
+             class="py-3 px-1 border-b-2 border-blue-500 text-blue-600 font-medium text-sm transition-colors">
+            <div class="flex items-center space-x-2">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+              </svg>
+              <span>Edit Council</span>
+            </div>
+          </a>
+          
+          <a href="{% url 'council_change_log' council.slug %}" 
+             class="py-3 px-1 border-b-2 border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 font-medium text-sm transition-colors">
+            <div class="flex items-center space-x-2">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+              </svg>
+              <span>Change Log</span>
+            </div>
+          </a>
+        </nav>
       </div>
     </div>
-    
-    <!-- Action Buttons -->
-    {% if user.is_authenticated %}
-      <div class="flex items-center gap-3">
-        <button id="follow-btn" class="bg-blue-600 text-white px-3 py-2 rounded-lg hover:bg-blue-700 transition-colors" data-following="{{ is_following|yesno:'true,false' }}" data-slug="{{ council.slug }}">
-          {% if is_following %}
-            <svg class="w-4 h-4 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
-            </svg>
-            Following
-          {% else %}
-            <svg class="w-4 h-4 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
-            </svg>
-            Follow
-          {% endif %}
-        </button>
-        <button id="compare-btn" class="bg-purple-600 text-white px-3 py-2 rounded-lg hover:bg-purple-700 transition-colors" data-slug="{{ council.slug }}">
-          <svg class="w-4 h-4 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 10V7"/>
-          </svg>
-          Compare
-        </button>
-      </div>
-    {% endif %}
   </div>
-</div>
 
-<!-- Navigation Tabs -->
-<div class="border-b border-gray-200 mb-6">
-  <nav class="-mb-px flex space-x-8" aria-label="Tabs">
-    <a href="{% url 'council_detail' council.slug %}" class="py-2 px-1 border-b-2 border-transparent font-medium text-sm text-gray-500 hover:text-gray-700 hover:border-gray-300 transition-colors">
-      <svg class="w-4 h-4 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
-      </svg>
-      View
-    </a>
-    <a href="{% url 'council_detail' council.slug %}?tab=edit" class="py-2 px-1 border-b-2 border-blue-500 font-medium text-sm text-blue-600">
-      <svg class="w-4 h-4 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
-      </svg>
-      Edit
-    </a>
-    <a href="{% url 'council_change_log' council.slug %}" class="py-2 px-1 border-b-2 border-transparent font-medium text-sm text-gray-500 hover:text-gray-700 hover:border-gray-300 transition-colors">
-      <svg class="w-4 h-4 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
-      </svg>
-      Log
-    </a>
-  </nav>
-</div>
-
-<!-- Administrative Messages -->
-{% if administrative_messages %}
-  <div class="space-y-4 mb-6">
-    {% for msg in administrative_messages %}
-      <div class="rounded-md p-4 
-        {% if msg.type == 'merge' %}bg-blue-50 border border-blue-200
-        {% elif msg.type == 'flag' %}bg-yellow-50 border border-yellow-200
-        {% elif msg.type == 'defunct' %}bg-red-50 border border-red-200
-        {% else %}bg-gray-50 border border-gray-200{% endif %}">
-        <div class="flex">
-          <div class="flex-shrink-0">
-            {% if msg.type == 'merge' %}
-              <svg class="h-5 w-5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
-              </svg>
-            {% elif msg.type == 'flag' %}
-              <svg class="h-5 w-5 text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
-              </svg>
-            {% elif msg.type == 'defunct' %}
-              <svg class="h-5 w-5 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
-              </svg>
-            {% endif %}
-          </div>
-          <div class="ml-3">
-            <p class="text-sm {% if msg.type == 'merge' %}text-blue-800{% elif msg.type == 'flag' %}text-yellow-800{% elif msg.type == 'defunct' %}text-red-800{% else %}text-gray-800{% endif %}">
-              {{ msg.message }}
-            </p>
+  <!-- Administrative Messages -->
+  {% if administrative_messages %}
+    <div class="space-y-4 mb-6">
+      {% for message in administrative_messages %}
+        <div class="rounded-lg border-l-4 p-4 
+          {% if message.type == 'merge' %}bg-blue-50 border-blue-400 text-blue-800
+          {% elif message.type == 'flag' %}bg-yellow-50 border-yellow-400 text-yellow-800
+          {% elif message.type == 'defunct' %}bg-red-50 border-red-400 text-red-800
+          {% else %}bg-gray-50 border-gray-400 text-gray-800{% endif %}">
+          <div class="flex items-start">
+            <div class="flex-shrink-0 mr-3">
+              {% if message.type == 'merge' %}
+                <svg class="w-5 h-5 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                  <path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd"/>
+                </svg>
+              {% elif message.type == 'flag' %}
+                <svg class="w-5 h-5 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                  <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"/>
+                </svg>
+              {% elif message.type == 'defunct' %}
+                <svg class="w-5 h-5 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                  <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"/>
+                </svg>
+              {% endif %}
+            </div>
+            <div class="flex-1">
+              <p class="text-sm font-medium">{{ message.message }}</p>
+              {% if message.timestamp %}
+                <p class="text-xs opacity-75 mt-1">{{ message.timestamp|date:"F j, Y \a\t g:i A" }}</p>
+              {% endif %}
+            </div>
           </div>
         </div>
-      </div>
-    {% endfor %}
+      {% endfor %}
+    </div>
+  {% endif %}
+
+  <!-- Enhanced Edit Content -->
+  {% include 'council_finance/enhanced_council_edit.html' %}
+
+  <!-- Back Link -->
+  <div class="mt-8 pt-6 border-t border-gray-200">
+    <a href="{% url 'council_list' %}" class="inline-flex items-center text-sm font-medium text-gray-500 hover:text-gray-700 transition-colors">
+      <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/>
+      </svg>
+      Back to all councils
+    </a>
   </div>
-{% endif %}
-
-<!-- Enhanced Edit Content -->
-{% include 'council_finance/enhanced_council_edit.html' %}
-
-<!-- Back Link -->
-<div class="mt-8 pt-6 border-t border-gray-200">
-  <a href="{% url 'council_list' %}" class="inline-flex items-center text-sm font-medium text-gray-500 hover:text-gray-700 transition-colors">
-    <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/>
-    </svg>
-    Back to all councils
-  </a>
 </div>
 
 {% endblock %}
@@ -159,6 +193,77 @@
 
 <!-- Focus handling for edit parameters -->
 <script>
+function getCookie(name){const m=document.cookie.match('(^|;)\\s*'+name+'\\s*=\\s*([^;]+)');return m?m.pop():'';}
+
+// Follow button functionality  
+const followBtn=document.getElementById('follow-btn');
+if(followBtn){
+  const csrftoken=getCookie('csrftoken');
+  followBtn.addEventListener('click',()=>{
+    const slug=followBtn.dataset.slug;
+    const following=followBtn.dataset.following==='true';
+    const url=following?`/unfollow/${slug}/`:`/follow/${slug}/`;
+    fetch(url,{method:'POST',headers:{'X-CSRFToken':csrftoken}}).then(r=>r.json()).then(()=>{
+      followBtn.dataset.following=following?'false':'true';
+      const icon=followBtn.querySelector('svg');
+      const text=followBtn.querySelector('span')||followBtn.childNodes[followBtn.childNodes.length-1];
+      if(following){
+        icon.innerHTML='<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/>';
+        text.textContent=' Follow';
+      }else{
+        icon.innerHTML='<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z"/>';
+        text.textContent=' Unfollow';
+      }
+    });
+  });
+}
+
+// Compare button functionality
+const compareBtn=document.getElementById('compare-btn');
+if(compareBtn){
+  const csrftoken=getCookie('csrftoken');
+  compareBtn.addEventListener('click',()=>{
+    const slug=compareBtn.dataset.slug;
+    fetch(`/compare/add/${slug}/`,{
+      method:'POST',
+      headers:{'X-CSRFToken':csrftoken}
+    })
+    .then(r=>r.json())
+    .then(data=>{
+      if(data.status==='success'){
+        compareBtn.style.backgroundColor='#10b981';
+        compareBtn.textContent=`Added (${data.count})`;
+        
+        const basketCount=document.querySelector('.compare-count');
+        if(basketCount){
+          basketCount.textContent=data.count;
+          basketCount.parentElement.style.display=data.count>0?'flex':'none';
+        }
+        
+        setTimeout(()=>{
+          compareBtn.style.backgroundColor='#7c3aed';
+          compareBtn.textContent='Compare';
+        },2000);
+      } else {
+        compareBtn.style.backgroundColor='#ef4444';
+        compareBtn.textContent=data.message||'Error';
+        setTimeout(()=>{
+          compareBtn.style.backgroundColor='#7c3aed';
+          compareBtn.textContent='Compare';
+        },2000);
+      }
+    })
+    .catch(()=>{
+      compareBtn.style.backgroundColor='#ef4444';
+      compareBtn.textContent='Error';
+      setTimeout(()=>{
+        compareBtn.style.backgroundColor='#7c3aed';
+        compareBtn.textContent='Compare';
+      },2000);
+    });
+  });
+}
+
 document.addEventListener('DOMContentLoaded', function() {
     // Check if there's a focus parameter in the URL
     const urlParams = new URLSearchParams(window.location.search);
