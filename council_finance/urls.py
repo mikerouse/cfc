@@ -103,9 +103,11 @@ urlpatterns = [
     path("manage/counters/site/", views.site_counter_list, name="site_counter_list"),
     path("manage/counters/site/add/", views.site_counter_form, name="site_counter_add"),
     path("manage/counters/site/<slug:slug>/", views.site_counter_form, name="site_counter_edit"),
+    path("manage/counters/site/<slug:slug>/delete/", views.site_counter_delete, name="site_counter_delete"),
     path("manage/counters/groups/", views.group_counter_list, name="group_counter_list"),
     path("manage/counters/groups/add/", views.group_counter_form, name="group_counter_add"),
     path("manage/counters/groups/<slug:slug>/", views.group_counter_form, name="group_counter_edit"),
+    path("manage/counters/groups/<slug:slug>/delete/", views.group_counter_delete, name="group_counter_delete"),
     path("manage/counters/add/", views.counter_definition_form, name="counter_add"),
     # The preview endpoint must appear before the dynamic slug path so Django
     # doesn't interpret "preview" as a slug. Without this ordering a request to

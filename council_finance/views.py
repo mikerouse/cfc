@@ -1361,55 +1361,186 @@ def counter_delete(request, slug):
 @login_required
 def site_counter_list(request):
     """List all site-wide counters."""
+    from django.core.paginator import Paginator
+    from .models import SiteCounter, CounterDefinition
 
-    from .models import SiteCounter
-
-    counters = SiteCounter.objects.all()
+    # Base queryset
+    counters = SiteCounter.objects.all().select_related('counter', 'year').order_by('name')
+    
+    # Apply search if provided
+    search_query = request.GET.get('search', '')
+    if search_query:
+        counters = counters.filter(name__icontains=search_query)
+    
+    # Apply status filter
+    status_filter = request.GET.get('status', '')
+    if status_filter:
+        if status_filter == 'homepage':
+            counters = counters.filter(promote_homepage=True)
+        elif status_filter == 'currency':
+            counters = counters.filter(show_currency=True)
+        elif status_filter == 'friendly':
+            counters = counters.filter(friendly_format=True)
+    
+    # Paginate
+    page_size = int(request.GET.get('page_size', 10))
+    paginator = Paginator(counters, page_size)
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
+    
+    # Calculate statistics
+    total_counters = SiteCounter.objects.count()
+    homepage_counters = SiteCounter.objects.filter(promote_homepage=True).count()
+    available_base_counters = CounterDefinition.objects.count()
+    
+    context = {
+        'page_obj': page_obj,
+        'total_counters': total_counters,
+        'homepage_counters': homepage_counters,
+        'available_base_counters': available_base_counters,
+        'search_query': search_query,
+        'status_filter': status_filter,
+        'page_size': page_size,
+    }
+    
     return render(
         request,
         "council_finance/site_counter_list.html",
-        {"counters": counters},
+        context,
     )
 
 
 @login_required
 def group_counter_list(request):
     """List all custom group counters."""
+    from django.core.paginator import Paginator
+    from .models import GroupCounter, CounterDefinition
 
-    from .models import GroupCounter
-
-    counters = GroupCounter.objects.all()
+    # Base queryset
+    counters = GroupCounter.objects.all().select_related('counter', 'year', 'council_list').order_by('name')
+    
+    # Apply search if provided
+    search_query = request.GET.get('search', '')
+    if search_query:
+        counters = counters.filter(name__icontains=search_query)
+    
+    # Apply status filter
+    status_filter = request.GET.get('status', '')
+    if status_filter:
+        if status_filter == 'homepage':
+            counters = counters.filter(promote_homepage=True)
+        elif status_filter == 'currency':
+            counters = counters.filter(show_currency=True)
+        elif status_filter == 'friendly':
+            counters = counters.filter(friendly_format=True)
+    
+    # Paginate
+    page_size = int(request.GET.get('page_size', 10))
+    paginator = Paginator(counters, page_size)
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
+    
+    # Calculate statistics
+    total_counters = GroupCounter.objects.count()
+    homepage_counters = GroupCounter.objects.filter(promote_homepage=True).count()
+    available_base_counters = CounterDefinition.objects.count()
+    
+    context = {
+        'page_obj': page_obj,
+        'total_counters': total_counters,
+        'homepage_counters': homepage_counters,
+        'available_base_counters': available_base_counters,
+        'search_query': search_query,
+        'status_filter': status_filter,
+        'page_size': page_size,
+    }
+    
     return render(
         request,
         "council_finance/group_counter_list.html",
-        {"counters": counters},
+        context,
     )
 
 
 @login_required
 def site_counter_form(request, slug=None):
     """Create or edit a site-wide counter."""
+    from .models import SiteCounter, CounterDefinition, FinancialYear
 
-    from .models import SiteCounter
+    # For a new counter, we might auto-select a base counter definition
+    base_slug = request.GET.get('base')
+    base_counter = None
+    if base_slug:
+        base_counter = CounterDefinition.objects.filter(slug=base_slug).first()
 
     counter = get_object_or_404(SiteCounter, slug=slug) if slug else None
-    form = SiteCounterForm(request.POST or None, instance=counter)
+    
+    # If we're creating a new counter with a base, pre-populate the form
+    initial = {}
+    if not counter and base_counter:
+        initial = {
+            'name': f"{base_counter.name} (Site)",
+            'counter': base_counter,
+            'show_currency': base_counter.show_currency,
+            'friendly_format': base_counter.friendly_format,
+            'precision': base_counter.precision,
+            'duration': base_counter.duration,
+        }
+
+    form = SiteCounterForm(request.POST or None, instance=counter, initial=initial)
+    
     if request.method == "POST" and form.is_valid():
-        form.save()
-        messages.success(request, "Counter saved.")
+        site_counter = form.save()
+        messages.success(request, f"Site counter '{site_counter.name}' saved successfully.")
         log_activity(
             request,
-            activity="counter_site",
+            activity="site_counter_save",
             log_type="user",
             action=slug or "new",
             response="saved",
+            extra={'counter_name': site_counter.name}
         )
         return redirect("site_counter_list")
+    
+    # Provide counter choices for the form
+    counter_choices = CounterDefinition.objects.all().order_by('name')
+    year_choices = FinancialYear.objects.all().order_by('-label')
+    
+    context = {
+        "form": form,
+        "counter": counter,
+        "is_edit": slug is not None,
+        "base_counter": base_counter,
+        "counter_choices": counter_choices,
+        "year_choices": year_choices,
+        "title": f"Edit {counter.name}" if counter else "Add Site-Wide Counter",
+    }
+    
     return render(
         request,
         "council_finance/site_counter_form.html",
-        {"form": form},
+        context,
     )
+
+
+@login_required
+def site_counter_delete(request, slug):
+    """Delete a site counter."""
+    from .models import SiteCounter
+    
+    counter = get_object_or_404(SiteCounter, slug=slug)
+    counter_name = counter.name
+    
+    counter.delete()
+    messages.success(request, f"Site counter '{counter_name}' was successfully deleted.")
+    log_activity(
+        request,
+        activity="site_counter_delete",
+        action=f"deleted site counter: {slug}",
+        extra={"counter_name": counter_name}
+    )
+    
+    return redirect('site_counter_list')
 
 
 @login_required
@@ -1436,6 +1567,26 @@ def group_counter_form(request, slug=None):
         "council_finance/group_counter_form.html",
         {"form": form},
     )
+
+
+@login_required
+def group_counter_delete(request, slug):
+    """Delete a group counter."""
+    from .models import GroupCounter
+    
+    counter = get_object_or_404(GroupCounter, slug=slug)
+    counter_name = counter.name
+    
+    counter.delete()
+    messages.success(request, f"Group counter '{counter_name}' was successfully deleted.")
+    log_activity(
+        request,
+        activity="group_counter_delete",
+        action=f"deleted group counter: {slug}",
+        extra={"counter_name": counter_name}
+    )
+    
+    return redirect('group_counter_list')
 
 
 @login_required
