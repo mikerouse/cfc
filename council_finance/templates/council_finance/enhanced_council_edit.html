@@ -2,40 +2,40 @@
 <!-- Enhanced Edit Section for Council Detail Page -->
 <div class="container-fluid">
   <!-- Edit Header -->
-  <div class="bg-primary bg-opacity-10 border border-primary rounded p-4 mb-4">
-    <div class="d-flex align-items-start justify-content-between">
+  <div class="bg-blue-50 border border-blue-200 rounded-lg p-6 mb-6">
+    <div class="flex items-start justify-between">
       <div>
-        <h2 class="h3 fw-bold text-dark mb-2">
-          <i class="bi bi-pencil-square text-primary me-2"></i>
+        <h2 class="text-2xl font-bold text-gray-900 mb-2 flex items-center">
+          <svg class="w-6 h-6 text-blue-600 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+          </svg>
           Edit {{ council.name }}
         </h2>
-        <p class="text-muted">Help improve council transparency by contributing accurate data. Your edits will be reviewed before publication.</p>
+        <p class="text-gray-600">Help improve council transparency by contributing accurate data. Your edits will be reviewed before publication.</p>
       </div>
-      <div class="text-end">
-        <div class="bg-white px-3 py-2 rounded border border-primary">
-          <div class="small text-primary">Wikipedia Style</div>
-          <div class="fw-semibold text-primary">Community Editing</div>
+      <div class="text-right">
+        <div class="bg-white px-4 py-3 rounded-lg border border-blue-200 shadow-sm">
+          <div class="text-sm text-blue-600">Wikipedia Style</div>
+          <div class="font-semibold text-blue-600">Community Editing</div>
         </div>
       </div>
     </div>
   </div>
 
   <!-- Quick Edit Actions Bar -->
-  <div class="bg-white border rounded shadow-sm mb-4">
-    <div class="px-4 py-3 border-bottom bg-light">
-      <h3 class="h5 fw-semibold mb-1">Quick Actions</h3>
-      <p class="small text-muted mb-0">Common fields that need attention for this council</p>
+  <div class="bg-white border border-gray-200 rounded-lg shadow-sm mb-6">
+    <div class="px-6 py-4 border-b border-gray-200 bg-gray-50">
+      <h3 class="text-lg font-semibold text-gray-900 mb-1">Quick Actions</h3>
+      <p class="text-sm text-gray-600 mb-0">Common fields that need attention for this council</p>
     </div>
-    <div class="p-4">
-      <div class="row g-3">
+    <div class="p-6">
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         <!-- Council Type -->
-        <div class="col-md-6 col-lg-4">
-          <div class="card h-100 border-light">
-            <div class="card-body">
-              <div class="d-flex align-items-center justify-content-between">
-                <div>
-                  <h4 class="h6 fw-semibold">Council Type</h4>
-                  <p class="small text-muted mb-0">
+        <div class="bg-gray-50 border border-gray-200 rounded-lg p-4 hover:bg-gray-100 transition-colors">
+          <div class="flex items-center justify-between">
+            <div>
+              <h4 class="font-medium text-gray-900">Council Type</h4>
+              <p class="text-sm text-gray-600">
                 {% if council.council_type %}
                   {{ council.council_type.name }}
                 {% elif 'council_type' in pending_slugs %}
@@ -189,31 +189,28 @@
         <!-- Calculate completion percentage -->
         {% with missing_count=missing_characteristic_page.object_list|length total_characteristics=5 %}
           <div class="mb-4">
-            <div class="d-flex align-items-center justify-content-between text-sm mb-2">
-              <span class="text-muted">Characteristics</span>
-              <span class="fw-semibold">
+            <div class="flex items-center justify-between text-sm mb-2">
+              <span class="text-gray-600">Characteristics</span>
+              <span class="font-semibold">
                 {% if missing_count == 0 %}100{% elif missing_count == 1 %}80{% elif missing_count == 2 %}60{% elif missing_count == 3 %}40{% elif missing_count == 4 %}20{% else %}0{% endif %}%
               </span>
             </div>
-            <div class="progress" style="height: 8px;">
-              <div class="progress-bar bg-success progress-bar-striped progress-bar-animated" 
-                   role="progressbar" 
-                   style="width: {% if missing_count == 0 %}100{% elif missing_count == 1 %}80{% elif missing_count == 2 %}60{% elif missing_count == 3 %}40{% elif missing_count == 4 %}20{% else %}0{% endif %}%"
-                   aria-valuenow="{% if missing_count == 0 %}100{% elif missing_count == 1 %}80{% elif missing_count == 2 %}60{% elif missing_count == 3 %}40{% elif missing_count == 4 %}20{% else %}0{% endif %}" 
-                   aria-valuemin="0" 
-                   aria-valuemax="100"></div>
+            <div class="w-full bg-gray-200 rounded-full h-2">
+              <div class="bg-green-500 h-2 rounded-full transition-all duration-300" 
+                   style="width: {% if missing_count == 0 %}100{% elif missing_count == 1 %}80{% elif missing_count == 2 %}60{% elif missing_count == 3 %}40{% elif missing_count == 4 %}20{% else %}0{% endif %}%">
+              </div>
             </div>
           </div>
         {% endwith %}
         
-        <div class="small text-muted">
-          <div class="d-flex justify-content-between mb-1">
+        <div class="text-sm text-gray-600 space-y-1">
+          <div class="flex justify-between">
             <span>Total fields:</span>
-            <span class="fw-medium">{{ edit_figures|length|add:5 }}</span>
+            <span class="font-medium">{{ edit_figures|length|add:5 }}</span>
           </div>
-          <div class="d-flex justify-content-between">
+          <div class="flex justify-between">
             <span>Missing data:</span>
-            <span class="fw-medium text-danger">{{ missing_characteristic_page.object_list|length }}</span>
+            <span class="font-medium text-red-600">{{ missing_characteristic_page.object_list|length }}</span>
           </div>
         </div>
       </div>
