@@ -31,11 +31,11 @@ document.addEventListener('DOMContentLoaded', function() {
     const errorMessage = document.getElementById('error-message');
 
     // Council data
-    const councilSlug = '{{ council.slug }}';
+    const councilSlug = window.councilData?.slug || 'unknown';
     
     // Store current field information
     let currentFieldSlug = null;
-    const councilName = '{{ council.name }}';
+    const councilName = window.councilData?.name || 'Council';
 
     /**
      * Show a toast notification
@@ -222,16 +222,14 @@ document.addEventListener('DOMContentLoaded', function() {
                 break;
                 
             case 'list':
-                // For list fields, we need to load the options dynamically
+                // For list fields, show loading state - options will be loaded by loadListOptions
                 inputHTML = `
-                    <div id="list-input-container">
-                        <div class="text-center py-4">
-                            <svg class="animate-spin -ml-1 mr-3 h-5 w-5 text-blue-600 inline" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                            </svg>
-                            <span class="text-sm text-gray-600">Loading options...</span>
-                        </div>
+                    <div class="text-center py-4">
+                        <svg class="animate-spin -ml-1 mr-3 h-5 w-5 text-blue-600 inline" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        <span class="text-sm text-gray-600">Loading options...</span>
                     </div>
                 `;
                 break;
@@ -267,7 +265,7 @@ document.addEventListener('DOMContentLoaded', function() {
             }
             
             const data = await response.json();
-            const container = document.getElementById('list-input-container');
+            const container = document.getElementById('input-container');  // Use input-container instead
             
             if (!data.options || data.options.length === 0) {
                 container.innerHTML = `
@@ -299,7 +297,7 @@ document.addEventListener('DOMContentLoaded', function() {
             
         } catch (error) {
             console.error('Error loading list options:', error);
-            const container = document.getElementById('list-input-container');
+            const container = document.getElementById('input-container');  // Use input-container instead
             container.innerHTML = `
                 <div class="text-center py-4 text-red-600">
                     <svg class="w-5 h-5 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">

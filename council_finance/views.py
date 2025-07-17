@@ -203,15 +203,18 @@ def search_councils(request):
 
 
 @require_GET
-def list_field_options(request, slug):
+def list_field_options(request, field_slug=None, slug=None):
     """Return selectable options for a list type field."""
     # The contribution modal needs to populate a drop-down when a
     # characteristic is backed by another dataset (e.g. council type).
     # This small API provides the ID/name pairs used to build that menu.
     from .models import DataField
 
+    # Handle both parameter names for backward compatibility
+    field_slug = field_slug or slug
+    
     try:
-        field = DataField.objects.get(slug=slug)
+        field = DataField.objects.get(slug=field_slug)
     except DataField.DoesNotExist:
         return JsonResponse({"error": "Field not found"}, status=404)
 
@@ -2489,18 +2492,17 @@ def field_info_api(request, field_slug):
         data = {
             'slug': field.slug,
             'name': field.name,
-            'description': field.description,
+            'description': field.explanation,  # Use explanation instead of description
             'category': field.category,
             'content_type': field.content_type,
             'content_type_display': field.get_content_type_display(),
-            'unit': field.unit,
-            'help_text': field.help_text,
+            'help_text': field.explanation,  # Use explanation for help text too
         }
         
         return JsonResponse(data)
         
     except Exception as e:
-        return JsonResponse({'error': str(e)}, status=404)
+        return JsonResponse({'error': str(e)}, status=500)  # Use 500 for server errors
 
 
 @require_GET  

@@ -95,10 +95,7 @@
 {% endif %}
 
 {% if tab == 'edit' %}
-<p class="bg-yellow-100 border border-yellow-300 text-yellow-800 p-4 rounded mb-4">
-  You can contribute to our dataset by providing information about councils. Most information comes from the council's balance sheet, cash flow statement, outturn data, spending disclosures, and their comprehensive income and expenditure statement.
-  <a href="#" class="underline">Click here to watch our video guide on how to find these documents.</a>
-</p>
+  {% include 'council_finance/enhanced_council_edit.html' %}
 {% endif %}
 
   {% if tab != 'edit' %}
@@ -605,25 +602,6 @@ When in edit mode users can update figures for a specific year. The
 table loads via AJAX when the year selector changes so we always edit
 the correct records.
 {% endcomment %}
-{% if tab == 'edit' %}
-<h2 class="text-xl font-semibold mt-6">Edit Figures</h2>
-<h3 class="text-lg font-semibold mt-2">Characteristics</h3>
-<div id="char-table-container" class="mt-2">
-    {% include 'council_finance/data_issues_table.html' with page_obj=missing_characteristic_page paginator=missing_characteristic_paginator issue_type='missing' show_year=False %}
-</div>
-<h3 class="text-lg font-semibold mt-4">Financial Data</h3>
-<div class="mt-2">
-    <label for="edit-year-select" class="sr-only">Financial year</label>
-    <select id="edit-year-select" class="border rounded px-2 py-1">
-        {% for y in edit_years %}
-            <option value="{{ y.label }}" {% if y.label == edit_selected_year.label %}selected{% endif %}>{{ y.display }}</option>
-        {% endfor %}
-    </select>
-</div>
-<div id="edit-table-container" class="mt-2">
-    {% include 'council_finance/edit_figures_table.html' with figures=edit_figures council=council pending_pairs=pending_pairs %}
-</div>
-{% endif %}
 <p class="mt-4"><a href="{% url 'council_list' %}" class="text-blue-700 hover:underline">Back to all councils</a></p>
 {% endblock %}
 

@@ -299,6 +299,15 @@
 <!-- Load the JavaScript -->
 <script src="{% static 'js/council_edit.js' %}"></script>
 
+<!-- Pass council data to JavaScript -->
+<script>
+// Set council data for the edit modal
+window.councilData = {
+    slug: '{{ council.slug }}',
+    name: '{{ council.name|escapejs }}'
+};
+</script>
+
 <!-- Load recent activity on page load -->
 <script>
 document.addEventListener('DOMContentLoaded', function() {
