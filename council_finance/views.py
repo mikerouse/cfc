@@ -236,7 +236,7 @@ def list_field_options(request, field_slug=None, slug=None):
 
 
 def home(request):
-    """Landing page with search and overall debt counter."""
+    """Enhanced landing page with search, counters, featured content and widgets."""
     # Pull any search query from the request
     query = request.GET.get("q", "")
 
@@ -245,7 +245,7 @@ def home(request):
     if query:
         councils = Council.objects.filter(
             Q(name__icontains=query) | Q(slug__icontains=query)
-        )
+        )[:10]  # Limit to top 10 results
 
     # Determine the latest financial year for which we have debt figures
     latest_year = FinancialYear.objects.order_by("-label").first()
@@ -261,6 +261,62 @@ def home(request):
     else:
         # Fallback when no figures are loaded
         total_debt = 0
+
+    # Get total council count for hero section
+    total_councils = Council.objects.count()
+    
+    # Get total data points available
+    total_data_points = FigureSubmission.objects.count()
+    
+    # Get council of the day (random featured council)
+    import random
+    from django.db import connection
+    
+    council_of_the_day = None
+    if Council.objects.exists():
+        # Get a deterministic "random" council based on today's date
+        import hashlib
+        from datetime import date
+        
+        today_seed = hashlib.md5(str(date.today()).encode()).hexdigest()
+        council_count = Council.objects.count()
+        if council_count > 0:
+            council_index = int(today_seed[:8], 16) % council_count
+            council_of_the_day = Council.objects.all()[council_index]
+
+    # Get recent activity for the homepage
+    recent_contributions = Contribution.objects.filter(
+        status='approved'
+    ).select_related('user', 'council', 'field').order_by('-created')[:5]
+    
+    # Get top contributors this month
+    from datetime import datetime, timedelta
+    month_ago = datetime.now() - timedelta(days=30)
+    from django.db.models import Count
+    
+    top_contributors = Contribution.objects.filter(
+        status='approved',
+        created__gte=month_ago
+    ).values(
+        'user__username'
+    ).annotate(
+        contribution_count=Count('id')
+    ).order_by('-contribution_count')[:5]
+
+    # Get interesting statistics
+    missing_data_count = 0
+    pending_contributions_count = Contribution.objects.filter(status='pending').count()
+    
+    # Calculate missing data points (simplified)
+    from .models import DataIssue
+    try:
+        missing_data_count = DataIssue.objects.filter(
+            issue_type='missing_characteristic'
+        ).count() + DataIssue.objects.filter(
+            issue_type='missing_financial'
+        ).count()
+    except:
+        missing_data_count = 0
 
     promoted = []
     # Import here to keep the view lightweight if the home page is cached.
@@ -369,7 +425,15 @@ def home(request):
         "query": query,
         "councils": councils,
         "total_debt": total_debt,
+        "total_councils": total_councils,
+        "total_data_points": total_data_points,
+        "council_of_the_day": council_of_the_day,
+        "recent_contributions": recent_contributions,
+        "top_contributors": top_contributors,
+        "missing_data_count": missing_data_count,
+        "pending_contributions_count": pending_contributions_count,
         "promoted_counters": promoted,
+        "latest_year": latest_year,
     }
 
     return render(request, "council_finance/home.html", context)

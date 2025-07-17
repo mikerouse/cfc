@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+
+{% comment %}
+Council Finance app-specific base template.
+This extends the main site base template and can be used to add 
+app-specific navigation, styling, or functionality if needed.
+{% endcomment %}
+
+{% block extra_scripts %}
+    {{ block.super }}
+    
+    <!-- Council Finance app-specific scripts -->
+    {% load static %}
+    
+    <!-- Include any council finance specific JavaScript -->
+    <!-- <script src="{% static 'council_finance/js/app.js' %}"></script> -->
+{% endblock %}

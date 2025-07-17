@@ -1,123 +1,420 @@
-{% extends "base.html" %}
+{% extends "council_finance/base.html" %}
 {% load static %}
-{% block title %}Home - Council Finance Counters{% endblock %}
+{% load humanize %}
+{% block title %}UK Council Finance Transparency - Council Finance Counters{% endblock %}
+
 {% block content %}
-<div id="homepage-search" class="text-center my-8">
-    <form method="get" action="{% url 'home' %}" class="my-4 flex gap-2 justify-center">
-        <!-- Wrap the input so we can position the drop-down results absolutely
-             beneath it without affecting the button layout. -->
-        <div class="relative flex-grow max-w-sm">
-            <input id="homepage-search-input" type="text" name="q" value="{{ query }}" placeholder="Search councils" class="border rounded px-2 py-1 w-full" autocomplete="off" />
-            <ul id="homepage-search-results" class="absolute left-0 right-0 bg-white text-black border rounded shadow mt-1 hidden z-10"></ul>
+<!-- Hero Section with Enhanced Search -->
+<section class="bg-gradient-to-br from-blue-900 via-blue-800 to-blue-700 text-white">
+  <div class="max-w-7xl mx-auto px-4 py-16 sm:py-20">
+    <div class="text-center">
+      <h1 class="text-4xl sm:text-5xl lg:text-6xl font-bold mb-6">
+        UK Council Finance
+        <span class="text-blue-200">Transparency</span>
+      </h1>
+      <p class="text-xl sm:text-2xl text-blue-100 mb-8 max-w-3xl mx-auto">
+        Open data project tracking financial transparency across {{ total_councils|floatformat:0 }} UK councils
+      </p>
+      
+      <!-- Enhanced Search Experience -->
+      <div class="max-w-2xl mx-auto mb-8">
+        <form method="get" action="{% url 'home' %}" class="relative">
+          <div class="relative">
+            <input 
+              id="homepage-search-input" 
+              type="text" 
+              name="q" 
+              value="{{ query }}" 
+              placeholder="Search councils by name or location..." 
+              class="w-full px-6 py-4 text-lg text-gray-900 bg-white rounded-full shadow-lg focus:ring-4 focus:ring-blue-300 focus:outline-none transition-all duration-200"
+              autocomplete="off"
+            />
+            <button type="submit" class="absolute right-2 top-1/2 transform -translate-y-1/2 bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-full transition-colors duration-200">
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+              </svg>
+            </button>
+          </div>
+          <ul id="homepage-search-results" class="absolute left-0 right-0 bg-white text-gray-900 border rounded-lg shadow-xl mt-2 hidden z-50 max-h-96 overflow-y-auto"></ul>
+        </form>
+        
+        <!-- Quick Stats in Hero -->
+        <div class="grid grid-cols-3 gap-4 mt-8 text-center">
+          <div class="bg-white/10 backdrop-blur-sm rounded-lg p-4">
+            <div class="text-2xl font-bold">{{ total_councils|floatformat:0 }}</div>
+            <div class="text-sm text-blue-200">Councils</div>
+          </div>
+          <div class="bg-white/10 backdrop-blur-sm rounded-lg p-4">
+            <div class="text-2xl font-bold">{{ total_data_points|intcomma }}</div>
+            <div class="text-sm text-blue-200">Data Points</div>
+          </div>
+          <div class="bg-white/10 backdrop-blur-sm rounded-lg p-4">
+            <div class="text-2xl font-bold">{{ latest_year.label|default:"N/A" }}</div>
+            <div class="text-sm text-blue-200">Latest Year</div>
+          </div>
         </div>
-        <button type="submit" class="bg-blue-600 text-white px-4 py-1 rounded">Search</button>
-    </form>
-</div>
-<h1 class="text-2xl font-bold mb-4 text-center">
-    Welcome to our UK-wide open data project for council finances
-</h1>
-<h2 class="text-center">
-     <span class="text-sm text-gray-500">Tracking data for {{ total_councils|floatformat:0 }} councils</span>
-</h2>
-<div id="homepage-counters" class="my-8 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-    {% if promoted_counters %}
-        {% for item in promoted_counters %}
-            <div id="counter-{{ item.slug }}" class="bg-gray-100 shadow rounded p-10 text-center space-y-2 relative resize-counter sm:col-span-{{ item.columns }}" data-slug="{{ item.slug }}" data-default-span="{{ item.columns }}">
-                <p class="text-sm text-gray-500 flex items-center justify-center gap-1">
-                    {{ item.name }}
-                    {% if item.explanation %}
-                        <button type="button" onclick="toggleInfo('info-{{ forloop.counter0 }}')" class="text-blue-600" aria-label="More info">
-                            <i class="fas fa-info-circle"></i>
-                        </button>
-                        {% endif %}
-                    </p>
-                    <p class="text-4xl sm:text-4xl font-bold counter-value"
-                        data-value="{{ item.raw }}"
-                        data-duration="{{ item.duration }}"
-                        data-precision="{{ item.precision }}"
-                        data-show-currency="{{ item.show_currency|yesno:'true,false' }}"
-                        data-friendly="{{ item.friendly_format|yesno:'true,false' }}"
-                        data-formatted="{{ item.formatted }}">0</p>
-                    <p class="counter-factoid text-sm text-gray-600"></p>
-                    {% if item.explanation %}
-                    <p id="info-{{ forloop.counter0 }}" class="hidden text-sm text-gray-700">{{ item.explanation }}</p>
-                    {% endif %}
-                <div class="absolute bottom-0 right-0 w-3 h-3 bg-gray-300 cursor-ew-resize handle"></div>
-                {% with script_id='factoids-'|add:item.slug %}
-                {{ item.factoids|json_script:script_id }}
-                {% endwith %}
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Main Content Grid -->
+<div class="max-w-7xl mx-auto px-4 py-12">
+  
+  <!-- IAB Standard Ad - Leaderboard (728x90) -->
+  <div class="mb-8 text-center">
+    <div class="bg-gray-100 border-2 border-dashed border-gray-300 rounded-lg p-4">
+      <div class="text-gray-500 text-sm">Advertisement Space (728x90 Leaderboard)</div>
+      <div class="w-full h-20 bg-gray-200 rounded flex items-center justify-center">
+        <span class="text-gray-400">IAB Leaderboard Ad</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Site-wide Counters -->
+  {% if promoted_counters %}
+  <section class="mb-12">
+    <h2 class="text-3xl font-bold text-gray-900 mb-8 text-center">Live Financial Data</h2>
+    <div id="homepage-counters" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+      {% for item in promoted_counters %}
+      <div id="counter-{{ item.slug }}" class="bg-white shadow-lg rounded-xl p-8 text-center space-y-4 hover:shadow-xl transition-shadow duration-300 border border-gray-100 resize-counter sm:col-span-{{ item.columns }}" data-slug="{{ item.slug }}" data-default-span="{{ item.columns }}">
+        <div class="flex items-center justify-center gap-2 text-gray-600">
+          <h3 class="text-sm font-medium">{{ item.name }}</h3>
+          {% if item.explanation %}
+          <button type="button" onclick="toggleInfo('info-{{ forloop.counter0 }}')" class="text-blue-600 hover:text-blue-800" aria-label="More info">
+            <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+              <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"/>
+            </svg>
+          </button>
+          {% endif %}
+        </div>
+        
+        <div class="text-4xl lg:text-5xl font-bold text-gray-900 counter-value"
+             data-value="{{ item.raw }}"
+             data-duration="{{ item.duration }}"
+             data-precision="{{ item.precision }}"
+             data-show-currency="{{ item.show_currency|yesno:'true,false' }}"
+             data-friendly="{{ item.friendly_format|yesno:'true,false' }}"
+             data-formatted="{{ item.formatted }}">0</div>
+        
+        <div class="counter-factoid text-sm text-gray-600 font-medium min-h-[1.25rem]"></div>
+        
+        {% if item.explanation %}
+        <div id="info-{{ forloop.counter0 }}" class="hidden text-sm text-gray-700 bg-blue-50 p-3 rounded-lg border border-blue-200">
+          {{ item.explanation }}
+        </div>
+        {% endif %}
+        
+        <div class="absolute bottom-2 right-2 w-3 h-3 bg-gray-300 cursor-ew-resize handle opacity-0 hover:opacity-100 transition-opacity"></div>
+        
+        {% with script_id='factoids-'|add:item.slug %}
+        {{ item.factoids|json_script:script_id }}
+        {% endwith %}
+      </div>
+      {% endfor %}
+      <!-- Hidden element ensures Tailwind's JIT engine generates utility classes for all column spans -->
+      <div class="hidden sm:col-span-1 sm:col-span-2 sm:col-span-3"></div>
+    </div>
+  </section>
+  {% endif %}
+
+  <!-- Content Grid with Sidebar -->
+  <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+    
+    <!-- Main Content Area -->
+    <div class="lg:col-span-2 space-y-8">
+      
+      <!-- Council of the Day -->
+      {% if council_of_the_day %}
+      <section class="bg-gradient-to-r from-green-50 to-blue-50 rounded-xl p-6 border border-green-200">
+        <div class="flex items-start justify-between">
+          <div class="flex-1">
+            <h3 class="text-lg font-semibold text-gray-900 mb-2">
+              <svg class="w-5 h-5 inline mr-2 text-green-600" fill="currentColor" viewBox="0 0 20 20">
+                <path fill-rule="evenodd" d="M3.172 5.172a4 4 0 015.656 0L10 6.343l1.172-1.171a4 4 0 115.656 5.656L10 17.657l-6.828-6.829a4 4 0 010-5.656z" clip-rule="evenodd"/>
+              </svg>
+              Council of the Day
+            </h3>
+            <h4 class="text-2xl font-bold text-gray-900 mb-2">{{ council_of_the_day.name }}</h4>
+            <p class="text-gray-600 mb-4">
+              {% if council_of_the_day.council_type %}{{ council_of_the_day.council_type.name }} • {% endif %}
+              {% if council_of_the_day.council_nation %}{{ council_of_the_day.council_nation.name }}{% endif %}
+            </p>
+            <a href="{% url 'council_detail' council_of_the_day.slug %}" class="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
+              Explore Data
+              <svg class="w-4 h-4 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+              </svg>
+            </a>
+          </div>
+          
+          <!-- IAB Medium Rectangle Ad (300x250) -->
+          <div class="ml-6 hidden md:block">
+            <div class="bg-gray-100 border-2 border-dashed border-gray-300 rounded-lg p-4 w-72">
+              <div class="text-gray-500 text-xs text-center mb-2">Advertisement (300x250)</div>
+              <div class="w-full h-48 bg-gray-200 rounded flex items-center justify-center">
+                <span class="text-gray-400 text-sm">IAB Medium Rectangle</span>
+              </div>
             </div>
-        {% endfor %}
-        <!-- Hidden element ensures Tailwind's JIT engine generates utility
-             classes for all column spans used by the resize script. -->
-        <div class="hidden sm:col-span-1 sm:col-span-2 sm:col-span-3"></div>
-    {% endif %}
+          </div>
+        </div>
+      </section>
+      {% endif %}
+
+      <!-- Recent Activity -->
+      {% if recent_contributions %}
+      <section class="bg-white rounded-xl shadow-lg p-6 border border-gray-100">
+        <h3 class="text-xl font-semibold text-gray-900 mb-4 flex items-center">
+          <svg class="w-5 h-5 mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+          </svg>
+          Recent Updates
+        </h3>
+        <div class="space-y-3">
+          {% for contribution in recent_contributions %}
+          <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+            <div class="flex-1">
+              <div class="text-sm font-medium text-gray-900">
+                <a href="{% url 'council_detail' contribution.council.slug %}" class="text-blue-600 hover:underline">
+                  {{ contribution.council.name }}
+                </a>
+              </div>
+              <div class="text-xs text-gray-600">
+                {{ contribution.field.name }} updated by {{ contribution.user.username }}
+              </div>
+            </div>
+            <div class="text-xs text-gray-500">
+              {{ contribution.created|timesince }} ago
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+        <div class="mt-4 text-center">
+          <a href="{% url 'contribute' %}" class="text-blue-600 hover:text-blue-800 text-sm font-medium">
+            View all activity →
+          </a>
+        </div>
+      </section>
+      {% endif %}
+
+      <!-- Search Results (when searching) -->
+      {% if query %}
+      <section class="bg-white rounded-xl shadow-lg p-6 border border-gray-100">
+        <h3 class="text-xl font-semibold text-gray-900 mb-4">
+          Search Results for "{{ query }}"
+        </h3>
+        {% if councils %}
+        <div class="grid gap-3">
+          {% for council in councils %}
+          <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
+            <div>
+              <div class="font-medium text-gray-900">
+                <a href="{% url 'council_detail' council.slug %}" class="text-blue-600 hover:underline">
+                  {{ council.name }}
+                </a>
+              </div>
+              <div class="text-sm text-gray-600">
+                {% if council.council_type %}{{ council.council_type.name }}{% endif %}
+                {% if council.council_nation %} • {{ council.council_nation.name }}{% endif %}
+              </div>
+            </div>
+            <div>
+              <a href="{% url 'council_detail' council.slug %}" class="text-blue-600 hover:text-blue-800">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+                </svg>
+              </a>
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+        {% else %}
+        <div class="text-center py-8">
+          <div class="text-gray-500 mb-4">
+            <svg class="w-16 h-16 mx-auto mb-4 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.172 16.172a4 4 0 015.656 0M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+            </svg>
+          </div>
+          <p class="text-gray-600">No councils found matching your search.</p>
+          <p class="text-sm text-gray-500 mt-2">Try searching by council name or location.</p>
+        </div>
+        {% endif %}
+      </section>
+      {% endif %}
+    </div>
+
+    <!-- Sidebar -->
+    <div class="space-y-6">
+      
+      <!-- Quick Actions -->
+      <section class="bg-white rounded-xl shadow-lg p-6 border border-gray-100">
+        <h3 class="text-lg font-semibold text-gray-900 mb-4">Quick Actions</h3>
+        <div class="space-y-3">
+          <a href="{% url 'contribute' %}" class="block w-full text-center px-4 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors">
+            <svg class="w-4 h-4 inline mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/>
+            </svg>
+            Contribute Data
+          </a>
+          <a href="{% url 'council_list' %}" class="block w-full text-center px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
+            <svg class="w-4 h-4 inline mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/>
+            </svg>
+            Browse All Councils
+          </a>
+          <a href="{% url 'leaderboards' %}" class="block w-full text-center px-4 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors">
+            <svg class="w-4 h-4 inline mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
+            </svg>
+            View Leaderboards
+          </a>
+        </div>
+      </section>
+
+      <!-- Data Insights -->
+      <section class="bg-white rounded-xl shadow-lg p-6 border border-gray-100">
+        <h3 class="text-lg font-semibold text-gray-900 mb-4">Data Insights</h3>
+        <div class="space-y-4">
+          <div class="flex justify-between items-center">
+            <span class="text-gray-600">Missing Data Points</span>
+            <span class="font-bold text-red-600">{{ missing_data_count|intcomma }}</span>
+          </div>
+          <div class="flex justify-between items-center">
+            <span class="text-gray-600">Pending Reviews</span>
+            <span class="font-bold text-yellow-600">{{ pending_contributions_count|intcomma }}</span>
+          </div>
+          <div class="pt-3 border-t">
+            <p class="text-xs text-gray-500">
+              Help improve transparency by contributing missing data or reviewing pending submissions.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <!-- Top Contributors -->
+      {% if top_contributors %}
+      <section class="bg-white rounded-xl shadow-lg p-6 border border-gray-100">
+        <h3 class="text-lg font-semibold text-gray-900 mb-4">Top Contributors</h3>
+        <div class="space-y-3">
+          {% for contributor in top_contributors %}
+          <div class="flex items-center justify-between">
+            <div class="flex items-center">
+              <div class="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center text-sm font-medium text-blue-600">
+                {{ forloop.counter }}
+              </div>
+              <span class="ml-3 text-gray-900">{{ contributor.user__username }}</span>
+            </div>
+            <span class="text-sm text-gray-600">{{ contributor.contribution_count }} contributions</span>
+          </div>
+          {% endfor %}
+        </div>
+      </section>
+      {% endif %}
+
+      <!-- IAB Skyscraper Ad (160x600) -->
+      <div class="hidden xl:block">
+        <div class="bg-gray-100 border-2 border-dashed border-gray-300 rounded-lg p-4">
+          <div class="text-gray-500 text-xs text-center mb-2">Advertisement (160x600)</div>
+          <div class="w-full h-96 bg-gray-200 rounded flex items-center justify-center">
+            <span class="text-gray-400 text-sm transform -rotate-90">IAB Skyscraper</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
 </div>
-<ul class="list-disc pl-5">
-{% for council in councils %}
-    <li><a href="{% url 'council_detail' council.slug %}" class="text-blue-700 hover:underline">{{ council.name }}</a></li>
-{% empty %}
-    {% if query %}
-    <li>No councils found.</li>
-    {% endif %}
-{% endfor %}
-</ul>
+
+<!-- Footer IAB Banner Ad (728x90) -->
+<div class="max-w-7xl mx-auto px-4 py-8">
+  <div class="bg-gray-100 border-2 border-dashed border-gray-300 rounded-lg p-4 text-center">
+    <div class="text-gray-500 text-sm mb-2">Advertisement Space (728x90 Footer Banner)</div>
+    <div class="w-full h-20 bg-gray-200 rounded flex items-center justify-center">
+      <span class="text-gray-400">IAB Banner Ad</span>
+    </div>
+  </div>
+</div>
 {% endblock %}
+
 {% block extra_scripts %}
 <script src="{% static 'js/countUp.umd.js' %}"></script>
 <script src="{% static 'js/live_search.js' %}"></script>
+
 <style>
-  .counter-factoid{max-height:0;overflow:hidden;transition:max-height 0.5s ease;}
-  .counter-factoid.show{max-height:3rem;}
+  .counter-factoid {
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 0.5s ease;
+  }
+  .counter-factoid.show {
+    max-height: 4rem;
+  }
+  
+  /* Enhanced search results styling */
+  #homepage-search-results li {
+    @apply px-4 py-3 hover:bg-gray-50 cursor-pointer border-b border-gray-100 last:border-b-0;
+  }
+  
+  #homepage-search-results li:hover {
+    @apply bg-blue-50;
+  }
 </style>
+
 <script>
 function toggleInfo(id) {
     const el = document.getElementById(id);
     if (el) el.classList.toggle('hidden');
 }
+
 document.addEventListener('DOMContentLoaded', () => {
+    // Animate counters
     document.querySelectorAll('.counter-value').forEach(el => {
         const val = parseFloat(el.dataset.value || '0');
-        const dur = parseInt(el.dataset.duration || '0') / 1000;
-        // Dataset values may come back as "True" or "true" from the template.
-        // Normalise the string so the check works regardless of case.
+        const dur = parseInt(el.dataset.duration || '2000') / 1000;
         const showCurrency = (el.dataset.showCurrency || 'false').toLowerCase() === 'true';
         const precision = parseInt(el.dataset.precision || '0');
         const thousands = showCurrency;
         const display = el.dataset.formatted || val.toLocaleString();
+        
         const cu = new countUp.CountUp(el, val, {
             duration: dur,
             decimalPlaces: precision,
             separator: thousands ? ',' : '',
             prefix: showCurrency ? '£' : '',
             easingFn: (t, b, c, d) => {
-                // simple linear deceleration: start fast and slow linearly
-                t /= d; return c * (2 - t) * t * 0.5 + b;
+                t /= d; 
+                return c * (2 - t) * t * 0.5 + b;
             }
         });
-        // Print the starting value with prefix/separator so it is visible immediately
+        
         if (cu.printValue) {
             cu.printValue(0);
         } else {
             el.textContent = cu.formattingFn(0);
         }
-        const container = el.parentElement;
+        
+        const container = el.closest('[data-slug]');
         const factEl = container.querySelector('.counter-factoid');
         let facts = [];
         const script = document.getElementById('factoids-' + container.dataset.slug);
         if (script) {
-            try { facts = JSON.parse(script.textContent); } catch (e) { facts = []; }
+            try { 
+                facts = JSON.parse(script.textContent); 
+            } catch (e) { 
+                facts = []; 
+            }
         }
-        function cycleFacts(i=0){
-            if(!factEl || !facts.length) return;
+        
+        function cycleFacts(i = 0) {
+            if (!factEl || !facts.length) return;
             const f = facts[i];
             factEl.innerHTML = f.icon ? `<i class='fas ${f.icon}'></i> ${f.text}` : f.text;
             factEl.classList.add('show');
             setTimeout(() => {
                 factEl.classList.remove('show');
-                setTimeout(() => cycleFacts((i+1)%facts.length), 500);
+                setTimeout(() => cycleFacts((i + 1) % facts.length), 500);
             }, 4000);
         }
+        
         if (!cu.error) {
             cu.start(cycleFacts);
         } else {
@@ -125,28 +422,33 @@ document.addEventListener('DOMContentLoaded', () => {
             cycleFacts();
         }
     });
-    // Allow visitors to resize promoted counters and persist using localStorage
+    
+    // Counter resizing functionality
     const spans = JSON.parse(localStorage.getItem('counterSpans') || '{}');
     document.querySelectorAll('.resize-counter').forEach(box => {
         const slug = box.dataset.slug;
         const def = parseInt(box.dataset.defaultSpan || '1');
         const saved = parseInt(spans[slug] || def);
         setSpan(box, saved);
+        
         const handle = box.querySelector('.handle');
         if (!handle) return;
+        
         let startX;
-        function move(e){
+        function move(e) {
             const diff = e.clientX - startX;
             const w = box.parentElement.clientWidth / 3;
             const newSpan = diff + box.offsetWidth < w * 1.5 ? 1 : (diff + box.offsetWidth < w * 2.5 ? 2 : 3);
             setSpan(box, newSpan);
         }
-        function up(){
+        
+        function up() {
             document.removeEventListener('mousemove', move);
             document.removeEventListener('mouseup', up);
             spans[slug] = box.dataset.span;
             localStorage.setItem('counterSpans', JSON.stringify(spans));
         }
+        
         handle.addEventListener('mousedown', e => {
             startX = e.clientX;
             document.addEventListener('mousemove', move);
@@ -154,14 +456,13 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
-    function setSpan(el, span){
+    function setSpan(el, span) {
         el.dataset.span = span;
-        el.classList.remove('sm:col-span-1','sm:col-span-2','sm:col-span-3');
+        el.classList.remove('sm:col-span-1', 'sm:col-span-2', 'sm:col-span-3');
         el.classList.add(`sm:col-span-${span}`);
     }
-    // Enable live search for the homepage field using the helper shared with
-    // the header search. Results appear as the visitor types two or more
-    // letters.
+    
+    // Enhanced live search
     attachLiveSearch(
         document.getElementById('homepage-search-input'),
         document.getElementById('homepage-search-results')
