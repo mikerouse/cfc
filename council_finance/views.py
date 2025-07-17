@@ -2366,7 +2366,7 @@ def compare_row(request):
                 latest_figure = FinancialFigure.objects.filter(
                     council=council, 
                     field=field
-                ).order_by('-year__year').first()
+                ).order_by('-year__label').first()
                 
                 if latest_figure and latest_figure.value is not None:
                     value = float(latest_figure.value)
@@ -2475,7 +2475,7 @@ def compare_basket(request):
                         latest_figure = FinancialFigure.objects.filter(
                             council=council, 
                             field=field
-                        ).order_by('-year__year').first()
+                        ).order_by('-year__label').first()
                         
                         if latest_figure and latest_figure.value is not None:
                             value = float(latest_figure.value)
