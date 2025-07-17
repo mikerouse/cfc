@@ -49,6 +49,8 @@ Data and counters can then be applied to the lists, allowing users to see totals
 - We delete old work and replace it with better.
 - We don't do stub implementations, we do things properly.
 - We build with the future in mind.
+- We use Tailwind CSS for styling. We do not need to use Bootstrap or any other CSS framework, even if it was used in the past.
+- We do not break other parts of the system when fixing things, and we do not stub things out.
 
 # Council Finance Counters V3 Instructions
 
