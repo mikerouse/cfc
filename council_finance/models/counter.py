@@ -1,4 +1,5 @@
 from django.db import models
+from django.conf import settings
 from .council import Council
 
 
@@ -11,6 +12,14 @@ class CounterDefinition(models.Model):
     formula = models.CharField(
         max_length=255,
         help_text="Fields to sum, e.g. 'total_debt+current_liabilities'",
+    )
+    # Track who created this counter for permission management
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="created_counters",
     )
     explanation = models.TextField(blank=True)
     # Duration in milliseconds for the client side animation

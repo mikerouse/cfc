@@ -122,6 +122,11 @@ urlpatterns = [
         name="preview_aggregate_counter",
     ),
     path(
+        "manage/counters/<slug:slug>/delete/",
+        views.counter_delete,
+        name="counter_delete",
+    ),
+    path(
         "manage/counters/<slug:slug>/",
         views.counter_definition_form,
         name="counter_edit",

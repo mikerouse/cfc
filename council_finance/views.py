@@ -1245,8 +1245,8 @@ def counter_definition_list(request):
     from django.core.paginator import Paginator
     from .models import SiteCounter, GroupCounter
 
-    # Base queryset
-    counters = CounterDefinition.objects.all().order_by('name')
+    # Base queryset - include created_by for permission checks
+    counters = CounterDefinition.objects.select_related('created_by').all().order_by('name')
     
     # Apply search if provided
     search_query = request.GET.get('search', '')
@@ -1292,6 +1292,12 @@ def counter_definition_list(request):
         counter.group_counter_count = GroupCounter.objects.filter(counter=counter).count()
         counter.council_counter_count = 0  # This would require checking actual council page usage
     
+    # Add usage counts to each counter
+    for counter in page_obj:
+        counter.site_counter_count = SiteCounter.objects.filter(counter=counter).count()
+        counter.group_counter_count = GroupCounter.objects.filter(counter=counter).count()
+        counter.council_counter_count = 0  # This would require checking actual council page usage
+    
     stats = {
         'total_definitions': total_definitions,
         'total_site_counters': total_site_counters,
@@ -1313,6 +1319,43 @@ def counter_definition_list(request):
         "council_finance/counter_definition_list.html",
         context,
     )
+
+
+@login_required
+def counter_delete(request, slug):
+    """Delete a counter definition if the user has permission."""
+    counter = get_object_or_404(CounterDefinition, slug=slug)
+    
+    # Check if user has permission to delete this counter
+    if not (request.user.is_superuser or counter.created_by == request.user):
+        messages.error(request, "You don't have permission to delete this counter.")
+        return redirect('counter_definitions')
+    
+    # Check if counter is being used
+    site_counter_count = SiteCounter.objects.filter(counter=counter).count()
+    group_counter_count = GroupCounter.objects.filter(counter=counter).count()
+    
+    if site_counter_count > 0 or group_counter_count > 0:
+        messages.warning(
+            request, 
+            f"This counter is currently in use ({site_counter_count} site counters, {group_counter_count} group counters). "
+            "Please remove those references first."
+        )
+        return redirect('counter_definitions')
+    
+    # Process the deletion
+    counter_name = counter.name
+    counter.delete()
+    
+    messages.success(request, f"Counter '{counter_name}' was successfully deleted.")
+    log_activity(
+        request,
+        activity="counter_delete",
+        action=f"deleted counter definition: {slug}",
+        extra={"counter_name": counter_name}
+    )
+    
+    return redirect('counter_definitions')
 
 
 @login_required

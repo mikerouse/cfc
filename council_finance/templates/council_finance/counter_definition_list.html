@@ -205,7 +205,6 @@
               <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name & Formula</th>
               <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Properties</th>
               <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Usage</th>
-              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Council Types</th>
               <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
             </tr>
           </thead>
@@ -254,31 +253,45 @@
                   <div>Council: <span class="font-semibold">{{ counter.council_counter_count }}</span></div>
                 </div>
               </td>
-              <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                {% if counter.council_types.all %}
-                  {% for ct in counter.council_types.all %}
-                    <span class="inline-block bg-gray-100 text-gray-800 text-xs px-2 py-1 rounded mr-1 mb-1">
-                      {{ ct.name }}
-                    </span>
-                  {% endfor %}
-                {% else %}
-                  <span class="text-gray-400 italic">All types</span>
-                {% endif %}
-              </td>
               <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
                 <div class="flex space-x-2">
                   <a href="{% url 'counter_edit' counter.slug %}" 
-                     class="text-blue-600 hover:text-blue-800">Edit</a>
+                     class="inline-flex items-center px-2.5 py-1.5 border border-transparent text-xs font-medium rounded text-blue-700 bg-blue-100 hover:bg-blue-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                    <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
+                    </svg>
+                    Edit
+                  </a>
                   <a href="{% url 'site_counter_add' %}?base={{ counter.slug }}" 
-                     class="text-green-600 hover:text-green-800">+ Site</a>
+                     class="inline-flex items-center px-2.5 py-1.5 border border-transparent text-xs font-medium rounded text-green-700 bg-green-100 hover:bg-green-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500">
+                    <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
+                    </svg>
+                    Site
+                  </a>
                   <a href="{% url 'group_counter_add' %}?base={{ counter.slug }}" 
-                     class="text-purple-600 hover:text-purple-800">+ Group</a>
+                     class="inline-flex items-center px-2.5 py-1.5 border border-transparent text-xs font-medium rounded text-purple-700 bg-purple-100 hover:bg-purple-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500">
+                    <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
+                    </svg>
+                    Group
+                  </a>
+                  {% if request.user.is_superuser or counter.created_by == request.user %}
+                  <a href="{% url 'counter_delete' counter.slug %}" 
+                     onclick="return confirm('Are you sure you want to delete {{ counter.name }}? This action cannot be undone.')"
+                     class="inline-flex items-center px-2.5 py-1.5 border border-transparent text-xs font-medium rounded text-red-700 bg-red-100 hover:bg-red-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500">
+                    <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                    </svg>
+                    Delete
+                  </a>
+                  {% endif %}
                 </div>
               </td>
             </tr>
             {% empty %}
             <tr>
-              <td colspan="5" class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-center">
+              <td colspan="4" class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-center">
                 No counter definitions found.
               </td>
             </tr>
