@@ -2330,18 +2330,20 @@ def compare_row(request):
     from council_finance.models import Council, DataField, FinancialFigure, CouncilCharacteristic
     from decimal import Decimal
     import statistics
-    import json
     
     field_slug = request.GET.get('field')
     if not field_slug:
-        return JsonResponse({"status": "error", "message": "Field slug required"})
+        return HttpResponse('ERROR: Field slug required', status=400)
     
-    field = get_object_or_404(DataField, slug=field_slug)
+    try:
+        field = get_object_or_404(DataField, slug=field_slug)
+    except:
+        return HttpResponse('ERROR: Field not found', status=404)
     
     # Get councils from session basket
     basket_slugs = request.session.get('compare_basket', [])
     if not basket_slugs:
-        return JsonResponse({"status": "error", "message": "No councils in comparison basket"})
+        return HttpResponse('ERROR: No councils in comparison basket', status=400)
     
     councils = Council.objects.filter(slug__in=basket_slugs).order_by('name')
     
@@ -2391,27 +2393,18 @@ def compare_row(request):
         except (ValueError, ZeroDivisionError):
             pass
     
-    # Render the row HTML
+    # Render the row HTML directly
     row_html = render_to_string('council_finance/compare_row.html', {
         'field': field,
         'values': values,
         'summary': summary
     })
     
-    # Clean up the HTML to prevent JSON issues
-    row_html = row_html.strip()
-    
-    # Use HttpResponse with manual JSON to avoid HTML escaping
-    response_data = {
-        "status": "success", 
-        "html": row_html,
-        "field_name": field.name
-    }
-    
-    return HttpResponse(
-        json.dumps(response_data, ensure_ascii=False),
-        content_type='application/json'
-    )
+    # Return just the HTML with special headers to identify success
+    response = HttpResponse(row_html.strip(), content_type='text/html')
+    response['X-Field-Name'] = field.name
+    response['X-Status'] = 'success'
+    return response
 
 
 def compare_basket(request):

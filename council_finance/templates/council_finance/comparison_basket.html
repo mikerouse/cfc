@@ -255,37 +255,76 @@ document.addEventListener('DOMContentLoaded', function() {
         loadingSpinner.style.display = 'inline-block';
         this.disabled = true;
         
+        // Add loading row temporarily
+        const loadingRow = document.createElement('tr');
+        loadingRow.className = 'loading-row border-b bg-gray-50';
+        loadingRow.innerHTML = `
+            <td class="sticky-col px-6 py-4 font-medium text-gray-700">
+                <div class="flex items-center">
+                    <div class="loading-spinner mr-2" style="display: inline-block;"></div>
+                    Loading field...
+                </div>
+            </td>
+            <td class="px-6 py-4 text-gray-500" colspan="100">Please wait...</td>
+        `;
+        compareRows.appendChild(loadingRow);
+        
         fetch(`/compare/row/?field=${fieldSlug}`, {
             method: 'GET',
             headers: {
                 'X-Requested-With': 'XMLHttpRequest',
-                'Accept': 'application/json',
             }
         })
             .then(response => {
+                console.log('Response status:', response.status);
+                console.log('Response headers:', [...response.headers.entries()]);
+                
                 if (!response.ok) {
                     throw new Error(`HTTP error! status: ${response.status}`);
                 }
-                return response.json();
+                
+                // Get the field name from headers
+                const fieldName = response.headers.get('X-Field-Name') || 'Unknown Field';
+                
+                return response.text(); // Get HTML directly
             })
-            .then(data => {
-                if (data.status === 'success') {
-                    // Add new row to table
-                    compareRows.insertAdjacentHTML('beforeend', data.html);
+            .then(htmlContent => {
+                console.log('HTML received:', htmlContent);
+                console.log('HTML length:', htmlContent.length);
+                
+                // Remove loading row
+                const loadingRowElement = document.querySelector('.loading-row');
+                if (loadingRowElement) {
+                    loadingRowElement.remove();
+                }
+                
+                // Safety check - make sure we have valid HTML
+                if (htmlContent.trim().startsWith('<tr') && htmlContent.includes('</tr>')) {
+                    compareRows.insertAdjacentHTML('beforeend', htmlContent);
                     
                     // Remove the field from dropdown to prevent duplicates
                     this.querySelector(`option[value="${fieldSlug}"]`).remove();
                     this.value = '';
                     
                     // Show success message briefly
-                    showMessage(`Added ${data.field_name} to comparison`, 'success');
+                    showMessage(`Added field to comparison`, 'success');
+                } else if (htmlContent.startsWith('ERROR:')) {
+                    console.error('Server error:', htmlContent);
+                    showMessage(htmlContent, 'error');
                 } else {
-                    console.error('Server returned error:', data);
-                    showMessage(data.message || 'Error adding field', 'error');
+                    console.error('Invalid HTML received:', htmlContent);
+                    showMessage('Invalid response format', 'error');
                 }
             })
             .catch(error => {
                 console.error('Fetch error:', error);
+                
+                // Remove loading row if it exists
+                const loadingRowElement = document.querySelector('.loading-row');
+                if (loadingRowElement) {
+                    loadingRowElement.remove();
+                }
+                
                 showMessage('Error adding field to comparison', 'error');
             })
             .finally(() => {
