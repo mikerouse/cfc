@@ -83,6 +83,14 @@ urlpatterns = [
     path("compare/clear/", views.clear_compare_basket, name="clear_compare_basket"),
     path("compare/", views.compare_basket, name="compare_basket"),
     path("following/", views.following, name="following"),
+    # Enhanced Following System API Endpoints
+    path("following/api/follow/", views.follow_item_api, name="follow_item_api"),
+    path("following/api/unfollow/", views.unfollow_item_api, name="unfollow_item_api"),
+    path("following/api/updates/<int:update_id>/interact/", views.interact_with_update_api, name="interact_with_update_api"),
+    path("following/api/updates/<int:update_id>/comment/", views.comment_on_update_api, name="comment_on_update_api"),
+    path("following/api/preferences/", views.update_feed_preferences_api, name="update_feed_preferences_api"),
+    path("following/api/updates/", views.get_feed_updates_api, name="get_feed_updates_api"),
+    # Legacy Following URLs (for backward compatibility)
     path("follow/<slug:slug>/", views.follow_council, name="follow_council"),
     path("unfollow/<slug:slug>/", views.unfollow_council, name="unfollow_council"),
     path("updates/<int:update_id>/like/", views.like_update, name="like_update"),

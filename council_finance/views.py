@@ -18,8 +18,10 @@ from django.core.paginator import Paginator
 from django.template.loader import render_to_string
 from django.urls import reverse
 from django.core import signing
-from django.views.decorators.http import require_GET, require_POST
+from django.views.decorators.http import require_GET, require_POST, require_http_methods
+from django.views.decorators.csrf import csrf_exempt
 from django.core.exceptions import ValidationError
+from django.db import models
 
 import ast
 import csv
@@ -869,26 +871,514 @@ def my_lists(request):
 
 
 def following(request):
-    """Show recent updates for councils the user follows."""
-
+    """
+    Enhanced Following page with comprehensive social features.
+    
+    Shows personalized feed based on user's follows including councils, lists, 
+    contributors, and financial figures. Supports filtering, prioritization,
+    and real-time interactions.
+    """
     if not request.user.is_authenticated:
         from django.shortcuts import redirect
-
         return redirect("login")
-
-    from .models import CouncilFollow, CouncilUpdate
-
-    followed_ids = CouncilFollow.objects.filter(user=request.user).values_list("council_id", flat=True)
-    updates = (
-        CouncilUpdate.objects.filter(council_id__in=followed_ids)
-        .select_related("council")
-        .order_by("-created")[:50]
+    
+    from .models import (
+        FollowableItem, FeedUpdate, UserFeedPreferences, TrendingContent,
+        Council, CouncilList, 
     )
+    from .services.following_services import FeedService, FollowService, TrendingService
+    from django.contrib.contenttypes.models import ContentType
+    from django.db.models import Count, Q
+    import json
+    
+    # Get or create user feed preferences
+    preferences, created = UserFeedPreferences.objects.get_or_create(
+        user=request.user,
+        defaults={
+            'algorithm': 'mixed',
+            'show_financial_updates': True,
+            'show_contributions': True,
+            'show_council_news': True,
+            'show_list_changes': True,
+            'show_system_updates': False,
+            'show_achievements': True,
+        }
+    )
+    
+    # Get algorithm preference from request or user preferences
+    algorithm = request.GET.get('algorithm', preferences.algorithm)
+    feed_filter = request.GET.get('filter', 'all')
+    
+    # Build content type filters based on preferences
+    content_filters = Q()
+    if not preferences.show_financial_updates:
+        content_filters &= ~Q(update_type='financial')
+    if not preferences.show_contributions:
+        content_filters &= ~Q(update_type='contribution')
+    if not preferences.show_council_news:
+        content_filters &= ~Q(update_type='council_news')
+    if not preferences.show_list_changes:
+        content_filters &= ~Q(update_type='list_change')
+    if not preferences.show_system_updates:
+        content_filters &= ~Q(update_type='system')
+    if not preferences.show_achievements:
+        content_filters &= ~Q(update_type='achievement')
 
-    comment_forms = {u.id: UpdateCommentForm() for u in updates}
-
-    context = {"updates": updates, "comment_forms": comment_forms}
+    # Get personalized feed with filters applied
+    feed_updates = FeedService.get_personalized_feed(
+        user=request.user,
+        limit=50,
+        algorithm=algorithm,
+        content_filters=content_filters,
+        feed_filter=feed_filter
+    )
+    
+    # Get user's follows categorized
+    user_follows = FollowService.get_user_follows(request.user)
+    follows_by_type = {}
+    for follow in user_follows:
+        content_type = follow.content_type.model
+        if content_type not in follows_by_type:
+            follows_by_type[content_type] = []
+        follows_by_type[content_type].append({
+            'id': follow.id,
+            'object': follow.content_object,
+            'priority': follow.priority,
+            'created_at': follow.created_at,
+            'interaction_count': follow.interaction_count
+        })
+    
+    # Get trending content for recommendations (with fallbacks)
+    try:
+        trending_councils = TrendingService.get_trending_content('council', limit=5)
+    except Exception as e:
+        trending_councils = []
+        logger.warning(f"Could not get trending councils: {e}")
+    
+    try:
+        trending_lists = TrendingService.get_trending_content('councillist', limit=3)
+    except Exception as e:
+        trending_lists = []
+        logger.warning(f"Could not get trending lists: {e}")
+    
+    # Get follower statistics
+    total_follows = user_follows.count()
+    follows_by_priority = user_follows.values('priority').annotate(count=Count('id'))
+    priority_stats = {stat['priority']: stat['count'] for stat in follows_by_priority}
+    
+    # Get recent activity stats
+    from datetime import timedelta
+    from django.utils import timezone
+    import logging
+    
+    logger = logging.getLogger(__name__)
+    
+    recent_cutoff = timezone.now() - timedelta(days=7)
+    try:
+        recent_updates_count = FeedService.get_recent_updates_count(
+            user=request.user,
+            days=7,
+            content_filters=content_filters,
+            feed_filter=feed_filter
+        )
+    except Exception as e:
+        recent_updates_count = 0
+        logger.warning(f"Could not get recent updates count: {e}")
+    
+    # Get suggested follows (councils with high activity that user doesn't follow)
+    try:
+        followed_council_ids = FollowableItem.objects.filter(
+            user=request.user,
+            content_type=ContentType.objects.get_for_model(Council)
+        ).values_list('object_id', flat=True)
+        
+        # Get councils with recent updates by querying FeedUpdate directly
+        council_content_type = ContentType.objects.get_for_model(Council)
+        councils_with_recent_updates = FeedUpdate.objects.filter(
+            content_type=council_content_type,
+            created_at__gte=recent_cutoff,
+            is_public=True
+        ).values_list('object_id', flat=True).distinct()
+        
+        # Get follower counts for councils using the new FollowableItem system
+        councils_with_followers = FollowableItem.objects.filter(
+            content_type=council_content_type
+        ).values('object_id').annotate(
+            follower_count=Count('id')
+        ).filter(follower_count__gt=2)  # Lower threshold for testing
+        
+        high_follower_council_ids = [item['object_id'] for item in councils_with_followers]
+        
+        # Combine councils with high followers or recent updates
+        suggested_council_ids = set(councils_with_recent_updates) | set(high_follower_council_ids)
+        
+        # Exclude already followed councils
+        suggested_council_ids -= set(followed_council_ids)
+        
+        # Get the actual council objects with follower count from the old system for display
+        # (since we might not have enough data in the new system yet)
+        if suggested_council_ids:
+            suggested_councils = Council.objects.filter(
+                id__in=list(suggested_council_ids)
+            ).annotate(
+                # Use the existing followed_by relationship from the old CouncilFollow system
+                follower_count=Count('followed_by')
+            ).order_by('-follower_count')[:5]
+        else:
+            # Fallback: suggest some active councils if no specific suggestions
+            suggested_councils = Council.objects.filter(
+                status='active'
+            ).annotate(
+                follower_count=Count('followed_by')
+            ).order_by('-follower_count')[:5]
+            
+    except Exception as e:
+        logger.warning(f"Could not get suggested councils: {e}")
+        suggested_councils = []
+    
+    # Prepare context
+    context = {
+        'feed_updates': feed_updates,
+        'preferences': preferences,
+        'follows_by_type': follows_by_type,
+        'trending_councils': trending_councils,
+        'trending_lists': trending_lists,
+        'suggested_councils': suggested_councils,
+        'total_follows': total_follows,
+        'priority_stats': priority_stats,
+        'recent_updates_count': recent_updates_count,
+        'current_algorithm': algorithm,
+        'current_filter': feed_filter,
+        'algorithm_choices': [
+            ('chronological', 'Chronological (Newest First)'),
+            ('engagement', 'High Engagement First'),
+            ('priority', 'Your Priorities First'),
+            ('mixed', 'Smart Mix (Recommended)'),
+        ],
+        'filter_choices': [
+            ('all', 'All Updates'),
+            ('financial', 'Financial Updates'),
+            ('contributions', 'Contributions'),
+            ('councils', 'Council Updates'),
+            ('lists', 'List Updates'),
+        ],
+        # For JavaScript
+        'preferences_json': json.dumps({
+            'algorithm': preferences.algorithm,
+            'show_financial_updates': preferences.show_financial_updates,
+            'show_contributions': preferences.show_contributions,
+            'show_council_news': preferences.show_council_news,
+            'show_list_changes': preferences.show_list_changes,
+            'show_system_updates': preferences.show_system_updates,
+            'show_achievements': preferences.show_achievements,
+        }),
+    }
+    
     return render(request, "council_finance/following.html", context)
+
+
+# Following System API Endpoints
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def follow_item_api(request):
+    """API endpoint to follow any item (Council, List, User, Field)."""
+    if not request.user.is_authenticated:
+        return JsonResponse({"error": "Authentication required"}, status=401)
+    
+    try:
+        import json
+        from django.contrib.contenttypes.models import ContentType
+        from .services.following_services import FollowService
+        
+        data = json.loads(request.body)
+        content_type_id = data.get('content_type_id')
+        object_id = data.get('object_id')
+        priority = data.get('priority', 'normal')
+        email_notifications = data.get('email_notifications', True)
+        push_notifications = data.get('push_notifications', True)
+        
+        if not content_type_id or not object_id:
+            return JsonResponse({"error": "Missing content_type_id or object_id"}, status=400)
+        
+        content_type = ContentType.objects.get(id=content_type_id)
+        model_class = content_type.model_class()
+        item = model_class.objects.get(id=object_id)
+        
+        follow = FollowService.follow_item(
+            user=request.user,
+            item=item,
+            priority=priority,
+            email_notifications=email_notifications,
+            push_notifications=push_notifications
+        )
+        
+        if follow:
+            return JsonResponse({
+                "status": "success",
+                "message": f"Successfully following {item}",
+                "follow_id": follow.id,
+                "follower_count": FollowService.get_follower_count(item)
+            })
+        else:
+            return JsonResponse({
+                "status": "info",
+                "message": "Already following this item"
+            })
+    
+    except Exception as e:
+        logger.error(f"Error in follow_item_api: {e}")
+        return JsonResponse({"error": "Internal server error"}, status=500)
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def unfollow_item_api(request):
+    """API endpoint to unfollow any item."""
+    if not request.user.is_authenticated:
+        return JsonResponse({"error": "Authentication required"}, status=401)
+    
+    try:
+        import json
+        from django.contrib.contenttypes.models import ContentType
+        from .services.following_services import FollowService
+        
+        data = json.loads(request.body)
+        content_type_id = data.get('content_type_id')
+        object_id = data.get('object_id')
+        
+        if not content_type_id or not object_id:
+            return JsonResponse({"error": "Missing content_type_id or object_id"}, status=400)
+        
+        content_type = ContentType.objects.get(id=content_type_id)
+        model_class = content_type.model_class()
+        item = model_class.objects.get(id=object_id)
+        
+        success = FollowService.unfollow_item(user=request.user, item=item)
+        
+        return JsonResponse({
+            "status": "success" if success else "info",
+            "message": "Successfully unfollowed" if success else "Was not following",
+            "follower_count": FollowService.get_follower_count(item)
+        })
+    
+    except Exception as e:
+        logger.error(f"Error in unfollow_item_api: {e}")
+        return JsonResponse({"error": "Internal server error"}, status=500)
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def interact_with_update_api(request, update_id):
+    """API endpoint for interacting with feed updates (like, share, etc.)."""
+    if not request.user.is_authenticated:
+        return JsonResponse({"error": "Authentication required"}, status=401)
+    
+    try:
+        import json
+        from .models import FeedUpdate
+        from .services.following_services import EngagementService
+        
+        data = json.loads(request.body)
+        interaction_type = data.get('interaction_type')
+        action = data.get('action', 'add')  # 'add' or 'remove'
+        
+        if interaction_type not in ['like', 'dislike', 'share', 'bookmark', 'flag']:
+            return JsonResponse({"error": "Invalid interaction type"}, status=400)
+        
+        update = FeedUpdate.objects.get(id=update_id)
+        update.increment_views()  # Track that user viewed this update
+        
+        if action == 'add':
+            interaction = EngagementService.record_interaction(
+                user=request.user,
+                update=update,
+                interaction_type=interaction_type,
+                notes=data.get('notes', '')
+            )
+            message = f"Successfully {interaction_type}d update"
+        else:
+            success = EngagementService.remove_interaction(
+                user=request.user,
+                update=update,
+                interaction_type=interaction_type
+            )
+            message = f"Removed {interaction_type}" if success else f"Was not {interaction_type}d"
+        
+        # Get updated counts
+        update.refresh_from_db()
+        
+        return JsonResponse({
+            "status": "success",
+            "message": message,
+            "counts": {
+                "likes": update.like_count,
+                "comments": update.comment_count,
+                "shares": update.share_count,
+                "views": update.view_count
+            }
+        })
+    
+    except FeedUpdate.DoesNotExist:
+        return JsonResponse({"error": "Update not found"}, status=404)
+    except Exception as e:
+        logger.error(f"Error in interact_with_update_api: {e}")
+        return JsonResponse({"error": "Internal server error"}, status=500)
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def comment_on_update_api(request, update_id):
+    """API endpoint for commenting on feed updates."""
+    if not request.user.is_authenticated:
+        return JsonResponse({"error": "Authentication required"}, status=401)
+    
+    try:
+        import json
+        from .models import FeedUpdate, FeedComment
+        
+        data = json.loads(request.body)
+        content = data.get('content', '').strip()
+        parent_id = data.get('parent_id')  # For replies
+        
+        if not content:
+            return JsonResponse({"error": "Comment content is required"}, status=400)
+        
+        if len(content) > 1000:
+            return JsonResponse({"error": "Comment too long (max 1000 characters)"}, status=400)
+        
+        update = FeedUpdate.objects.get(id=update_id)
+        
+        # Create comment
+        comment = FeedComment.objects.create(
+            update=update,
+            user=request.user,
+            content=content,
+            parent_id=parent_id if parent_id else None
+        )
+        
+        # Update comment count on the update
+        FeedUpdate.objects.filter(id=update_id).update(comment_count=models.F('comment_count') + 1)
+        
+        return JsonResponse({
+            "status": "success",
+            "message": "Comment added successfully",
+            "comment": {
+                "id": comment.id,
+                "content": comment.content,
+                "author": comment.user.get_full_name() or comment.user.username,
+                "created_at": comment.created_at.isoformat(),
+                "reply_count": 0
+            },
+            "comment_count": update.comment_count + 1
+        })
+    
+    except FeedUpdate.DoesNotExist:
+        return JsonResponse({"error": "Update not found"}, status=404)
+    except Exception as e:
+        logger.error(f"Error in comment_on_update_api: {e}")
+        return JsonResponse({"error": "Internal server error"}, status=500)
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def update_feed_preferences_api(request):
+    """API endpoint to update user's feed preferences."""
+    if not request.user.is_authenticated:
+        return JsonResponse({"error": "Authentication required"}, status=401)
+    
+    try:
+        import json
+        from .models import UserFeedPreferences
+        
+        data = json.loads(request.body)
+        
+        preferences, created = UserFeedPreferences.objects.get_or_create(
+            user=request.user
+        )
+        
+        # Update preferences
+        if 'algorithm' in data:
+            preferences.algorithm = data['algorithm']
+        if 'show_financial_updates' in data:
+            preferences.show_financial_updates = data['show_financial_updates']
+        if 'show_contributions' in data:
+            preferences.show_contributions = data['show_contributions']
+        if 'show_council_news' in data:
+            preferences.show_council_news = data['show_council_news']
+        if 'show_list_changes' in data:
+            preferences.show_list_changes = data['show_list_changes']
+        if 'show_system_updates' in data:
+            preferences.show_system_updates = data['show_system_updates']
+        if 'show_achievements' in data:
+            preferences.show_achievements = data['show_achievements']
+        if 'email_notifications' in data:
+            preferences.email_notifications = data['email_notifications']
+        if 'push_notifications' in data:
+            preferences.push_notifications = data['push_notifications']
+        
+        preferences.save()
+        
+        return JsonResponse({
+            "status": "success",
+            "message": "Preferences updated successfully"
+        })
+    
+    except Exception as e:
+        logger.error(f"Error in update_feed_preferences_api: {e}")
+        return JsonResponse({"error": "Internal server error"}, status=500)
+
+
+@require_http_methods(["GET"])
+def get_feed_updates_api(request):
+    """API endpoint to get feed updates with pagination."""
+    if not request.user.is_authenticated:
+        return JsonResponse({"error": "Authentication required"}, status=401)
+    
+    try:
+        from .services.following_services import FeedService
+        import json
+        
+        algorithm = request.GET.get('algorithm', 'mixed')
+        page = int(request.GET.get('page', 1))
+        limit = int(request.GET.get('limit', 20))
+        offset = (page - 1) * limit
+        
+        feed_updates = FeedService.get_personalized_feed(
+            user=request.user,
+            limit=limit + offset,
+            algorithm=algorithm
+        )[offset:offset + limit]
+        
+        updates_data = []
+        for update in feed_updates:
+            updates_data.append({
+                "id": update.id,
+                "title": update.title,
+                "message": update.message,
+                "update_type": update.update_type,
+                "created_at": update.created_at.isoformat(),
+                "author": update.author.get_full_name() if update.author else None,
+                "source_object_name": update.get_related_object_name(),
+                "counts": {
+                    "likes": update.like_count,
+                    "comments": update.comment_count,
+                    "shares": update.share_count,
+                    "views": update.view_count
+                },
+                "rich_content": update.rich_content
+            })
+        
+        return JsonResponse({
+            "status": "success",
+            "updates": updates_data,
+            "page": page,
+            "has_more": len(feed_updates) == limit
+        })
+    
+    except Exception as e:
+        logger.error(f"Error in get_feed_updates_api: {e}")
+        return JsonResponse({"error": "Internal server error"}, status=500)
 
 
 def contribute(request):

@@ -1,56 +1,696 @@
-{% extends "base.html" %}
-{% load static extras %}
+{% extends "council_finance/base.html" %}
+{% load static %}
+{% load humanize %}
 {% block title %}Following - Council Finance Counters{% endblock %}
+
 {% block content %}
-<h1 class="text-2xl font-bold mb-4">Following</h1>
-{% if updates %}
-  <ul id="feed" class="space-y-4">
-    {% for up in updates %}
-    <li class="border rounded p-4" data-update="{{ up.id }}">
-      <p class="text-sm text-gray-600">{{ up.created|date:'SHORT_DATETIME_FORMAT' }}</p>
-      <p class="mb-2"><strong>{{ up.council.name }}</strong> - {{ up.message }}</p>
-      <div class="flex items-center gap-4 text-sm">
-        <button class="like-btn text-blue-600" data-id="{{ up.id }}">
-          Like (<span class="like-count">{{ up.likes.count }}</span>)
-        </button>
-      </div>
-      <form class="comment-form mt-2" data-id="{{ up.id }}" method="post">
-        {% csrf_token %}
-        {{ comment_forms|get_item:up.id }}
-        <button type="submit" class="bg-blue-600 text-white px-2 py-1 rounded text-sm mt-1">Comment</button>
-      </form>
-      <ul class="comments mt-2 text-sm space-y-1">
-        {% for c in up.comments.all %}
-        <li><strong>{{ c.user.username }}:</strong> {{ c.text }}</li>
-        {% endfor %}
-      </ul>
-    </li>
-    {% endfor %}
-  </ul>
-{% else %}
-  <p>No updates yet.</p>
-{% endif %}
+<link rel="stylesheet" href="{% static 'css/following-enhanced.css' %}">
+
+<!-- Enhanced Following Page Header -->
+<div class="bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-xl p-6 mb-8">
+    <div class="flex items-center justify-between">
+        <div>
+            <h1 class="text-3xl font-bold mb-2">Your Following Feed</h1>
+            <p class="text-blue-100">Stay updated with {{ total_follows }} councils, lists, and contributors you follow</p>
+        </div>
+        <div class="flex items-center space-x-4">
+            <!-- Feed Algorithm Selector -->
+            <div class="bg-white/10 backdrop-blur rounded-lg px-4 py-2">
+                <select id="algorithm-selector" class="bg-transparent text-white border-none focus:outline-none">
+                    {% for value, label in algorithm_choices %}
+                    <option value="{{ value }}" {% if value == current_algorithm %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            
+            <!-- Preferences Button -->
+            <button id="preferences-btn" class="bg-white/20 hover:bg-white/30 backdrop-blur rounded-lg px-4 py-2 transition-all duration-200">
+                <svg class="w-5 h-5 inline mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/>
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                </svg>
+                Preferences
+            </button>
+        </div>
+    </div>
+    
+    <!-- Quick Stats -->
+    <div class="grid grid-cols-4 gap-4 mt-6">
+        <div class="bg-white/10 backdrop-blur rounded-lg p-3 text-center">
+            <div class="text-2xl font-bold">{{ total_follows }}</div>
+            <div class="text-sm text-blue-200">Total Follows</div>
+        </div>
+        <div class="bg-white/10 backdrop-blur rounded-lg p-3 text-center">
+            <div class="text-2xl font-bold">{{ recent_updates_count }}</div>
+            <div class="text-sm text-blue-200">Recent Updates</div>
+        </div>
+        <div class="bg-white/10 backdrop-blur rounded-lg p-3 text-center">
+            <div class="text-2xl font-bold">{{ priority_stats.high|default:0 }}</div>
+            <div class="text-sm text-blue-200">High Priority</div>
+        </div>
+        <div class="bg-white/10 backdrop-blur rounded-lg p-3 text-center">
+            <div class="text-2xl font-bold">{{ trending_councils|length }}</div>
+            <div class="text-sm text-blue-200">Trending</div>
+        </div>
+    </div>
+</div>
+
+<div class="grid grid-cols-1 lg:grid-cols-4 gap-8">
+    <!-- Main Feed (3/4 width on large screens) -->
+    <div class="lg:col-span-3">
+        <!-- Feed Filters -->
+        <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-4 mb-6">
+            <div class="flex items-center justify-between mb-4">
+                <h2 class="text-lg font-semibold text-gray-900">Feed Filters</h2>
+                <div class="flex items-center space-x-2">
+                    <button id="mark-all-read" class="text-sm text-blue-600 hover:text-blue-800">Mark All Read</button>
+                    <span class="text-gray-300">|</span>
+                    <button id="refresh-feed" class="text-sm text-blue-600 hover:text-blue-800">Refresh</button>
+                </div>
+            </div>
+            <div class="flex flex-wrap gap-2">
+                {% for value, label in filter_choices %}
+                <button class="filter-btn {% if value == current_filter %}active{% endif %}" data-filter="{{ value }}">
+                    {{ label }}
+                </button>
+                {% endfor %}
+            </div>
+        </div>
+        
+        <!-- Feed Updates -->
+        <div id="feed-container" class="space-y-6">
+            {% if feed_updates %}
+                {% for update in feed_updates %}
+                <article class="feed-update bg-white rounded-xl shadow-sm border border-gray-200 hover:shadow-md transition-shadow duration-200" data-update-id="{{ update.id }}">
+                    <!-- Update Header -->
+                    <div class="p-6 border-b border-gray-100">
+                        <div class="flex items-start justify-between">
+                            <div class="flex items-center space-x-3">
+                                <!-- Update Type Icon -->
+                                <div class="update-type-icon update-type-{{ update.update_type }}">
+                                    {% if update.update_type == 'financial' %}
+                                        <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                                            <path d="M8.433 7.418c.155-.103.346-.196.567-.267v1.698a2.305 2.305 0 01-.567-.267C8.07 8.34 8 8.114 8 8c0-.114.07-.34.433-.582zM11 12.849v-1.698c.22.071.412.164.567.267.364.243.433.468.433.582 0 .114-.07.34-.433.582a2.305 2.305 0 01-.567.267z"/>
+                                            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-13a1 1 0 10-2 0v.092a4.535 4.535 0 00-1.676.662C6.602 6.234 6 7.009 6 8c0 .99.602 1.765 1.324 2.246.48.32 1.054.545 1.676.662v1.941c-.391-.127-.68-.317-.843-.504a1 1 0 10-1.51 1.31c.562.649 1.413 1.076 2.353 1.253V15a1 1 0 102 0v-.092a4.535 4.535 0 001.676-.662C13.398 13.766 14 12.991 14 12c0-.99-.602-1.765-1.324-2.246A4.535 4.535 0 0011 9.092V7.151c.391.127.68.317.843.504a1 1 0 101.511-1.31c-.563-.649-1.413-1.076-2.354-1.253V5z" clip-rule="evenodd"/>
+                                        </svg>
+                                    {% elif update.update_type == 'contribution' %}
+                                        <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                                            <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/>
+                                        </svg>
+                                    {% elif update.update_type == 'list_change' %}
+                                        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"/>
+                                        </svg>
+                                    {% else %}
+                                        <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                                            <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"/>
+                                        </svg>
+                                    {% endif %}
+                                </div>
+                                
+                                <div>
+                                    <h3 class="font-semibold text-gray-900">{{ update.title }}</h3>
+                                    <div class="flex items-center space-x-2 text-sm text-gray-500">
+                                        <span>{{ update.get_related_object_name }}</span>
+                                        {% if update.author %}
+                                        <span>•</span>
+                                        <span>by {{ update.author.get_full_name|default:update.author.username }}</span>
+                                        {% endif %}
+                                        <span>•</span>
+                                        <time datetime="{{ update.created_at|date:'c' }}">{{ update.created_at|timesince }} ago</time>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Update Type Badge -->
+                            <span class="update-badge update-badge-{{ update.update_type }}">{{ update.get_update_type_display }}</span>
+                        </div>
+                    </div>
+                    
+                    <!-- Update Content -->
+                    <div class="p-6">
+                        <p class="text-gray-700 mb-4">{{ update.message }}</p>
+                        
+                        <!-- Rich Content -->
+                        {% if update.rich_content %}
+                        <div class="rich-content bg-gray-50 rounded-lg p-4 mb-4">
+                            {% if update.rich_content.change_type %}
+                            <div class="flex items-center space-x-2 text-sm">
+                                <span class="font-medium">Change:</span>
+                                <span class="change-indicator change-{{ update.rich_content.change_type }}">
+                                    {% if update.rich_content.change_type == 'increase' %}↗{% else %}↘{% endif %}
+                                    {{ update.rich_content.old_value }} → {{ update.rich_content.new_value }}
+                                </span>
+                            </div>
+                            {% endif %}
+                        </div>
+                        {% endif %}
+                        
+                        <!-- Engagement Actions -->
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center space-x-6">
+                                <button class="engagement-btn like-btn {% if update.user_liked %}active{% endif %}" data-update-id="{{ update.id }}" data-action="like">
+                                    <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/>
+                                    </svg>
+                                    <span class="like-count">{{ update.like_count }}</span>
+                                </button>
+                                
+                                <button class="engagement-btn comment-btn" data-update-id="{{ update.id }}">
+                                    <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/>
+                                    </svg>
+                                    <span class="comment-count">{{ update.comment_count }}</span>
+                                </button>
+                                
+                                <button class="engagement-btn share-btn" data-update-id="{{ update.id }}">
+                                    <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.367 2.684 3 3 0 00-5.367-2.684z"/>
+                                    </svg>
+                                    <span class="share-count">{{ update.share_count }}</span>
+                                </button>
+                                
+                                <span class="text-sm text-gray-500">{{ update.view_count }} views</span>
+                            </div>
+                            
+                            <div class="flex items-center space-x-2">
+                                <button class="text-sm text-gray-500 hover:text-gray-700" onclick="toggleComments({{ update.id }})">
+                                    View Comments
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <!-- Comments Section (Initially Hidden) -->
+                        <div id="comments-{{ update.id }}" class="comments-section hidden mt-6 pt-4 border-t border-gray-100">
+                            <div class="space-y-4">
+                                <!-- Comments will be loaded here -->
+                            </div>
+                            
+                            <!-- Add Comment Form -->
+                            <form class="comment-form mt-4" data-update-id="{{ update.id }}">
+                                <div class="flex space-x-3">
+                                    <div class="flex-shrink-0">
+                                        <div class="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center text-white text-sm font-semibold">
+                                            {{ user.first_name.0|default:user.username.0|upper }}
+                                        </div>
+                                    </div>
+                                    <div class="flex-1">
+                                        <textarea 
+                                            name="content" 
+                                            rows="2" 
+                                            class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+                                            placeholder="Add a comment..."
+                                            maxlength="1000"
+                                        ></textarea>
+                                        <div class="flex justify-between items-center mt-2">
+                                            <span class="text-xs text-gray-500">Max 1000 characters</span>
+                                            <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700">
+                                                Comment
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </article>
+                {% endfor %}
+                
+                <!-- Load More Button -->
+                <div class="text-center py-8">
+                    <button id="load-more" class="bg-blue-600 text-white px-6 py-3 rounded-lg font-medium hover:bg-blue-700 transition-colors">
+                        Load More Updates
+                    </button>
+                </div>
+            {% else %}
+                <!-- Empty State -->
+                <div class="text-center py-12">
+                    <svg class="mx-auto h-16 w-16 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4"/>
+                    </svg>
+                    <h3 class="mt-4 text-lg font-medium text-gray-900">No updates yet</h3>
+                    <p class="mt-2 text-gray-500">Start following councils, lists, or contributors to see updates here.</p>
+                    <div class="mt-6">
+                        <a href="{% url 'home' %}" class="bg-blue-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-blue-700">
+                            Discover Councils
+                        </a>
+                    </div>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+    
+    <!-- Sidebar (1/4 width on large screens) -->
+    <div class="lg:col-span-1 space-y-6">
+        <!-- Following Summary -->
+        <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+            <h3 class="text-lg font-semibold text-gray-900 mb-4">Following Summary</h3>
+            <div class="space-y-3">
+                {% for content_type, follows in follows_by_type.items %}
+                <div class="flex items-center justify-between">
+                    <span class="text-sm text-gray-600">{{ content_type|title }}s</span>
+                    <span class="text-sm font-medium text-gray-900">{{ follows|length }}</span>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        
+        <!-- Trending Content -->
+        {% if trending_councils %}
+        <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+            <h3 class="text-lg font-semibold text-gray-900 mb-4">Trending Councils</h3>
+            <div class="space-y-3">
+                {% for trending in trending_councils %}
+                <div class="flex items-center justify-between">
+                    <div>
+                        <a href="#" class="text-sm font-medium text-blue-600 hover:text-blue-800">
+                            {{ trending.content_object.name }}
+                        </a>
+                        <p class="text-xs text-gray-500">{{ trending.reason }}</p>
+                    </div>
+                    <button class="follow-btn text-xs bg-blue-100 text-blue-600 px-2 py-1 rounded" 
+                            data-content-type="{{ trending.content_type.id }}" 
+                            data-object-id="{{ trending.object_id }}">
+                        Follow
+                    </button>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+        
+        <!-- Suggested Follows -->
+        {% if suggested_councils %}
+        <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+            <h3 class="text-lg font-semibold text-gray-900 mb-4">Suggested Councils</h3>
+            <div class="space-y-3">
+                {% for council in suggested_councils %}
+                <div class="flex items-center justify-between">
+                    <div>
+                        <a href="{% url 'council_detail' council.slug %}" class="text-sm font-medium text-blue-600 hover:text-blue-800">
+                            {{ council.name }}
+                        </a>
+                        <p class="text-xs text-gray-500">{{ council.follower_count }} followers</p>
+                    </div>
+                    <button class="follow-btn text-xs bg-blue-100 text-blue-600 px-2 py-1 rounded" 
+                            data-content-type="{{ council.content_type.id }}" 
+                            data-object-id="{{ council.id }}">
+                        Follow
+                    </button>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Feed Preferences Modal -->
+<div id="preferences-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden z-50">
+    <div class="flex items-center justify-center min-h-screen p-4">
+        <div class="bg-white rounded-xl shadow-xl max-w-md w-full p-6">
+            <h3 class="text-lg font-semibold text-gray-900 mb-4">Feed Preferences</h3>
+            
+            <form id="preferences-form" class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Content Types</label>
+                    <div class="space-y-2">
+                        <label class="flex items-center">
+                            <input type="checkbox" id="show_financial_updates" class="rounded border-gray-300 text-blue-600 focus:ring-blue-500">
+                            <span class="ml-2 text-sm text-gray-700">Financial Updates</span>
+                        </label>
+                        <label class="flex items-center">
+                            <input type="checkbox" id="show_contributions" class="rounded border-gray-300 text-blue-600 focus:ring-blue-500">
+                            <span class="ml-2 text-sm text-gray-700">User Contributions</span>
+                        </label>
+                        <label class="flex items-center">
+                            <input type="checkbox" id="show_council_news" class="rounded border-gray-300 text-blue-600 focus:ring-blue-500">
+                            <span class="ml-2 text-sm text-gray-700">Council News</span>
+                        </label>
+                        <label class="flex items-center">
+                            <input type="checkbox" id="show_list_changes" class="rounded border-gray-300 text-blue-600 focus:ring-blue-500">
+                            <span class="ml-2 text-sm text-gray-700">List Changes</span>
+                        </label>
+                        <label class="flex items-center">
+                            <input type="checkbox" id="show_achievements" class="rounded border-gray-300 text-blue-600 focus:ring-blue-500">
+                            <span class="ml-2 text-sm text-gray-700">User Achievements</span>
+                        </label>
+                        <label class="flex items-center">
+                            <input type="checkbox" id="show_system_updates" class="rounded border-gray-300 text-blue-600 focus:ring-blue-500">
+                            <span class="ml-2 text-sm text-gray-700">System Updates</span>
+                        </label>
+                    </div>
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Notifications</label>
+                    <div class="space-y-2">
+                        <label class="flex items-center">
+                            <input type="checkbox" id="email_notifications" class="rounded border-gray-300 text-blue-600 focus:ring-blue-500">
+                            <span class="ml-2 text-sm text-gray-700">Email Notifications</span>
+                        </label>
+                        <label class="flex items-center">
+                            <input type="checkbox" id="push_notifications" class="rounded border-gray-300 text-blue-600 focus:ring-blue-500">
+                            <span class="ml-2 text-sm text-gray-700">Push Notifications</span>
+                        </label>
+                    </div>
+                </div>
+                
+                <div class="flex justify-end space-x-3 pt-4">
+                    <button type="button" id="cancel-preferences" class="px-4 py-2 text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50">
+                        Cancel
+                    </button>
+                    <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+                        Save Preferences
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
 <script>
-function getCookie(name){const m=document.cookie.match('(^|;)\\s*'+name+'\\s*=\\s*([^;]+)');return m?m.pop():'';}
-const csrftoken=getCookie('csrftoken');
-document.querySelectorAll('.like-btn').forEach(btn=>{
-  btn.addEventListener('click',()=>{
-    const id=btn.dataset.id;
-    fetch(`/updates/${id}/like/`,{method:'POST',headers:{'X-CSRFToken':csrftoken}})
-      .then(r=>r.json()).then(data=>{
-        if(data.count!=undefined){
-          btn.querySelector('.like-count').textContent=data.count;
+// Store preferences and CSRF token
+const feedPreferences = {{ preferences_json|safe }};
+const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]')?.value || '{{ csrf_token }}';
+
+// Initialize the Following page
+document.addEventListener('DOMContentLoaded', function() {
+    initializeFollowingPage();
+});
+
+function initializeFollowingPage() {
+    setupEventListeners();
+    loadPreferencesIntoModal();
+    setupInfiniteScroll();
+}
+
+function setupEventListeners() {
+    // Algorithm selector
+    document.getElementById('algorithm-selector')?.addEventListener('change', function() {
+        updateFeedAlgorithm(this.value);
+    });
+    
+    // Filter buttons
+    document.querySelectorAll('.filter-btn').forEach(btn => {
+        btn.addEventListener('click', function() {
+            setActiveFilter(this.dataset.filter);
+        });
+    });
+    
+    // Preferences modal
+    document.getElementById('preferences-btn')?.addEventListener('click', openPreferencesModal);
+    document.getElementById('cancel-preferences')?.addEventListener('click', closePreferencesModal);
+    document.getElementById('preferences-form')?.addEventListener('submit', savePreferences);
+    
+    // Engagement actions
+    document.addEventListener('click', function(e) {
+        if (e.target.closest('.like-btn')) {
+            handleLike(e.target.closest('.like-btn'));
+        } else if (e.target.closest('.share-btn')) {
+            handleShare(e.target.closest('.share-btn'));
+        } else if (e.target.closest('.follow-btn')) {
+            handleFollow(e.target.closest('.follow-btn'));
         }
-      });
-  });
-});
-document.querySelectorAll('.comment-form').forEach(f=>{
-  f.addEventListener('submit',e=>{
+    });
+    
+    // Comment forms
+    document.addEventListener('submit', function(e) {
+        if (e.target.classList.contains('comment-form')) {
+            e.preventDefault();
+            handleComment(e.target);
+        }
+    });
+    
+    // Load more button
+    document.getElementById('load-more')?.addEventListener('click', loadMoreUpdates);
+}
+
+function updateFeedAlgorithm(algorithm) {
+    const url = new URL(window.location);
+    url.searchParams.set('algorithm', algorithm);
+    window.location.href = url.toString();
+}
+
+function setActiveFilter(filter) {
+    // Update button states
+    document.querySelectorAll('.filter-btn').forEach(btn => {
+        btn.classList.remove('active');
+    });
+    document.querySelector(`[data-filter="${filter}"]`).classList.add('active');
+    
+    // Update URL and reload
+    const url = new URL(window.location);
+    url.searchParams.set('filter', filter);
+    window.location.href = url.toString();
+}
+
+function openPreferencesModal() {
+    document.getElementById('preferences-modal').classList.remove('hidden');
+}
+
+function closePreferencesModal() {
+    document.getElementById('preferences-modal').classList.add('hidden');
+}
+
+function loadPreferencesIntoModal() {
+    Object.keys(feedPreferences).forEach(key => {
+        const element = document.getElementById(key);
+        if (element && typeof feedPreferences[key] === 'boolean') {
+            element.checked = feedPreferences[key];
+        }
+    });
+}
+
+function savePreferences(e) {
     e.preventDefault();
-    const id=f.dataset.id;const text=f.querySelector('textarea').value;
-    fetch(`/updates/${id}/comment/`,{method:'POST',headers:{'X-CSRFToken':csrftoken,'Content-Type':'application/x-www-form-urlencoded'},body:`text=${encodeURIComponent(text)}`})
-      .then(r=>r.json()).then(data=>{if(data.status==='ok'){location.reload();}});
-  });
-});
+    
+    const formData = new FormData(e.target);
+    const preferences = {};
+    
+    // Get checkbox states
+    ['show_financial_updates', 'show_contributions', 'show_council_news', 
+     'show_list_changes', 'show_achievements', 'show_system_updates',
+     'email_notifications', 'push_notifications'].forEach(key => {
+        preferences[key] = document.getElementById(key).checked;
+    });
+    
+    fetch('/following/api/preferences/', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': csrfToken
+        },
+        body: JSON.stringify(preferences)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.status === 'success') {
+            closePreferencesModal();
+            // Refresh the page to apply new preferences
+            window.location.reload();
+        } else {
+            alert('Error saving preferences: ' + data.message);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Error saving preferences');
+    });
+}
+
+function handleLike(button) {
+    const updateId = button.dataset.updateId;
+    const isLiked = button.classList.contains('active');
+    const action = isLiked ? 'remove' : 'add';
+    
+    fetch(`/following/api/updates/${updateId}/interact/`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': csrfToken
+        },
+        body: JSON.stringify({
+            interaction_type: 'like',
+            action: action
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.status === 'success') {
+            button.classList.toggle('active');
+            button.querySelector('.like-count').textContent = data.counts.likes;
+        }
+    })
+    .catch(error => console.error('Error:', error));
+}
+
+function handleShare(button) {
+    const updateId = button.dataset.updateId;
+    
+    // Simple share functionality - copy link to clipboard
+    const url = `${window.location.origin}/following/#update-${updateId}`;
+    navigator.clipboard.writeText(url).then(() => {
+        // Record the share interaction
+        fetch(`/following/api/updates/${updateId}/interact/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrfToken
+            },
+            body: JSON.stringify({
+                interaction_type: 'share',
+                action: 'add'
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.status === 'success') {
+                button.querySelector('.share-count').textContent = data.counts.shares;
+                showToast('Link copied to clipboard!');
+            }
+        });
+    });
+}
+
+function handleFollow(button) {
+    const contentTypeId = button.dataset.contentType;
+    const objectId = button.dataset.objectId;
+    const isFollowing = button.textContent.trim() === 'Unfollow';
+    
+    const url = isFollowing ? '/following/api/unfollow/' : '/following/api/follow/';
+    
+    fetch(url, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': csrfToken
+        },
+        body: JSON.stringify({
+            content_type_id: contentTypeId,
+            object_id: objectId
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.status === 'success') {
+            button.textContent = isFollowing ? 'Follow' : 'Unfollow';
+            button.classList.toggle('following');
+            showToast(data.message);
+        }
+    })
+    .catch(error => console.error('Error:', error));
+}
+
+function handleComment(form) {
+    const updateId = form.dataset.updateId;
+    const content = form.querySelector('textarea[name="content"]').value.trim();
+    
+    if (!content) return;
+    
+    fetch(`/following/api/updates/${updateId}/comment/`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': csrfToken
+        },
+        body: JSON.stringify({ content: content })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.status === 'success') {
+            // Clear the form
+            form.querySelector('textarea').value = '';
+            
+            // Add the comment to the UI
+            addCommentToUI(updateId, data.comment);
+            
+            // Update comment count
+            const commentBtn = document.querySelector(`[data-update-id="${updateId}"].comment-btn`);
+            if (commentBtn) {
+                commentBtn.querySelector('.comment-count').textContent = data.comment_count;
+            }
+        }
+    })
+    .catch(error => console.error('Error:', error));
+}
+
+function addCommentToUI(updateId, comment) {
+    const commentsSection = document.getElementById(`comments-${updateId}`);
+    if (!commentsSection) return;
+    
+    const commentHtml = `
+        <div class="flex space-x-3">
+            <div class="flex-shrink-0">
+                <div class="w-8 h-8 bg-gray-400 rounded-full flex items-center justify-center text-white text-sm font-semibold">
+                    ${comment.author.charAt(0).toUpperCase()}
+                </div>
+            </div>
+            <div class="flex-1">
+                <div class="bg-gray-50 rounded-lg p-3">
+                    <div class="font-medium text-sm text-gray-900">${comment.author}</div>
+                    <p class="text-gray-700 text-sm mt-1">${comment.content}</p>
+                </div>
+                <div class="text-xs text-gray-500 mt-1">Just now</div>
+            </div>
+        </div>
+    `;
+    
+    const commentsContainer = commentsSection.querySelector('.space-y-4');
+    commentsContainer.insertAdjacentHTML('beforeend', commentHtml);
+    
+    // Make sure comments section is visible
+    commentsSection.classList.remove('hidden');
+}
+
+function toggleComments(updateId) {
+    const commentsSection = document.getElementById(`comments-${updateId}`);
+    if (commentsSection) {
+        commentsSection.classList.toggle('hidden');
+    }
+}
+
+function loadMoreUpdates() {
+    // Implementation for infinite scroll / load more
+    const currentPage = parseInt(document.body.dataset.currentPage || '1');
+    const nextPage = currentPage + 1;
+    
+    fetch(`/following/api/updates/?page=${nextPage}`, {
+        headers: {
+            'X-CSRFToken': csrfToken
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.status === 'success' && data.updates.length > 0) {
+            // Add updates to feed
+            // This would require server-side rendering or client-side template engine
+            document.body.dataset.currentPage = nextPage;
+            
+            if (!data.has_more) {
+                document.getElementById('load-more').style.display = 'none';
+            }
+        }
+    })
+    .catch(error => console.error('Error:', error));
+}
+
+function setupInfiniteScroll() {
+    // Optional: Implement infinite scroll instead of load more button
+    // This would listen for scroll events and automatically load more content
+}
+
+function showToast(message) {
+    // Simple toast notification
+    const toast = document.createElement('div');
+    toast.className = 'fixed top-4 right-4 bg-green-500 text-white px-4 py-2 rounded-lg z-50';
+    toast.textContent = message;
+    document.body.appendChild(toast);
+    
+    setTimeout(() => {
+        toast.remove();
+    }, 3000);
+}
 </script>
+
 {% endblock %}
