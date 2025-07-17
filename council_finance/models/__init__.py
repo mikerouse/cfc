@@ -32,6 +32,12 @@ from .council_update import (
     CouncilUpdateComment,
 )
 from .activity_log import ActivityLog
+from .new_data_model import (
+    CouncilCharacteristic,
+    CouncilCharacteristicHistory,
+    FinancialFigure,
+    FinancialFigureHistory,
+)
 
 __all__ = [
     'Council',
@@ -66,4 +72,8 @@ __all__ = [
     'DataIssue',
     'SiteSetting',
     'ActivityLog',
+    'CouncilCharacteristic',
+    'CouncilCharacteristicHistory',
+    'FinancialFigure',
+    'FinancialFigureHistory',
 ]

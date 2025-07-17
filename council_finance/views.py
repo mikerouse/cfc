@@ -2258,28 +2258,275 @@ def list_metric(request, list_id):
 def add_to_compare(request, slug):
     """Add a council to comparison basket."""
     from django.http import JsonResponse
-    # TODO: Implement comparison functionality
-    return JsonResponse({"status": "success", "message": "Added to comparison"})
+    from django.shortcuts import get_object_or_404
+    from council_finance.models import Council
+    
+    council = get_object_or_404(Council, slug=slug)
+    
+    # Initialize session basket if it doesn't exist
+    if 'compare_basket' not in request.session:
+        request.session['compare_basket'] = []
+    
+    # Check if council is already in basket
+    if slug not in request.session['compare_basket']:
+        # Limit to maximum 5 councils for comparison
+        if len(request.session['compare_basket']) >= 5:
+            return JsonResponse({
+                "status": "error", 
+                "message": "Maximum 5 councils can be compared at once"
+            })
+        
+        request.session['compare_basket'].append(slug)
+        request.session.modified = True
+        
+        return JsonResponse({
+            "status": "success", 
+            "message": f"{council.name} added to comparison",
+            "count": len(request.session['compare_basket'])
+        })
+    else:
+        return JsonResponse({
+            "status": "info", 
+            "message": f"{council.name} is already in comparison basket",
+            "count": len(request.session['compare_basket'])
+        })
 
 
 def remove_from_compare(request, slug):
     """Remove a council from comparison basket."""
     from django.http import JsonResponse
-    # TODO: Implement comparison functionality
-    return JsonResponse({"status": "success", "message": "Removed from comparison"})
+    from django.shortcuts import get_object_or_404
+    from council_finance.models import Council
+    
+    council = get_object_or_404(Council, slug=slug)
+    
+    # Initialize session basket if it doesn't exist
+    if 'compare_basket' not in request.session:
+        request.session['compare_basket'] = []
+    
+    # Remove council from basket if it exists
+    if slug in request.session['compare_basket']:
+        request.session['compare_basket'].remove(slug)
+        request.session.modified = True
+        
+        return JsonResponse({
+            "status": "success", 
+            "message": f"{council.name} removed from comparison",
+            "count": len(request.session['compare_basket'])
+        })
+    else:
+        return JsonResponse({
+            "status": "info", 
+            "message": f"{council.name} was not in comparison basket",
+            "count": len(request.session['compare_basket'])
+        })
 
 
 def compare_row(request):
-    """Get comparison row data."""
+    """Get comparison row data for a specific field."""
     from django.http import JsonResponse
-    # TODO: Implement comparison functionality
-    return JsonResponse({"status": "success", "data": {}})
+    from django.shortcuts import get_object_or_404
+    from django.template.loader import render_to_string
+    from council_finance.models import Council, DataField, FinancialFigure, CouncilCharacteristic
+    from decimal import Decimal
+    import statistics
+    
+    field_slug = request.GET.get('field')
+    if not field_slug:
+        return JsonResponse({"status": "error", "message": "Field slug required"})
+    
+    field = get_object_or_404(DataField, slug=field_slug)
+    
+    # Get councils from session basket
+    basket_slugs = request.session.get('compare_basket', [])
+    if not basket_slugs:
+        return JsonResponse({"status": "error", "message": "No councils in comparison basket"})
+    
+    councils = Council.objects.filter(slug__in=basket_slugs).order_by('name')
+    
+    # Get values for each council
+    values = []
+    numeric_values = []
+    
+    for council in councils:
+        value = None
+        display_value = "No data"
+        
+        # Try to get value based on field category
+        if field.category == 'characteristic':
+            try:
+                characteristic = CouncilCharacteristic.objects.get(council=council, field=field)
+                value = characteristic.value
+                display_value = field.display_value(value) if value else "No data"
+            except CouncilCharacteristic.DoesNotExist:
+                pass
+        else:
+            # For financial figures, get the latest year's data
+            try:
+                latest_figure = FinancialFigure.objects.filter(
+                    council=council, 
+                    field=field
+                ).order_by('-year__year').first()
+                
+                if latest_figure and latest_figure.value is not None:
+                    value = float(latest_figure.value)
+                    display_value = field.display_value(str(latest_figure.value))
+                    numeric_values.append(value)
+            except (FinancialFigure.DoesNotExist, ValueError, TypeError):
+                pass
+        
+        values.append(display_value)
+    
+    # Calculate summary statistics for numeric fields
+    summary = None
+    if numeric_values and field.content_type in ['monetary', 'integer']:
+        try:
+            summary = {
+                'total': field.display_value(str(sum(numeric_values))),
+                'average': field.display_value(str(sum(numeric_values) / len(numeric_values))),
+                'highest': field.display_value(str(max(numeric_values))),
+                'lowest': field.display_value(str(min(numeric_values))),
+            }
+        except (ValueError, ZeroDivisionError):
+            pass
+    
+    # Render the row HTML
+    row_html = render_to_string('council_finance/compare_row.html', {
+        'field': field,
+        'values': values,
+        'summary': summary
+    })
+    
+    return JsonResponse({
+        "status": "success", 
+        "html": row_html,
+        "field_name": field.name
+    })
 
 
 def compare_basket(request):
-    """Display comparison basket page."""
-    # TODO: Implement comparison basket display
-    return render(request, "council_finance/compare_basket.html", {})
+    """Display comparison basket page with e-commerce style comparison tool."""
+    from django.shortcuts import redirect
+    from django.utils import timezone
+    from council_finance.models import Council, DataField, CouncilList, FinancialFigure, CouncilCharacteristic
+    from decimal import Decimal
+    
+    # Handle saving as custom list
+    if request.method == 'POST' and request.POST.get('save_list'):
+        if request.user.is_authenticated:
+            list_name = request.POST.get('name', '').strip()
+            if list_name:
+                basket_slugs = request.session.get('compare_basket', [])
+                councils = Council.objects.filter(slug__in=basket_slugs)
+                
+                # Create the list
+                council_list = CouncilList.objects.create(
+                    name=list_name,
+                    user=request.user,
+                    description=f"Comparison basket saved on {timezone.now().strftime('%Y-%m-%d')}"
+                )
+                council_list.councils.set(councils)
+                
+                # Add success message (you might want to use Django messages framework)
+                context = {
+                    'save_success': True,
+                    'list_name': list_name
+                }
+                return render(request, "council_finance/comparison_basket.html", context)
+    
+    # Get councils from session basket
+    basket_slugs = request.session.get('compare_basket', [])
+    councils = Council.objects.filter(slug__in=basket_slugs).order_by('name')
+    
+    # Get available data fields for comparison
+    field_choices = DataField.objects.all().order_by('category', 'name')
+    
+    # Get default comparison rows (show some key fields by default)
+    default_fields = ['council_type', 'population', 'council_nation']
+    rows = []
+    
+    for field_slug in default_fields:
+        try:
+            field = DataField.objects.get(slug=field_slug)
+            values = []
+            numeric_values = []
+            
+            for council in councils:
+                value = None
+                display_value = "No data"
+                
+                # Get characteristic data
+                if field.category == 'characteristic':
+                    try:
+                        characteristic = CouncilCharacteristic.objects.get(council=council, field=field)
+                        value = characteristic.value
+                        display_value = field.display_value(value) if value else "No data"
+                    except CouncilCharacteristic.DoesNotExist:
+                        # Fallback to council attributes for core fields
+                        if field_slug == 'council_type' and hasattr(council, 'council_type'):
+                            display_value = str(council.council_type)
+                        elif field_slug == 'population' and hasattr(council, 'latest_population'):
+                            display_value = f"{council.latest_population:,}" if council.latest_population else "No data"
+                        elif field_slug == 'council_nation' and hasattr(council, 'council_nation'):
+                            display_value = str(council.council_nation)
+                else:
+                    # For financial figures, get the latest year's data
+                    try:
+                        latest_figure = FinancialFigure.objects.filter(
+                            council=council, 
+                            field=field
+                        ).order_by('-year__year').first()
+                        
+                        if latest_figure and latest_figure.value is not None:
+                            value = float(latest_figure.value)
+                            display_value = field.display_value(str(latest_figure.value))
+                            numeric_values.append(value)
+                    except (FinancialFigure.DoesNotExist, ValueError, TypeError):
+                        pass
+                
+                values.append(display_value)
+            
+            # Calculate summary for numeric fields
+            summary = None
+            if numeric_values and field.content_type in ['monetary', 'integer']:
+                try:
+                    summary = {
+                        'total': field.display_value(str(sum(numeric_values))),
+                        'average': field.display_value(str(sum(numeric_values) / len(numeric_values))),
+                        'highest': field.display_value(str(max(numeric_values))),
+                        'lowest': field.display_value(str(min(numeric_values))),
+                    }
+                except (ValueError, ZeroDivisionError):
+                    pass
+            
+            rows.append({
+                'field': field,
+                'values': values,
+                'summary': summary
+            })
+            
+        except DataField.DoesNotExist:
+            continue
+    
+    context = {
+        'councils': councils,
+        'field_choices': field_choices,
+        'rows': rows,
+    }
+    
+    return render(request, "council_finance/comparison_basket.html", context)
+
+
+def clear_compare_basket(request):
+    """Clear all councils from comparison basket."""
+    from django.http import JsonResponse
+    
+    if request.method == 'POST':
+        request.session['compare_basket'] = []
+        request.session.modified = True
+        return JsonResponse({"status": "success", "message": "Comparison basket cleared"})
+    
+    return JsonResponse({"status": "error", "message": "Invalid request method"})
 
 
 def follow_council(request, slug):

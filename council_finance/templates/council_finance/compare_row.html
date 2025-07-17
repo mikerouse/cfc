@@ -1,14 +1,32 @@
-<tr class="border-b">
-    <td class="px-6 py-3 font-semibold sticky left-0 bg-white z-0">{{ field.name|capfirst }}</td>
-    {% for v in values %}
-    <td class="px-6 py-3 whitespace-nowrap">{{ v }}</td>
+<tr class="border-b hover:bg-gray-50 transition-colors duration-150" data-field="{{ field.slug }}">
+    <td class="sticky-col px-6 py-4 font-medium text-gray-900">
+        <div class="flex items-center justify-between">
+            <div class="flex items-center">
+                <span>{{ field.name }}</span>
+                <span class="field-badge badge-{{ field.content_type }} ml-2 text-xs px-2 py-1 rounded-full font-medium">{{ field.get_content_type_display }}</span>
+            </div>
+            <button class="remove-field text-gray-400 hover:text-red-500 transition-colors duration-200" 
+                    data-field="{{ field.slug }}" 
+                    title="Remove this field">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                </svg>
+            </button>
+        </div>
+    </td>
+    {% for value in values %}
+    <td class="px-6 py-4 text-gray-700">{{ value }}</td>
     {% endfor %}
-    <td class="px-6 py-3 text-sm" style="min-width:10rem;">
+    <td class="px-6 py-4 text-xs text-gray-600">
         {% if summary %}
-        <div>Total: {{ summary.total }}</div>
-        <div>Avg: {{ summary.average }}</div>
-        <div>Highest: {{ summary.highest }}</div>
-        <div>Lowest: {{ summary.lowest }}</div>
+        <div class="space-y-1">
+            <div><strong>Total:</strong> {{ summary.total }}</div>
+            <div><strong>Avg:</strong> {{ summary.average }}</div>
+            <div><strong>High:</strong> {{ summary.highest }}</div>
+            <div><strong>Low:</strong> {{ summary.lowest }}</div>
+        </div>
+        {% else %}
+        <span class="text-gray-400">N/A</span>
         {% endif %}
     </td>
 </tr>

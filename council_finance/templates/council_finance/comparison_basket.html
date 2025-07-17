@@ -1,52 +1,401 @@
 {% extends "base.html" %}
 {% load static %}
-{% block title %}Comparison Basket{% endblock %}
+{% block title %}Council Comparison Tool{% endblock %}
+
+{% block extra_css %}
+<style>
+.comparison-table {
+    border-collapse: separate;
+    border-spacing: 0;
+}
+.comparison-table th,
+.comparison-table td {
+    border: 1px solid #e5e7eb;
+    border-left: none;
+    border-top: none;
+}
+.comparison-table th:first-child,
+.comparison-table td:first-child {
+    border-left: 1px solid #e5e7eb;
+}
+.comparison-table thead tr:first-child th {
+    border-top: 1px solid #e5e7eb;
+}
+.sticky-col {
+    position: sticky;
+    left: 0;
+    z-index: 10;
+    background: white;
+    box-shadow: 2px 0 4px rgba(0,0,0,0.1);
+}
+.sticky-header {
+    position: sticky;
+    top: 0;
+    z-index: 20;
+    background: #f9fafb;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+.council-header {
+    min-width: 200px;
+}
+.loading-spinner {
+    display: none;
+    width: 20px;
+    height: 20px;
+    border: 2px solid #f3f3f3;
+    border-top: 2px solid #3498db;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+.field-badge {
+    font-size: 0.75rem;
+    padding: 0.25rem 0.5rem;
+    border-radius: 9999px;
+    font-weight: 500;
+}
+.badge-monetary { background: #dbeafe; color: #1e40af; }
+.badge-characteristic { background: #f3e8ff; color: #7c3aed; }
+.badge-integer { background: #dcfce7; color: #166534; }
+.badge-calculated { background: #fef3c7; color: #92400e; }
+.badge-text { background: #f1f5f9; color: #475569; }
+.badge-url { background: #fef2f2; color: #dc2626; }
+.badge-list { background: #ecfdf5; color: #059669; }
+</style>
+{% endblock %}
+
 {% block content %}
-<h1 class="text-2xl font-bold mb-4">Comparison Basket</h1>
-{% if councils %}
-<p class="mb-2 text-sm text-gray-700">Choose fields to compare using the drop-down. Rows will appear instantly and you can scroll horizontally if needed.</p>
-<div class="mb-4">
-  <label for="field-select" class="mr-2 font-semibold">Add field:</label>
-  <select id="field-select" class="border rounded p-1">
-    <option value="">-- choose --</option>
-    {% for f in field_choices %}
-    <option value="{{ f.slug }}">{{ f.name|capfirst }}</option>
-    {% endfor %}
-  </select>
-</div>
-<div class="overflow-x-auto">
-<table class="min-w-max text-sm border-collapse">
-  <thead class="bg-gray-100">
-    <tr>
-      <th class="px-6 py-3 sticky left-0 bg-gray-100 z-10"></th>
-      {% for c in councils %}
-      <th class="px-6 py-3 whitespace-nowrap">
-        <div class="flex items-center">
-          <span>{{ c.name }}</span>
-          <a href="#" class="remove-compare ml-2 text-red-600 underline text-xs" data-slug="{{ c.slug }}">remove</a>
+<div class="container mx-auto px-4 py-8">
+    <!-- Header Section -->
+    <div class="mb-8">
+        <h1 class="text-3xl font-bold text-gray-900 mb-2">🛒 Council Comparison Tool</h1>
+        <p class="text-gray-600">Compare financial data and characteristics across your selected councils.</p>
+    </div>
+
+    {% if save_success %}
+    <div class="bg-green-50 border border-green-200 rounded-lg p-4 mb-6">
+        <div class="flex">
+            <div class="flex-shrink-0">
+                <svg class="h-5 w-5 text-green-400" viewBox="0 0 20 20" fill="currentColor">
+                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+                </svg>
+            </div>
+            <div class="ml-3">
+                <h3 class="text-sm font-medium text-green-800">List Saved Successfully</h3>
+                <p class="text-sm text-green-700 mt-1">Your comparison has been saved as "{{ list_name }}"</p>
+            </div>
         </div>
-      </th>
-      {% endfor %}
-      <th class="px-6 py-3">Summary</th>
-    </tr>
-  </thead>
-  <tbody id="compare-rows">
-    {% for row in rows %}
-    {% include 'council_finance/compare_row.html' with field=row.field values=row.values summary=row.summary %}
-    {% endfor %}
-  </tbody>
-</table>
+    </div>
+    {% endif %}
+
+    {% if councils %}
+    <!-- Control Panel -->
+    <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
+        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div class="flex items-center gap-4">
+                <div class="flex items-center">
+                    <label for="field-select" class="text-sm font-medium text-gray-700 mr-2">Add comparison field:</label>
+                    <select id="field-select" class="border border-gray-300 rounded-md px-3 py-2 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                        <option value="">-- Select a field --</option>
+                        {% regroup field_choices by category as category_groups %}
+                        {% for group in category_groups %}
+                        <optgroup label="{{ group.grouper|title }}">
+                            {% for field in group.list %}
+                            <option value="{{ field.slug }}" data-type="{{ field.content_type }}">{{ field.name }}</option>
+                            {% endfor %}
+                        </optgroup>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="loading-spinner" id="loading-spinner"></div>
+            </div>
+            <div class="flex items-center gap-2">
+                <span class="text-sm text-gray-500">{{ councils.count }} council{{ councils.count|pluralize }}</span>
+                <button id="clear-all" class="text-sm text-red-600 hover:text-red-800 underline">Clear all</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Comparison Table -->
+    <div class="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+        <div class="overflow-x-auto">
+            <table class="comparison-table min-w-full text-sm">
+                <thead class="bg-gray-50">
+                    <tr class="sticky-header">
+                        <th class="sticky-col px-6 py-4 text-left font-semibold text-gray-900">
+                            <div class="flex items-center">
+                                <span>Field</span>
+                                <svg class="w-4 h-4 ml-1 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4"/>
+                                </svg>
+                            </div>
+                        </th>
+                        {% for council in councils %}
+                        <th class="council-header px-6 py-4 text-left">
+                            <div class="flex flex-col">
+                                <div class="flex items-center justify-between">
+                                    <span class="font-semibold text-gray-900 break-words">{{ council.name }}</span>
+                                    <button class="remove-compare ml-2 text-red-500 hover:text-red-700 transition-colors duration-200" 
+                                            data-slug="{{ council.slug }}" 
+                                            title="Remove from comparison">
+                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                                        </svg>
+                                    </button>
+                                </div>
+                                <div class="text-xs text-gray-500 mt-1">{{ council.council_type }}</div>
+                            </div>
+                        </th>
+                        {% endfor %}
+                        <th class="px-6 py-4 text-left font-semibold text-gray-900">
+                            <div class="flex items-center">
+                                <span>Summary</span>
+                                <svg class="w-4 h-4 ml-1 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002 2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h2a2 2 0 01-2-2z"/>
+                                </svg>
+                            </div>
+                        </th>
+                    </tr>
+                </thead>
+                <tbody id="compare-rows">
+                    {% for row in rows %}
+                    <tr class="border-b hover:bg-gray-50 transition-colors duration-150">
+                        <td class="sticky-col px-6 py-4 font-medium text-gray-900">
+                            <div class="flex items-center">
+                                <span>{{ row.field.name }}</span>
+                                <span class="field-badge badge-{{ row.field.content_type }} ml-2">{{ row.field.get_content_type_display }}</span>
+                            </div>
+                        </td>
+                        {% for value in row.values %}
+                        <td class="px-6 py-4 text-gray-700">{{ value }}</td>
+                        {% endfor %}
+                        <td class="px-6 py-4 text-xs text-gray-600">
+                            {% if row.summary %}
+                            <div class="space-y-1">
+                                <div><strong>Total:</strong> {{ row.summary.total }}</div>
+                                <div><strong>Avg:</strong> {{ row.summary.average }}</div>
+                                <div><strong>High:</strong> {{ row.summary.highest }}</div>
+                                <div><strong>Low:</strong> {{ row.summary.lowest }}</div>
+                            </div>
+                            {% else %}
+                            <span class="text-gray-400">N/A</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Save as List Section -->
+    {% if user.is_authenticated %}
+    <div class="bg-blue-50 border border-blue-200 rounded-lg p-6 mt-6">
+        <h3 class="text-lg font-medium text-blue-900 mb-3">💾 Save This Comparison</h3>
+        <p class="text-blue-700 mb-4">Save these councils as a custom list for quick access later.</p>
+        <form method="post" class="flex flex-col sm:flex-row gap-3">
+            {% csrf_token %}
+            <input type="hidden" name="save_list" value="1">
+            <input type="text" 
+                   name="name" 
+                   class="flex-1 border border-blue-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500" 
+                   placeholder="e.g., My Local Councils" 
+                   required>
+            <button type="submit" 
+                    class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors duration-200">
+                Save List
+            </button>
+        </form>
+    </div>
+    {% else %}
+    <div class="bg-gray-50 border border-gray-200 rounded-lg p-6 mt-6 text-center">
+        <p class="text-gray-600">
+            <a href="/login/" class="text-blue-600 hover:text-blue-800 underline">Sign in</a> to save this comparison as a custom list.
+        </p>
+    </div>
+    {% endif %}
+
+    {% else %}
+    <!-- Empty State -->
+    <div class="text-center py-12">
+        <svg class="w-16 h-16 mx-auto text-gray-400 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4m0 0L7 13m0 0l-1.1 5M7 13l-1.1 5m0 0h9.2M6 18a2 2 0 100 4 2 2 0 000-4zm12 0a2 2 0 100 4 2 2 0 000-4z"/>
+        </svg>
+        <h3 class="text-lg font-medium text-gray-900 mb-2">Your comparison basket is empty</h3>
+        <p class="text-gray-600 mb-6">Start adding councils to compare their financial data and characteristics.</p>
+        <a href="/councils/" class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-md font-medium transition-colors duration-200">
+            Browse Councils
+        </a>
+    </div>
+    {% endif %}
 </div>
-{% else %}
-<p>No councils in your basket.</p>
-{% endif %}
-{% if user.is_authenticated and councils %}
-<form method="post" class="mt-4">
-  {% csrf_token %}
-  <input type="hidden" name="save_list" value="1">
-  <label class="mr-2">To save these councils for comparison again another time simply save them as a custom list (e.g. My Local Councils)</label>
-  <input type="text" name="name" class="border rounded p-1" required>
-  <button type="submit" class="ml-2 bg-blue-600 text-white px-2 py-1 rounded">Save</button>
-</form>
-{% endif %}
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const fieldSelect = document.getElementById('field-select');
+    const loadingSpinner = document.getElementById('loading-spinner');
+    const compareRows = document.getElementById('compare-rows');
+    
+    // Add field to comparison
+    fieldSelect.addEventListener('change', function() {
+        const fieldSlug = this.value;
+        if (!fieldSlug) return;
+        
+        // Check if field is already added
+        if (document.querySelector(`[data-field="${fieldSlug}"]`)) {
+            showMessage('Field is already in comparison', 'info');
+            this.value = '';
+            return;
+        }
+        
+        // Show loading
+        loadingSpinner.style.display = 'inline-block';
+        this.disabled = true;
+        
+        fetch(`/compare/row/?field=${fieldSlug}`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    // Add new row to table
+                    compareRows.insertAdjacentHTML('beforeend', data.html);
+                    
+                    // Remove the field from dropdown to prevent duplicates
+                    this.querySelector(`option[value="${fieldSlug}"]`).remove();
+                    this.value = '';
+                    
+                    // Show success message briefly
+                    showMessage(`Added ${data.field_name} to comparison`, 'success');
+                } else {
+                    showMessage(data.message || 'Error adding field', 'error');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                showMessage('Error adding field to comparison', 'error');
+            })
+            .finally(() => {
+                loadingSpinner.style.display = 'none';
+                this.disabled = false;
+            });
+    });
+    
+    // Remove council from comparison
+    document.addEventListener('click', function(e) {
+        if (e.target.closest('.remove-compare')) {
+            e.preventDefault();
+            const button = e.target.closest('.remove-compare');
+            const slug = button.dataset.slug;
+            
+            if (confirm('Remove this council from comparison?')) {
+                fetch(`/compare/remove/${slug}/`, { 
+                    method: 'POST',
+                    headers: {
+                        'X-CSRFToken': getCookie('csrftoken'),
+                        'Content-Type': 'application/json',
+                    }
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === 'success') {
+                        location.reload(); // Reload to update the entire table
+                    } else {
+                        showMessage(data.message || 'Error removing council', 'error');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    showMessage('Error removing council', 'error');
+                });
+            }
+        }
+        
+        // Remove field from comparison
+        if (e.target.closest('.remove-field')) {
+            e.preventDefault();
+            const button = e.target.closest('.remove-field');
+            const fieldSlug = button.dataset.field;
+            const row = button.closest('tr');
+            
+            if (confirm('Remove this field from comparison?')) {
+                // Remove the row
+                row.remove();
+                
+                // Re-add the field to the dropdown
+                const fieldOption = document.createElement('option');
+                fieldOption.value = fieldSlug;
+                fieldOption.textContent = row.querySelector('.sticky-col span').textContent.trim();
+                
+                // Find the right category group to add it back to
+                const selectElement = document.getElementById('field-select');
+                const groups = selectElement.querySelectorAll('optgroup');
+                
+                // For now, just add to the end - could be improved to maintain proper grouping
+                selectElement.appendChild(fieldOption);
+                
+                showMessage('Field removed from comparison', 'success');
+            }
+        }
+    });
+    
+    // Clear all comparison
+    document.getElementById('clear-all')?.addEventListener('click', function(e) {
+        e.preventDefault();
+        if (confirm('Clear all councils from comparison?')) {
+            // Clear session basket
+            fetch('/compare/clear/', { 
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': getCookie('csrftoken'),
+                    'Content-Type': 'application/json',
+                }
+            })
+            .then(() => location.reload())
+            .catch(() => location.reload());
+        }
+    });
+    
+    // Get CSRF token
+    function getCookie(name) {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            const cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i++) {
+                const cookie = cookies[i].trim();
+                if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    break;
+                }
+            }
+        }
+        return cookieValue;
+    }
+    
+    function showMessage(message, type) {
+        // Create temporary notification
+        const notification = document.createElement('div');
+        notification.className = `fixed top-4 right-4 z-50 px-4 py-2 rounded-md text-white transition-all duration-300 transform translate-x-full ${
+            type === 'success' ? 'bg-green-500' : 
+            type === 'info' ? 'bg-blue-500' : 'bg-red-500'
+        }`;
+        notification.textContent = message;
+        document.body.appendChild(notification);
+        
+        // Animate in
+        setTimeout(() => {
+            notification.classList.remove('translate-x-full');
+        }, 100);
+        
+        // Animate out and remove
+        setTimeout(() => {
+            notification.classList.add('translate-x-full');
+            setTimeout(() => {
+                notification.remove();
+            }, 300);
+        }, 3000);
+    }
+});
+</script>
 {% endblock %}

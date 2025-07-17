@@ -6,14 +6,112 @@
     <input type="text" name="q" value="{{ query }}" placeholder="Search by name or slug" class="border rounded px-2 py-1" />
     <button type="submit" class="bg-blue-600 text-white px-4 py-1 rounded">Search</button>
 </form>
-<ul class="list-disc pl-5">
+
+<div class="grid gap-4">
 {% for council in councils %}
-    <li class="flex items-center gap-2">
-        <span class="w-5 h-5 bg-gray-300 rounded-full"></span>
-        <a href="{% url 'council_detail' council.slug %}" class="text-blue-700 hover:underline">{{ council.name }}</a>
-    </li>
+    <div class="flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50">
+        <div class="flex items-center gap-3">
+            <span class="w-8 h-8 bg-gray-300 rounded-full flex-shrink-0"></span>
+            <div>
+                <a href="{% url 'council_detail' council.slug %}" class="text-lg font-medium text-blue-700 hover:underline">{{ council.name }}</a>
+                <div class="text-sm text-gray-600">
+                    {% if council.council_type %}{{ council.council_type.name }}{% endif %}
+                    {% if council.council_nation %} • {{ council.council_nation.name }}{% endif %}
+                </div>
+            </div>
+        </div>
+        {% if user.is_authenticated %}
+        <div class="flex gap-2">
+            <button class="compare-btn bg-purple-600 hover:bg-purple-700 text-white px-3 py-1 rounded text-sm transition-colors" 
+                    data-slug="{{ council.slug }}">
+                + Compare
+            </button>
+            <a href="{% url 'council_detail' council.slug %}" class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded text-sm">
+                View Details
+            </a>
+        </div>
+        {% else %}
+        <a href="{% url 'council_detail' council.slug %}" class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded text-sm">
+            View Details
+        </a>
+        {% endif %}
+    </div>
 {% empty %}
-    <li>No councils found.</li>
+    <div class="text-center py-8 text-gray-500">No councils found.</div>
 {% endfor %}
-</ul>
+</div>
+
+<script>
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+
+// Compare button functionality for list page
+document.addEventListener('click', function(e) {
+    if (e.target.classList.contains('compare-btn')) {
+        e.preventDefault();
+        const btn = e.target;
+        const slug = btn.dataset.slug;
+        const csrftoken = getCookie('csrftoken');
+        
+        // Disable button during request
+        btn.disabled = true;
+        const originalText = btn.textContent;
+        btn.textContent = 'Adding...';
+        
+        fetch(`/compare/add/${slug}/`, {
+            method: 'POST',
+            headers: {'X-CSRFToken': csrftoken}
+        })
+        .then(r => r.json())
+        .then(data => {
+            if (data.status === 'success') {
+                btn.style.backgroundColor = '#10b981';
+                btn.textContent = `✓ Added (${data.count})`;
+                
+                // Update header basket count if it exists
+                const basketCount = document.querySelector('.compare-count');
+                if (basketCount) {
+                    basketCount.textContent = data.count;
+                    basketCount.parentElement.style.display = data.count > 0 ? 'flex' : 'none';
+                }
+                
+                setTimeout(() => {
+                    btn.style.backgroundColor = '#7c3aed';
+                    btn.textContent = '✓ Added';
+                    btn.disabled = true;
+                }, 1500);
+            } else {
+                btn.style.backgroundColor = '#ef4444';
+                btn.textContent = data.message || 'Error';
+                setTimeout(() => {
+                    btn.style.backgroundColor = '#7c3aed';
+                    btn.textContent = originalText;
+                    btn.disabled = false;
+                }, 2000);
+            }
+        })
+        .catch(() => {
+            btn.style.backgroundColor = '#ef4444';
+            btn.textContent = 'Error';
+            setTimeout(() => {
+                btn.style.backgroundColor = '#7c3aed';
+                btn.textContent = originalText;
+                btn.disabled = false;
+            }, 2000);
+        });
+    }
+});
+</script>
 {% endblock %}

@@ -540,6 +540,55 @@ if(followBtn){
     });
   });
 }
+
+// Compare button functionality
+const compareBtn=document.getElementById('compare-btn');
+if(compareBtn){
+  const csrftoken=getCookie('csrftoken');
+  compareBtn.addEventListener('click',()=>{
+    const slug=compareBtn.dataset.slug;
+    fetch(`/compare/add/${slug}/`,{
+      method:'POST',
+      headers:{'X-CSRFToken':csrftoken}
+    })
+    .then(r=>r.json())
+    .then(data=>{
+      if(data.status==='success'){
+        // Update button to show added state
+        compareBtn.style.backgroundColor='#10b981';
+        compareBtn.textContent=`Added (${data.count})`;
+        
+        // Update header basket count if it exists
+        const basketCount=document.querySelector('.compare-count');
+        if(basketCount){
+          basketCount.textContent=data.count;
+          basketCount.parentElement.style.display=data.count>0?'flex':'none';
+        }
+        
+        setTimeout(()=>{
+          compareBtn.style.backgroundColor='#7c3aed';
+          compareBtn.textContent='Compare';
+        },2000);
+      } else {
+        // Show error message
+        compareBtn.style.backgroundColor='#ef4444';
+        compareBtn.textContent=data.message||'Error';
+        setTimeout(()=>{
+          compareBtn.style.backgroundColor='#7c3aed';
+          compareBtn.textContent='Compare';
+        },2000);
+      }
+    })
+    .catch(()=>{
+      compareBtn.style.backgroundColor='#ef4444';
+      compareBtn.textContent='Error';
+      setTimeout(()=>{
+        compareBtn.style.backgroundColor='#7c3aed';
+        compareBtn.textContent='Compare';
+      },2000);
+    });
+  });
+}
 </script>
 {% if meta_values %}
 <div id="meta-zone" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 my-6">

@@ -80,6 +80,7 @@ urlpatterns = [
     path("compare/add/<slug:slug>/", views.add_to_compare, name="add_to_compare"),
     path("compare/remove/<slug:slug>/", views.remove_from_compare, name="remove_from_compare"),
     path("compare/row/", views.compare_row, name="compare_row"),
+    path("compare/clear/", views.clear_compare_basket, name="clear_compare_basket"),
     path("compare/", views.compare_basket, name="compare_basket"),
     path("following/", views.following, name="following"),
     path("follow/<slug:slug>/", views.follow_council, name="follow_council"),
