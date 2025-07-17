@@ -2324,12 +2324,13 @@ def remove_from_compare(request, slug):
 
 def compare_row(request):
     """Get comparison row data for a specific field."""
-    from django.http import JsonResponse
+    from django.http import HttpResponse
     from django.shortcuts import get_object_or_404
     from django.template.loader import render_to_string
     from council_finance.models import Council, DataField, FinancialFigure, CouncilCharacteristic
     from decimal import Decimal
     import statistics
+    import json
     
     field_slug = request.GET.get('field')
     if not field_slug:
@@ -2400,15 +2401,17 @@ def compare_row(request):
     # Clean up the HTML to prevent JSON issues
     row_html = row_html.strip()
     
-    # Temporary debug: let's see if the issue is with the HTML content
-    if not row_html or '<tr' not in row_html:
-        row_html = f'<tr><td colspan="100%">DEBUG: Template render failed or invalid HTML. Field: {field.name}</td></tr>'
-    
-    return JsonResponse({
+    # Use HttpResponse with manual JSON to avoid HTML escaping
+    response_data = {
         "status": "success", 
         "html": row_html,
         "field_name": field.name
-    }, json_dumps_params={'ensure_ascii': False})
+    }
+    
+    return HttpResponse(
+        json.dumps(response_data, ensure_ascii=False),
+        content_type='application/json'
+    )
 
 
 def compare_basket(request):

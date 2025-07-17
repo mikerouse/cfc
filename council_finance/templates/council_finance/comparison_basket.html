@@ -263,19 +263,14 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         })
             .then(response => {
-                console.log('Response received:', response);
-                console.log('Response status:', response.status);
-                console.log('Response headers:', response.headers);
                 if (!response.ok) {
                     throw new Error(`HTTP error! status: ${response.status}`);
                 }
                 return response.json();
             })
             .then(data => {
-                console.log('Data parsed:', data);
                 if (data.status === 'success') {
                     // Add new row to table
-                    console.log('Adding HTML:', data.html);
                     compareRows.insertAdjacentHTML('beforeend', data.html);
                     
                     // Remove the field from dropdown to prevent duplicates
@@ -291,12 +286,6 @@ document.addEventListener('DOMContentLoaded', function() {
             })
             .catch(error => {
                 console.error('Fetch error:', error);
-                // Check if error has response text
-                if (error.response) {
-                    error.response.text().then(text => {
-                        console.error('Error response text:', text);
-                    });
-                }
                 showMessage('Error adding field to comparison', 'error');
             })
             .finally(() => {
