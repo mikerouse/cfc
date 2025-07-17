@@ -76,11 +76,11 @@
                 </div>
 
                 <!-- Right side icons -->
-                <div class="flex items-center space-x-4">
+                <div class="flex items-center space-x-3 flex-shrink-0">
                     {% if user.is_authenticated %}
                     <!-- Enhanced Notifications -->
                     {% unread_count as unread_count %}
-                    <div class="relative" id="notif-wrapper">
+                    <div class="relative flex-shrink-0" id="notif-wrapper">
                         <button 
                             id="notif-toggle" 
                             class="relative p-2 bg-gray-700 hover:bg-gray-600 rounded-lg transition-all duration-200 group focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -195,11 +195,11 @@
                     {% endif %}
 
                     <!-- Comparison Basket -->
-                    <div class="relative">
+                    <div class="relative flex-shrink-0">
                         <a href="{% url 'compare_basket' %}" 
-                           class="relative p-2 bg-gray-700 hover:bg-gray-600 rounded-lg transition-all duration-200 group focus:outline-none focus:ring-2 focus:ring-blue-500"
+                           class="relative p-2 bg-gray-700 hover:bg-gray-600 rounded-lg transition-all duration-200 group focus:outline-none focus:ring-2 focus:ring-blue-500 block"
                            aria-label="Comparison basket">
-                            <svg class="w-6 h-6 text-gray-300 group-hover:text-white transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <svg class="w-6 h-6 text-gray-300 group-hover:text-white transition-colors flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4m0 0L7 13m0 0l-2.293 2.293a1 1 0 000 1.414L6 18h12M7 13v8a2 2 0 002 2h6a2 2 0 002-2v-8"/>
                             </svg>
                             {% if compare_count %}
@@ -214,18 +214,18 @@
 
                     <!-- User Menu -->
                     {% if user.is_authenticated %}
-                    <div class="relative" id="user-menu">
+                    <div class="relative flex-shrink-0" id="user-menu">
                         <button class="flex items-center space-x-2 p-2 bg-gray-700 hover:bg-gray-600 rounded-lg transition-all duration-200 group focus:outline-none focus:ring-2 focus:ring-blue-500">
-                            <div class="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white font-semibold text-sm">
+                            <div class="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white font-semibold text-sm flex-shrink-0">
                                 {{ user.first_name.0|default:user.username.0|upper }}
                             </div>
-                            <svg class="w-4 h-4 text-gray-400 group-hover:text-white transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <svg class="w-4 h-4 text-gray-400 group-hover:text-white transition-colors flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
                             </svg>
                         </button>
                     </div>
                     {% else %}
-                    <a href="{% url 'login' %}" class="bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded-lg font-medium transition-colors">
+                    <a href="{% url 'login' %}" class="bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded-lg font-medium transition-colors flex-shrink-0">
                         Sign In
                     </a>
                     {% endif %}
@@ -309,7 +309,8 @@
                         </button>
 
                         <!-- Dropdown Menu -->
-                        <div id="god-mode-menu" class="hidden absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 z-50">
+                        <div id="god-mode-menu" class="hidden absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 z-50 transition-all duration-200 opacity-0 transform scale-95"
+                             style="transition: opacity 0.2s ease, transform 0.2s ease;">
                             <div class="py-1">
                                 <a href="{% url 'god_mode' %}" class="flex items-center space-x-3 px-4 py-2 text-sm text-gray-700 hover:bg-red-50 hover:text-red-600 transition-colors">
                                     <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">

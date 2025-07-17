@@ -458,41 +458,76 @@
     function setupGodModeDropdown() {
         const godModeToggle = document.getElementById('god-mode-toggle');
         const godModeMenu = document.getElementById('god-mode-menu');
+        const godModeDropdown = document.getElementById('god-mode-dropdown');
 
-        if (godModeToggle && godModeMenu) {
-            // Toggle God Mode dropdown
-            godModeToggle.addEventListener('click', function(e) {
-                e.stopPropagation();
-                godModeMenu.classList.toggle('hidden');
-                
-                // Update aria-expanded
-                const isExpanded = !godModeMenu.classList.contains('hidden');
-                godModeToggle.setAttribute('aria-expanded', isExpanded);
+        if (godModeToggle && godModeMenu && godModeDropdown) {
+            let hoverTimeout;
+
+            function showDropdown() {
+                clearTimeout(hoverTimeout);
+                godModeMenu.classList.remove('hidden');
+                // Force a reflow then add the visible styles
+                setTimeout(() => {
+                    godModeMenu.style.opacity = '1';
+                    godModeMenu.style.transform = 'scale(1)';
+                }, 10);
+                godModeToggle.setAttribute('aria-expanded', 'true');
                 
                 // Close other dropdowns
                 const notifMenu = document.getElementById('notif-menu');
-                if (notifMenu && isExpanded) {
+                if (notifMenu) {
                     notifMenu.classList.add('hidden');
                 }
+                hideResults();
+            }
+
+            function hideDropdown() {
+                godModeMenu.style.opacity = '0';
+                godModeMenu.style.transform = 'scale(0.95)';
+                setTimeout(() => {
+                    godModeMenu.classList.add('hidden');
+                }, 200);
+                godModeToggle.setAttribute('aria-expanded', 'false');
+            }
+
+            // Show dropdown on hover
+            godModeDropdown.addEventListener('mouseenter', function() {
+                showDropdown();
+            });
+
+            // Hide dropdown when leaving the entire dropdown area
+            godModeDropdown.addEventListener('mouseleave', function() {
+                hoverTimeout = setTimeout(() => {
+                    hideDropdown();
+                }, 150); // Small delay to prevent flickering
+            });
+
+            // Toggle dropdown on click (for accessibility)
+            godModeToggle.addEventListener('click', function(e) {
+                e.stopPropagation();
+                clearTimeout(hoverTimeout);
                 
-                if (isExpanded) {
-                    hideResults();
+                const isHidden = godModeMenu.classList.contains('hidden');
+                if (isHidden) {
+                    showDropdown();
+                } else {
+                    hideDropdown();
                 }
             });
 
             // Close dropdown when clicking outside
             document.addEventListener('click', function(e) {
-                if (!godModeToggle.contains(e.target) && !godModeMenu.contains(e.target)) {
-                    godModeMenu.classList.add('hidden');
-                    godModeToggle.setAttribute('aria-expanded', 'false');
+                if (!godModeDropdown.contains(e.target)) {
+                    clearTimeout(hoverTimeout);
+                    hideDropdown();
                 }
             });
 
             // Close dropdown when pressing Escape
             document.addEventListener('keydown', function(e) {
                 if (e.key === 'Escape' && !godModeMenu.classList.contains('hidden')) {
-                    godModeMenu.classList.add('hidden');
-                    godModeToggle.setAttribute('aria-expanded', 'false');
+                    clearTimeout(hoverTimeout);
+                    hideDropdown();
                     godModeToggle.focus();
                 }
             });
