@@ -18,13 +18,8 @@ from pathlib import Path
 from collections import defaultdict
 
 def setup_django():
-    """Setup Django environment"""
-    os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'council_finance.settings')
-    django.setup()
-
-def setup_django():
-    """Setup Django environment"""
-    os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'council_finance.settings')
+    """Set up the Django environment once."""
+    os.environ.setdefault("DJANGO_SETTINGS_MODULE", "council_finance.settings")
     django.setup()
 
 def parse_arguments():
