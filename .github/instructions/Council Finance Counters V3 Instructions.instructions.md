@@ -49,7 +49,7 @@ Users can prioritise which updates they see first, allowing them to customize th
 
 Data and telemetry based on the 'Following' page and interactions therein should be collected to help improve the user experience and trigger algorithm-based features such as which council to promote to the home page. For instance, where a council is suddenly getting a lot of follows, comments or visits we would want to look to promote that council and understand the reason for the attention. For instance, if a council is getting a lot of follows it may be because they are doing something interesting or have recently made a significant change that users want to know more about. This could be a new initiative, a change in leadership, or a significant financial update. By promoting these councils on the home page, we can help users discover new and relevant information that they may not have been aware of otherwise.
 
-## Creator's rules
+## Creator's rules that AI should follow
 
 - We care about comments. There should be useful and descriptive comments.
 - We care about helpers in the UI for the benefit of users.
@@ -65,6 +65,7 @@ Data and telemetry based on the 'Following' page and interactions therein should
 - We build with the future in mind.
 - We use Tailwind CSS for styling. We do not need to use Bootstrap or any other CSS framework, even if it was used in the past.
 - We do not break other parts of the system when fixing things, and we do not stub things out.
+- Run the check_templates.py script to ensure all templates are valid and do not contain any errors.
 
 # Council Finance Counters V3 Instructions
 
