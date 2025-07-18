@@ -22,12 +22,16 @@ from .general import log_activity, current_financial_year_label
 def search_councils(request):
     """API endpoint to search councils by name."""
     query = request.GET.get('q', '')
-    if not query:
+    if len(query.strip()) < 2:
         return JsonResponse({'results': []})
     
-    councils = Council.objects.filter(
-        Q(name__icontains=query) | Q(slug__icontains=query)
-    )[:10]
+    # Get councils with enhanced search including council type and nation
+    councils = Council.objects.select_related('council_type', 'council_nation').filter(
+        Q(name__icontains=query) | 
+        Q(slug__icontains=query) |
+        Q(council_type__name__icontains=query) |
+        Q(council_nation__name__icontains=query)
+    ).distinct()[:10]
     
     results = []
     for council in councils:
@@ -35,6 +39,8 @@ def search_councils(request):
             'id': council.id,
             'name': council.name,
             'slug': council.slug,
+            'type': council.council_type.name if council.council_type else 'Council',
+            'region': council.council_nation.name if council.council_nation else 'Unknown region',
             'url': f'/councils/{council.slug}/',
         })
     

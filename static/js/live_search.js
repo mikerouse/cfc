@@ -537,12 +537,20 @@
     function getCsrfToken() {
         return document.querySelector('[name=csrfmiddlewaretoken]')?.value || 
                document.querySelector('meta[name=csrf-token]')?.getAttribute('content') || '';
-    }
-
-    // Maintain backward compatibility with old API
+    }    // Maintain backward compatibility with old API
     function attachLiveSearch(input, resultsContainer) {
-        // Legacy function for compatibility
-        console.warn('attachLiveSearch is deprecated. New search functionality is automatically initialized.');
+        if (!input || !resultsContainer) {
+            console.warn('attachLiveSearch: input or resultsContainer not found');
+            return;
+        }
+        
+        // Set up the search input and results container
+        searchInput = input;
+        searchResults = resultsContainer;
+        
+        // Apply the search setup
+        setupSearch();
+        setupKeyboardShortcuts();
     }
 
     // Export for global access if needed

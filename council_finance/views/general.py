@@ -80,6 +80,13 @@ from council_finance.models import (
     # contribution rejections and IP blocks.
     RejectionLog,
     ActivityLog,
+    CouncilFollow,
+    CouncilUpdate,
+    CouncilUpdateLike,
+    CouncilUpdateComment,
+    FeedUpdate,
+    FeedComment,
+    UserFeedPreferences,
 )
 
 # Import new data models
@@ -2114,2055 +2121,6 @@ def data_issues_table(request):
 
 
 def moderator_panel(request):
-    """Return the moderator side panel HTML with flagged content."""
-    if not request.user.is_authenticated or request.user.profile.tier.level < 3:
-        return HttpResponseBadRequest("permission denied")
-
-    # Get flagged content instead of pending contributions
-    from council_finance.services.flagging_services import FlaggingService
-    from council_finance.models import FlaggedContent
-    
-    flagged_content = FlaggingService.get_flagged_content(
-        status='open',
-        limit=10
-    )
-    
-    # Get moderation stats
-    moderation_stats = FlaggingService.get_moderation_stats()
-
-    html = render_to_string(
-        "council_finance/moderator_panel.html",
-        {
-            "flagged_content": flagged_content,
-            "moderation_stats": moderation_stats,
-            "show_flagged_content": True  # Flag to indicate new system
-        },
-        request=request,
-    )
-    return JsonResponse({"html": html})
-
-
-def my_profile(request):
-    """Simpler social style profile page with editable options."""
-    if not request.user.is_authenticated:
-        from django.shortcuts import redirect
-
-        return redirect("login")
-
-    user = request.user
-    profile, _ = UserProfile.objects.get_or_create(
-        user=user, defaults={"confirmation_token": get_random_string(32)}
-    )
-
-    form = ProfileExtraForm(request.POST or None, instance=profile)
-
-    if request.method == "POST":
-        if form.is_valid():
-            form.save()
-            messages.success(request, "Profile details saved.")
-        # Allow superusers to change their active tier for testing.
-        if user.is_superuser and "tier" in request.POST:
-            tier = TrustTier.objects.filter(id=request.POST.get("tier")).first()
-            if tier:
-                profile.tier = tier
-                profile.save()
-        # Save the preferred font choice when provided.
-        if "preferred_font" in request.POST:
-            profile.preferred_font = request.POST.get("preferred_font") or "Cairo"
-            profile.save()
-
-    email = (user.email or "").strip().lower()
-    email_hash = hashlib.md5(email.encode("utf-8")).hexdigest() if email else ""
-    gravatar_url = (
-        f"https://www.gravatar.com/avatar/{email_hash}?d=identicon"
-        if email_hash
-        else None
-    )
-
-    tiers = TrustTier.objects.all()
-    # A short list of Google fonts to choose from. These names must match the
-    # Google Fonts API as they are inserted directly into the request URL in
-    # the base template.
-    fonts = ["Cairo", "Roboto", "Lato", "Open Sans"]
-
-    context = {
-        "form": form,
-        "profile": profile,
-        "gravatar_url": gravatar_url,
-        "tiers": tiers,
-        "fonts": fonts,
-    }
-    return render(request, "council_finance/my_profile.html", context)
-
-
-def about(request):
-    """About page that can be populated from the admin later."""
-    return render(request, "council_finance/about.html")
-
-
-def terms_of_use(request):
-    """Terms of use page."""
-    return render(request, "council_finance/terms_of_use.html")
-
-
-def privacy_cookies(request):
-    """Show cookie usage and brief privacy policy."""
-    return render(request, "council_finance/privacy_cookies.html")
-
-
-def corrections(request):
-    """Allow visitors to submit correction requests."""
-    submitted = False
-    if request.method == "POST":
-        # Later we might store the message in the database
-        submitted = True
-    return render(request, "council_finance/corrections.html", {"submitted": submitted})
-
-
-@login_required
-def counter_definition_list(request):
-    """Display a list of existing counters for quick management."""
-    from django.core.paginator import Paginator
-    from council_finance.models import SiteCounter, GroupCounter
-
-    # Base queryset - include created_by for permission checks
-    counters = CounterDefinition.objects.select_related('created_by').all().order_by('name')
-    
-    # Apply search if provided
-    search_query = request.GET.get('search', '')
-    if search_query:
-        counters = counters.filter(name__icontains=search_query)
-    
-    # Apply type filter
-    type_filter = request.GET.get('type', '')
-    if type_filter:
-        if type_filter == 'headline':
-            counters = counters.filter(headline=True)
-        elif type_filter == 'default':
-            counters = counters.filter(show_by_default=True)
-        elif type_filter == 'currency':
-            counters = counters.filter(show_currency=True)
-        elif type_filter == 'friendly':
-            counters = counters.filter(friendly_format=True)
-    
-    # Apply status filter
-    status_filter = request.GET.get('status', '')
-    # We'll handle this in the template for now since it requires counting usage
-    
-    # Paginate
-    page_size = int(request.GET.get('page_size', 15))
-    paginator = Paginator(counters, page_size)
-    page_number = request.GET.get('page')
-    page_obj = paginator.get_page(page_number)
-    
-    # Calculate statistics
-    total_definitions = CounterDefinition.objects.count()
-    total_site_counters = SiteCounter.objects.count()
-    total_group_counters = GroupCounter.objects.count()
-    
-    # Count unused counters (definitions not used in site or group counters)
-    used_definition_ids = set()
-    used_definition_ids.update(SiteCounter.objects.values_list('counter_id', flat=True))
-    used_definition_ids.update(GroupCounter.objects.values_list('counter_id', flat=True))
-    unused_counters = total_definitions - len(used_definition_ids)
-    
-    # Add usage counts to each counter
-    for counter in page_obj:
-        counter.site_counter_count = SiteCounter.objects.filter(counter=counter).count()
-        counter.group_counter_count = GroupCounter.objects.filter(counter=counter).count()
-        counter.council_counter_count = 0  # This would require checking actual council page usage
-    
-    # Add usage counts to each counter
-    for counter in page_obj:
-        counter.site_counter_count = SiteCounter.objects.filter(counter=counter).count()
-        counter.group_counter_count = GroupCounter.objects.filter(counter=counter).count()
-        counter.council_counter_count = 0  # This would require checking actual council page usage
-    
-    stats = {
-        'total_definitions': total_definitions,
-        'total_site_counters': total_site_counters,
-        'total_group_counters': total_group_counters,
-        'unused_counters': unused_counters,
-    }
-    
-    context = {
-        'page_obj': page_obj,
-        'stats': stats,
-        'search_query': search_query,
-        'type_filter': type_filter,
-        'status_filter': status_filter,
-        'page_size': page_size,
-    }
-    
-    return render(
-        request,
-        "council_finance/counter_definition_list.html",
-        context,
-    )
-
-
-@login_required
-def counter_delete(request, slug):
-    """Delete a counter definition if the user has permission."""
-    counter = get_object_or_404(CounterDefinition, slug=slug)
-    
-    # Check if user has permission to delete this counter
-    if not (request.user.is_superuser or counter.created_by == request.user):
-        messages.error(request, "You don't have permission to delete this counter.")
-        return redirect('counter_definitions')
-    
-    # Check if counter is being used
-    site_counter_count = SiteCounter.objects.filter(counter=counter).count()
-    group_counter_count = GroupCounter.objects.filter(counter=counter).count()
-    
-    if site_counter_count > 0 or group_counter_count > 0:
-        messages.warning(
-            request, 
-            f"This counter is currently in use ({site_counter_count} site counters, {group_counter_count} group counters). "
-            "Please remove those references first."
-        )
-        return redirect('counter_definitions')
-    
-    # Process the deletion
-    counter_name = counter.name
-    counter.delete()
-    
-    messages.success(request, f"Counter '{counter_name}' was successfully deleted.")
-    log_activity(
-        request,
-        activity="counter_delete",
-        action=f"deleted counter definition: {slug}",
-        extra={"counter_name": counter_name}
-    )
-    
-    return redirect('counter_definitions')
-
-
-@login_required
-def site_counter_list(request):
-    """List all site-wide counters."""
-    from django.core.paginator import Paginator
-    from council_finance.models import SiteCounter, CounterDefinition
-
-    # Base queryset
-    counters = SiteCounter.objects.all().select_related('counter', 'year').order_by('name')
-    
-    # Apply search if provided
-    search_query = request.GET.get('search', '')
-    if search_query:
-        counters = counters.filter(name__icontains=search_query)
-    
-    # Apply status filter
-    status_filter = request.GET.get('status', '')
-    if status_filter:
-        if status_filter == 'homepage':
-            counters = counters.filter(promote_homepage=True)
-        elif status_filter == 'currency':
-            counters = counters.filter(show_currency=True)
-        elif status_filter == 'friendly':
-            counters = counters.filter(friendly_format=True)
-    
-    # Paginate
-    page_size = int(request.GET.get('page_size', 10))
-    paginator = Paginator(counters, page_size)
-    page_number = request.GET.get('page')
-    page_obj = paginator.get_page(page_number)
-    
-    # Calculate statistics
-    total_counters = SiteCounter.objects.count()
-    homepage_counters = SiteCounter.objects.filter(promote_homepage=True).count()
-    available_base_counters = CounterDefinition.objects.count()
-    
-    context = {
-        'page_obj': page_obj,
-        'total_counters': total_counters,
-        'homepage_counters': homepage_counters,
-        'available_base_counters': available_base_counters,
-        'search_query': search_query,
-        'status_filter': status_filter,
-        'page_size': page_size,
-    }
-    
-    return render(
-        request,
-        "council_finance/site_counter_list.html",
-        context,
-    )
-
-
-@login_required
-def group_counter_list(request):
-    """List all custom group counters."""
-    from django.core.paginator import Paginator
-    from council_finance.models import GroupCounter, CounterDefinition
-
-    # Base queryset
-    counters = GroupCounter.objects.all().select_related('counter', 'year', 'council_list').order_by('name')
-    
-    # Apply search if provided
-    search_query = request.GET.get('search', '')
-    if search_query:
-        counters = counters.filter(name__icontains=search_query)
-    
-    # Apply status filter
-    status_filter = request.GET.get('status', '')
-    if status_filter:
-        if status_filter == 'homepage':
-            counters = counters.filter(promote_homepage=True)
-        elif status_filter == 'currency':
-            counters = counters.filter(show_currency=True)
-        elif status_filter == 'friendly':
-            counters = counters.filter(friendly_format=True)
-    
-    # Paginate
-    page_size = int(request.GET.get('page_size', 10))
-    paginator = Paginator(counters, page_size)
-    page_number = request.GET.get('page')
-    page_obj = paginator.get_page(page_number)
-    
-    # Calculate statistics
-    total_counters = GroupCounter.objects.count()
-    homepage_counters = GroupCounter.objects.filter(promote_homepage=True).count()
-    available_base_counters = CounterDefinition.objects.count()
-    
-    context = {
-        'page_obj': page_obj,
-        'total_counters': total_counters,
-        'homepage_counters': homepage_counters,
-        'available_base_counters': available_base_counters,
-        'search_query': search_query,
-        'status_filter': status_filter,
-        'page_size': page_size,
-    }
-    
-    return render(
-        request,
-        "council_finance/group_counter_list.html",
-        context,
-    )
-
-
-@login_required
-def site_counter_form(request, slug=None):
-    """Create or edit a site-wide counter."""
-    from council_finance.models import SiteCounter, CounterDefinition, FinancialYear
-
-    # For a new counter, we might auto-select a base counter definition
-    base_slug = request.GET.get('base')
-    base_counter = None
-    if base_slug:
-        base_counter = CounterDefinition.objects.filter(slug=base_slug).first()
-
-    counter = get_object_or_404(SiteCounter, slug=slug) if slug else None
-    
-    # If we're creating a new counter with a base, pre-populate the form
-    initial = {}
-    if not counter and base_counter:
-        initial = {
-            'name': f"{base_counter.name} (Site)",
-            'counter': base_counter,
-            'show_currency': base_counter.show_currency,
-            'friendly_format': base_counter.friendly_format,
-            'precision': base_counter.precision,
-            'duration': base_counter.duration,
-        }
-
-    form = SiteCounterForm(request.POST or None, instance=counter, initial=initial)
-    
-    if request.method == "POST" and form.is_valid():
-        site_counter = form.save()
-        messages.success(request, f"Site counter '{site_counter.name}' saved successfully.")
-        log_activity(
-            request,
-            activity="site_counter_save",
-            log_type="user",
-            action=slug or "new",
-            response="saved",
-            extra={'counter_name': site_counter.name}
-        )
-        return redirect("site_counter_list")
-    
-    # Provide counter choices for the form
-    counter_choices = CounterDefinition.objects.all().order_by('name')
-    year_choices = FinancialYear.objects.all().order_by('-label')
-    
-    context = {
-        "form": form,
-        "counter": counter,
-        "is_edit": slug is not None,
-        "base_counter": base_counter,
-        "counter_choices": counter_choices,
-        "year_choices": year_choices,
-        "title": f"Edit {counter.name}" if counter else "Add Site-Wide Counter",
-    }
-    
-    return render(
-        request,
-        "council_finance/site_counter_form.html",
-        context,
-    )
-
-
-@login_required
-def site_counter_delete(request, slug):
-    """Delete a site counter."""
-    from council_finance.models import SiteCounter
-    
-    counter = get_object_or_404(SiteCounter, slug=slug)
-    counter_name = counter.name
-    
-    counter.delete()
-    messages.success(request, f"Site counter '{counter_name}' was successfully deleted.")
-    log_activity(
-        request,
-        activity="site_counter_delete",
-        action=f"deleted site counter: {slug}",
-        extra={"counter_name": counter_name}
-    )
-    
-    return redirect('site_counter_list')
-
-
-@login_required
-def group_counter_form(request, slug=None):
-    """Create or edit a custom group counter."""
-
-    from council_finance.models import GroupCounter
-
-    counter = get_object_or_404(GroupCounter, slug=slug) if slug else None
-    form = GroupCounterForm(request.POST or None, instance=counter)
-    if request.method == "POST" and form.is_valid():
-        form.save()
-        messages.success(request, "Counter saved.")
-        log_activity(
-            request,
-            activity="counter_group",
-            log_type="user",
-            action=slug or "new",
-            response="saved",
-        )
-        return redirect("group_counter_list")
-    return render(
-        request,
-        "council_finance/group_counter_form.html",
-        {"form": form},
-    )
-
-
-@login_required
-def group_counter_delete(request, slug):
-    """Delete a group counter."""
-    from council_finance.models import GroupCounter
-    
-    counter = get_object_or_404(GroupCounter, slug=slug)
-    counter_name = counter.name
-    
-    counter.delete()
-    messages.success(request, f"Group counter '{counter_name}' was successfully deleted.")
-    log_activity(
-        request,
-        activity="group_counter_delete",
-        action=f"deleted group counter: {slug}",
-        extra={"counter_name": counter_name}
-    )
-    
-    return redirect('group_counter_list')
-
-
-@login_required
-def counter_definition_form(request, slug=None):
-    """Create or edit a single counter definition, with live preview for selected council."""
-
-    from council_finance.models import Council
-
-    counter = get_object_or_404(CounterDefinition, slug=slug) if slug else None
-    form = CounterDefinitionForm(request.POST or None, instance=counter)
-
-    # For preview dropdown: all councils and all years
-    councils = Council.objects.all().order_by("name")
-    years = list(FinancialYear.objects.order_by("-label"))
-    for y in years:
-        y.display_label = "Year to Date" if y.label.lower() == "general" else y.label
-    preview_council_slug = request.GET.get("preview_council") or (
-        councils[0].slug if councils else None
-    )
-    # Only use a valid year label for preview_year_label
-    valid_year_labels = [y.label for y in years]
-    requested_year = request.GET.get("preview_year")
-    preview_year_label = (
-        requested_year
-        if requested_year in valid_year_labels
-        else (years[0].label if years else None)
-    )
-
-    if request.method == "POST" and form.is_valid():
-        form.save()
-        messages.success(request, "Counter saved.")
-        log_activity(
-            request,
-            activity="counter_definition",
-            log_type="user",
-            action=slug or "new",
-            response="saved",
-        )
-        return redirect("counter_definitions")
-
-    context = {
-        "form": form,
-        "available_fields": [f.slug for f in DataField.objects.all()],
-        "councils": councils,
-        "years": years,
-        "preview_council_slug": preview_council_slug,
-        "preview_year_label": preview_year_label,
-    }
-    return render(
-        request,
-        "council_finance/counter_definition_form.html",
-        context,
-    )
-
-
-
-# AJAX endpoint for previewing counter value for a council and formula
-
-
-@login_required
-@require_GET
-def preview_counter_value(request):
-    from council_finance.agents.counter_agent import CounterAgent
-    from council_finance.models import Council, FinancialYear
-
-    council_slug = request.GET.get("council")
-    formula = request.GET.get("formula")
-    year_label = request.GET.get("year")
-    year = None
-    if year_label:
-        year = FinancialYear.objects.filter(label=year_label).first()
-    if not year:
-        year = FinancialYear.objects.order_by("-label").first()
-    if not (council_slug and formula and year):
-        return JsonResponse({"error": "Missing data"}, status=400)
-    agent = CounterAgent()
-    from council_finance.models import CounterDefinition
-
-    try:
-        council = Council.objects.get(slug=council_slug)
-        # Build a map of values while tracking any missing figures so we can
-        # surface a clear error message instead of casting blank strings.
-        figure_map = {}
-        missing = set()
-        for f in FigureSubmission.objects.filter(council=council, year=year):
-            slug = f.field.slug
-            if f.needs_populating or f.value in (None, ""):
-                missing.add(slug)
-                continue
-            try:
-                figure_map[slug] = float(f.value)
-            except (TypeError, ValueError):
-                missing.add(slug)
-        import ast, operator
-
-        allowed_ops = {
-            ast.Add: operator.add,
-            ast.Sub: operator.sub,
-            ast.Mult: operator.mul,
-            ast.Div: operator.truediv,
-        }
-
-        def _eval(node):
-            if isinstance(node, ast.Expression):
-                return _eval(node.body)
-            if isinstance(node, ast.Num):
-                return node.n
-            if isinstance(node, ast.BinOp):
-                return allowed_ops[type(node.op)](_eval(node.left), _eval(node.right))
-            if isinstance(node, ast.UnaryOp) and isinstance(node.op, ast.USub):
-                return -_eval(node.operand)
-            if isinstance(node, ast.Name):
-                if node.id in missing:
-                    raise ValueError(
-                        (
-                            "Counter failed - no %s figure is held for %s in %s. "
-                            "Please populate the figure from the council's official sources and try again."
-                        )
-                        % (node.id.replace("_", " "), council.name, year.label)
-                    )
-                return figure_map.get(node.id, 0)
-            raise ValueError("Unsupported expression element")
-
-        tree = ast.parse(formula, mode="eval")
-        value = float(_eval(tree))
-        precision = int(request.GET.get("precision", 0))
-        show_currency = request.GET.get("show_currency", "true") == "true"
-        friendly_format = request.GET.get("friendly_format", "false") == "true"
-
-        class Dummy:
-            pass
-
-        dummy = Dummy()
-        dummy.precision = precision
-        dummy.show_currency = show_currency
-        dummy.friendly_format = friendly_format
-        from council_finance.models.counter import CounterDefinition as CD
-
-        formatted = CD.format_value(dummy, value)
-        return JsonResponse({"value": value, "formatted": formatted})
-    except ValueError as e:
-        return JsonResponse({"error": str(e)}, status=400)
-    except Exception:
-        return JsonResponse({"error": "calculation failed"}, status=400)
-
-
-@login_required
-@require_GET
-def preview_aggregate_counter(request):
-    """Preview a site or group counter by summing across councils."""
-    from council_finance.agents.counter_agent import CounterAgent
-    from council_finance.models import Council, FinancialYear, CouncilList, CounterDefinition
-
-    counter_slug = request.GET.get("counter")
-    if not counter_slug:
-        return JsonResponse({"error": "Missing counter"}, status=400)
-    year_param = request.GET.get("year")
-    if year_param and year_param != "all":
-        # ``year`` may be provided as either a label like "23/24" or the
-        # primary key value from the model. Handle both to keep the
-        # JavaScript simple.
-        year = (
-            FinancialYear.objects.filter(pk=year_param).first()
-            if str(year_param).isdigit()
-            else FinancialYear.objects.filter(label=year_param).first()
-        )
-        if not year:
-            return JsonResponse({"error": "Invalid data"}, status=400)
-        years = [year]
-    else:
-        years = list(FinancialYear.objects.order_by("-label"))
-    counter = CounterDefinition.objects.filter(slug=counter_slug).first()
-    if not counter or not years:
-        return JsonResponse({"error": "Invalid data"}, status=400)
-
-    councils = Council.objects.all()
-    cslugs = request.GET.get("councils")
-    if cslugs:
-        councils = councils.filter(slug__in=[s for s in cslugs.split(",") if s])
-    clist = request.GET.get("council_list")
-    if clist:
-        try:
-            cl = CouncilList.objects.get(pk=clist)
-            councils = councils.filter(pk__in=cl.councils.values_list("pk", flat=True))
-        except CouncilList.DoesNotExist:
-            pass
-    ctypes = request.GET.get("council_types")
-    if ctypes:
-        ids = [int(i) for i in ctypes.split(",") if i]
-        councils = councils.filter(council_type_id__in=ids)
-
-    agent = CounterAgent()
-    total = 0
-    for c in councils:
-        for yr in years:
-            values = agent.run(council_slug=c.slug, year_label=yr.label)
-            result = values.get(counter_slug)
-            if result and result.get("value") is not None:
-                try:
-                    total += float(result["value"])
-                except (TypeError, ValueError):
-                    pass
-
-    dummy = type(
-        "D",
-        (),
-        {
-            "precision": int(request.GET.get("precision", 0)),
-            "show_currency": request.GET.get("show_currency", "true") == "true",
-            "friendly_format": request.GET.get("friendly_format", "false") == "true",
-        },
-    )()
-
-    # ``format_value`` lives on ``CounterDefinition`` and expects the instance
-    # to provide precision, show_currency and friendly_format attributes.
-    # Using the dummy object lets us preview arbitrary settings.
-    formatted = CounterDefinition.format_value(dummy, total)
-    return JsonResponse({"value": total, "formatted": formatted})
-
-
-@login_required
-@require_GET
-def preview_factoid(request):
-    """Return the rendered factoid text for a counter, council and year."""
-    from council_finance.agents.counter_agent import CounterAgent
-    from council_finance.models import Council, FinancialYear, CounterDefinition
-
-    # ``counter`` may be provided as a slug or primary key. Form widgets use
-    # primary keys by default while JavaScript previews sometimes pass slugs.
-    # Accept either format for convenience.
-    counter_value = request.GET.get("counter")
-    council_slug = request.GET.get("council")
-    year_label = request.GET.get("year")
-    text = request.GET.get("text", "")
-    ftype = request.GET.get("type", "")
-
-    if not (counter_value and council_slug and year_label and text):
-        return JsonResponse({"error": "Missing data"}, status=400)
-
-    year = FinancialYear.objects.filter(label=year_label).first()
-    if not year:
-        return JsonResponse({"error": "Invalid year"}, status=400)
-
-    counter = CounterDefinition.objects.filter(slug=counter_value).first()
-    if not counter:
-        # Fall back to lookup by primary key so the preview works when the form
-        # submits IDs.
-        try:
-            counter = CounterDefinition.objects.filter(pk=int(counter_value)).first()
-        except (TypeError, ValueError):
-            counter = None
-    if not counter:
-        return JsonResponse({"error": "Invalid counter"}, status=400)
-
-    if not FigureSubmission.objects.filter(council__slug=council_slug, year=year).exists():
-        return JsonResponse({"error": "No data for the selected year"}, status=400)
-
-    agent = CounterAgent()
-    values = agent.run(council_slug=council_slug, year_label=year.label)
-    result = values.get(counter.slug)
-    if not result or result.get("value") in (None, ""):
-        return JsonResponse({"error": "No data for the selected year"}, status=400)
-
-    value_str = result.get("formatted")
-    if ftype == "percent_change":
-        prev_label = previous_year_label(year.label)
-        prev_value = None
-        if prev_label:
-            prev_year = FinancialYear.objects.filter(label=prev_label).first()
-            if prev_year:
-                prev_values = agent.run(council_slug=council_slug, year_label=prev_year.label)
-                prev = prev_values.get(counter.slug)
-                if prev:
-                    prev_value = prev.get("value")
-        if prev_value in (None, ""):
-            return JsonResponse({"error": "No previous data to compare"}, status=400)
-        try:
-            change = (float(result.get("value")) - float(prev_value)) / float(prev_value) * 100
-            value_str = f"{change:.1f}%"
-        except Exception:
-            return JsonResponse({"error": "No previous data to compare"}, status=400)
-
-    class SafeDict(dict):
-        def __missing__(self, key):
-            return "{" + key + "}"
-
-    rendered = text.format_map(SafeDict(value=value_str))
-    return JsonResponse({"text": rendered})
-
-
-@login_required
-def profile_view(request):
-    """Enhanced user profile view with comprehensive management features"""
-    if not request.user.is_authenticated:
-        return redirect('login')
-    
-    from django.contrib import messages
-    from django.utils.crypto import get_random_string
-    from django.contrib.auth.hashers import make_password
-    from django.urls import reverse
-    import hashlib
-    
-    user = request.user
-    # Ensure we always have a profile
-    profile, _ = UserProfile.objects.get_or_create(
-        user=user,
-        defaults={"confirmation_token": get_random_string(32)},
-    )
-
-    tab = request.GET.get("tab", "profile")
-
-    # Handle form submissions
-    if request.method == "POST":
-        if "preferred_font" in request.POST:
-            # Save font preferences
-            profile.preferred_font = request.POST.get("preferred_font", "Cairo")
-            profile.font_size = request.POST.get("font_size", "medium")
-            profile.high_contrast_mode = request.POST.get("high_contrast_mode") == "on"
-            profile.color_theme = request.POST.get("color_theme", "auto")
-            profile.save()
-            messages.success(request, "Display preferences saved.")
-            tab = "display"
-            
-        elif "update_profile" in request.POST:
-            # Update basic profile info
-            profile.postcode = request.POST.get("postcode", "")
-            profile.postcode_refused = request.POST.get("postcode_refused") == "on"
-            profile.political_affiliation = request.POST.get("political_affiliation", "")
-            profile.works_for_council = request.POST.get("works_for_council") == "on"
-            
-            employer_council_id = request.POST.get("employer_council")
-            if employer_council_id:
-                from council_finance.models import Council
-                profile.employer_council = Council.objects.filter(id=employer_council_id).first()
-            else:
-                profile.employer_council = None
-                
-            profile.official_email = request.POST.get("official_email", "")
-            profile.save()
-            messages.success(request, "Profile details updated.")
-            
-        elif "visibility" in request.POST:
-            profile.visibility = request.POST.get("visibility", profile.visibility)
-            profile.save()
-            messages.success(request, "Privacy settings updated.")
-            tab = "privacy"
-            
-        elif user.is_superuser and "tier" in request.POST:
-            # Allow superusers to change tier
-            tier = TrustTier.objects.filter(id=request.POST.get("tier")).first()
-            if tier:
-                profile.tier = tier
-                profile.save()
-                messages.success(request, f"Tier changed to {tier.name}.")
-            tab = "advanced"
-
-    # Gather data for template
-    followers = UserFollow.objects.filter(target=user).select_related("follower")
-    following = UserFollow.objects.filter(follower=user).select_related("target")
-    
-    # Gravatar
-    email = (user.email or "").strip().lower()
-    email_hash = hashlib.md5(email.encode("utf-8")).hexdigest() if email else ""
-    gravatar_url = (
-        f"https://www.gravatar.com/avatar/{email_hash}?d=identicon&s=150"
-        if email_hash
-        else None
-    )
-    
-    # Statistics
-    from council_finance.models import Contribution, Council
-    contributions = Contribution.objects.filter(user=user)
-    approved_contributions = contributions.filter(status='approved')
-    pending_contributions = contributions.filter(status='pending')
-    
-    # Leaderboard position
-    users_with_more_points = UserProfile.objects.filter(points__gt=profile.points).count()
-    rank = users_with_more_points + 1
-    
-    context = {
-        'user': user,
-        'profile': profile,
-        'tab': tab,
-        'gravatar_url': gravatar_url,
-        'followers': followers,
-        'following': following,
-        'rank': rank,
-        'contributions_count': contributions.count(),
-        'approved_count': approved_contributions.count(),
-        'pending_count': pending_contributions.count(),
-        'recent_contributions': contributions.order_by('-created')[:5],
-        'visibility_choices': UserProfile.VISIBILITY_CHOICES,
-        'font_size_choices': UserProfile.FONT_SIZE_CHOICES,
-        'theme_choices': UserProfile.THEME_CHOICES,
-        'councils': Council.objects.all().order_by('name'),
-        'tiers': TrustTier.objects.all(),
-        'fonts': ["Cairo", "Roboto", "Lato", "Open Sans", "Inter", "Poppins"],
-    }
-    
-    return render(request, 'council_finance/profile.html', context)
-
-def user_preferences_view(request):
-    """User preferences view"""
-    # This view renders the comprehensive user preferences page
-    # that includes font, accessibility, and theme settings
-    return render(request, 'council_finance/user_preferences.html')
-
-def user_preferences_ajax(request):
-    """User preferences AJAX"""
-    from django.http import JsonResponse
-    return JsonResponse({"message": "User Preferences AJAX - Not implemented yet"})
-
-def council_list(request):
-    """Display list of councils with filters and search"""
-    from council_finance.models import Council
-    from django.core.paginator import Paginator
-    
-    councils = Council.objects.filter(status='active').order_by('name')
-    
-    # Apply search if provided
-    search = request.GET.get('search', '')
-    if search:
-        councils = councils.filter(name__icontains=search)
-    
-    # Apply filters
-    council_type = request.GET.get('type')
-    if council_type:
-        councils = councils.filter(council_type__name=council_type)
-    
-    # Paginate
-    paginator = Paginator(councils, 50)
-    page_number = request.GET.get('page')
-    page_obj = paginator.get_page(page_number)
-    
-    context = {
-        'page_obj': page_obj,
-        'search': search,
-        'council_type': council_type
-    }
-    
-    return render(request, 'council_finance/council_list.html', context)
-
-def generate_share_link(request):
-    """Generate share link"""
-    from django.http import JsonResponse
-    return JsonResponse({"message": "Generate Share Link - Not implemented yet"})
-
-def signup_view(request):
-    """User signup view"""
-    from django.http import HttpResponse
-    return HttpResponse("Signup - Not implemented yet")
-
-def confirm_email(request, token):
-    """Confirm email address with token"""
-    from django.http import HttpResponse
-    return HttpResponse("Confirm Email - Not implemented yet")
-
-def resend_confirmation(request):
-    """Resend confirmation email"""
-    from django.http import HttpResponse
-    return HttpResponse("Resend Confirmation - Not implemented yet")
-
-def update_postcode(request):
-    """Update user postcode"""
-    from django.http import JsonResponse
-    return JsonResponse({"status": "success"})
-
-def confirm_profile_change(request, token):
-    """Confirm profile change"""
-    from django.http import HttpResponse
-    return HttpResponse("Confirm Profile Change - Not implemented yet")
-
-def notifications_page(request):
-    """Notifications page"""
-    if not request.user.is_authenticated:
-        return redirect('login')
-    
-    notifications = request.user.notifications.all().order_by('-created')[:20]
-    return render(request, 'notifications.html', {
-        'notifications': notifications
-    })
-
-
-@require_POST
-def mark_notification_read(request, notification_id):
-    """Mark a single notification as read"""
-    if not request.user.is_authenticated:
-        return JsonResponse({'success': False, 'error': 'Authentication required'})
-    
-    try:
-        notification = request.user.notifications.get(id=notification_id)
-        notification.read = True
-        notification.save()
-        return JsonResponse({'success': True})
-    except:
-        return JsonResponse({'success': False, 'error': 'Notification not found'})
-
-
-@require_POST
-def mark_all_notifications_read(request):
-    """Mark all notifications as read"""
-    if not request.user.is_authenticated:
-        return JsonResponse({'success': False, 'error': 'Authentication required'})
-    
-    try:
-        request.user.notifications.filter(read=False).update(read=True)
-        return JsonResponse({'success': True})
-    except:
-        return JsonResponse({'success': False, 'error': 'Failed to update notifications'})
-
-def council_counters(request, slug):
-    """Display counters for a specific council as JSON or HTML."""
-    council = get_object_or_404(Council, slug=slug)
-    
-    # Get the selected year from request or use default
-    years = list(FinancialYear.objects.order_by("-label").exclude(label__iexact="general"))
-    default_label = SiteSetting.get("default_financial_year", settings.DEFAULT_FINANCIAL_YEAR)
-    selected_year = next(
-        (y for y in years if y.label == default_label), years[0] if years else None
-    )
-    
-    year_param = request.GET.get("year")
-    if year_param:
-        for y in years:
-            if y.label == year_param:
-                selected_year = y
-                break
-    
-    counters = []
-    if selected_year:
-        from council_finance.agents.counter_agent import CounterAgent
-        agent = CounterAgent()
-        
-        # Compute all counter values for this council/year using the agent
-        values = agent.run(council_slug=slug, year_label=selected_year.label)
-        
-        # Build a lookup of overrides so we know which counters are enabled or disabled
-        override_map = {
-            cc.counter_id: cc.enabled
-            for cc in CouncilCounter.objects.filter(council=council)
-        }
-        
-        # Get counters based on council type
-        counters_qs = CounterDefinition.objects.all()
-        if council.council_type_id:
-            counters_qs = counters_qs.filter(
-                Q(council_types__isnull=True) | Q(council_types=council.council_type)
-            )
-        else:
-            counters_qs = counters_qs.filter(council_types__isnull=True)
-        
-        head_list = []
-        other_list = []
-        for counter in counters_qs.distinct():
-            # Check if this counter should be displayed
-            enabled = override_map.get(counter.id, counter.show_by_default)
-            if not enabled:
-                continue
-                
-            value_data = values.get(counter.slug, {})
-            counter_info = {
-                "counter": counter,
-                "value": value_data.get("value"),
-                "formatted": value_data.get("formatted", "No data"),
-                "error": value_data.get("error"),
-                "slug": counter.slug,
-                "name": counter.name,
-                "description": counter.description,
-            }
-            
-            if counter.show_on_homepage:
-                head_list.append(counter_info)
-            else:
-                other_list.append(counter_info)
-        
-        counters = head_list + other_list
-    
-    # Return JSON if requested via AJAX
-    if request.headers.get("X-Requested-With") == "XMLHttpRequest":
-        return JsonResponse({
-            "counters": [
-                {
-                    "slug": c["slug"],
-                    "name": c["name"],
-                    "description": c["description"],
-                    "value": c["value"],
-                    "formatted": c["formatted"],
-                    "error": c["error"],
-                }
-                for c in counters
-            ],
-            "year": selected_year.label if selected_year else None,
-        })
-    
-    # Return HTML template
-    context = {
-        "council": council,
-        "counters": counters,
-        "selected_year": selected_year,
-        "years": years,
-    }
-    return render(request, "council_finance/council_counters.html", context)
-
-def dismiss_notification(request, notification_id):
-    """Dismiss a specific notification."""
-    if not request.user.is_authenticated:
-        return redirect("login")
-    
-    from django.http import JsonResponse
-    # TODO: Implement notification dismissal logic
-    return JsonResponse({"status": "success", "message": "Notification dismissed"})
-
-
-def review_contribution(request, pk, action):
-    """Review a contribution (approve/reject/delete)."""
-    from django.http import JsonResponse
-    from django.shortcuts import get_object_or_404
-    from django.db import transaction
-    from django.contrib import messages
-    from django.urls import reverse
-    from council_finance.models import Contribution, FigureSubmission
-    
-    # Check permissions
-    if not request.user.is_authenticated:
-        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
-            return JsonResponse({"error": "Authentication required"}, status=401)
-        return redirect('login')
-    
-    # Get the contribution
-    try:
-        contribution = get_object_or_404(Contribution, pk=pk)
-    except Exception as e:
-        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
-            return JsonResponse({"error": f"Contribution not found: {str(e)}"}, status=404)
-        messages.error(request, "Contribution not found.")
-        return redirect('contribute')
-    
-    # Check if user has permission to moderate
-    user_can_moderate = request.user.is_superuser
-    
-    # Check if user has a profile with tier (safely handle missing profile)
-    if hasattr(request.user, 'profile') and request.user.profile:
-        try:
-            if hasattr(request.user.profile, 'tier') and request.user.profile.tier:
-                user_can_moderate = user_can_moderate or request.user.profile.tier.level >= 3
-        except Exception:
-            pass  # Safely ignore tier check if profile structure is different
-    
-    if not user_can_moderate:
-        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
-            return JsonResponse({"error": "Insufficient permissions"}, status=403)
-        messages.error(request, "You don't have permission to moderate contributions.")
-        return redirect('contribute')
-    
-    try:
-        with transaction.atomic():
-            if action == 'approve':
-                contribution.status = 'approved'
-                contribution.save()
-                
-                # Apply the contribution to the actual data
-                success = _apply_contribution(contribution)
-                
-                if success:
-                    # Log the activity
-                    log_activity(
-                        request,
-                        activity="contribution_approved",
-                        action=f"approved contribution for {contribution.council.name} - {contribution.field.name}",
-                        extra={
-                            'contribution_id': contribution.id,
-                            'council': contribution.council.slug,
-                            'field': contribution.field.slug,
-                            'old_value': contribution.old_value,
-                            'new_value': contribution.value
-                        }
-                    )
-                    
-                    message = f"Contribution approved and applied successfully"
-                else:
-                    message = f"Contribution approved but failed to apply changes"
-                    
-            elif action == 'reject':
-                contribution.status = 'rejected'
-                contribution.save()
-                
-                log_activity(
-                    request,
-                    activity="contribution_rejected",
-                    action=f"rejected contribution for {contribution.council.name} - {contribution.field.name}",
-                    extra={
-                        'contribution_id': contribution.id,
-                        'council': contribution.council.slug,
-                        'field': contribution.field.slug,
-                        'reason': request.POST.get('reason', 'No reason provided')
-                    }
-                )
-                
-                message = f"Contribution rejected successfully"
-                
-            elif action == 'delete':
-                # Only superusers can delete for now (simplified permission check)
-                if not request.user.is_superuser:
-                    if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
-                        return JsonResponse({"error": "Insufficient permissions to delete"}, status=403)
-                    messages.error(request, "You don't have permission to delete contributions.")
-                    return redirect('contribute')
-                
-                log_activity(
-                    request,
-                    activity="contribution_deleted",
-                    action=f"deleted contribution for {contribution.council.name} - {contribution.field.name}",
-                    extra={
-                        'contribution_id': contribution.id,
-                        'council': contribution.council.slug,
-                        'field': contribution.field.slug
-                    }
-                )
-                
-                contribution.delete()
-                message = f"Contribution deleted successfully"
-                
-            else:
-                if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
-                    return JsonResponse({"error": "Invalid action"}, status=400)
-                messages.error(request, "Invalid action specified.")
-                return redirect('contribute')
-    
-    except Exception as e:
-        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
-            return JsonResponse({"error": f"Error processing contribution: {str(e)}"}, status=500)
-        messages.error(request, f"Error processing contribution: {str(e)}")
-        return redirect('contribute')
-    
-    # Return appropriate response
-    if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
-        return JsonResponse({
-            "status": "success", 
-            "message": message,
-            "action": action
-        })
-    else:
-        messages.success(request, message)
-        return redirect('contribute')
-
-
-def _apply_contribution(contribution):
-    """Apply an approved contribution to the actual data."""
-    try:
-        field = contribution.field
-        council = contribution.council
-        value = contribution.value
-        
-        # Handle different field types
-        if field.slug == "council_website":
-            council.website = value
-            council.save()
-            
-        elif field.slug == "council_type":
-            # Value should be the ID of a CouncilType
-            try:
-                from council_finance.models import CouncilType
-                council_type = CouncilType.objects.get(id=int(value))
-                council.council_type = council_type
-                council.save()
-            except (ValueError, CouncilType.DoesNotExist):
-                return False
-                
-        elif field.slug == "council_nation":
-            # Value should be the ID of a CouncilNation
-            try:
-                from council_finance.models import CouncilNation
-                council_nation = CouncilNation.objects.get(id=int(value))
-                council.council_nation = council_nation
-                council.save()
-            except (ValueError, CouncilNation.DoesNotExist):
-                return False
-                
-        elif field.slug == "council_name":
-            council.name = value
-            council.save()
-            
-        else:
-            # For other fields, create or update a FigureSubmission
-            from council_finance.models import FigureSubmission
-            figure, created = FigureSubmission.objects.get_or_create(
-                council=council,
-                field=field,
-                year=contribution.year,
-                defaults={'value': value}
-            )
-            
-            if not created:
-                figure.value = value
-                figure.save()
-        
-        return True
-        
-    except Exception as e:
-        # Log the error
-        import logging
-        logger = logging.getLogger(__name__)
-        logger.error(f"Failed to apply contribution {contribution.id}: {str(e)}")
-        return False
-
-
-def edit_figures_table(request, slug):
-    """Return the edit figures table for a specific year via AJAX."""
-    council = get_object_or_404(Council, slug=slug)
-    year_label = request.GET.get('year')
-    
-    if not year_label:
-        return JsonResponse({'error': 'Year parameter required'}, status=400)
-    
-    try:
-        year = get_object_or_404(FinancialYear, label=year_label)
-        
-        # Get all available data fields for this council type
-        fields = DataField.objects.all()
-        if council.council_type_id:
-            fields = fields.filter(
-                Q(council_types__isnull=True)
-                | Q(council_types=council.council_type)
-            )
-        else:
-            fields = fields.filter(council_types__isnull=True)
-        
-        # Create figure objects with existing submissions or None values
-        figures = []
-        existing_figures = {
-            f.field_id: f for f in FigureSubmission.objects.filter(
-                council=council, 
-                year=year
-            ).select_related('field')
-        }
-        
-        for field in fields.order_by('name').distinct():
-            if field.id in existing_figures:
-                # Use existing submission
-                figures.append(existing_figures[field.id])
-            else:
-                # Create a placeholder figure for editing
-                figure = FigureSubmission(
-                    council=council,
-                    field=field, 
-                    year=year,
-                    value=None
-                )
-                figures.append(figure)
-        
-        # Get pending contributions
-        pending_pairs = set(
-            f"{field_slug}-{year_id or 'none'}"
-            for field_slug, year_id in Contribution.objects.filter(
-                council=council, status="pending"
-            ).values_list("field__slug", "year_id")
-        )
-        
-        # Render the table template
-        from django.template.loader import render_to_string
-        
-        # Add edit_selected_year context for the template
-        edit_selected_year = year
-        edit_selected_year.display = year.label if year.label != current_financial_year_label() else "Current Year to Date"
-        
-        html = render_to_string(
-            'council_finance/enhanced_edit_figures_table.html',
-            {
-                'figures': figures,
-                'council': council,
-                'pending_pairs': pending_pairs,
-                'edit_selected_year': edit_selected_year
-            },
-            request=request
-        )
-        
-        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
-            # Return HTML directly, not JSON, since JavaScript expects resp.text()
-            return HttpResponse(html, content_type='text/html')
-        else:
-            return HttpResponse(html)
-            
-    except Exception as e:
-        logger.error(f"Error loading edit figures table: {str(e)}")
-        return JsonResponse({'error': 'Failed to load data'}, status=500)
-
-
-def add_favourite(request):
-    """Add a council to user's favourites."""
-    from django.http import JsonResponse
-    # TODO: Implement favourite management
-    return JsonResponse({"status": "success", "message": "Added to favourites"})
-
-
-def remove_favourite(request):
-    """Remove a council from user's favourites."""
-    from django.http import JsonResponse
-    # TODO: Implement favourite management
-    return JsonResponse({"status": "success", "message": "Removed from favourites"})
-
-
-def add_to_list(request, list_id):
-    """Add a council to a specific list."""
-    from django.http import JsonResponse
-    # TODO: Implement list management
-    return JsonResponse({"status": "success", "message": "Added to list"})
-
-
-def remove_from_list(request, list_id):
-    """Remove a council from a specific list."""
-    from django.http import JsonResponse
-    # TODO: Implement list management
-    return JsonResponse({"status": "success", "message": "Removed from list"})
-
-
-def move_between_lists(request):
-    """Move a council between lists."""
-    from django.http import JsonResponse
-    # TODO: Implement list management
-    return JsonResponse({"status": "success", "message": "Moved between lists"})
-
-
-def list_metric(request, list_id):
-    """Get metric data for a list."""
-    from django.http import JsonResponse
-    # TODO: Implement list metrics
-    return JsonResponse({"status": "success", "data": {}})
-
-
-def add_to_compare(request, slug):
-    """Add a council to comparison basket."""
-    from django.http import JsonResponse
-    from django.shortcuts import get_object_or_404
-    from council_finance.models import Council
-    
-    council = get_object_or_404(Council, slug=slug)
-    
-    # Initialize session basket if it doesn't exist
-    if 'compare_basket' not in request.session:
-        request.session['compare_basket'] = []
-    
-    # Check if council is already in basket
-    if slug not in request.session['compare_basket']:
-        # Limit to maximum 5 councils for comparison
-        if len(request.session['compare_basket']) >= 5:
-            return JsonResponse({
-                "status": "error", 
-                "message": "Maximum 5 councils can be compared at once"
-            })
-        
-        request.session['compare_basket'].append(slug)
-        request.session.modified = True
-        
-        return JsonResponse({
-            "status": "success", 
-            "message": f"{council.name} added to comparison",
-            "count": len(request.session['compare_basket'])
-        })
-    else:
-        return JsonResponse({
-            "status": "info", 
-            "message": f"{council.name} is already in comparison basket",
-            "count": len(request.session['compare_basket'])
-        })
-
-
-def remove_from_compare(request, slug):
-    """Remove a council from comparison basket."""
-    from django.http import JsonResponse
-    from django.shortcuts import get_object_or_404
-    from council_finance.models import Council
-    
-    council = get_object_or_404(Council, slug=slug)
-    
-    # Initialize session basket if it doesn't exist
-    if 'compare_basket' not in request.session:
-        request.session['compare_basket'] = []
-    
-    # Remove council from basket if it exists
-    if slug in request.session['compare_basket']:
-        request.session['compare_basket'].remove(slug)
-        request.session.modified = True
-        
-        return JsonResponse({
-            "status": "success", 
-            "message": f"{council.name} removed from comparison",
-            "count": len(request.session['compare_basket'])
-        })
-    else:
-        return JsonResponse({
-            "status": "info", 
-            "message": f"{council.name} was not in comparison basket",
-            "count": len(request.session['compare_basket'])
-        })
-
-
-def compare_row(request):
-    """Get comparison row data for a specific field."""
-    from django.http import HttpResponse
-    from django.shortcuts import get_object_or_404
-    from django.template.loader import render_to_string
-    from council_finance.models import Council, DataField, FinancialFigure, CouncilCharacteristic
-    from decimal import Decimal
-    import statistics
-    
-    field_slug = request.GET.get('field')
-    if not field_slug:
-        return HttpResponse('ERROR: Field slug required', status=400)
-    
-    try:
-        field = get_object_or_404(DataField, slug=field_slug)
-    except:
-        return HttpResponse('ERROR: Field not found', status=404)
-    
-    # Get councils from session basket
-    basket_slugs = request.session.get('compare_basket', [])
-    if not basket_slugs:
-        return HttpResponse('ERROR: No councils in comparison basket', status=400)
-    
-    councils = Council.objects.filter(slug__in=basket_slugs).order_by('name')
-    
-    # Get values for each council
-    values = []
-    numeric_values = []
-    
-    for council in councils:
-        value = None
-        display_value = "No data"
-        
-        # Try to get value based on field category
-        if field.category == 'characteristic':
-            try:
-                characteristic = CouncilCharacteristic.objects.get(council=council, field=field)
-                value = characteristic.value
-                display_value = field.display_value(value) if value else "No data"
-            except CouncilCharacteristic.DoesNotExist:
-                pass
-        else:
-            # For financial figures, get the latest year's data
-            try:
-                latest_figure = FinancialFigure.objects.filter(
-                    council=council, 
-                    field=field
-                ).order_by('-year__label').first()
-                
-                if latest_figure and latest_figure.value is not None:
-                    value = float(latest_figure.value)
-                    display_value = field.display_value(str(latest_figure.value))
-                    numeric_values.append(value)
-            except (FinancialFigure.DoesNotExist, ValueError, TypeError):
-                pass
-        
-        values.append(display_value)
-    
-    # Calculate summary statistics for numeric fields
-    summary = None
-    if numeric_values and field.content_type in ['monetary', 'integer']:
-        try:
-            summary = {
-                'total': field.display_value(str(sum(numeric_values))),
-                'average': field.display_value(str(sum(numeric_values) / len(numeric_values))),
-                'highest': field.display_value(str(max(numeric_values))),
-                'lowest': field.display_value(str(min(numeric_values))),
-            }
-        except (ValueError, ZeroDivisionError):
-            pass
-    
-    # Render the row HTML directly
-    row_html = render_to_string('council_finance/compare_row.html', {
-        'field': field,
-        'values': values,
-        'summary': summary
-    })
-    
-    # Return just the HTML with special headers to identify success
-    response = HttpResponse(row_html.strip(), content_type='text/html')
-    response['X-Field-Name'] = field.name
-    response['X-Status'] = 'success'
-    return response
-
-
-def compare_basket(request):
-    """Show the comparison basket with selected councils."""
-    from django.template.loader import render_to_string
-    basket_slugs = request.session.get('compare_basket', [])
-    councils = Council.objects.filter(slug__in=basket_slugs).order_by('name')
-    
-    context = {
-        'councils': councils,
-        'basket_count': len(basket_slugs)
-    }
-    
-    return render(request, 'council_finance/comparison_basket.html', context)
-
-
-# ---------------------------------------------------------------------------
-# Enhanced Editing API Endpoints
-# ---------------------------------------------------------------------------
-
-@require_GET
-def field_info_api(request, field_slug):
-    """Get detailed information about a specific field for the edit modal."""
-    try:
-        field = get_object_or_404(DataField, slug=field_slug)
-        
-        data = {
-            'slug': field.slug,
-            'name': field.name,
-            'description': field.explanation,  # Use explanation instead of description
-            'category': field.category,
-            'content_type': field.content_type,
-            'content_type_display': field.get_content_type_display(),
-            'help_text': field.explanation,  # Use explanation for help text too
-        }
-        
-        return JsonResponse(data)
-        
-    except Exception as e:
-        return JsonResponse({'error': str(e)}, status=500)  # Use 500 for server errors
-
-
-@require_GET  
-def council_recent_activity_api(request, council_slug):
-    """Get recent editing activity for a specific council."""
-    try:
-        council = get_object_or_404(Council, slug=council_slug)
-        
-        # Get recent contributions for this council
-        recent_contributions = Contribution.objects.filter(
-            council=council,
-            status__in=['approved', 'pending']
-        ).select_related('field', 'user', 'year').order_by('-created')[:10]
-        
-        activities = []
-        for contrib in recent_contributions:
-            activities.append({
-                'field_name': contrib.field.name,
-                'field_slug': contrib.field.slug,
-                'value': contrib.value,
-                'user': contrib.user.username if contrib.user else 'Anonymous',
-                'status': contrib.status,
-                'time_ago': contrib.created.strftime('%b %d, %Y'),
-                'year': contrib.year.label if contrib.year else None,
-            })
-        
-        return JsonResponse(activities, safe=False)
-        
-    except Exception as e:
-        return JsonResponse({'error': str(e)}, status=404)
-
-
-@require_GET
-def field_recent_activity_api(request, council_slug, field_slug):
-    """Get recent editing activity for a specific field on a council."""
-    try:
-        council = get_object_or_404(Council, slug=council_slug)
-        field = get_object_or_404(DataField, slug=field_slug)
-        
-        # Get recent contributions for this field/council combination
-        recent_contributions = Contribution.objects.filter(
-            council=council,
-            field=field,
-            status__in=['approved', 'pending']
-        ).select_related('user', 'year').order_by('-created')[:5]
-        
-        activities = []
-        for contrib in recent_contributions:
-            activities.append({
-                'field_name': contrib.field.name,
-                'value': contrib.value,
-                'user': contrib.user.username if contrib.user else 'Anonymous',
-                'status': contrib.status,
-                'time_ago': contrib.created.strftime('%b %d, %Y'),
-                'year': contrib.year.label if contrib.year else None,
-            })
-        
-        return JsonResponse(activities, safe=False)
-        
-    except Exception as e:
-        return JsonResponse({'error': str(e)}, status=404)
-
-
-def compare_basket(request):
-    """Display comparison basket page with e-commerce style comparison tool."""
-    from django.shortcuts import redirect
-    from django.utils import timezone
-    from council_finance.models import Council, DataField, CouncilList, FinancialFigure, CouncilCharacteristic
-    from decimal import Decimal
-    
-    # Handle saving as custom list
-    if request.method == 'POST' and request.POST.get('save_list'):
-        if request.user.is_authenticated:
-            list_name = request.POST.get('name', '').strip()
-            if list_name:
-                basket_slugs = request.session.get('compare_basket', [])
-                councils = Council.objects.filter(slug__in=basket_slugs)
-                
-                # Create the list
-                council_list = CouncilList.objects.create(
-                    name=list_name,
-                    user=request.user,
-                    description=f"Comparison basket saved on {timezone.now().strftime('%Y-%m-%d')}"
-                )
-                council_list.councils.set(councils)
-                
-                # Add success message (you might want to use Django messages framework)
-                context = {
-                    'save_success': True,
-                    'list_name': list_name
-                }
-                return render(request, "council_finance/comparison_basket.html", context)
-    
-    # Get councils from session basket
-    basket_slugs = request.session.get('compare_basket', [])
-    councils = Council.objects.filter(slug__in=basket_slugs).order_by('name')
-    
-    # Get available data fields for comparison
-    field_choices = DataField.objects.all().order_by('category', 'name')
-    
-    # Get default comparison rows (show some key fields by default)
-    default_fields = ['council_type', 'population', 'council_nation']
-    rows = []
-    
-    for field_slug in default_fields:
-        try:
-            field = DataField.objects.get(slug=field_slug)
-            values = []
-            numeric_values = []
-            
-            for council in councils:
-                value = None
-                display_value = "No data"
-                
-                # Get characteristic data
-                if field.category == 'characteristic':
-                    try:
-                        characteristic = CouncilCharacteristic.objects.get(council=council, field=field)
-                        value = characteristic.value
-                        display_value = field.display_value(value) if value else "No data"
-                    except CouncilCharacteristic.DoesNotExist:
-                        # Fallback to council attributes for core fields
-                        if field_slug == 'council_type' and hasattr(council, 'council_type'):
-                            display_value = str(council.council_type)
-                        elif field_slug == 'population' and hasattr(council, 'latest_population'):
-                            display_value = f"{council.latest_population:,}" if council.latest_population else "No data"
-                        elif field_slug == 'council_nation' and hasattr(council, 'council_nation'):
-                            display_value = str(council.council_nation)
-                else:
-                    # For financial figures, get the latest year's data
-                    try:
-                        latest_figure = FinancialFigure.objects.filter(
-                            council=council, 
-                            field=field
-                        ).order_by('-year__label').first()
-                        
-                        if latest_figure and latest_figure.value is not None:
-                            value = float(latest_figure.value)
-                            display_value = field.display_value(str(latest_figure.value))
-                            numeric_values.append(value)
-                    except (FinancialFigure.DoesNotExist, ValueError, TypeError):
-                        pass
-                
-                values.append(display_value)
-            
-            # Calculate summary for numeric fields
-            summary = None
-            if numeric_values and field.content_type in ['monetary', 'integer']:
-                try:
-                    summary = {
-                        'total': field.display_value(str(sum(numeric_values))),
-                        'average': field.display_value(str(sum(numeric_values) / len(numeric_values))),
-                        'highest': field.display_value(str(max(numeric_values))),
-                        'lowest': field.display_value(str(min(numeric_values))),
-                    }
-                except (ValueError, ZeroDivisionError):
-                    pass
-            
-            rows.append({
-                'field': field,
-                'values': values,
-                'summary': summary
-            })
-            
-        except DataField.DoesNotExist:
-            continue
-    
-    context = {
-        'councils': councils,
-        'field_choices': field_choices,
-        'rows': rows,
-    }
-    
-    return render(request, "council_finance/comparison_basket.html", context)
-
-
-def clear_compare_basket(request):
-    """Clear all councils from comparison basket."""
-    from django.http import JsonResponse
-    
-    if request.method == 'POST':
-        request.session['compare_basket'] = []
-        request.session.modified = True
-        return JsonResponse({"status": "success", "message": "Comparison basket cleared"})
-    
-    return JsonResponse({"status": "error", "message": "Invalid request method"})
-
-
-def follow_council(request, slug):
-    """Follow a council for updates."""
-    from django.http import JsonResponse
-    # TODO: Implement following functionality
-    return JsonResponse({"status": "success", "message": "Following council"})
-
-
-def unfollow_council(request, slug):
-    """Unfollow a council."""
-    from django.http import JsonResponse
-    # TODO: Implement following functionality
-    return JsonResponse({"status": "success", "message": "Unfollowed council"})
-
-
-def like_update(request, update_id):
-    """Like an update."""
-    from django.http import JsonResponse
-    # TODO: Implement update liking
-    return JsonResponse({"status": "success", "message": "Update liked"})
-
-
-def comment_update(request, update_id):
-    """Comment on an update."""
-    from django.http import JsonResponse
-    # TODO: Implement update commenting
-    return JsonResponse({"status": "success"})
-
-
-# Contribution views
-@require_POST
-def submit_contribution(request):
-    """Submit a contribution from the enhanced edit modal."""
-    if not request.user.is_authenticated:
-        return JsonResponse({"success": False, "message": "You must be logged in to contribute"}, status=401)
-    
-    try:
-        # Get form data
-        council_slug = request.POST.get('council')
-        field_slug = request.POST.get('field')
-        year_id = request.POST.get('year')
-        value = request.POST.get('value', '').strip()
-        source = request.POST.get('source', '').strip()
-        notes = request.POST.get('notes', '').strip()
-        
-        # Validate required fields
-        if not all([council_slug, field_slug, value]):
-            return JsonResponse({
-                "success": False, 
-                "message": "Council, field, and value are required"
-            }, status=400)
-        
-        # Get related objects
-        council = get_object_or_404(Council, slug=council_slug)
-        field = get_object_or_404(DataField, slug=field_slug)
-        year = None
-        if year_id and year_id != 'none':
-            year = get_object_or_404(FinancialYear, id=year_id)
-        
-        # Check if there's already a pending contribution for this field/council/year
-        existing = Contribution.objects.filter(
-            council=council,
-            field=field,
-            year=year,
-            status='pending'
-        ).first()
-        
-        if existing:
-            return JsonResponse({
-                "success": False,
-                "message": "There is already a pending contribution for this field. Please wait for it to be reviewed."
-            }, status=400)
-        
-        # Create the contribution - now auto-approved
-        contribution = Contribution.objects.create(
-            council=council,
-            field=field,
-            year=year,
-            value=value,
-            source=source if source else None,
-            notes=notes if notes else None,
-            user=request.user,
-            status='approved'  # Auto-approve all contributions
-        )
-        
-        # Apply the contribution immediately using V2 system
-        try:
-            _apply_contribution_v2(contribution, request.user, request)
-            
-            # Award points for successful contribution
-            points = 3 if field.category == "characteristic" else 2
-            profile = request.user.profile
-            profile.points += points
-            profile.approved_submission_count += 1
-            profile.save()
-            
-            applied_successfully = True
-            
-        except Exception as e:
-            logger.error(f"Error applying contribution {contribution.id}: {str(e)}")
-            applied_successfully = False
-        
-        # Log the activity
-        log_activity(
-            request,
-            activity="submit_contribution",
-            action=f"submitted and applied contribution for {field.name}",
-            council=council,
-            extra={
-                'field_slug': field_slug,
-                'year_label': year.label if year else None,
-                'value': value,
-                'contribution_id': contribution.id,
-                'applied_successfully': applied_successfully
-            }
-        )
-        
-        # Create notification for user about successful contribution
-        from council_finance.notifications import create_notification
-        
-        success_message = f"Your contribution for {field.name} has been accepted and applied!"
-        if applied_successfully:
-            success_message += f" You earned {points} points. Thank you!"
-        else:
-            success_message += " However, there was an issue applying the data. Moderators will review this."
-        
-        create_notification(
-            user=request.user,
-            title=f"Contribution accepted for {council.name}",
-            message=success_message,
-            notification_type='contribution_accepted',
-            related_object=contribution
-        )
-        
-        # Return success response for AJAX
-        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
-            return JsonResponse({
-                "success": True,
-                "message": success_message,
-                "status": "approved",
-                "points_awarded": points if applied_successfully else 0
-            })
-        
-        # Handle regular form submission
-        messages.success(request, success_message)
-        return redirect('council_detail', slug=council_slug)
-        
-    except Exception as e:
-        logger.error(f"Error submitting contribution: {str(e)}")
-        
-        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
-            return JsonResponse({
-                "success": False,
-                "message": "An error occurred while submitting your contribution. Please try again."
-            }, status=500)
-        
-        messages.error(request, "An error occurred while submitting your contribution. Please try again.")
-        return redirect('council_detail', slug=council_slug)
-
-
-# Field management views
-def field_list(request):
-    """List all data fields for management."""
-    if not request.user.is_authenticated:
-        return redirect('login')
-    
-    # Get all fields grouped by category
-    fields = DataField.objects.all().prefetch_related('council_types').order_by('category', 'name')
-    
-    # Get all available categories for grouping
-    categories = DataField.FIELD_CATEGORIES
-    
-    context = {
-        'title': 'Fields & Characteristics Manager',
-        'fields': fields,
-        'categories': categories,
-    }
-    
-    log_activity(
-        request,
-        activity="field_list_view",
-        action="viewed field management page",
-        extra={'field_count': fields.count()}
-    )
-    
-    return render(request, "council_finance/field_list.html", context)
-
-
-def field_form(request, slug=None):
-    """Create or edit a data field."""
-    if not request.user.is_authenticated:
-        return redirect('login')
-    
-    # Determine if we're editing or creating
-    field = None
-    is_edit = False
-    if slug:
-        field = get_object_or_404(DataField, slug=slug)
-        is_edit = True
-    
-    if request.method == 'POST':
-        form = DataFieldForm(request.POST, instance=field)
-        if form.is_valid():
-            field = form.save()
-            
-            action = "updated" if is_edit else "created"
-            messages.success(request, f'Field "{field.name}" {action} successfully.')
-            
-            log_activity(
-                request,
-                activity="field_form",
-                action=f"{action} field: {field.slug}",
-                extra={'field_name': field.name, 'field_category': field.category}
-            )
-            
-            return redirect('field_list')
-    else:
-        form = DataFieldForm(instance=field)
-    
-    context = {
-        'title': f'{"Edit" if is_edit else "Add"} Field',
-        'form': form,
-        'field': field,
-        'is_edit': is_edit,
-    }
-    
-    return render(request, "council_finance/field_form.html", context)
-
-
-def field_delete(request, slug):
-    """Delete a data field."""
-    if not request.user.is_authenticated:
-        return redirect('login')
-    
-    field = get_object_or_404(DataField, slug=slug)
-    
-    # Check if field is protected
-    if field.is_protected:
-        messages.error(request, f'Field "{field.name}" is protected and cannot be deleted.')
-        return redirect('field_list')
-    
-    if request.method == 'POST':
-        try:
-            field_name = field.name
-            field.delete()
-            messages.success(request, f'Field "{field_name}" deleted successfully.')
-            
-            log_activity(
-                request,
-                activity="field_delete",
-                action=f"deleted field: {slug}",
-                extra={'field_name': field_name}
-            )
-            
-            return JsonResponse({"status": "success", "message": f"Field '{field_name}' deleted successfully"})
-        except ValidationError as e:
-            return JsonResponse({"status": "error", "message": str(e)}, status=400)
-        except Exception as e:
-            logger.error(f"Error deleting field {slug}: {str(e)}")
-            return JsonResponse({"status": "error", "message": "An error occurred while deleting the field"}, status=500)
-    
-    # For GET requests, show confirmation page
-    context = {
-        'title': f'Delete Field: {field.name}',
-        'field': field,
-    }
-    
-    return render(request, "council_finance/field_delete.html", context)
-
-
-def factoid_list(request):
-    """List all factoids for management."""
-    # TODO: Implement factoid management
-    return render(request, "council_finance/factoid_list.html", {})
-
-
-def factoid_form(request, slug=None):
-    """Create or edit a factoid."""
-    # TODO: Implement factoid form
-    return render(request, "council_finance/factoid_form.html", {})
-
-
-def factoid_delete(request, slug):
-    """Delete a factoid."""
-    from django.http import JsonResponse
-    # TODO: Implement factoid deletion
-    return JsonResponse({"status": "success", "message": "Factoid deleted"})
-
-
-def god_mode(request):
     """Admin god mode panel."""
     # TODO: Implement god mode
     return render(request, "council_finance/god_mode.html", {})
@@ -4187,5 +2145,467 @@ def mark_issue_invalid(request, issue_id):
     from django.http import JsonResponse
     # TODO: Implement issue marking
     return JsonResponse({"status": "success", "message": "Issue marked invalid"})
+def search_results(request):
+    """Enhanced search results page that can also act as advanced search."""
+    query = request.GET.get('q', '').strip()
+    council_type = request.GET.get('type', '')
+    nation = request.GET.get('nation', '')
+    
+    # Base queryset
+    councils = Council.objects.select_related('council_type', 'council_nation').filter(status='active')
+    
+    # Apply search filters
+    if query:
+        councils = councils.filter(
+            Q(name__icontains=query) | 
+            Q(slug__icontains=query) |
+            Q(council_type__name__icontains=query) |
+            Q(council_nation__name__icontains=query)
+        )
+    
+    if council_type:
+        councils = councils.filter(council_type__name=council_type)
+    
+    if nation:
+        councils = councils.filter(council_nation__name=nation)
+    
+    # Order by relevance (exact matches first, then partial matches)
+    if query:
+        councils = councils.extra(
+            select={
+                'name_exact': f"CASE WHEN LOWER(name) = LOWER('{query}') THEN 1 ELSE 0 END",
+                'name_starts': f"CASE WHEN LOWER(name) LIKE LOWER('{query}%') THEN 1 ELSE 0 END"
+            }
+        ).order_by('-name_exact', '-name_starts', 'name')
+    else:
+        councils = councils.order_by('name')
+    
+    # Paginate results
+    from django.core.paginator import Paginator
+    paginator = Paginator(councils, 50)
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
+    
+    # Get available filter options
+    available_types = Council.objects.values_list('council_type__name', flat=True).exclude(council_type__isnull=True).distinct().order_by('council_type__name')
+    available_nations = Council.objects.values_list('council_nation__name', flat=True).exclude(council_nation__isnull=True).distinct().order_by('council_nation__name')
+    
+    context = {
+        'page_obj': page_obj,
+        'query': query,
+        'council_type': council_type,
+        'nation': nation,
+        'available_types': available_types,
+        'available_nations': available_nations,
+        'total_results': councils.count(),        'is_search_page': True,
+    }
+    
+    return render(request, 'council_finance/search_results.html', context)
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def add_favourite(request):
+    """Add a council to user's favourites."""
+    if not request.user.is_authenticated:
+        return JsonResponse({"error": "Authentication required"}, status=401)
+    
+    try:
+        council_slug = request.POST.get('council')
+        if not council_slug:
+            return JsonResponse({"error": "Council slug required"}, status=400)
+        
+        council = Council.objects.get(slug=council_slug)
+        profile = request.user.profile
+        profile.favourites.add(council)
+        
+        return JsonResponse({"status": "success", "message": "Added to favourites"})
+    
+    except Council.DoesNotExist:
+        return JsonResponse({"error": "Council not found"}, status=404)
+    except Exception as e:
+        logger.error(f"Error adding favourite: {e}")
+        return JsonResponse({"error": "Internal server error"}, status=500)
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def remove_favourite(request):
+    """Remove a council from user's favourites."""
+    if not request.user.is_authenticated:
+        return JsonResponse({"error": "Authentication required"}, status=401)
+    
+    try:
+        council_slug = request.POST.get('council')
+        if not council_slug:
+            return JsonResponse({"error": "Council slug required"}, status=400)
+        
+        council = Council.objects.get(slug=council_slug)
+        profile = request.user.profile
+        profile.favourites.remove(council)
+        
+        return JsonResponse({"status": "success", "message": "Removed from favourites"})
+    
+    except Council.DoesNotExist:
+        return JsonResponse({"error": "Council not found"}, status=404)
+    except Exception as e:
+        logger.error(f"Error removing favourite: {e}")
+        return JsonResponse({"error": "Internal server error"}, status=500)
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def add_to_list(request, list_id):
+    """Add a council to a specific list."""
+    if not request.user.is_authenticated:
+        return JsonResponse({"error": "Authentication required"}, status=401)
+    
+    try:
+        council_slug = request.POST.get('council')
+        if not council_slug:
+            return JsonResponse({"error": "Council slug required"}, status=400)
+        
+        council = Council.objects.get(slug=council_slug)
+        council_list = request.user.council_lists.get(id=list_id)
+        council_list.councils.add(council)
+        
+        return JsonResponse({"status": "success", "message": "Added to list"})
+    
+    except Council.DoesNotExist:
+        return JsonResponse({"error": "Council not found"}, status=404)
+    except CouncilList.DoesNotExist:
+        return JsonResponse({"error": "List not found"}, status=404)
+    except Exception as e:
+        logger.error(f"Error adding to list: {e}")
+        return JsonResponse({"error": "Internal server error"}, status=500)
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def remove_from_list(request, list_id):
+    """Remove a council from a specific list."""
+    if not request.user.is_authenticated:
+        return JsonResponse({"error": "Authentication required"}, status=401)
+    
+    try:
+        council_slug = request.POST.get('council')
+        if not council_slug:
+            return JsonResponse({"error": "Council slug required"}, status=400)
+        
+        council = Council.objects.get(slug=council_slug)
+        council_list = request.user.council_lists.get(id=list_id)
+        council_list.councils.remove(council)
+        
+        return JsonResponse({"status": "success", "message": "Removed from list"})
+    
+    except Council.DoesNotExist:
+        return JsonResponse({"error": "Council not found"}, status=404)
+    except CouncilList.DoesNotExist:
+        return JsonResponse({"error": "List not found"}, status=404)
+    except Exception as e:
+        logger.error(f"Error removing from list: {e}")
+        return JsonResponse({"error": "Internal server error"}, status=500)
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def move_between_lists(request):
+    """Move a council between lists."""
+    if not request.user.is_authenticated:
+        return JsonResponse({"error": "Authentication required"}, status=401)
+    
+    try:
+        council_slug = request.POST.get('council')
+        source_list_id = request.POST.get('source_list')
+        target_list_id = request.POST.get('target_list')
+        
+        if not all([council_slug, source_list_id, target_list_id]):
+            return JsonResponse({"error": "Missing required parameters"}, status=400)
+        
+        council = Council.objects.get(slug=council_slug)
+        source_list = request.user.council_lists.get(id=source_list_id)
+        target_list = request.user.council_lists.get(id=target_list_id)
+        
+        source_list.councils.remove(council)
+        target_list.councils.add(council)
+        
+        return JsonResponse({"status": "success", "message": "Moved between lists"})
+    
+    except Council.DoesNotExist:
+        return JsonResponse({"error": "Council not found"}, status=404)
+    except CouncilList.DoesNotExist:
+        return JsonResponse({"error": "List not found"}, status=404)
+    except Exception as e:
+        logger.error(f"Error moving between lists: {e}")
+        return JsonResponse({"error": "Internal server error"}, status=500)
+
+
+def list_metric(request, list_id):
+    """Get metric data for a specific list."""
+    if not request.user.is_authenticated:
+        return JsonResponse({"error": "Authentication required"}, status=401)
+    
+    try:
+        council_list = request.user.council_lists.get(id=list_id)
+        metric = request.GET.get('metric', 'total_debt')
+        year_id = request.GET.get('year')
+        
+        # Get councils in the list with their metric values
+        councils = council_list.councils.all()
+        results = {}
+        total = 0
+        
+        for council in councils:
+            try:
+                if year_id:
+                    year = FinancialYear.objects.get(id=year_id)
+                    submission = FigureSubmission.objects.filter(
+                        council=council, 
+                        year=year,
+                        field__slug=metric
+                    ).first()
+                    value = submission.value if submission else 0
+                else:
+                    # Use latest available data
+                    submission = FigureSubmission.objects.filter(
+                        council=council,
+                        field__slug=metric
+                    ).order_by('-year__label').first()
+                    value = submission.value if submission else 0
+                
+                results[council.id] = {
+                    'value': float(value) if value else 0,
+                    'formatted': f"£{value:,.0f}" if value else "N/A"
+                }
+                total += float(value) if value else 0
+            except (TypeError, ValueError):
+                results[council.id] = {'value': 0, 'formatted': "N/A"}
+        
+        return JsonResponse({
+            "status": "success",
+            "results": results,
+            "total": total,
+            "total_formatted": f"£{total:,.0f}"
+        })
+    
+    except CouncilList.DoesNotExist:
+        return JsonResponse({"error": "List not found"}, status=404)
+    except Exception as e:
+        logger.error(f"Error getting list metric: {e}")
+        return JsonResponse({"error": "Internal server error"}, status=500)
+
+
+def add_to_compare(request, slug):
+    """Add a council to the comparison basket."""
+    try:
+        council = Council.objects.get(slug=slug)
+        compare_basket = request.session.get('compare_basket', [])
+        
+        if slug not in compare_basket:
+            compare_basket.append(slug)
+            request.session['compare_basket'] = compare_basket
+            request.session.modified = True
+        
+        return JsonResponse({
+            "status": "success",
+            "message": "Added to comparison",
+            "count": len(compare_basket)
+        })
+    
+    except Council.DoesNotExist:
+        return JsonResponse({"error": "Council not found"}, status=404)
+    except Exception as e:
+        logger.error(f"Error adding to compare: {e}")
+        return JsonResponse({"error": "Internal server error"}, status=500)
+
+
+def remove_from_compare(request, slug):
+    """Remove a council from the comparison basket."""
+    try:
+        compare_basket = request.session.get('compare_basket', [])
+        
+        if slug in compare_basket:
+            compare_basket.remove(slug)
+            request.session['compare_basket'] = compare_basket
+            request.session.modified = True
+        
+        return JsonResponse({
+            "status": "success",
+            "message": "Removed from comparison",
+            "count": len(compare_basket)
+        })
+    
+    except Exception as e:
+        logger.error(f"Error removing from compare: {e}")
+        return JsonResponse({"error": "Internal server error"}, status=500)
+
+
+def compare_row(request):
+    """Get comparison row data."""
+    try:
+        compare_basket = request.session.get('compare_basket', [])
+        councils = Council.objects.filter(slug__in=compare_basket)
+        
+        data = []
+        for council in councils:
+            data.append({
+                'slug': council.slug,
+                'name': council.name,
+                'type': council.council_type.name if council.council_type else '',
+                'nation': council.council_nation.name if council.council_nation else ''
+            })
+        
+        return JsonResponse({
+            "status": "success",
+            "councils": data,
+            "count": len(compare_basket)
+        })
+    
+    except Exception as e:
+        logger.error(f"Error getting compare row: {e}")
+        return JsonResponse({"error": "Internal server error"}, status=500)
+
+
+def compare_basket(request):
+    """Show the comparison basket page."""
+    compare_basket = request.session.get('compare_basket', [])
+    councils = Council.objects.filter(slug__in=compare_basket)
+    
+    context = {
+        'councils': councils,
+        'compare_basket': compare_basket
+    }
+    
+    return render(request, 'council_finance/compare_basket.html', context)
+
+
+def clear_compare_basket(request):
+    """Clear the comparison basket."""
+    request.session['compare_basket'] = []
+    request.session.modified = True
+    
+    return JsonResponse({
+        "status": "success",
+        "message": "Comparison basket cleared"
+    })
+
+
+def follow_council(request, slug):
+    """Follow a council."""
+    if not request.user.is_authenticated:
+        return JsonResponse({"error": "Authentication required"}, status=401)
+    
+    try:
+        council = Council.objects.get(slug=slug)
+        follow, created = CouncilFollow.objects.get_or_create(
+            user=request.user,
+            council=council
+        )
+        
+        return JsonResponse({
+            "status": "success",
+            "message": "Following council",
+            "following": True
+        })
+    
+    except Council.DoesNotExist:
+        return JsonResponse({"error": "Council not found"}, status=404)
+    except Exception as e:
+        logger.error(f"Error following council: {e}")
+        return JsonResponse({"error": "Internal server error"}, status=500)
+
+
+def unfollow_council(request, slug):
+    """Unfollow a council."""
+    if not request.user.is_authenticated:
+        return JsonResponse({"error": "Authentication required"}, status=401)
+    
+    try:
+        council = Council.objects.get(slug=slug)
+        CouncilFollow.objects.filter(user=request.user, council=council).delete()
+        
+        return JsonResponse({
+            "status": "success",
+            "message": "Unfollowed council",
+            "following": False
+        })
+    
+    except Council.DoesNotExist:
+        return JsonResponse({"error": "Council not found"}, status=404)
+    except Exception as e:
+        logger.error(f"Error unfollowing council: {e}")
+        return JsonResponse({"error": "Internal server error"}, status=500)
+
+
+def like_update(request, update_id):
+    """Like/unlike a council update."""
+    if not request.user.is_authenticated:
+        return JsonResponse({"error": "Authentication required"}, status=401)
+    
+    try:
+        update = CouncilUpdate.objects.get(id=update_id)
+        like, created = CouncilUpdateLike.objects.get_or_create(
+            user=request.user,
+            update=update
+        )
+        
+        if not created:
+            like.delete()
+            liked = False
+        else:
+            liked = True
+        
+        # Update like count
+        like_count = CouncilUpdateLike.objects.filter(update=update).count()
+        
+        return JsonResponse({
+            "status": "success",
+            "liked": liked,
+            "like_count": like_count
+        })
+    
+    except CouncilUpdate.DoesNotExist:
+        return JsonResponse({"error": "Update not found"}, status=404)
+    except Exception as e:
+        logger.error(f"Error liking update: {e}")
+        return JsonResponse({"error": "Internal server error"}, status=500)
+
+
+def comment_update(request, update_id):
+    """Comment on a council update."""
+    if not request.user.is_authenticated:
+        return JsonResponse({"error": "Authentication required"}, status=401)
+    
+    if request.method != 'POST':
+        return JsonResponse({"error": "POST required"}, status=405)
+    
+    try:
+        update = CouncilUpdate.objects.get(id=update_id)
+        content = request.POST.get('content', '').strip()
+        
+        if not content:
+            return JsonResponse({"error": "Comment content required"}, status=400)
+        
+        comment = CouncilUpdateComment.objects.create(
+            user=request.user,
+            update=update,
+            content=content
+        )
+        
+        return JsonResponse({
+            "status": "success",
+            "comment": {
+                "id": comment.id,
+                "content": comment.content,
+                "author": comment.user.get_full_name() or comment.user.username,
+                "created_at": comment.created_at.isoformat()
+            }
+        })
+    
+    except CouncilUpdate.DoesNotExist:
+        return JsonResponse({"error": "Update not found"}, status=404)
+    except Exception as e:
+        logger.error(f"Error commenting on update: {e}")
+        return JsonResponse({"error": "Internal server error"}, status=500)
 
 

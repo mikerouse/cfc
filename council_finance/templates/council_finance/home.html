@@ -15,10 +15,9 @@
       <p class="text-xl sm:text-2xl text-blue-100 mb-8 max-w-3xl mx-auto">
         Open data project tracking financial transparency across {{ total_councils|floatformat:0 }} UK councils
       </p>
-      
-      <!-- Enhanced Search Experience -->
+        <!-- Enhanced Search Experience -->
       <div class="max-w-2xl mx-auto mb-8">
-        <form method="get" action="{% url 'home' %}" class="relative">
+        <form method="get" action="{% url 'search_results' %}" class="relative">
           <div class="relative">
             <input 
               id="homepage-search-input" 

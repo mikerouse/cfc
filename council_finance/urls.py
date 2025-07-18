@@ -41,6 +41,7 @@ from .views.general import (
 
 urlpatterns = [
     path("", page_views.home, name="home"),
+    path("search/", general_views.search_results, name="search_results"),
     path("api/councils/search/", api_views.search_councils, name="search_councils"),
     path("admin/", admin.site.urls),
     path("plugins/", include("core.urls")),
