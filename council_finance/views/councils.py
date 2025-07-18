@@ -363,7 +363,7 @@ def leaderboards(request):
     
     # Get councils with data for the current year
     councils = Council.objects.filter(
-        financialyear__year=current_year
+        figuresubmission__year__label=current_year
     ).distinct()
     
     # Calculate leaderboard data based on type
