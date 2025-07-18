@@ -33,11 +33,11 @@ import operator
 # Brevo's Python SDK exposes ApiException from the `rest` module
 from brevo_python.rest import ApiException
 
-from .emails import send_confirmation_email, send_email
-from .notifications import create_notification
+from council_finance.emails import send_confirmation_email, send_email
+from council_finance.notifications import create_notification
 
 # Import the constant containing valid field names for counter formulas.
-from .forms import (
+from council_finance.forms import (
     SignUpForm,
     CouncilListForm,
     CounterDefinitionForm,
@@ -56,9 +56,9 @@ MANAGEMENT_TIER = 4
 # Logger used throughout this module for operational messages.
 logger = logging.getLogger(__name__)
 
-from .models import DataField
-from .factoids import get_factoids, previous_year_label
-from .models import (
+from council_finance.models import DataField
+from council_finance.factoids import get_factoids, previous_year_label
+from council_finance.models import (
     Council,
     FinancialYear,
     FigureSubmission,
@@ -84,7 +84,7 @@ from .models import (
 
 # Import new data models
 try:
-    from .models.new_data_model import (
+    from council_finance.models.new_data_model import (
         CouncilCharacteristic, 
         FinancialFigure, 
         ContributionV2,
@@ -210,7 +210,7 @@ def list_field_options(request, field_slug=None, slug=None):
     # The contribution modal needs to populate a drop-down when a
     # characteristic is backed by another dataset (e.g. council type).
     # This small API provides the ID/name pairs used to build that menu.
-    from .models import DataField
+    from council_finance.models import DataField
 
     # Handle both parameter names for backward compatibility
     field_slug = field_slug or slug
@@ -310,7 +310,7 @@ def home(request):
     pending_contributions_count = Contribution.objects.filter(status='pending').count()
     
     # Calculate missing data points (simplified)
-    from .models import DataIssue
+    from council_finance.models import DataIssue
     try:
         missing_data_count = DataIssue.objects.filter(
             issue_type='missing_characteristic'
@@ -322,7 +322,7 @@ def home(request):
 
     promoted = []
     # Import here to keep the view lightweight if the home page is cached.
-    from .models import SiteCounter, GroupCounter
+    from council_finance.models import SiteCounter, GroupCounter
     from django.core.cache import cache
     from council_finance.agents.site_totals_agent import SiteTotalsAgent
 
@@ -611,7 +611,7 @@ def council_detail(request, slug):
 
     is_following = False
     if request.user.is_authenticated:
-        from .models import CouncilFollow
+        from council_finance.models import CouncilFollow
 
         is_following = CouncilFollow.objects.filter(
             user=request.user, council=council
@@ -702,7 +702,7 @@ def council_detail(request, slug):
     missing_characteristic_page = None
     missing_characteristic_paginator = None
     if tab == "edit":
-        from .models import DataIssue
+        from council_finance.models import DataIssue
         from django.core.paginator import Paginator
 
         # Pull any missing characteristic data for this council so the edit
@@ -988,11 +988,11 @@ def following(request):
         from django.shortcuts import redirect
         return redirect("login")
     
-    from .models import (
+    from council_finance.models import (
         FollowableItem, FeedUpdate, UserFeedPreferences, TrendingContent,
         Council, CouncilList, 
     )
-    from .services.following_services import FeedService, FollowService, TrendingService
+    from council_finance.services.following_services import FeedService, FollowService, TrendingService
     from django.contrib.contenttypes.models import ContentType
     from django.db.models import Count, Q
     import json
@@ -1192,8 +1192,8 @@ def flag_content(request):
     from django.http import JsonResponse
     from django.shortcuts import get_object_or_404
     from django.contrib.contenttypes.models import ContentType
-    from .models import Flag, Contribution, Council
-    from .services.flagging_services import FlaggingService
+    from council_finance.models import Flag, Contribution, Council
+    from council_finance.services.flagging_services import FlaggingService
     
     try:
         content_type_id = request.POST.get('content_type')
@@ -1253,8 +1253,8 @@ def flag_content(request):
 @login_required
 def flagged_content_list(request):
     """View flagged content for moderation."""
-    from .services.flagging_services import FlaggingService
-    from .models import FlaggedContent
+    from council_finance.services.flagging_services import FlaggingService
+    from council_finance.models import FlaggedContent
     
     # Check permissions
     if not request.user.is_superuser and (not hasattr(request.user, 'profile') or request.user.profile.tier.level < 3):
@@ -1291,7 +1291,7 @@ def flagged_content_list(request):
     resolved_count = FlaggedContent.objects.filter(is_resolved=True).count()
     
     # Critical count - need to count flags with critical priority
-    from .models import Flag
+    from council_finance.models import Flag
     critical_count = Flag.objects.filter(priority='critical', status='open').values('content_type', 'object_id').distinct().count()
     
     context = {
@@ -1314,8 +1314,8 @@ def flagged_content_list(request):
 @require_POST
 def resolve_flag(request, flag_id):
     """Resolve a flag."""
-    from .models import Flag
-    from .services.flagging_services import FlaggingService
+    from council_finance.models import Flag
+    from council_finance.services.flagging_services import FlaggingService
     
     # Check permissions
     if not request.user.is_superuser and (not hasattr(request.user, 'profile') or request.user.profile.tier.level < 3):
@@ -1352,8 +1352,8 @@ def resolve_flag(request, flag_id):
 @require_POST
 def take_content_action(request, flagged_content_id):
     """Take moderation action on flagged content (edit, remove, reinstate)."""
-    from .models import FlaggedContent
-    from .services.flagging_services import FlaggingService
+    from council_finance.models import FlaggedContent
+    from council_finance.services.flagging_services import FlaggingService
     
     # Check permissions
     if not request.user.is_superuser and (not hasattr(request.user, 'profile') or request.user.profile.tier.level < 3):
@@ -1405,7 +1405,7 @@ def take_content_action(request, flagged_content_id):
 def take_user_action(request, user_id):
     """Take moderation action on a flagged user (release, restrict, suspend, ban)."""
     from django.contrib.auth.models import User
-    from .services.flagging_services import FlaggingService
+    from council_finance.services.flagging_services import FlaggingService
     
     # Check permissions
     if not request.user.is_superuser and (not hasattr(request.user, 'profile') or request.user.profile.tier.level < 4):
@@ -1472,7 +1472,7 @@ def take_user_action(request, user_id):
 @login_required
 def my_flags(request):
     """View user's own flags."""
-    from .services.flagging_services import FlaggingService
+    from council_finance.services.flagging_services import FlaggingService
     
     status_filter = request.GET.get('status')
     flags = FlaggingService.get_user_flags(request.user, status_filter)
@@ -1497,7 +1497,7 @@ def follow_item_api(request):
     try:
         import json
         from django.contrib.contenttypes.models import ContentType
-        from .services.following_services import FollowService
+        from council_finance.services.following_services import FollowService
         
         data = json.loads(request.body)
         content_type_id = data.get('content_type_id')
@@ -1549,7 +1549,7 @@ def unfollow_item_api(request):
     try:
         import json
         from django.contrib.contenttypes.models import ContentType
-        from .services.following_services import FollowService
+        from council_finance.services.following_services import FollowService
         
         data = json.loads(request.body)
         content_type_id = data.get('content_type_id')
@@ -1584,8 +1584,8 @@ def interact_with_update_api(request, update_id):
     
     try:
         import json
-        from .models import FeedUpdate
-        from .services.following_services import EngagementService
+        from council_finance.models import FeedUpdate
+        from council_finance.services.following_services import EngagementService
         
         data = json.loads(request.body)
         interaction_type = data.get('interaction_type')
@@ -1643,7 +1643,7 @@ def comment_on_update_api(request, update_id):
     
     try:
         import json
-        from .models import FeedUpdate, FeedComment
+        from council_finance.models import FeedUpdate, FeedComment
         
         data = json.loads(request.body)
         content = data.get('content', '').strip()
@@ -1697,7 +1697,7 @@ def update_feed_preferences_api(request):
     
     try:
         import json
-        from .models import UserFeedPreferences
+        from council_finance.models import UserFeedPreferences
         
         data = json.loads(request.body)
         
@@ -1744,7 +1744,7 @@ def get_feed_updates_api(request):
         return JsonResponse({"error": "Authentication required"}, status=401)
     
     try:
-        from .services.following_services import FeedService
+        from council_finance.services.following_services import FeedService
         import json
         
         algorithm = request.GET.get('algorithm', 'mixed')
@@ -1792,8 +1792,8 @@ def get_feed_updates_api(request):
 def contribute(request):
     """Show a modern, real-time contribute interface with AJAX editing."""
     
-    from .models import DataIssue, UserProfile, Contribution
-    from .data_quality import assess_data_issues
+    from council_finance.models import DataIssue, UserProfile, Contribution
+    from council_finance.data_quality import assess_data_issues
 
     # God Mode: Mark DataIssue as invalid
     if request.method == "POST" and request.user.is_superuser and "mark_invalid" in request.POST:
@@ -1861,7 +1861,7 @@ def contribute_stats(request):
     if request.headers.get("X-Requested-With") != "XMLHttpRequest":
         return HttpResponseBadRequest("XHR required")
     
-    from .models import DataIssue, Contribution
+    from council_finance.models import DataIssue, Contribution
     
     # Get detailed breakdown of missing data by category - only for active councils
     # Show ALL missing data but with smart organization and prioritization
@@ -1880,7 +1880,7 @@ def contribute_stats(request):
     
     # Get priority breakdown for enhanced user experience
     try:
-        from .smart_data_quality import get_data_collection_priorities
+        from council_finance.smart_data_quality import get_data_collection_priorities
         data_priorities = get_data_collection_priorities()
         relevant_year_ids = {y.id for y in data_priorities.get('relevant_years', [])}
         
@@ -1983,7 +1983,7 @@ def contribute_submit(request):
         )
         
         # Remove the corresponding DataIssue if it exists
-        from .models import DataIssue
+        from council_finance.models import DataIssue
         DataIssue.objects.filter(
             council=council,
             field=field,
@@ -2027,8 +2027,8 @@ def data_issues_table(request):
         if request.headers.get("X-Requested-With") != "XMLHttpRequest":
             return HttpResponseBadRequest("XHR required")
 
-        from .models import DataIssue, Contribution
-        from .data_quality import assess_data_issues
+        from council_finance.models import DataIssue, Contribution
+        from council_finance.data_quality import assess_data_issues
 
         issue_type = request.GET.get("type")
         
@@ -2119,8 +2119,8 @@ def moderator_panel(request):
         return HttpResponseBadRequest("permission denied")
 
     # Get flagged content instead of pending contributions
-    from .services.flagging_services import FlaggingService
-    from .models import FlaggedContent
+    from council_finance.services.flagging_services import FlaggingService
+    from council_finance.models import FlaggedContent
     
     flagged_content = FlaggingService.get_flagged_content(
         status='open',
@@ -2223,7 +2223,7 @@ def corrections(request):
 def counter_definition_list(request):
     """Display a list of existing counters for quick management."""
     from django.core.paginator import Paginator
-    from .models import SiteCounter, GroupCounter
+    from council_finance.models import SiteCounter, GroupCounter
 
     # Base queryset - include created_by for permission checks
     counters = CounterDefinition.objects.select_related('created_by').all().order_by('name')
@@ -2342,7 +2342,7 @@ def counter_delete(request, slug):
 def site_counter_list(request):
     """List all site-wide counters."""
     from django.core.paginator import Paginator
-    from .models import SiteCounter, CounterDefinition
+    from council_finance.models import SiteCounter, CounterDefinition
 
     # Base queryset
     counters = SiteCounter.objects.all().select_related('counter', 'year').order_by('name')
@@ -2394,7 +2394,7 @@ def site_counter_list(request):
 def group_counter_list(request):
     """List all custom group counters."""
     from django.core.paginator import Paginator
-    from .models import GroupCounter, CounterDefinition
+    from council_finance.models import GroupCounter, CounterDefinition
 
     # Base queryset
     counters = GroupCounter.objects.all().select_related('counter', 'year', 'council_list').order_by('name')
@@ -2445,7 +2445,7 @@ def group_counter_list(request):
 @login_required
 def site_counter_form(request, slug=None):
     """Create or edit a site-wide counter."""
-    from .models import SiteCounter, CounterDefinition, FinancialYear
+    from council_finance.models import SiteCounter, CounterDefinition, FinancialYear
 
     # For a new counter, we might auto-select a base counter definition
     base_slug = request.GET.get('base')
@@ -2506,7 +2506,7 @@ def site_counter_form(request, slug=None):
 @login_required
 def site_counter_delete(request, slug):
     """Delete a site counter."""
-    from .models import SiteCounter
+    from council_finance.models import SiteCounter
     
     counter = get_object_or_404(SiteCounter, slug=slug)
     counter_name = counter.name
@@ -2527,7 +2527,7 @@ def site_counter_delete(request, slug):
 def group_counter_form(request, slug=None):
     """Create or edit a custom group counter."""
 
-    from .models import GroupCounter
+    from council_finance.models import GroupCounter
 
     counter = get_object_or_404(GroupCounter, slug=slug) if slug else None
     form = GroupCounterForm(request.POST or None, instance=counter)
@@ -2552,7 +2552,7 @@ def group_counter_form(request, slug=None):
 @login_required
 def group_counter_delete(request, slug):
     """Delete a group counter."""
-    from .models import GroupCounter
+    from council_finance.models import GroupCounter
     
     counter = get_object_or_404(GroupCounter, slug=slug)
     counter_name = counter.name
@@ -2573,7 +2573,7 @@ def group_counter_delete(request, slug):
 def counter_definition_form(request, slug=None):
     """Create or edit a single counter definition, with live preview for selected council."""
 
-    from .models import Council
+    from council_finance.models import Council
 
     counter = get_object_or_404(CounterDefinition, slug=slug) if slug else None
     form = CounterDefinitionForm(request.POST or None, instance=counter)
@@ -2629,8 +2629,8 @@ def counter_definition_form(request, slug=None):
 @login_required
 @require_GET
 def preview_counter_value(request):
-    from .agents.counter_agent import CounterAgent
-    from .models import Council, FinancialYear
+    from council_finance.agents.counter_agent import CounterAgent
+    from council_finance.models import Council, FinancialYear
 
     council_slug = request.GET.get("council")
     formula = request.GET.get("formula")
@@ -2643,7 +2643,7 @@ def preview_counter_value(request):
     if not (council_slug and formula and year):
         return JsonResponse({"error": "Missing data"}, status=400)
     agent = CounterAgent()
-    from .models import CounterDefinition
+    from council_finance.models import CounterDefinition
 
     try:
         council = Council.objects.get(slug=council_slug)
@@ -2703,7 +2703,7 @@ def preview_counter_value(request):
         dummy.precision = precision
         dummy.show_currency = show_currency
         dummy.friendly_format = friendly_format
-        from .models.counter import CounterDefinition as CD
+        from council_finance.models.counter import CounterDefinition as CD
 
         formatted = CD.format_value(dummy, value)
         return JsonResponse({"value": value, "formatted": formatted})
@@ -2717,8 +2717,8 @@ def preview_counter_value(request):
 @require_GET
 def preview_aggregate_counter(request):
     """Preview a site or group counter by summing across councils."""
-    from .agents.counter_agent import CounterAgent
-    from .models import Council, FinancialYear, CouncilList, CounterDefinition
+    from council_finance.agents.counter_agent import CounterAgent
+    from council_finance.models import Council, FinancialYear, CouncilList, CounterDefinition
 
     counter_slug = request.GET.get("counter")
     if not counter_slug:
@@ -2791,8 +2791,8 @@ def preview_aggregate_counter(request):
 @require_GET
 def preview_factoid(request):
     """Return the rendered factoid text for a counter, council and year."""
-    from .agents.counter_agent import CounterAgent
-    from .models import Council, FinancialYear, CounterDefinition
+    from council_finance.agents.counter_agent import CounterAgent
+    from council_finance.models import Council, FinancialYear, CounterDefinition
 
     # ``counter`` may be provided as a slug or primary key. Form widgets use
     # primary keys by default while JavaScript previews sometimes pass slugs.
@@ -2899,7 +2899,7 @@ def profile_view(request):
             
             employer_council_id = request.POST.get("employer_council")
             if employer_council_id:
-                from .models import Council
+                from council_finance.models import Council
                 profile.employer_council = Council.objects.filter(id=employer_council_id).first()
             else:
                 profile.employer_council = None
@@ -2937,7 +2937,7 @@ def profile_view(request):
     )
     
     # Statistics
-    from .models import Contribution, Council
+    from council_finance.models import Contribution, Council
     contributions = Contribution.objects.filter(user=user)
     approved_contributions = contributions.filter(status='approved')
     pending_contributions = contributions.filter(status='pending')
@@ -2981,7 +2981,7 @@ def user_preferences_ajax(request):
 
 def council_list(request):
     """Display list of councils with filters and search"""
-    from .models import Council
+    from council_finance.models import Council
     from django.core.paginator import Paginator
     
     councils = Council.objects.filter(status='active').order_by('name')
@@ -3187,7 +3187,7 @@ def review_contribution(request, pk, action):
     from django.db import transaction
     from django.contrib import messages
     from django.urls import reverse
-    from .models import Contribution, FigureSubmission
+    from council_finance.models import Contribution, FigureSubmission
     
     # Check permissions
     if not request.user.is_authenticated:
@@ -3328,7 +3328,7 @@ def _apply_contribution(contribution):
         elif field.slug == "council_type":
             # Value should be the ID of a CouncilType
             try:
-                from .models import CouncilType
+                from council_finance.models import CouncilType
                 council_type = CouncilType.objects.get(id=int(value))
                 council.council_type = council_type
                 council.save()
@@ -3338,7 +3338,7 @@ def _apply_contribution(contribution):
         elif field.slug == "council_nation":
             # Value should be the ID of a CouncilNation
             try:
-                from .models import CouncilNation
+                from council_finance.models import CouncilNation
                 council_nation = CouncilNation.objects.get(id=int(value))
                 council.council_nation = council_nation
                 council.save()
@@ -3351,7 +3351,7 @@ def _apply_contribution(contribution):
             
         else:
             # For other fields, create or update a FigureSubmission
-            from .models import FigureSubmission
+            from council_finance.models import FigureSubmission
             figure, created = FigureSubmission.objects.get_or_create(
                 council=council,
                 field=field,
@@ -3991,7 +3991,7 @@ def submit_contribution(request):
         )
         
         # Create notification for user about successful contribution
-        from .notifications import create_notification
+        from council_finance.notifications import create_notification
         
         success_message = f"Your contribution for {field.name} has been accepted and applied!"
         if applied_successfully:
