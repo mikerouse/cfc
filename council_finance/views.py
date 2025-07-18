@@ -664,6 +664,40 @@ def council_detail(request, slug):
         })
         
     edit_figures = figures.filter(year=edit_selected_year) if edit_selected_year else figures.none()
+    
+    # For edit tab, we want to show ALL available fields, not just existing submissions
+    if tab == "edit" and edit_selected_year:
+        # Get all available data fields for this council type
+        all_fields = DataField.objects.all()
+        if council.council_type_id:
+            all_fields = all_fields.filter(
+                Q(council_types__isnull=True)
+                | Q(council_types=council.council_type)
+            )
+        else:
+            all_fields = all_fields.filter(council_types__isnull=True)
+        
+        # Create figure objects with existing submissions or None values
+        edit_figures_list = []
+        existing_figures = {
+            f.field_id: f for f in edit_figures
+        }
+        
+        for field in all_fields.order_by('name').distinct():
+            if field.id in existing_figures:
+                # Use existing submission
+                edit_figures_list.append(existing_figures[field.id])
+            else:
+                # Create a placeholder figure for editing
+                figure = FigureSubmission(
+                    council=council,
+                    field=field, 
+                    year=edit_selected_year,
+                    value=None
+                )
+                edit_figures_list.append(figure)
+        
+        edit_figures = edit_figures_list
 
     missing_characteristic_page = None
     missing_characteristic_paginator = None
@@ -723,6 +757,78 @@ def council_detail(request, slug):
         "recent_merge_activity": recent_merge_activity,
         "recent_flag_activity": recent_flag_activity,
     }
+
+    # Handle AJAX POST requests for saving financial figures
+    if request.method == "POST" and request.headers.get('Content-Type') == 'application/json':
+        try:
+            import json
+            data = json.loads(request.body)
+            action = data.get('action')
+            
+            if action == 'save_figures':
+                changes = data.get('changes', [])
+                year_id = data.get('year')
+                
+                # Validate that user is authenticated (you may want stricter permissions)
+                if not request.user.is_authenticated:
+                    return JsonResponse({'success': False, 'error': 'Authentication required'})
+                
+                saved_count = 0
+                errors = []
+                
+                for change in changes:
+                    field_slug = change.get('field')
+                    value = change.get('value')
+                    data_type = change.get('type')
+                    
+                    try:
+                        # Find the field
+                        field = DataField.objects.get(slug=field_slug)
+                        year = FinancialYear.objects.get(id=year_id)
+                        
+                        # Validate and convert value based on type
+                        if data_type == 'monetary' or data_type == 'integer':
+                            value = float(value) if value else 0
+                        elif data_type == 'percentage':
+                            value = float(value) if value else 0
+                            if value > 100:
+                                errors.append(f"{field.name}: Percentage cannot exceed 100%")
+                                continue
+                        
+                        # Create or update the figure submission
+                        figure, created = FigureSubmission.objects.get_or_create(
+                            council=council,
+                            field=field,
+                            year=year,
+                            defaults={'value': str(value)}
+                        )
+                        
+                        if not created:
+                            figure.value = str(value)
+                            figure.save()
+                        
+                        saved_count += 1
+                        
+                    except (DataField.DoesNotExist, FinancialYear.DoesNotExist) as e:
+                        errors.append(f"Invalid field or year: {str(e)}")
+                    except ValueError as e:
+                        errors.append(f"Invalid value for {field_slug}: {str(e)}")
+                    except Exception as e:
+                        errors.append(f"Error saving {field_slug}: {str(e)}")
+                
+                return JsonResponse({
+                    'success': len(errors) == 0,
+                    'saved_count': saved_count,
+                    'errors': errors,
+                    'message': f"Saved {saved_count} changes" + (f" with {len(errors)} errors" if errors else "")
+                })
+            
+            return JsonResponse({'success': False, 'error': 'Invalid action'})
+            
+        except json.JSONDecodeError:
+            return JsonResponse({'success': False, 'error': 'Invalid JSON data'})
+        except Exception as e:
+            return JsonResponse({'success': False, 'error': str(e)})
 
     # Use enhanced edit template for edit tab
     if tab == 'edit':
@@ -3278,22 +3384,38 @@ def edit_figures_table(request, slug):
     try:
         year = get_object_or_404(FinancialYear, label=year_label)
         
-        # Get figures for this council and year
-        figures = FigureSubmission.objects.filter(
-            council=council, 
-            year=year
-        ).select_related('field', 'year')
-        
-        # Filter by council type if applicable
+        # Get all available data fields for this council type
+        fields = DataField.objects.all()
         if council.council_type_id:
-            figures = figures.filter(
-                Q(field__council_types__isnull=True)
-                | Q(field__council_types=council.council_type)
+            fields = fields.filter(
+                Q(council_types__isnull=True)
+                | Q(council_types=council.council_type)
             )
         else:
-            figures = figures.filter(field__council_types__isnull=True)
+            fields = fields.filter(council_types__isnull=True)
         
-        figures = figures.order_by('field__name').distinct()
+        # Create figure objects with existing submissions or None values
+        figures = []
+        existing_figures = {
+            f.field_id: f for f in FigureSubmission.objects.filter(
+                council=council, 
+                year=year
+            ).select_related('field')
+        }
+        
+        for field in fields.order_by('name').distinct():
+            if field.id in existing_figures:
+                # Use existing submission
+                figures.append(existing_figures[field.id])
+            else:
+                # Create a placeholder figure for editing
+                figure = FigureSubmission(
+                    council=council,
+                    field=field, 
+                    year=year,
+                    value=None
+                )
+                figures.append(figure)
         
         # Get pending contributions
         pending_pairs = set(
@@ -3305,18 +3427,25 @@ def edit_figures_table(request, slug):
         
         # Render the table template
         from django.template.loader import render_to_string
+        
+        # Add edit_selected_year context for the template
+        edit_selected_year = year
+        edit_selected_year.display = year.label if year.label != current_financial_year_label() else "Current Year to Date"
+        
         html = render_to_string(
             'council_finance/enhanced_edit_figures_table.html',
             {
                 'figures': figures,
                 'council': council,
-                'pending_pairs': pending_pairs
+                'pending_pairs': pending_pairs,
+                'edit_selected_year': edit_selected_year
             },
             request=request
         )
         
         if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
-            return JsonResponse({'html': html, 'success': True})
+            # Return HTML directly, not JSON, since JavaScript expects resp.text()
+            return HttpResponse(html, content_type='text/html')
         else:
             return HttpResponse(html)
             
