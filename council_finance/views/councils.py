@@ -14,7 +14,7 @@ from django.urls import reverse
 import json
 
 from council_finance.models import (
-    Council, FinancialYear, FigureSubmission, CouncilYear, 
+    Council, FinancialYear, FigureSubmission, 
     UserProfile, ActivityLog, CounterDefinition, SiteCounter
 )
 from council_finance.agents.counter_agent import CounterAgent
@@ -78,11 +78,11 @@ def council_detail(request, slug):
     
     # Get financial data for the council
     try:
-        council_year = CouncilYear.objects.get(
+        council_year = FinancialYear.objects.get(
             council=council,
             year=current_year
         )
-    except CouncilYear.DoesNotExist:
+    except FinancialYear.DoesNotExist:
         council_year = None
     
     # Get recent figure submissions
@@ -259,7 +259,7 @@ def edit_figures_table(request, slug):
     current_year = current_financial_year_label()
     
     # Get or create council year
-    council_year, created = CouncilYear.objects.get_or_create(
+    council_year, created = FinancialYear.objects.get_or_create(
         council=council,
         year=current_year
     )
@@ -363,7 +363,7 @@ def leaderboards(request):
     
     # Get councils with data for the current year
     councils = Council.objects.filter(
-        councilYear__year=current_year
+        financialyear__year=current_year
     ).distinct()
     
     # Calculate leaderboard data based on type

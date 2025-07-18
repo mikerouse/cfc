@@ -21,7 +21,7 @@ def home(request):
     
     # Get featured councils (top 10 by data completeness or activity)
     featured_councils = Council.objects.filter(
-        councilYear__year=current_year
+        financialyear__year=current_year
     ).distinct()[:10]
     
     # Get random factoids for the homepage
