@@ -84,6 +84,20 @@ def council_detail(request, slug):
     except FinancialYear.DoesNotExist:
         council_year = None
     
+    # Get all available financial years for the dropdown
+    years = FinancialYear.objects.all().order_by('-label')
+    selected_year = council_year or (years.first() if years.exists() else None)
+    
+    # If no financial year exists, create a default one
+    if not years.exists():
+        default_year = FinancialYear.objects.create(
+            label=current_year,
+            display=current_year
+        )
+        years = [default_year]
+        selected_year = default_year
+        council_year = default_year
+    
     # Get recent figure submissions
     recent_submissions = FigureSubmission.objects.filter(
         council=council
@@ -99,15 +113,18 @@ def council_detail(request, slug):
     
     # Calculate counter values using the CounterAgent
     counters = []
-    if counter_definitions and council_year:
+    if counter_definitions:
         counter_agent = CounterAgent()
         
         # Get all counter results for this council and year
         try:
-            counter_results = counter_agent.run(
-                council_slug=council.slug,
-                year_label=current_year
-            )
+            if council_year:
+                counter_results = counter_agent.run(
+                    council_slug=council.slug,
+                    year_label=current_year
+                )
+            else:
+                counter_results = {}
             
             # Create combined data structure for template
             for counter_def in counter_definitions:
@@ -149,6 +166,14 @@ def council_detail(request, slug):
             user=request.user,
             council=council
         ).exists()
+
+    # Get meta values (characteristics) for this council
+    meta_values = []
+    if council_year:
+        meta_values = FigureSubmission.objects.filter(
+            council=council,
+            year=council_year
+        ).select_related('field')[:10]  # Limit to prevent too many results
     
     # Log page view
     log_activity(
@@ -158,14 +183,21 @@ def council_detail(request, slug):
         extra=f"Council: {council.name}"
     )
     
+    # Get default counter slugs for JavaScript
+    default_counter_slugs = [counter['counter'].slug for counter in counters]
+    
     context = {
         'council': council,
         'council_year': council_year,
         'current_year': current_year,
+        'years': years,
+        'selected_year': selected_year,
         'recent_submissions': recent_submissions,
         'factoids': factoids,
         'counters': counters,
+        'meta_values': meta_values,
         'is_following': is_following,
+        'default_counter_slugs': default_counter_slugs,
     }
     
     return render(request, 'council_finance/council_detail.html', context)

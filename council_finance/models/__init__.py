@@ -52,6 +52,10 @@ from .flagging_system import (
     UserModerationRecord,
     FlagComment,
 )
+from .council_data import (
+    CouncilData,
+    DataApprovalLog,
+)
 
 __all__ = [
     'Council',
@@ -100,4 +104,6 @@ __all__ = [
     'FlaggedContent',
     'UserModerationRecord',
     'FlagComment',
+    'CouncilData',
+    'DataApprovalLog',
 ]
