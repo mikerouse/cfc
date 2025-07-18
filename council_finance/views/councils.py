@@ -83,20 +83,24 @@ def council_detail(request, slug):
         )
     except FinancialYear.DoesNotExist:
         council_year = None
-    
-    # Get all available financial years for the dropdown
+      # Get all available financial years for the dropdown
     years = FinancialYear.objects.all().order_by('-label')
     selected_year = council_year or (years.first() if years.exists() else None)
     
     # If no financial year exists, create a default one
     if not years.exists():
         default_year = FinancialYear.objects.create(
-            label=current_year,
-            display=current_year
+            label=current_year
         )
         years = [default_year]
         selected_year = default_year
         council_year = default_year
+    
+    # Annotate display labels so the template can show the current year as
+    # "Current Year to Date" without storing a separate field in the DB.
+    current_label = current_financial_year_label()
+    for y in years:
+        y.display = "Current Year to Date" if y.label == current_label else y.label
     
     # Get recent figure submissions
     recent_submissions = FigureSubmission.objects.filter(
