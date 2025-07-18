@@ -830,8 +830,7 @@ def god_mode(request):
             try:
                 issues_created = smart_assess_data_issues()
                 messages.success(request, f"Assessment complete: {issues_created} data issues identified")
-            except Exception as e:
-                messages.error(request, f"Error during assessment: {str(e)}")
+            except Exception as e:                messages.error(request, f"Error during assessment: {str(e)}")
             return HttpResponseRedirect(reverse('god_mode'))
         
         elif 'delete_financial_year' in request.POST:
@@ -846,8 +845,17 @@ def god_mode(request):
                         messages.success(request, f"Financial year {year_label} deleted successfully")
                     else:
                         messages.error(request, f"Cannot delete year {year.label} - it has associated data")
+                except FinancialYear.DoesNotExist:
+                    messages.error(request, "Financial year not found")
                 except Exception as e:
-                    messages.error(request, f"Error deleting financial year: {str(e)}")
+                    error_msg = str(e)
+                    # Provide more helpful error messages for common database issues
+                    if "no such table" in error_msg.lower():
+                        messages.error(request, f"Database schema error: Some tables referenced by this financial year don't exist yet. This may indicate pending migrations. Please run 'python manage.py migrate' to ensure all tables are created.")
+                    elif "foreign key constraint" in error_msg.lower():
+                        messages.error(request, f"Cannot delete year - it has related data that must be removed first")
+                    else:
+                        messages.error(request, f"Error deleting financial year: {error_msg}")
             return HttpResponseRedirect(reverse('god_mode'))
     
     # Get financial years data

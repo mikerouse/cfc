@@ -224,7 +224,79 @@ class FinancialYear(models.Model):
     
     def can_be_deleted(self):
         """Check if this year can be safely deleted (no associated data)."""
-        return self.get_figure_count() == 0
+        # Check FigureSubmission (this table definitely exists)
+        if self.get_figure_count() > 0:
+            return False
+            
+        # Check for other models that might reference this year
+        # We need to handle cases where tables might not exist yet
+        try:
+            # Check CouncilData if the table exists
+            from .council_data import CouncilData
+            if CouncilData.objects.filter(year=self).exists():
+                return False
+        except Exception:
+            # Table might not exist yet, skip this check
+            pass
+            
+        try:
+            # Check ContributionV2 if the table exists
+            from .new_data_model import ContributionV2
+            if ContributionV2.objects.filter(year=self).exists():
+                return False
+        except Exception:
+            # Table might not exist yet, skip this check
+            pass
+            
+        try:
+            # Check FinancialFigure if the table exists
+            from .new_data_model import FinancialFigure
+            if FinancialFigure.objects.filter(year=self).exists():
+                return False
+        except Exception:
+            # Table might not exist yet, skip this check
+            pass
+            
+        try:
+            # Check FinancialFigureHistory if the table exists
+            from .new_data_model import FinancialFigureHistory
+            if FinancialFigureHistory.objects.filter(year=self).exists():
+                return False
+        except Exception:
+            # Table might not exist yet, skip this check
+            pass
+            
+        # Check other models that might reference FinancialYear
+        try:
+            from .data_change_log import DataChangeLog
+            if DataChangeLog.objects.filter(year=self).exists():
+                return False
+        except Exception:
+            pass
+            
+        try:
+            from .rejection_log import RejectionLog
+            if RejectionLog.objects.filter(year=self).exists():
+                return False
+        except Exception:
+            pass
+            
+        try:
+            from .contribution import Contribution
+            if Contribution.objects.filter(year=self).exists():
+                return False
+        except Exception:
+            pass
+            
+        try:
+            from .data_issue import DataIssue
+            if DataIssue.objects.filter(year=self).exists():
+                return False
+        except Exception:
+            pass
+            
+        # If we get here, no related data was found
+        return True
 
 class FigureSubmission(models.Model):
     """Stores a single value for a given field, council and year."""
