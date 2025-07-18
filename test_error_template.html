@@ -1,0 +1,40 @@
+{% load humanize %}
+<!-- Test template with intentional errors -->
+<div class="container">
+    <h1>Test Template</h1>
+    
+    <!-- HTML Error: Unclosed div -->
+    <div class="error-div">
+        <p>This div is not closed properly</p>
+    <!-- Missing </div> -->
+    
+    <!-- Django Template Error: Mismatched tags -->
+    {% if user.is_authenticated %}
+        <p>Welcome, {{ user.username }}!</p>
+    {% endfor %}  <!-- Should be {% endif %} -->
+    
+    <!-- Django Template Error: Orphaned else -->
+    {% else %}
+        <p>Please log in.</p>
+    
+    <!-- Django Template Error: Empty outside for loop -->
+    {% empty %}
+        <p>No items found.</p>
+    
+    <!-- Common Typo Error -->
+    {% for item in items %}
+        <p>{{ item.name }}</p>
+    {% endof %}  <!-- Should be {% endfor %} -->
+    
+    <!-- Malformed template variable -->
+    {{ user.name|default:"Guest" }  <!-- Missing closing brace -->
+    
+    <!-- Missing load tag for static -->
+    <img src="{% static 'images/logo.png' %}" alt="Logo">
+    
+    <!-- Unescaped quotes -->
+    {{ user.data|default:"{"name": "Anonymous"}" }}
+    
+</div>
+<!-- Extra closing tag -->
+</div>
