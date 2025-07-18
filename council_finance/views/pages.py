@@ -6,6 +6,7 @@ This module handles about, terms, privacy, and other static content.
 from django.shortcuts import render
 from django.contrib.auth.decorators import login_required
 from django.core.paginator import Paginator
+import random
 
 from council_finance.models import Council, UserProfile, ActivityLog
 from council_finance.factoids import get_factoids
@@ -25,7 +26,10 @@ def home(request):
     ).distinct()[:10]
     
     # Get random factoids for the homepage
-    factoids = get_factoids(limit=5)
+    # Using a generic counter slug to get general factoids
+    factoids = get_factoids(counter_slug="general")
+    if factoids and len(factoids) > 5:
+        factoids = random.sample(factoids, 5)
     
     # Get total statistics
     total_councils = Council.objects.count()
@@ -33,8 +37,8 @@ def home(request):
     
     # Get recent activity
     recent_activity = ActivityLog.objects.filter(
-        public=True
-    ).order_by('-created_at')[:5]
+        activity_type__in=['create', 'update', 'contribution', 'data_correction']
+    ).order_by('-created')[:5]
     
     # Check if user is logged in and get their profile
     user_profile = None
@@ -48,7 +52,7 @@ def home(request):
     log_activity(
         request,
         activity="Viewed homepage",
-        details=f"Year: {current_year}"
+        extra=f"Year: {current_year}"
     )
     
     context = {
@@ -61,7 +65,7 @@ def home(request):
         'user_profile': user_profile,
     }
     
-    return render(request, 'home.html', context)
+    return render(request, 'council_finance/home.html', context)
 
 
 def about(request):
@@ -78,17 +82,17 @@ def about(request):
         'stats': stats,
     }
     
-    return render(request, 'pages/about.html', context)
+    return render(request, 'council_finance/about.html', context)
 
 
 def terms_of_use(request):
     """Terms of use page."""
-    return render(request, 'pages/terms_of_use.html')
+    return render(request, 'council_finance/terms_of_use.html')
 
 
 def privacy_cookies(request):
     """Privacy and cookies policy page."""
-    return render(request, 'pages/privacy_cookies.html')
+    return render(request, 'council_finance/privacy_cookies.html')
 
 
 def corrections(request):
@@ -103,7 +107,7 @@ def corrections(request):
         'recent_corrections': recent_corrections,
     }
     
-    return render(request, 'pages/corrections.html', context)
+    return render(request, 'council_finance/corrections.html', context)
 
 
 @login_required
@@ -114,13 +118,13 @@ def dashboard(request):
     # Get user's recent activity
     recent_activity = ActivityLog.objects.filter(
         user=request.user
-    ).order_by('-created_at')[:10]
+    ).order_by('-created')[:10]
     
     # Get user's contributions
     from council_finance.models import Contribution
     recent_contributions = Contribution.objects.filter(
         user=request.user
-    ).order_by('-created_at')[:5]
+    ).order_by('-created')[:5]
     
     # Get councils the user is following
     from council_finance.models import CouncilFollow
@@ -129,7 +133,9 @@ def dashboard(request):
     ).select_related('council')[:5]
     
     # Get personalized factoids
-    factoids = get_factoids(limit=3)
+    factoids = get_factoids(counter_slug="user")
+    if factoids and len(factoids) > 3:
+        factoids = random.sample(factoids, 3)
     
     # Get user stats
     stats = {

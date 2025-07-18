@@ -1,0 +1,118 @@
+{% extends "base.html" %}
+{% load static %}
+{% block title %}{{ council.name }} - Counters - Council Finance Counters{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto px-4 py-6">
+  <!-- Council Header -->
+  <div class="bg-white border border-gray-200 rounded-xl shadow-sm mb-6">
+    <div class="px-8 py-6">
+      <!-- Council Title and Meta -->
+      <div class="flex items-start justify-between mb-6">
+        <div class="flex-1">
+          <div class="flex items-center space-x-4 mb-4">
+            <div class="w-16 h-16 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl flex items-center justify-center shadow-lg">
+              <svg class="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/>
+              </svg>
+            </div>
+            <div>
+              <h1 class="text-3xl font-bold text-gray-900">{{ council.name }}</h1>
+              <div class="flex items-center space-x-6 text-sm text-gray-600 mt-2">
+                <span class="flex items-center">
+                  <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
+                  </svg>
+                  Counters for {{ current_year }}
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <!-- Navigation back to main council page -->
+        <div class="flex items-center space-x-3">
+          <a href="{% url 'council_detail' council.slug %}" class="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+            <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/>
+            </svg>
+            Back to {{ council.name }}
+          </a>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Counter Categories -->
+  <div class="space-y-8">
+    {% for category, counters in counter_categories.items %}
+    <div class="bg-white border border-gray-200 rounded-xl shadow-sm">
+      <div class="px-6 py-4 border-b border-gray-200">
+        <h2 class="text-xl font-semibold text-gray-900">{{ category }}</h2>
+        <p class="text-sm text-gray-600 mt-1">{{ counters|length }} counter{{ counters|length|pluralize }}</p>
+      </div>
+      
+      <div class="p-6">
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {% for result in counters %}
+          <div class="bg-gray-50 rounded-lg p-4 border border-gray-200">
+            <div class="flex items-center justify-between mb-3">
+              <h3 class="text-lg font-medium text-gray-900">{{ result.counter.name }}</h3>
+              {% if result.counter.unit %}
+              <span class="text-sm text-gray-500">{{ result.counter.unit }}</span>
+              {% endif %}
+            </div>
+            
+            <div class="text-3xl font-bold text-blue-600 mb-2">
+              {% if result.value %}
+                {{ result.value|floatformat:0 }}
+              {% else %}
+                <span class="text-gray-400">No data</span>
+              {% endif %}
+            </div>
+            
+            {% if result.counter.description %}
+            <p class="text-sm text-gray-600">{{ result.counter.description }}</p>
+            {% endif %}
+            
+            {% if result.counter.source %}
+            <div class="mt-3 pt-3 border-t border-gray-200">
+              <p class="text-xs text-gray-500">Source: {{ result.counter.source }}</p>
+            </div>
+            {% endif %}
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+    {% empty %}
+    <div class="bg-white border border-gray-200 rounded-xl shadow-sm p-8 text-center">
+      <div class="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+        <svg class="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
+        </svg>
+      </div>
+      <h3 class="text-lg font-medium text-gray-900 mb-2">No counters available</h3>
+      <p class="text-gray-600">There are no counters configured for {{ council.name }} in {{ current_year }}.</p>
+    </div>
+    {% endfor %}
+  </div>
+
+  <!-- Summary -->
+  <div class="bg-blue-50 border border-blue-200 rounded-xl p-6 mt-8">
+    <div class="flex items-center">
+      <div class="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
+        <svg class="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+        </svg>
+      </div>
+      <div class="ml-4">
+        <h3 class="text-lg font-medium text-blue-900">Summary</h3>
+        <p class="text-blue-700">
+          Displaying {{ total_counters }} counter{{ total_counters|pluralize }} for {{ council.name }} in {{ current_year }}.
+        </p>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

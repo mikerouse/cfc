@@ -66,7 +66,7 @@ def council_list(request):
         'total_councils': councils.count(),
     }
     
-    return render(request, 'councils/council_list.html', context)
+    return render(request, 'council_finance/council_list.html', context)
 
 
 def council_detail(request, slug):
@@ -79,8 +79,7 @@ def council_detail(request, slug):
     # Get financial data for the council
     try:
         council_year = FinancialYear.objects.get(
-            council=council,
-            year=current_year
+            label=current_year
         )
     except FinancialYear.DoesNotExist:
         council_year = None
@@ -88,29 +87,59 @@ def council_detail(request, slug):
     # Get recent figure submissions
     recent_submissions = FigureSubmission.objects.filter(
         council=council
-    ).order_by('-created_at')[:10]
+    ).order_by('-id')[:10]
     
     # Get factoids for this council
-    factoids = get_factoids(council=council)
+    factoids = get_factoids(counter_slug="council", context={"council_name": council.name})
     
     # Get counters for this council
-    counters = CounterDefinition.objects.filter(
-        active=True
+    counter_definitions = CounterDefinition.objects.filter(
+        show_by_default=True
     ).order_by('name')
     
-    counter_values = {}
-    if counters:
+    # Calculate counter values using the CounterAgent
+    counters = []
+    if counter_definitions and council_year:
         counter_agent = CounterAgent()
-        for counter in counters:
-            try:
-                value = counter_agent.calculate_counter_value(
-                    counter=counter,
-                    council=council,
-                    year=current_year
-                )
-                counter_values[counter.slug] = value
-            except Exception as e:
-                counter_values[counter.slug] = None
+        
+        # Get all counter results for this council and year
+        try:
+            counter_results = counter_agent.run(
+                council_slug=council.slug,
+                year_label=current_year
+            )
+            
+            # Create combined data structure for template
+            for counter_def in counter_definitions:
+                counter_data = {
+                    'counter': counter_def,
+                    'value': None,
+                    'formatted': 'No data',
+                    'error': None,
+                    'factoids': []
+                }
+                
+                # Get the calculated result if available
+                if counter_def.slug in counter_results:
+                    result = counter_results[counter_def.slug]
+                    if isinstance(result, dict):
+                        counter_data.update(result)
+                    else:
+                        counter_data['value'] = result
+                        counter_data['formatted'] = counter_def.format_value(result) if hasattr(counter_def, 'format_value') else str(result)
+                
+                counters.append(counter_data)
+                
+        except Exception as e:
+            # If counter calculation fails, still show counters without values
+            for counter_def in counter_definitions:
+                counters.append({
+                    'counter': counter_def,
+                    'value': None,
+                    'formatted': 'No data',
+                    'error': str(e),
+                    'factoids': []
+                })
     
     # Check if user is following this council
     is_following = False
@@ -126,7 +155,7 @@ def council_detail(request, slug):
         request,
         council=council,
         activity=f"Viewed council detail page",
-        details=f"Council: {council.name}"
+        extra=f"Council: {council.name}"
     )
     
     context = {
@@ -136,11 +165,10 @@ def council_detail(request, slug):
         'recent_submissions': recent_submissions,
         'factoids': factoids,
         'counters': counters,
-        'counter_values': counter_values,
         'is_following': is_following,
     }
     
-    return render(request, 'councils/council_detail.html', context)
+    return render(request, 'council_finance/council_detail.html', context)
 
 
 def council_counters(request, slug):
@@ -150,10 +178,10 @@ def council_counters(request, slug):
     # Get the current financial year
     current_year = current_financial_year_label()
     
-    # Get all active counters
+    # Get all counters
     counters = CounterDefinition.objects.filter(
-        active=True
-    ).order_by('category', 'name')
+        show_by_default=True
+    ).order_by('name')
     
     # Calculate counter values
     counter_agent = CounterAgent()
@@ -196,7 +224,7 @@ def council_counters(request, slug):
         request,
         council=council,
         activity=f"Viewed council counters",
-        details=f"Council: {council.name}, Year: {current_year}"
+        extra=f"Council: {council.name}, Year: {current_year}"
     )
     
     context = {
@@ -206,7 +234,7 @@ def council_counters(request, slug):
         'total_counters': len(counter_results),
     }
     
-    return render(request, 'councils/council_counters.html', context)
+    return render(request, 'council_finance/council_counters.html', context)
 
 
 def council_change_log(request, slug):
@@ -215,8 +243,8 @@ def council_change_log(request, slug):
     
     # Get activity logs for this council
     logs = ActivityLog.objects.filter(
-        council=council
-    ).order_by('-created_at')
+        related_council=council
+    ).order_by('-created')
     
     # Filter by type if specified
     log_type = request.GET.get('type', '')
@@ -241,7 +269,7 @@ def council_change_log(request, slug):
         'total_logs': logs.count(),
     }
     
-    return render(request, 'councils/council_change_log.html', context)
+    return render(request, 'council_finance/council_log.html', context)
 
 
 @login_required
@@ -260,21 +288,18 @@ def edit_figures_table(request, slug):
     
     # Get or create council year
     council_year, created = FinancialYear.objects.get_or_create(
-        council=council,
-        year=current_year
+        label=current_year
     )
     
     # Get all available data fields
     from council_finance.models import DataField
-    data_fields = DataField.objects.filter(
-        active=True
-    ).order_by('category', 'name')
+    data_fields = DataField.objects.all().order_by('category', 'name')
     
     # Get existing figure submissions for this council and year
     existing_submissions = {}
     submissions = FigureSubmission.objects.filter(
         council=council,
-        year=current_year
+        year=council_year
     ).select_related('field')
     
     for submission in submissions:
@@ -299,7 +324,7 @@ def edit_figures_table(request, slug):
         request,
         council=council,
         activity=f"Viewed figures editing interface",
-        details=f"Council: {council.name}, Year: {current_year}"
+        extra=f"Council: {council.name}, Year: {current_year}"
     )
     
     context = {
@@ -310,7 +335,7 @@ def edit_figures_table(request, slug):
         'total_fields': len(data_fields),
     }
     
-    return render(request, 'councils/enhanced_edit_figures_table.html', context)
+    return render(request, 'council_finance/enhanced_edit_figures_table.html', context)
 
 
 @login_required
@@ -338,7 +363,7 @@ def generate_share_link(request):
             request,
             council=council,
             activity=f"Generated share link",
-            details=f"Council: {council.name}"
+            extra=f"Council: {council.name}"
         )
         
         return JsonResponse({
@@ -358,6 +383,12 @@ def leaderboards(request):
     # Get the current financial year
     current_year = current_financial_year_label()
     
+    # Get the FinancialYear object
+    try:
+        financial_year = FinancialYear.objects.get(label=current_year)
+    except FinancialYear.DoesNotExist:
+        financial_year = None
+    
     # Get leaderboard type
     leaderboard_type = request.GET.get('type', 'total_debt')
     
@@ -375,7 +406,7 @@ def leaderboards(request):
             try:
                 debt_total = FigureSubmission.objects.filter(
                     council=council,
-                    year=current_year,
+                    year=financial_year,
                     field__category='Debt'
                 ).aggregate(
                     total=Sum('value')
@@ -395,7 +426,7 @@ def leaderboards(request):
             try:
                 assets_total = FigureSubmission.objects.filter(
                     council=council,
-                    year=current_year,
+                    year=financial_year,
                     field__category='Assets'
                 ).aggregate(
                     total=Sum('value')
@@ -433,4 +464,4 @@ def leaderboards(request):
         ],
     }
     
-    return render(request, 'councils/leaderboards.html', context)
+    return render(request, 'council_finance/leaderboards.html', context)
