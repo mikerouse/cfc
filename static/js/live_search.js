@@ -275,7 +275,7 @@
         fetch(`/api/councils/search/?q=${encodeURIComponent(query)}`)
             .then(response => response.json())
             .then(data => {
-                displayResults(data || [], query);
+                displayResults(data.results || [], query);
             })
             .catch(error => {
                 console.error('Search error:', error);
