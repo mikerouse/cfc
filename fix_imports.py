@@ -1,14 +1,26 @@
 #!/usr/bin/env python3
-"""
-Script to fix relative imports in general.py after views module refactoring.
+"""Fix relative imports in ``general.py`` after refactoring.
+
+Usage::
+
+    python fix_imports.py
+
+The script locates ``general.py`` relative to its own location and replaces
+old relative imports with absolute ones under ``council_finance``. This is
+useful when modules are moved and import paths need updating.
 """
 
 import re
+from pathlib import Path
 
 def fix_imports():
-    filepath = r"f:\mikerouse\Documents\Projects\Council Finance Counters\v3\cfc\council_finance\views\general.py"
+    # Compute the path to ``general.py`` relative to this script. This keeps the
+    # script portable regardless of the working directory.
+    script_dir = Path(__file__).resolve().parent
+    filepath = script_dir / "council_finance" / "views" / "general.py"
     
-    with open(filepath, 'r', encoding='utf-8') as f:
+    # Read the current file contents.
+    with filepath.open("r", encoding="utf-8") as f:
         content = f.read()
     
     # Replace relative imports with absolute imports
@@ -26,7 +38,8 @@ def fix_imports():
     for pattern, replacement in replacements:
         content = re.sub(pattern, replacement, content)
     
-    with open(filepath, 'w', encoding='utf-8') as f:
+    # Overwrite the file with the updated imports.
+    with filepath.open("w", encoding="utf-8") as f:
         f.write(content)
     
     print("Fixed relative imports in general.py")
