@@ -11,11 +11,13 @@ from django.core.paginator import Paginator
 from django.db.models import Q, Sum, Count
 from django.utils import timezone
 from django.urls import reverse
+from django.conf import settings
 import json
 
 from council_finance.models import (
     Council, FinancialYear, FigureSubmission, 
-    UserProfile, ActivityLog, CounterDefinition, SiteCounter
+    UserProfile, ActivityLog, CounterDefinition, SiteCounter,
+    CouncilCounter, SiteSetting
 )
 from council_finance.agents.counter_agent import CounterAgent
 from council_finance.factoids import get_factoids
@@ -208,69 +210,103 @@ def council_detail(request, slug):
 
 
 def council_counters(request, slug):
-    """Display counters for a specific council."""
+    """Display counters for a specific council as JSON or HTML."""
     council = get_object_or_404(Council, slug=slug)
     
-    # Get the current financial year
-    current_year = current_financial_year_label()
-    
-    # Get all counters
-    counters = CounterDefinition.objects.filter(
-        show_by_default=True
-    ).order_by('name')
-    
-    # Calculate counter values
-    counter_agent = CounterAgent()
-    counter_results = []
-    
-    for counter in counters:
-        try:
-            value = counter_agent.calculate_counter_value(
-                counter=counter,
-                council=council,
-                year=current_year
-            )
-            
-            result = {
-                'counter': counter,
-                'value': value,
-                'formatted_value': counter_agent.format_counter_value(value, counter.unit),
-                'error': None
-            }
-        except Exception as e:
-            result = {
-                'counter': counter,
-                'value': None,
-                'formatted_value': 'Error',
-                'error': str(e)
-            }
-        
-        counter_results.append(result)
-    
-    # Group counters by category
-    counter_categories = {}
-    for result in counter_results:
-        category = result['counter'].category or 'Other'
-        if category not in counter_categories:
-            counter_categories[category] = []
-        counter_categories[category].append(result)
-    
-    # Log page view
-    log_activity(
-        request,
-        council=council,
-        activity=f"Viewed council counters",
-        extra=f"Council: {council.name}, Year: {current_year}"
+    # Get the selected year from request or use default
+    years = list(FinancialYear.objects.order_by("-label").exclude(label__iexact="general"))
+    default_label = SiteSetting.get("default_financial_year", getattr(settings, 'DEFAULT_FINANCIAL_YEAR', current_financial_year_label()))
+    selected_year = next(
+        (y for y in years if y.label == default_label), years[0] if years else None
     )
     
-    context = {
-        'council': council,
-        'current_year': current_year,
-        'counter_categories': counter_categories,
-        'total_counters': len(counter_results),
-    }
+    year_param = request.GET.get("year")
+    if year_param:
+        for y in years:
+            if y.label == year_param:
+                selected_year = y
+                break
     
-    return render(request, 'council_finance/council_counters.html', context)
+    counters = []
+    if selected_year:
+        from council_finance.agents.counter_agent import CounterAgent
+        agent = CounterAgent()
+        
+        # Compute all counter values for this council/year using the agent
+        values = agent.run(council_slug=slug, year_label=selected_year.label)
+        
+        # Build a lookup of overrides so we know which counters are enabled or disabled
+        override_map = {
+            cc.counter_id: cc.enabled
+            for cc in CouncilCounter.objects.filter(council=council)
+        }
+        
+        # Get counters based on council type
+        counters_qs = CounterDefinition.objects.all()
+        if council.council_type_id:
+            counters_qs = counters_qs.filter(
+                Q(council_types__isnull=True) | Q(council_types=council.council_type)
+            )
+        else:
+            counters_qs = counters_qs.filter(council_types__isnull=True)
+        
+        head_list = []
+        other_list = []
+        for counter in counters_qs.distinct():
+            # Check if this counter should be displayed
+            enabled = override_map.get(counter.id, counter.show_by_default)
+            if not enabled:
+                continue
+                
+            value_data = values.get(counter.slug, {})
+            counter_info = {
+                "counter": counter,
+                "value": value_data.get("value"),
+                "formatted": value_data.get("formatted", "No data"),
+                "error": value_data.get("error"),
+                "slug": counter.slug,
+                "name": counter.name,
+                "description": counter.explanation,
+                "duration": counter.duration,
+                "precision": counter.precision,
+                "show_currency": counter.show_currency,
+                "friendly_format": counter.friendly_format,            }
+            
+            if counter.headline:
+                head_list.append(counter_info)
+            else:
+                other_list.append(counter_info)
+        
+        counters = head_list + other_list
+    
+    # Return JSON if requested via AJAX
+    if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+        return JsonResponse({
+            "counters": {
+                c["slug"]: {
+                    "name": c["name"],
+                    "description": c["description"],
+                    "value": c["value"],
+                    "formatted": c["formatted"],
+                    "error": c["error"],
+                    "duration": c["duration"],
+                    "precision": c["precision"],
+                    "show_currency": c["show_currency"],
+                    "friendly_format": c["friendly_format"],
+                }
+                for c in counters
+            },
+            "year": selected_year.label if selected_year else None,
+        })
+    
+    # Return HTML template
+    context = {
+        "council": council,
+        "counters": counters,
+        "selected_year": selected_year,
+        "years": years,
+    }
+    return render(request, "council_finance/council_counters.html", context)
 
 
 def council_change_log(request, slug):
