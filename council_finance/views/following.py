@@ -1,6 +1,6 @@
 from .general import (
     my_lists,
-    following,
+    following as following_view,
     follow_item_api,
     unfollow_item_api,
     interact_with_update_api,
@@ -23,6 +23,9 @@ from .general import (
     like_update,
     comment_update,
 )
+
+# Create an alias for the following view to avoid namespace collision
+following = following_view
 
 __all__ = [
     'my_lists',
