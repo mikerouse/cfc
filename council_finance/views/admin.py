@@ -784,7 +784,141 @@ def factoid_delete(request, slug):
 
 def god_mode(request):
     """Admin god mode panel."""
-    return render(request, "council_finance/god_mode.html", {})
+    from django.contrib import messages
+    from django.http import HttpResponseRedirect
+    from django.urls import reverse
+    from ..models import (
+        FinancialYear, Council, DataField, FigureSubmission, 
+        DataIssue, Contribution, RejectionLog, UserProfile
+    )
+    from ..year_utils import get_recommended_next_year
+    from ..smart_data_quality import smart_assess_data_issues, get_data_collection_priorities
+    from datetime import datetime, timedelta
+    
+    # Handle POST requests for God Mode actions
+    if request.method == 'POST':
+        if 'add_financial_year' in request.POST:
+            year_label = request.POST.get('new_year_label', '').strip()
+            if year_label:
+                try:
+                    from ..year_utils import create_year_with_smart_defaults
+                    year, created = create_year_with_smart_defaults(year_label, user=request.user)
+                    if created:
+                        messages.success(request, f"Financial year {year_label} created successfully")
+                    else:
+                        messages.info(request, f"Financial year {year_label} already exists")
+                except Exception as e:
+                    messages.error(request, f"Error creating financial year: {str(e)}")
+            return HttpResponseRedirect(reverse('god_mode'))
+        
+        elif 'set_current_year' in request.POST:
+            year_id = request.POST.get('current_year_id')
+            if year_id:
+                try:
+                    # Clear existing current year
+                    FinancialYear.objects.filter(is_current=True).update(is_current=False)
+                    # Set new current year
+                    year = FinancialYear.objects.get(id=year_id)
+                    year.is_current = True
+                    year.save()
+                    messages.success(request, f"Set {year.label} as current financial year")
+                except Exception as e:
+                    messages.error(request, f"Error setting current year: {str(e)}")
+            return HttpResponseRedirect(reverse('god_mode'))
+        
+        elif 'assess_issues' in request.POST:
+            try:
+                issues_created = smart_assess_data_issues()
+                messages.success(request, f"Assessment complete: {issues_created} data issues identified")
+            except Exception as e:
+                messages.error(request, f"Error during assessment: {str(e)}")
+            return HttpResponseRedirect(reverse('god_mode'))
+        
+        elif 'delete_financial_year' in request.POST:
+            year_id = request.POST.get('year_id')
+            confirm = request.POST.get('confirm_deletion')
+            if year_id and confirm == 'yes':
+                try:
+                    year = FinancialYear.objects.get(id=year_id)
+                    if year.can_be_deleted():
+                        year_label = year.label
+                        year.delete()
+                        messages.success(request, f"Financial year {year_label} deleted successfully")
+                    else:
+                        messages.error(request, f"Cannot delete year {year.label} - it has associated data")
+                except Exception as e:
+                    messages.error(request, f"Error deleting financial year: {str(e)}")
+            return HttpResponseRedirect(reverse('god_mode'))
+    
+    # Get financial years data
+    financial_years = FinancialYear.objects.all().order_by('-label')
+    recommended_year = get_recommended_next_year()
+    
+    # Get surveillance data
+    now = datetime.now()
+    day_ago = now - timedelta(days=1)    # User activity surveillance
+    user_activity_surveillance = {
+        'active_users_24h': UserProfile.objects.count(),  # TODO: Implement proper last_seen tracking
+        'contributions_today': Contribution.objects.filter(created__date=now.date()).count(),
+        'suspicious_activity_count': 0,  # TODO: Implement suspicious activity detection
+    }
+    
+    # Get high activity users - using points as a proxy for activity
+    high_activity_users = UserProfile.objects.filter(
+        points__gt=0
+    ).order_by('-points')[:5]
+    
+    # Data quality surveillance
+    total_councils = Council.objects.filter(status='active').count()
+    total_fields = DataField.objects.count()
+    total_submissions = FigureSubmission.objects.count()
+    max_possible_submissions = total_councils * total_fields * financial_years.count()
+    
+    data_quality_surveillance = {
+        'completeness_percentage': round((total_submissions / max_possible_submissions * 100) if max_possible_submissions > 0 else 0, 1),
+        'missing_data_issues': DataIssue.objects.filter(issue_type='missing').count(),
+        'consistency_score': 85,  # TODO: Implement actual consistency scoring
+    }
+    
+    # Security monitoring
+    security_monitoring = {
+        'bulk_operations_24h': 0,  # TODO: Implement bulk operation tracking
+        'admin_activities_24h': 0,  # TODO: Implement admin activity tracking
+        'unusual_patterns': 0,  # TODO: Implement unusual pattern detection
+    }
+      # Council activity hotspots - simplify to councils with most submissions
+    council_activity_hotspots = Council.objects.filter(
+        figuresubmission__isnull=False
+    ).distinct()[:5]
+      # Recent rejections
+    recent_rejections = RejectionLog.objects.order_by('-created')[:10]
+    
+    # Get all councils for quick stats
+    all_councils = Council.objects.all()
+      # Data collection priorities
+    try:
+        data_priorities = get_data_collection_priorities()
+    except Exception as e:
+        data_priorities = {'relevant_years': [], 'year_stats': []}
+    
+    # Active alerts (placeholder)
+    active_alerts = []
+    
+    context = {
+        'financial_years': financial_years,
+        'recommended_year': recommended_year,
+        'user_activity_surveillance': user_activity_surveillance,
+        'high_activity_users': high_activity_users,
+        'data_quality_surveillance': data_quality_surveillance,
+        'security_monitoring': security_monitoring,
+        'council_activity_hotspots': council_activity_hotspots,
+        'recent_rejections': recent_rejections,
+        'all_councils': all_councils,
+        'data_priorities': data_priorities,
+        'active_alerts': active_alerts,
+    }
+    
+    return render(request, "council_finance/god_mode.html", context)
 
 
 def activity_log_entries(request):
