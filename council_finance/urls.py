@@ -97,13 +97,12 @@ urlpatterns = [
         "councils/<slug:slug>/edit-table/",
         council_views.edit_figures_table,
         name="edit_figures_table",
-    ),
-    path(
+    ),    path(
         "councils/<slug:slug>/log/",
         council_views.council_change_log,
         name="council_change_log",
     ),
-    path("councils/<slug:slug>/", council_views.council_detail, name="council_detail"),
+    path("councils/<slug:slug>/", general_views.council_detail, name="council_detail"),
     # Common menu pages
     path("leaderboards/", council_views.leaderboards, name="leaderboards"),
     path("lists/", my_lists, name="my_lists"),

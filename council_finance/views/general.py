@@ -835,13 +835,8 @@ def council_detail(request, slug):
         except json.JSONDecodeError:
             return JsonResponse({'success': False, 'error': 'Invalid JSON data'})
         except Exception as e:
-            return JsonResponse({'success': False, 'error': str(e)})
-
-    # Use enhanced edit template for edit tab
-    if tab == 'edit':
-        template_name = "council_finance/council_detail_edit.html"
-    else:
-        template_name = "council_finance/council_detail.html"
+            return JsonResponse({'success': False, 'error': str(e)})    # Always use the main council detail template, which handles tab switching internally
+    template_name = "council_finance/council_detail.html"
 
     return render(request, template_name, context)
 
