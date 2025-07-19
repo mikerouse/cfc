@@ -99,18 +99,17 @@ def council_recent_activity_api(request, council_slug):
     """API endpoint to get recent activity for a council."""
     try:
         council = get_object_or_404(Council, slug=council_slug)
-        
-        # Get recent activity logs for this council
+          # Get recent activity logs for this council
         activities = ActivityLog.objects.filter(
             related_council=council
-        ).order_by('-created_at')[:10]
+        ).order_by('-created')[:10]
         
         activity_data = []
         for activity in activities:
             activity_data.append({
                 'id': activity.id,
                 'description': activity.description,
-                'created_at': activity.created_at.isoformat(),
+                'created_at': activity.created.isoformat(),
                 'user': activity.user.username if activity.user else 'System',
             })
         
@@ -127,19 +126,18 @@ def field_recent_activity_api(request, council_slug, field_slug):
     """API endpoint to get recent activity for a specific field in a council."""
     try:
         council = get_object_or_404(Council, slug=council_slug)
-        field = get_object_or_404(DataField, slug=field_slug)
-          # Get recent activity logs for this council and field
+        field = get_object_or_404(DataField, slug=field_slug)          # Get recent activity logs for this council and field
         activities = ActivityLog.objects.filter(
             related_council=council,
             field=field
-        ).order_by('-created_at')[:10]
+        ).order_by('-created')[:10]
         
         activity_data = []
         for activity in activities:
             activity_data.append({
                 'id': activity.id,
                 'description': activity.description,
-                'created_at': activity.created_at.isoformat(),
+                'created_at': activity.created.isoformat(),
                 'user': activity.user.username if activity.user else 'System',
                 'old_value': activity.old_value,
                 'new_value': activity.new_value,

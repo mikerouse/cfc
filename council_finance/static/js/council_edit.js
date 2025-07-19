@@ -308,9 +308,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 </div>
             `;
         }
-    }
-
-    /**
+    }    /**
      * Load recent activity for this field/council
      */
     async function loadRecentActivity(fieldSlug) {
@@ -320,6 +318,11 @@ document.addEventListener('DOMContentLoaded', function() {
             
             const activities = await response.json();
             const recentList = document.getElementById('recent-list');
+            
+            if (!recentList) {
+                console.warn('Recent list element not found');
+                return;
+            }
             
             if (activities.length === 0) {
                 recentList.innerHTML = '<div class="text-center text-gray-400 py-2">No recent activity</div>';
@@ -340,7 +343,10 @@ document.addEventListener('DOMContentLoaded', function() {
             
         } catch (error) {
             console.error('Error loading recent activity:', error);
-            document.getElementById('recent-list').innerHTML = '<div class="text-center text-gray-400 py-2">Unable to load activity</div>';
+            const recentList = document.getElementById('recent-list');
+            if (recentList) {
+                recentList.innerHTML = '<div class="text-center text-gray-400 py-2">Unable to load activity</div>';
+            }
         }
     }
 

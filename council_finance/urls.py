@@ -1,6 +1,9 @@
 from django.contrib import admin
 from django.contrib.auth.views import LoginView, LogoutView
 from django.urls import include, path
+from django.views.generic import RedirectView
+from django.conf import settings
+from django.conf.urls.static import static
 
 from .views import (
     general as general_views,
@@ -40,6 +43,9 @@ from .views.general import (
 )
 
 urlpatterns = [
+    # Favicon redirect to avoid 404 errors
+    path('favicon.ico', RedirectView.as_view(url=settings.STATIC_URL + 'favicon.ico', permanent=True)),
+    
     path("", page_views.home, name="home"),
     path("search/", general_views.search_results, name="search_results"),
     path("api/councils/search/", api_views.search_councils, name="search_councils"),
