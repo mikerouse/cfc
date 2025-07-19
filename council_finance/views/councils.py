@@ -348,10 +348,9 @@ def council_change_log(request, slug):
 def edit_figures_table(request, slug):
     """Display enhanced inline editing interface for council figures."""
     council = get_object_or_404(Council, slug=slug)
-    
-    # Check if user has permission to edit
+      # Check if user has permission to edit
     profile = get_object_or_404(UserProfile, user=request.user)
-    if profile.trust_tier < 2:  # Minimum trust tier for editing
+    if profile.tier.level < 2:  # Minimum trust tier for editing
         messages.error(request, 'You do not have permission to edit council figures.')
         return redirect('council_detail', slug=slug)
     

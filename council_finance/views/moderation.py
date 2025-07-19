@@ -76,7 +76,7 @@ def flagged_content_list(request):
     """Display list of flagged content for moderators."""
     # Check if user has moderation permissions
     profile = get_object_or_404(UserProfile, user=request.user)
-    if profile.trust_tier < 4:  # MANAGEMENT_TIER
+    if profile.tier.level < 4:  # MANAGEMENT_TIER
         messages.error(request, 'You do not have permission to access this page.')
         return redirect('home')
     
@@ -113,7 +113,7 @@ def resolve_flag(request, flag_id):
     """Resolve a content flag."""
     # Check if user has moderation permissions
     profile = get_object_or_404(UserProfile, user=request.user)
-    if profile.trust_tier < 4:  # MANAGEMENT_TIER
+    if profile.tier.level < 4:  # MANAGEMENT_TIER
         return JsonResponse({'error': 'Permission denied'}, status=403)
     
     try:
@@ -154,7 +154,7 @@ def take_content_action(request, flagged_content_id):
     """Take action on flagged content."""
     # Check if user has moderation permissions
     profile = get_object_or_404(UserProfile, user=request.user)
-    if profile.trust_tier < 4:  # MANAGEMENT_TIER
+    if profile.tier.level < 4:  # MANAGEMENT_TIER
         return JsonResponse({'error': 'Permission denied'}, status=403)
     
     try:
@@ -197,7 +197,7 @@ def take_user_action(request, user_id):
     """Take moderation action on a user."""
     # Check if user has moderation permissions
     profile = get_object_or_404(UserProfile, user=request.user)
-    if profile.trust_tier < 4:  # MANAGEMENT_TIER
+    if profile.tier.level < 4:  # MANAGEMENT_TIER
         return JsonResponse({'error': 'Permission denied'}, status=403)
     
     try:
@@ -259,9 +259,8 @@ def my_flags(request):
 @login_required
 def moderator_panel(request):
     """Main moderator dashboard."""
-    # Check if user has moderation permissions
-    profile = get_object_or_404(UserProfile, user=request.user)
-    if profile.trust_tier < 4:  # MANAGEMENT_TIER
+    # Check if user has moderation permissions    profile = get_object_or_404(UserProfile, user=request.user)
+    if profile.tier.level < 4:  # MANAGEMENT_TIER
         messages.error(request, 'You do not have permission to access this page.')
         return redirect('home')
     
@@ -270,10 +269,9 @@ def moderator_panel(request):
     # Get moderation statistics
     stats = {
         'pending_flags': flagging_service.get_pending_count(),
-        'total_flags': Flag.objects.count(),
-        'resolved_today': flagging_service.get_resolved_today_count(),
+        'total_flags': Flag.objects.count(),        'resolved_today': flagging_service.get_resolved_today_count(),
         'active_moderators': UserProfile.objects.filter(
-            trust_tier__gte=4,
+            tier__level__gte=4,
             user__is_active=True
         ).count(),
     }

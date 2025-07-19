@@ -136,12 +136,11 @@ def dashboard(request):
     factoids = get_factoids(counter_slug="user")
     if factoids and len(factoids) > 3:
         factoids = random.sample(factoids, 3)
-    
-    # Get user stats
+      # Get user stats
     stats = {
         'total_contributions': Contribution.objects.filter(user=request.user).count(),
         'councils_following': CouncilFollow.objects.filter(user=request.user).count(),
-        'trust_tier': user_profile.trust_tier,
+        'trust_tier': user_profile.tier.level,
         'member_since': user_profile.user.date_joined,
     }
     

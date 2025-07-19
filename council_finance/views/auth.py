@@ -31,12 +31,9 @@ def signup_view(request):
         if form.is_valid():
             user = form.save()
             
-            # Create user profile
-            profile = UserProfile.objects.create(
-                user=user,
-                email_confirmed=False,
-                trust_tier=1  # Default trust tier
-            )
+            # UserProfile is automatically created by signals.py
+            # Get the profile to access the confirmation token
+            profile = user.profile
             
             # Send confirmation email
             try:
