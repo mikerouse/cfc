@@ -168,10 +168,8 @@
                 {% endfor %}
               </select>
             </div>
-          </div>
-        </div>
-        <div id="edit-table-container" class="p-6">
-          {% include 'council_finance/enhanced_edit_figures_table.html' with figures=edit_figures council=council pending_pairs=pending_pairs %}
+          </div>        </div>        <div id="edit-table-container" class="p-6">
+          {% include 'council_finance/enhanced_edit_figures_table.html' with field_categories=field_categories council=council pending_pairs=pending_pairs %}
         </div>
       </div>
     </div>
@@ -314,13 +312,17 @@ window.councilData = {
 document.addEventListener('DOMContentLoaded', function() {
     // Load recent activity for this council
     fetch(`/api/council/{{ council.slug }}/recent-activity/`)
-        .then(response => response.json())        .then(activities => {
+        .then(response => response.json())
+        .then(data => {
             const activityList = document.getElementById('recent-activity-list');
             
             if (!activityList) {
                 console.warn('Recent activity list element not found');
                 return;
             }
+            
+            // Extract activities array from the response
+            const activities = data.activities || [];
             
             if (activities.length === 0) {
                 activityList.innerHTML = '<div class="text-center text-gray-400 py-4">No recent activity</div>';
@@ -330,10 +332,9 @@ document.addEventListener('DOMContentLoaded', function() {
             const activityHTML = activities.slice(0, 5).map(activity => `
                 <div class="flex items-center justify-between py-2 border-b border-gray-100 last:border-b-0">
                     <div>
-                        <div class="font-medium text-gray-900">${activity.field_name}</div>
-                        <div class="text-xs text-gray-500">${activity.time_ago} by ${activity.user || 'Anonymous'}</div>
+                        <div class="font-medium text-gray-900">${activity.description || 'Activity'}</div>
+                        <div class="text-xs text-gray-500">${new Date(activity.created_at).toLocaleDateString()} by ${activity.user || 'System'}</div>
                     </div>
-                    <div class="text-xs font-mono text-gray-600 max-w-20 truncate">${activity.value || 'N/A'}</div>
                 </div>
             `).join('');
             activityList.innerHTML = activityHTML;

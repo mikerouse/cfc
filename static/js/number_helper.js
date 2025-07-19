@@ -10,7 +10,13 @@ function attachNumberHelper(input, container) {
         span.className = 'ml-2 text-gray-500 text-sm';
         input.after(span);
     } else {
-        span.classList.add('text-gray-500', 'text-sm');
+        // Check if container exists and has classList method
+        if (container && typeof container.classList !== 'undefined') {
+            span.classList.add('text-gray-500', 'text-sm');
+        } else {
+            console.warn('Invalid container provided to attachNumberHelper:', container);
+            return;
+        }
     }
     function update(val) {
         const num = Number(val.replace(/,/g, ''));

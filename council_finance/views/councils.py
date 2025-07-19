@@ -348,19 +348,38 @@ def council_change_log(request, slug):
 def edit_figures_table(request, slug):
     """Display enhanced inline editing interface for council figures."""
     council = get_object_or_404(Council, slug=slug)
-      # Check if user has permission to edit
-    profile = get_object_or_404(UserProfile, user=request.user)
-    if profile.tier.level < 2:  # Minimum trust tier for editing
-        messages.error(request, 'You do not have permission to edit council figures.')
-        return redirect('council_detail', slug=slug)
     
-    # Get the current financial year
-    current_year = current_financial_year_label()
-    
-    # Get or create council year
-    council_year, created = FinancialYear.objects.get_or_create(
-        label=current_year
-    )
+    # Check if user has permission to edit
+    # Allow superusers (God Mode) to bypass permission check
+    if not request.user.is_superuser:
+        profile = get_object_or_404(UserProfile, user=request.user)
+        if profile.tier.level < 2:  # Minimum trust tier for editing
+            # If this is an AJAX request, return JSON error
+            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                return JsonResponse({
+                    'error': 'permission_denied',
+                    'message': 'You do not have permission to edit council figures.'
+                }, status=403)
+            # For regular requests, redirect with an error message
+            messages.error(request, 'You do not have permission to edit council figures.')
+            return redirect('council_detail', slug=slug)
+      # Get the requested year from URL parameters, fallback to current year
+    requested_year = request.GET.get('year')
+    if requested_year:
+        try:
+            council_year = FinancialYear.objects.get(label=requested_year)
+        except FinancialYear.DoesNotExist:
+            # If requested year doesn't exist, fall back to current year
+            current_year = current_financial_year_label()
+            council_year, created = FinancialYear.objects.get_or_create(
+                label=current_year
+            )
+    else:
+        # Default to current financial year
+        current_year = current_financial_year_label()
+        council_year, created = FinancialYear.objects.get_or_create(
+            label=current_year
+        )
     
     # Get all available data fields
     from council_finance.models import DataField
@@ -389,19 +408,18 @@ def edit_figures_table(request, slug):
             'value': existing_submissions.get(field.slug).value if existing_submissions.get(field.slug) else None,
         }
         field_categories[category].append(field_data)
-    
-    # Log page view
+      # Log page view
     log_activity(
         request,
         council=council,
         activity=f"Viewed figures editing interface",
-        extra=f"Council: {council.name}, Year: {current_year}"
+        extra=f"Council: {council.name}, Year: {council_year.label}"
     )
     
     context = {
         'council': council,
         'council_year': council_year,
-        'current_year': current_year,
+        'current_year': council_year.label,
         'field_categories': field_categories,
         'total_fields': len(data_fields),
     }

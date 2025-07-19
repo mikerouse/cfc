@@ -1,0 +1,80 @@
+<!-- Enhanced Financial Data Edit Table -->
+<div class="space-y-6">
+  {% if field_categories %}
+    {% for category, fields in field_categories.items %}
+      <div class="bg-gray-50 border border-gray-200 rounded-lg">
+        <div class="px-4 py-3 border-b border-gray-200 bg-gray-100">
+          <h4 class="text-sm font-semibold text-gray-900 uppercase tracking-wider">
+            {{ category }} ({{ fields|length }} field{{ fields|length|pluralize }})
+          </h4>
+        </div>
+        <div class="p-4">
+          <div class="space-y-3">
+            {% for field_data in fields %}
+              {% with field=field_data.field submission=field_data.submission value=field_data.value %}
+                <div class="flex items-center justify-between p-3 bg-white border border-gray-200 rounded-md hover:bg-gray-50 transition-colors">
+                  <div class="flex-1">
+                    <div class="flex items-center gap-3">
+                      <div>
+                        <h5 class="text-sm font-medium text-gray-900">{{ field.name }}</h5>
+                        {% if field.description %}
+                          <p class="text-xs text-gray-500">{{ field.description|truncatechars:80 }}</p>
+                        {% endif %}
+                      </div>
+                    </div>
+                  </div>
+                  <div class="flex items-center gap-3">
+                    {% if value %}
+                      <div class="text-sm text-gray-600">
+                        Current: <span class="font-medium">{{ value }}</span>
+                      </div>
+                    {% endif %}
+                    <button type="button" 
+                            class="edit-missing inline-flex items-center px-3 py-2 border border-blue-300 text-sm font-medium rounded-md text-blue-700 bg-blue-50 hover:bg-blue-100 transition-colors"
+                            data-field="{{ field.slug }}"
+                            data-field-name="{{ field.name }}"
+                            data-current-value="{{ value|default:'' }}"
+                            {% if field.category == 'financial' %}data-year="{{ council_year.id }}"{% endif %}>
+                      <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+                      </svg>
+                      {% if value %}Edit{% else %}Add{% endif %}
+                    </button>
+                  </div>
+                </div>
+              {% endwith %}
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+    {% endfor %}
+  {% else %}
+    <div class="text-center py-12">
+      <svg class="w-12 h-12 text-gray-400 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
+      </svg>
+      <h4 class="text-lg font-medium text-gray-900">No Financial Data Fields</h4>
+      <p class="text-gray-600">No data fields are available for this financial year.</p>
+    </div>
+  {% endif %}
+</div>
+
+<!-- Auto-attach handlers for new edit buttons -->
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Ensure edit buttons work after AJAX load
+    document.querySelectorAll('.edit-missing').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+            const fieldSlug = this.dataset.field;
+            const fieldName = this.dataset.fieldName;
+            const currentValue = this.dataset.currentValue;
+            const yearId = this.dataset.year;
+            
+            // Use the global edit modal function if available
+            if (typeof window.openEditModal === 'function') {
+                window.openEditModal(fieldSlug, fieldName, yearId, currentValue);
+            }
+        });
+    });
+});
+</script>
