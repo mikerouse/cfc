@@ -102,7 +102,7 @@ def council_recent_activity_api(request, council_slug):
         
         # Get recent activity logs for this council
         activities = ActivityLog.objects.filter(
-            council=council
+            related_council=council
         ).order_by('-created_at')[:10]
         
         activity_data = []
@@ -128,10 +128,9 @@ def field_recent_activity_api(request, council_slug, field_slug):
     try:
         council = get_object_or_404(Council, slug=council_slug)
         field = get_object_or_404(DataField, slug=field_slug)
-        
-        # Get recent activity logs for this council and field
+          # Get recent activity logs for this council and field
         activities = ActivityLog.objects.filter(
-            council=council,
+            related_council=council,
             field=field
         ).order_by('-created_at')[:10]
         
