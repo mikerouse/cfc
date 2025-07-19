@@ -61,6 +61,23 @@ class Council(models.Model):
         if not pop_field:
             self.latest_population = None
         else:
+            # First try to get from new models
+            try:
+                from .new_data_model import CouncilCharacteristic
+                char = CouncilCharacteristic.objects.filter(
+                    council=self, field=pop_field
+                ).first()
+                if char and char.value:
+                    try:
+                        self.latest_population = int(float(char.value))
+                        self.save(update_fields=["latest_population"])
+                        return
+                    except (TypeError, ValueError):
+                        pass
+            except Exception:
+                pass
+                
+            # Fall back to legacy FigureSubmission
             latest = (
                 self.figuresubmission_set.filter(field=pop_field)
                 .select_related("year")
@@ -207,7 +224,7 @@ class FinancialYear(models.Model):
     
     @property
     def display_status_badge(self):
-        """Return a CSS class for status badge display."""
+        """Return a CSS class for status badge display."""        
         status = self.status
         if status == 'current':
             return 'bg-green-100 text-green-800'
@@ -219,8 +236,18 @@ class FinancialYear(models.Model):
             return 'bg-yellow-100 text-yellow-800'
     
     def get_figure_count(self):
-        """Return the number of figure submissions for this year."""
-        return FigureSubmission.objects.filter(year=self).count()
+        """Return the number of data points for this year."""
+        # Count both legacy submissions and new financial figures
+        figure_submission_count = FigureSubmission.objects.filter(year=self).count()
+        
+        # Also count new financial figures
+        try:
+            from .new_data_model import FinancialFigure
+            financial_figure_count = FinancialFigure.objects.filter(year=self).count()
+        except Exception:
+            financial_figure_count = 0
+            
+        return figure_submission_count + financial_figure_count
     
     def can_be_deleted(self):
         """Check if this year can be safely deleted (no associated data)."""

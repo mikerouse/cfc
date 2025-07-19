@@ -61,7 +61,6 @@ from council_finance.factoids import get_factoids, previous_year_label
 from council_finance.models import (
     Council,
     FinancialYear,
-    FigureSubmission,
     UserProfile,
     UserFollow,
     PendingProfileChange,
@@ -69,6 +68,11 @@ from council_finance.models import (
     CounterDefinition,
     CouncilCounter,
     SiteCounter,
+    DataField,
+    CouncilCharacteristic,
+    FinancialFigure,
+    FinancialFigureHistory,
+    CouncilCharacteristicHistory,
     GroupCounter,
     SiteSetting,
     Factoid,
@@ -254,16 +258,14 @@ def home(request):
     if query:
         councils = Council.objects.filter(
             Q(name__icontains=query) | Q(slug__icontains=query)
-        )[:10]  # Limit to top 10 results
-
-    # Determine the latest financial year for which we have debt figures
+        )[:10]  # Limit to top 10 results    # Determine the latest financial year for which we have debt figures
     latest_year = FinancialYear.objects.order_by("-label").first()
-
+    
     if latest_year:
         field = DataField.objects.filter(slug="total_debt").first()
         total_debt = (
-            FigureSubmission.objects.filter(field=field, year=latest_year).aggregate(
-                total=Sum(Cast("value", DecimalField(max_digits=20, decimal_places=2)))
+            FinancialFigure.objects.filter(field=field, year=latest_year).aggregate(
+                total=Sum("value")
             )["total"]
             or 0
         )
@@ -275,7 +277,10 @@ def home(request):
     total_councils = Council.objects.count()
     
     # Get total data points available
-    total_data_points = FigureSubmission.objects.count()
+    # Count total data points from both characteristics and financial figures
+    total_characteristics = CouncilCharacteristic.objects.count()
+    total_financial_figures = FinancialFigure.objects.count()
+    total_data_points = total_characteristics + total_financial_figures
     
     # Get council of the day (random featured council)
     import random
@@ -350,7 +355,7 @@ def home(request):
         val = cache.get(key)
         if val is None:
             missing_cache = True
-        elif val == 0 and FigureSubmission.objects.exists():
+        elif val == 0 and (FinancialFigure.objects.exists() or CouncilCharacteristic.objects.exists()):
             # A zero total with actual figures likely means the cache was
             # populated before data was loaded. Trigger a refresh so visitors
             # see correct values without manual intervention.
@@ -361,12 +366,11 @@ def home(request):
     for gc in GroupCounter.objects.filter(promote_homepage=True):
         year_label = gc.year.label if gc.year else "all"
         key = f"counter_total:{gc.slug}:{year_label}"
-        val = cache.get(key)
-        # Group counters may be restricted to subsets of councils. We apply the
+        val = cache.get(key)        # Group counters may be restricted to subsets of councils. We apply the
         # same logic as above to ensure the totals reflect loaded data.
         if val is None:
             missing_cache = True
-        elif val == 0 and FigureSubmission.objects.exists():
+        elif val == 0 and (FinancialFigure.objects.exists() or CouncilCharacteristic.objects.exists()):
             missing_cache = True
         if gc.year and cache.get(f"{key}:prev") is None:
             missing_cache = True
@@ -479,23 +483,30 @@ def council_detail(request, slug):
         try:
             share_data = signing.loads(share_token)
         except signing.BadSignature:
-            share_data = None
-
-    # Pull all financial figures for this council so the template can
-    # present them in an engaging way.
-    # Only include figures relevant to this council's type. When a DataField
-    # has no specific types assigned it applies to all councils.
-    figures = FigureSubmission.objects.filter(council=council).select_related(
-        "year", "field"
-    )
+            share_data = None    # Get all characteristics for this council (non-year specific)
+    characteristics = CouncilCharacteristic.objects.filter(council=council).select_related("field")
     if council.council_type_id:
-        figures = figures.filter(
+        characteristics = characteristics.filter(
             Q(field__council_types__isnull=True)
             | Q(field__council_types=council.council_type)
         )
     else:
-        figures = figures.filter(field__council_types__isnull=True)
-    figures = figures.order_by("year__label", "field__slug").distinct()
+        characteristics = characteristics.filter(field__council_types__isnull=True)
+    
+    # Get all financial figures for this council (year specific)
+    financial_figures = FinancialFigure.objects.filter(council=council).select_related(
+        "year", "field"
+    )
+    if council.council_type_id:
+        financial_figures = financial_figures.filter(
+            Q(field__council_types__isnull=True)
+            | Q(field__council_types=council.council_type)
+        )
+    else:
+        financial_figures = financial_figures.filter(field__council_types__isnull=True)
+    financial_figures = financial_figures.order_by("year__label", "field__slug").distinct()
+      # Keep financial_figures as QuerySet for filtering, create figures list for template
+    figures = list(financial_figures)
 
     years = list(
         FinancialYear.objects.order_by("-label").exclude(label__iexact="general")
@@ -604,16 +615,21 @@ def council_detail(request, slug):
             else:
                 display = "No data"
             meta_values.append({"field": field, "value": display})
-            continue
-        fs = (
-            FigureSubmission.objects.filter(council=council, field=field)
-            .order_by("-year__label")
-            .first()
-        )
-        if fs:
-            display = field.display_value(fs.value)
+            continue        # First check if it's a council characteristic
+        characteristic = CouncilCharacteristic.objects.filter(council=council, field=field).first()
+        if characteristic:
+            display = field.display_value(characteristic.value)
         else:
-            display = "No data"
+            # Then check financial figures (get the most recent)
+            financial_figure = (
+                FinancialFigure.objects.filter(council=council, field=field)
+                .order_by("-year__label")
+                .first()
+            )
+            if financial_figure:
+                display = field.display_value(str(financial_figure.value))
+            else:
+                display = "No data"
         meta_values.append({"field": field, "value": display})
 
     is_following = False
@@ -668,9 +684,9 @@ def council_detail(request, slug):
             'type': 'defunct',
             'message': 'This council is no longer active. It may have been merged with another authority or dissolved.',
             'timestamp': None
-        })
-        
-    edit_figures = figures.filter(year=edit_selected_year) if edit_selected_year else figures.none()
+        })        
+    # Use the QuerySet for filtering, not the list
+    edit_figures = financial_figures.filter(year=edit_selected_year) if edit_selected_year else financial_figures.none()
     
     # For edit tab, we want to show ALL available fields, not just existing submissions
     if tab == "edit" and edit_selected_year:
@@ -691,17 +707,24 @@ def council_detail(request, slug):
         }
         
         for field in all_fields.order_by('name').distinct():
-            if field.id in existing_figures:
-                # Use existing submission
+            if field.id in existing_figures:                # Use existing submission
                 edit_figures_list.append(existing_figures[field.id])
             else:
                 # Create a placeholder figure for editing
-                figure = FigureSubmission(
-                    council=council,
-                    field=field, 
-                    year=edit_selected_year,
-                    value=None
-                )
+                if field.category == 'financial':
+                    figure = FinancialFigure(
+                        council=council,
+                        field=field, 
+                        year=edit_selected_year,
+                        value=None
+                    )
+                else:
+                    # For characteristics, create a placeholder
+                    figure = CouncilCharacteristic(
+                        council=council,
+                        field=field,
+                        value=None
+                    )
                 edit_figures_list.append(figure)
         
         edit_figures = edit_figures_list
@@ -801,18 +824,30 @@ def council_detail(request, slug):
                             if value > 100:
                                 errors.append(f"{field.name}: Percentage cannot exceed 100%")
                                 continue
-                        
-                        # Create or update the figure submission
-                        figure, created = FigureSubmission.objects.get_or_create(
-                            council=council,
-                            field=field,
-                            year=year,
-                            defaults={'value': str(value)}
-                        )
-                        
-                        if not created:
-                            figure.value = str(value)
-                            figure.save()
+                          # Create or update the financial figure
+                        if field.category == 'financial':
+                            figure, created = FinancialFigure.objects.get_or_create(
+                                council=council,
+                                field=field,
+                                year=year,
+                                defaults={'value': value}
+                            )
+                            
+                            if not created:
+                                figure.value = value
+                                figure.save()
+                        else:
+                            # Handle characteristics (no year)
+                            characteristic, created = CouncilCharacteristic.objects.get_or_create(
+                                council=council,
+                                field=field,
+                                defaults={'value': str(value), 'updated_by': request.user}
+                            )
+                            
+                            if not created:
+                                characteristic.value = str(value)
+                                characteristic.updated_by = request.user
+                                characteristic.save()
                         
                         saved_count += 1
                         
@@ -2344,8 +2379,7 @@ def list_metric(request, list_id):
         council_list = request.user.council_lists.get(id=list_id)
         metric = request.GET.get('metric', 'total_debt')
         year_id = request.GET.get('year')
-        
-        # Get councils in the list with their metric values
+          # Get councils in the list with their metric values
         councils = council_list.councils.all()
         results = {}
         total = 0
@@ -2354,19 +2388,19 @@ def list_metric(request, list_id):
             try:
                 if year_id:
                     year = FinancialYear.objects.get(id=year_id)
-                    submission = FigureSubmission.objects.filter(
+                    financial_figure = FinancialFigure.objects.filter(
                         council=council, 
                         year=year,
                         field__slug=metric
                     ).first()
-                    value = submission.value if submission else 0
+                    value = financial_figure.value if financial_figure else 0
                 else:
                     # Use latest available data
-                    submission = FigureSubmission.objects.filter(
+                    financial_figure = FinancialFigure.objects.filter(
                         council=council,
                         field__slug=metric
                     ).order_by('-year__label').first()
-                    value = submission.value if submission else 0
+                    value = financial_figure.value if financial_figure else 0
                 
                 results[council.id] = {
                     'value': float(value) if value else 0,

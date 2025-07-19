@@ -15,9 +15,11 @@ from django.conf import settings
 import json
 
 from council_finance.models import (
-    Council, FinancialYear, FigureSubmission, 
+    Council, FinancialYear, 
     UserProfile, ActivityLog, CounterDefinition, SiteCounter,
-    CouncilCounter, SiteSetting
+    CouncilCounter, SiteSetting, DataField,
+    CouncilCharacteristic, FinancialFigure, FinancialFigureHistory,
+    CouncilCharacteristicHistory, CouncilFollow
 )
 from council_finance.agents.counter_agent import CounterAgent
 from council_finance.factoids import get_factoids
@@ -103,11 +105,19 @@ def council_detail(request, slug):
     current_label = current_financial_year_label()
     for y in years:
         y.display = "Current Year to Date" if y.label == current_label else y.label
-    
-    # Get recent figure submissions
-    recent_submissions = FigureSubmission.objects.filter(
+      # Get recent council updates (combination of characteristic and financial changes)
+    recent_characteristic_changes = CouncilCharacteristicHistory.objects.filter(
         council=council
-    ).order_by('-id')[:10]
+    ).order_by('-changed_at')[:5]
+    
+    recent_financial_changes = FinancialFigureHistory.objects.filter(
+        council=council
+    ).order_by('-changed_at')[:5]
+    
+    # Combine and sort by most recent
+    recent_submissions = list(recent_characteristic_changes) + list(recent_financial_changes)
+    recent_submissions.sort(key=lambda x: getattr(x, 'changed_at', getattr(x, 'created', timezone.now())), reverse=True)
+    recent_submissions = recent_submissions[:10]
     
     # Get factoids for this council
     factoids = get_factoids(counter_slug="council", context={"council_name": council.name})
@@ -171,14 +181,11 @@ def council_detail(request, slug):
         is_following = CouncilFollow.objects.filter(
             user=request.user,
             council=council
-        ).exists()
-
-    # Get meta values (characteristics) for this council
+        ).exists()    # Get council characteristics (meta values) for this council
     meta_values = []
-    if council_year:
-        meta_values = FigureSubmission.objects.filter(
-            council=council,
-            year=council_year
+    if council:
+        meta_values = CouncilCharacteristic.objects.filter(
+            council=council
         ).select_related('field')[:10]  # Limit to prevent too many results
     
     # Log page view
@@ -380,35 +387,44 @@ def edit_figures_table(request, slug):
         council_year, created = FinancialYear.objects.get_or_create(
             label=current_year
         )
-    
-    # Get all available data fields
-    from council_finance.models import DataField
+      # Get all available data fields
     data_fields = DataField.objects.all().order_by('category', 'name')
     
-    # Get existing figure submissions for this council and year
-    existing_submissions = {}
-    submissions = FigureSubmission.objects.filter(
+    # Get existing data for this council
+    existing_data = {}
+    
+    # Get characteristics (non-year specific)
+    characteristics = CouncilCharacteristic.objects.filter(
+        council=council
+    ).select_related('field')
+    
+    for char in characteristics:
+        existing_data[char.field.slug] = char
+    
+    # Get financial figures for the specified year
+    financial_figures = FinancialFigure.objects.filter(
         council=council,
         year=council_year
     ).select_related('field')
     
-    for submission in submissions:
-        existing_submissions[submission.field.slug] = submission
+    for figure in financial_figures:
+        existing_data[figure.field.slug] = figure
     
     # Group fields by category
     field_categories = {}
-    for field in data_fields:
+    for field in data_fields:        
         category = field.category or 'Other'
         if category not in field_categories:
             field_categories[category] = []
-        
+            
         field_data = {
             'field': field,
-            'submission': existing_submissions.get(field.slug),
-            'value': existing_submissions.get(field.slug).value if existing_submissions.get(field.slug) else None,
+            'submission': existing_data.get(field.slug),
+            'value': existing_data.get(field.slug).value if existing_data.get(field.slug) else None,
         }
         field_categories[category].append(field_data)
-      # Log page view
+    
+    # Log page view
     log_activity(
         request,
         council=council,
@@ -480,20 +496,18 @@ def leaderboards(request):
     
     # Get leaderboard type
     leaderboard_type = request.GET.get('type', 'total_debt')
-    
-    # Get councils with data for the current year
+      # Get councils with financial data for the current year
     councils = Council.objects.filter(
-        figuresubmission__year__label=current_year
+        financial_figures__year__label=current_year
     ).distinct()
     
     # Calculate leaderboard data based on type
     leaderboard_data = []
     
-    if leaderboard_type == 'total_debt':
-        # Calculate total debt for each council
+    if leaderboard_type == 'total_debt':        # Calculate total debt for each council
         for council in councils:
             try:
-                debt_total = FigureSubmission.objects.filter(
+                debt_total = FinancialFigure.objects.filter(
                     council=council,
                     year=financial_year,
                     field__category='Debt'
@@ -509,11 +523,10 @@ def leaderboards(request):
             except Exception:
                 continue
     
-    elif leaderboard_type == 'total_assets':
-        # Calculate total assets for each council
+    elif leaderboard_type == 'total_assets':        # Calculate total assets for each council
         for council in councils:
             try:
-                assets_total = FigureSubmission.objects.filter(
+                assets_total = FinancialFigure.objects.filter(
                     council=council,
                     year=financial_year,
                     field__category='Assets'

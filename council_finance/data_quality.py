@@ -1,13 +1,15 @@
 from typing import Iterable
 
 from django.db import transaction
+from django.db import models
 
 from .models import (
     Council,
     FinancialYear,
     DataField,
-    FigureSubmission,
     DataIssue,
+    CouncilCharacteristic,
+    FinancialFigure,
 )
 # Import the list of protected slugs so we know which fields apply across
 # all years. These fields are not repeated for each financial period and
@@ -20,7 +22,7 @@ from .models.field import CHARACTERISTIC_SLUGS
 
 # Map characteristic slugs that live directly on the ``Council`` model to a
 # lambda returning their value. This allows the assessment routine to check
-# those attributes without relying on a ``FigureSubmission`` entry.
+# those attributes without relying on a separate data entry.
 COUNCIL_ATTRS = {
     "council_type": lambda c: c.council_type_id,
     "council_nation": lambda c: c.council_nation_id,
@@ -48,16 +50,25 @@ def cleanup_invalid_field_references() -> int:
     invalid_issues.delete()
     logger.info("Removed invalid DataIssue records")
     logger.info("removed_count after DataIssue cleanup: %d", removed_count)
+      # Remove invalid CouncilCharacteristic records pointing to invalid fields
+    from .models import CouncilCharacteristic
+    invalid_characteristics = CouncilCharacteristic.objects.exclude(field_id__in=valid_field_ids)
+    if invalid_characteristics.exists():
+        logger.info(f"Removing {invalid_characteristics.count()} invalid CouncilCharacteristic records")
+    removed_count += invalid_characteristics.count()
+    invalid_characteristics.delete()
+    logger.info("Removed invalid CouncilCharacteristic records")
+    logger.info("removed_count after CouncilCharacteristic cleanup: %d", removed_count)
     
-    # Remove FigureSubmissions pointing to invalid fields
-    from .models import FigureSubmission
-    invalid_submissions = FigureSubmission.objects.exclude(field_id__in=valid_field_ids)
-    if invalid_submissions.exists():
-        logger.info(f"Removing {invalid_submissions.count()} invalid FigureSubmission records")
-    removed_count += invalid_submissions.count()
-    invalid_submissions.delete()
-    logger.info("Removed invalid FigureSubmission records")
-    logger.info("removed_count after FigureSubmission cleanup: %d", removed_count)
+    # Remove invalid FinancialFigure records pointing to invalid fields
+    from .models import FinancialFigure
+    invalid_figures = FinancialFigure.objects.exclude(field_id__in=valid_field_ids)
+    if invalid_figures.exists():
+        logger.info(f"Removing {invalid_figures.count()} invalid FinancialFigure records")
+    removed_count += invalid_figures.count()
+    invalid_figures.delete()
+    logger.info("Removed invalid FinancialFigure records")
+    logger.info("removed_count after FinancialFigure cleanup: %d", removed_count)
 
     # Remove Contributions pointing to invalid fields
     from .models import Contribution
@@ -82,9 +93,8 @@ def validate_field_data_consistency() -> int:
 
     logger = logging.getLogger(__name__)
     logger.info("Starting validate_field_data_consistency()...")
-    
-    # Check for DataIssues that should no longer exist because data has been provided
-    from .models import FigureSubmission, Contribution
+      # Check for DataIssues that should no longer exist because data has been provided
+    from .models import Contribution
     
     # Get all missing DataIssues upfront
     missing_issues = list(DataIssue.objects.filter(issue_type="missing").select_related('council', 'field', 'year'))
@@ -93,15 +103,20 @@ def validate_field_data_consistency() -> int:
     if not missing_issues:
         logger.info("No missing issues to validate")
         return 0
+      # Build sets of existing data for efficient lookup
+    logger.info("Building lookup sets for existing data and contributions...")
     
-    # Build sets of existing data for efficient lookup
-    logger.info("Building lookup sets for existing submissions and contributions...")
-    
-    # Get all figure submissions as a set of tuples
-    existing_submissions = set(
-        FigureSubmission.objects.values_list('council_id', 'field_id', 'year_id')
+    # Get all existing data as a set of tuples (council_id, field_id, year_id)
+    # For characteristics, year_id will be None
+    existing_characteristics = set(
+        (char.council_id, char.field_id, None) 
+        for char in CouncilCharacteristic.objects.values('council_id', 'field_id')
     )
-    logger.info(f"Found {len(existing_submissions)} existing submissions")
+    existing_financial_figures = set(
+        FinancialFigure.objects.values_list('council_id', 'field_id', 'year_id')
+    )
+    existing_submissions = existing_characteristics.union(existing_financial_figures)
+    logger.info(f"Found {len(existing_submissions)} existing data points")
     
     # Get all pending contributions as a set of tuples
     pending_contributions = set(
@@ -180,8 +195,7 @@ def assess_data_issues() -> int:
     logger.info("Loading fields with council type relationships...")
     fields = list(DataField.objects.prefetch_related('council_types').exclude(slug="council_name"))
     field_count = len(fields)
-    
-    logger.info("Loading years...")
+      logger.info("Loading years...")
     years = list(FinancialYear.objects.all())
     year_count = len(years)
     
@@ -192,22 +206,27 @@ def assess_data_issues() -> int:
     for field in fields:
         field_council_types[field.id] = set(field.council_types.values_list('id', flat=True))
     
-    # Build yearless field set
+    # Build yearless field set from characteristics
     yearless_field_ids = set(
-        FigureSubmission.objects.filter(year__isnull=True).values_list("field_id", flat=True)
-    )
-    yearless_field_ids.update(
+        CouncilCharacteristic.objects.values_list("field_id", flat=True)
+    )    yearless_field_ids.update(
         f.id for f in fields if f.slug in CHARACTERISTIC_SLUGS or f.category == "characteristic"
     )
     logger.info(f"Found {len(yearless_field_ids)} yearless fields")
     
-    # Get ALL existing submissions in one query
-    logger.info("Loading existing submissions...")
+    # Get ALL existing data from both model types in one query
+    logger.info("Loading existing data...")
     existing_submissions = {}
-    submission_queryset = FigureSubmission.objects.select_related('field').all()
-    for fs in submission_queryset:
-        existing_submissions[(fs.council_id, fs.field_id, fs.year_id)] = fs
-    logger.info(f"Loaded {len(existing_submissions)} existing submissions")
+    
+    # Load characteristics (year_id will be None)
+    for char in CouncilCharacteristic.objects.select_related('field').all():
+        existing_submissions[(char.council_id, char.field_id, None)] = char
+    
+    # Load financial figures (year_id will be set)
+    for fig in FinancialFigure.objects.select_related('field').all():
+        existing_submissions[(fig.council_id, fig.field_id, fig.year_id)] = fig
+    
+    logger.info(f"Loaded {len(existing_submissions)} existing data points")
     
     # Get ALL contributed data in one query
     logger.info("Loading contributions...")
@@ -343,15 +362,14 @@ def assess_data_issues_chunked() -> int:
     fields = list(DataField.objects.prefetch_related('council_types').exclude(slug="council_name"))
     years = list(FinancialYear.objects.all())
     year_ids = [y.id for y in years]
-    
-    # Build field-to-council-types mapping once
+      # Build field-to-council-types mapping once
     field_council_types = {}
     for field in fields:
         field_council_types[field.id] = set(field.council_types.values_list('id', flat=True))
     
-    # Build yearless field set
+    # Build yearless field set from characteristics  
     yearless_field_ids = set(
-        FigureSubmission.objects.filter(year__isnull=True).values_list("field_id", flat=True)
+        CouncilCharacteristic.objects.values_list("field_id", flat=True)
     )
     yearless_field_ids.update(
         f.id for f in fields if f.slug in CHARACTERISTIC_SLUGS or f.category == "characteristic"
@@ -365,16 +383,20 @@ def assess_data_issues_chunked() -> int:
     
     for page_num in councils_paginator.page_range:
         logger.info(f"Processing council chunk {page_num}/{councils_paginator.num_pages}")
-        
-        councils_page = councils_paginator.get_page(page_num)
+          councils_page = councils_paginator.get_page(page_num)
         councils = list(councils_page)
         council_ids = [c.id for c in councils]
         
-        # Load submissions for these councils only
+        # Load data for these councils only
         existing_submissions = {}
-        submissions_qs = FigureSubmission.objects.filter(council_id__in=council_ids).select_related('field')
-        for fs in submissions_qs:
-            existing_submissions[(fs.council_id, fs.field_id, fs.year_id)] = fs
+        
+        # Load characteristics for these councils
+        for char in CouncilCharacteristic.objects.filter(council_id__in=council_ids).select_related('field'):
+            existing_submissions[(char.council_id, char.field_id, None)] = char
+            
+        # Load financial figures for these councils
+        for fig in FinancialFigure.objects.filter(council_id__in=council_ids).select_related('field'):
+            existing_submissions[(fig.council_id, fig.field_id, fig.year_id)] = fig
         
         # Load contributions for these councils only
         from .models import Contribution
@@ -479,14 +501,15 @@ def quick_assess_data_issues() -> int:
     council_count = Council.objects.count()
     field_count = DataField.objects.exclude(slug="council_name").count()
     year_count = FinancialYear.objects.count()
+      logger.info(f"Database contains: {council_count} councils, {field_count} fields, {year_count} years")
     
-    logger.info(f"Database contains: {council_count} councils, {field_count} fields, {year_count} years")
-    
-    # Get existing data counts
-    submission_count = FigureSubmission.objects.count()
+    # Get existing data counts from both model types
+    characteristic_count = CouncilCharacteristic.objects.count()
+    financial_figure_count = FinancialFigure.objects.count()
+    submission_count = characteristic_count + financial_figure_count
     contribution_count = Contribution.objects.filter(status="pending").count()
     
-    logger.info(f"Existing data: {submission_count} submissions, {contribution_count} pending contributions")
+    logger.info(f"Existing data: {submission_count} total data points ({characteristic_count} characteristics + {financial_figure_count} financial figures), {contribution_count} pending contributions")
     
     # Rough estimate: assume 70% of council/field/year combinations need data
     # This is just a ballpark figure - actual assessment will be more precise
@@ -623,8 +646,7 @@ def assess_data_issues_simple() -> int:
     count = 0
     
     for council in councils:
-        for field in char_fields:
-            # Skip if already contributed
+        for field in char_fields:            # Skip if already contributed
             if (council.id, field.id) in contributed_keys:
                 continue
             
@@ -638,15 +660,12 @@ def assess_data_issues_simple() -> int:
             elif field.slug == 'council_website':
                 has_data = bool(council.website and council.website.strip())
             else:
-                # For other characteristics, check if a FigureSubmission exists
-                has_data = FigureSubmission.objects.filter(
+                # For other characteristics, check if a CouncilCharacteristic exists
+                has_data = CouncilCharacteristic.objects.filter(
                     council=council,
-                    field=field,
-                    year__isnull=True
+                    field=field
                 ).exclude(
                     value__in=['', None]
-                ).exclude(
-                    needs_populating=True
                 ).exists()
             
             if not has_data:

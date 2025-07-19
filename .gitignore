@@ -60,6 +60,7 @@ pip-wheel-metadata/
 
 # VS Code
 .vscode/
+.chrome-debug/
 
 # IDEs
 .idea/

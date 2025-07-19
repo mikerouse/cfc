@@ -7,6 +7,7 @@ from django.shortcuts import render
 from django.contrib.auth.decorators import login_required
 from django.core.paginator import Paginator
 import random
+from django.db.models import Q
 
 from council_finance.models import Council, UserProfile, ActivityLog
 from council_finance.factoids import get_factoids
@@ -19,10 +20,9 @@ def home(request):
     """Main homepage view."""
     # Get the current financial year
     current_year = current_financial_year_label()
-    
-    # Get featured councils (top 10 by data completeness or activity)
+      # Get featured councils (top 10 by data completeness or activity)
     featured_councils = Council.objects.filter(
-        figuresubmission__year__label=current_year
+        Q(financial_figures__year__label=current_year) | Q(characteristics__isnull=False)
     ).distinct()[:10]
     
     # Get random factoids for the homepage

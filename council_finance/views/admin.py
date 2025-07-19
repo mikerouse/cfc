@@ -11,13 +11,16 @@ from django.template.loader import render_to_string
 from council_finance.models import (
     Council,
     FinancialYear,
-    FigureSubmission,
     CouncilList,
     CounterDefinition,
     SiteCounter,
     GroupCounter,
     DataField,
     ActivityLog,
+    CouncilCharacteristic,
+    FinancialFigure,
+    FinancialFigureHistory,
+    CouncilCharacteristicHistory,
 )
 from council_finance.forms import (
     CounterDefinitionForm,
@@ -470,10 +473,10 @@ def preview_counter_value(request):
     try:
         council = Council.objects.get(slug=council_slug)
         figure_map = {}
-        missing = set()
-        for f in FigureSubmission.objects.filter(council=council, year=year):
+        missing = set()        # Get financial figures for this council and year
+        for f in FinancialFigure.objects.filter(council=council, year=year):
             slug = f.field.slug
-            if f.needs_populating or f.value in (None, ""):
+            if f.value is None:
                 missing.add(slug)
                 continue
             try:
@@ -626,9 +629,8 @@ def preview_factoid(request):
         except (TypeError, ValueError):
             counter = None
     if not counter:
-        return JsonResponse({"error": "Invalid counter"}, status=400)
-
-    if not FigureSubmission.objects.filter(council__slug=council_slug, year=year).exists():
+        return JsonResponse({"error": "Invalid counter"}, status=400)    # Check if there's any financial data for this council and year
+    if not FinancialFigure.objects.filter(council__slug=council_slug, year=year).exists():
         return JsonResponse({"error": "No data for the selected year"}, status=400)
 
     agent = CounterAgent()
@@ -785,11 +787,12 @@ def factoid_delete(request, slug):
 def god_mode(request):
     """Admin god mode panel."""
     from django.contrib import messages
-    from django.http import HttpResponseRedirect
+    from django.http import HttpResponseRedirect    
     from django.urls import reverse
     from ..models import (
-        FinancialYear, Council, DataField, FigureSubmission, 
-        DataIssue, Contribution, RejectionLog, UserProfile
+        FinancialYear, Council, DataField, 
+        DataIssue, Contribution, RejectionLog, UserProfile,
+        CouncilCharacteristic, FinancialFigure
     )
     from ..year_utils import get_recommended_next_year
     from ..smart_data_quality import smart_assess_data_issues, get_data_collection_priorities
@@ -879,7 +882,10 @@ def god_mode(request):
     # Data quality surveillance
     total_councils = Council.objects.filter(status='active').count()
     total_fields = DataField.objects.count()
-    total_submissions = FigureSubmission.objects.count()
+    # Count total data points from both characteristics and financial figures
+    total_characteristics = CouncilCharacteristic.objects.count()
+    total_financial_figures = FinancialFigure.objects.count()
+    total_submissions = total_characteristics + total_financial_figures
     max_possible_submissions = total_councils * total_fields * financial_years.count()
     
     data_quality_surveillance = {
@@ -893,10 +899,9 @@ def god_mode(request):
         'bulk_operations_24h': 0,  # TODO: Implement bulk operation tracking
         'admin_activities_24h': 0,  # TODO: Implement admin activity tracking
         'unusual_patterns': 0,  # TODO: Implement unusual pattern detection
-    }
-      # Council activity hotspots - simplify to councils with most submissions
+    }    # Council activity hotspots - councils with most recent data updates
     council_activity_hotspots = Council.objects.filter(
-        figuresubmission__isnull=False
+        Q(financial_figures__isnull=False) | Q(characteristics__isnull=False)
     ).distinct()[:5]
       # Recent rejections
     recent_rejections = RejectionLog.objects.order_by('-created')[:10]

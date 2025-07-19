@@ -57,15 +57,20 @@ def list_field_options(request, field_slug=None, slug=None):
     
     try:
         field = get_object_or_404(DataField, slug=slug)
+          # Get unique values for this field from both characteristics and financial figures
+        from council_finance.models import CouncilCharacteristic, FinancialFigure
         
-        # Get unique values for this field from submissions
-        from council_finance.models import FigureSubmission
-        values = FigureSubmission.objects.filter(
+        characteristic_values = CouncilCharacteristic.objects.filter(
             field=field
         ).values_list('value', flat=True).distinct()
         
-        # Filter out None/empty values and sort
-        options = sorted([v for v in values if v is not None and v != ''])
+        financial_values = FinancialFigure.objects.filter(
+            field=field
+        ).values_list('value', flat=True).distinct()
+        
+        # Combine and filter out None/empty values
+        all_values = list(characteristic_values) + [str(v) for v in financial_values if v is not None]
+        options = sorted(list(set([v for v in all_values if v is not None and v != ''])))
         
         return JsonResponse({
             'field_name': field.name,

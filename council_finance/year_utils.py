@@ -262,7 +262,7 @@ def get_data_quality_summary():
     Returns:
         dict with statistics about year coverage and data quality
     """
-    from .models import FigureSubmission
+    from .models import FinancialFigure
     
     summary = {
         'total_years': FinancialYear.objects.count(),
@@ -271,10 +271,10 @@ def get_data_quality_summary():
         'forecast_years': FinancialYear.objects.filter(is_forecast=True).count(),
         'finalized_years': FinancialYear.objects.filter(is_provisional=False, is_forecast=False).count(),
         'years_with_data': FinancialYear.objects.filter(
-            id__in=FigureSubmission.objects.values_list('year_id', flat=True).distinct()
+            id__in=FinancialFigure.objects.values_list('year_id', flat=True).distinct()
         ).count(),
         'years_without_data': FinancialYear.objects.exclude(
-            id__in=FigureSubmission.objects.values_list('year_id', flat=True).distinct()
+            id__in=FinancialFigure.objects.values_list('year_id', flat=True).distinct()
         ).count(),
     }
     

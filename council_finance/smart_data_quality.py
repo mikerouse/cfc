@@ -17,7 +17,8 @@ from .models import (
     Council,
     FinancialYear,
     DataField,
-    FigureSubmission,
+    CouncilCharacteristic,
+    FinancialFigure,
     DataIssue,
 )
 from .models.field import CHARACTERISTIC_SLUGS
@@ -43,13 +44,12 @@ def get_relevant_financial_years() -> Set[int]:
         recent_years = FinancialYear.objects.order_by('-label')[:2]
         relevant_years.update(recent_years.values_list('id', flat=True))
         logger.info(f"No current year marked, using {len(recent_years)} most recent years")
-    
-    # Add any years that already have substantial data (>10% populated)
+      # Add any years that already have substantial data (>10% populated)
     for year in FinancialYear.objects.all():
-        submission_count = FigureSubmission.objects.filter(year=year).count()
+        submission_count = FinancialFigure.objects.filter(year=year).count()
         if submission_count > 100:  # Arbitrary threshold for "substantial data"
             relevant_years.add(year.id)
-            logger.info(f"Year {year.label} has {submission_count} submissions, marking as relevant")
+            logger.info(f"Year {year.label} has {submission_count} financial figures, marking as relevant")
     
     logger.info(f"Identified {len(relevant_years)} relevant financial years")
     return relevant_years
@@ -121,19 +121,15 @@ def smart_assess_data_issues() -> int:
             
             # Check if council already has this attribute
             has_data = False
-            
-            if field.slug in COUNCIL_ATTRS:
+              if field.slug in COUNCIL_ATTRS:
                 has_data = COUNCIL_ATTRS[field.slug](council)
             else:
-                # For other characteristics, check if a FigureSubmission exists
-                has_data = FigureSubmission.objects.filter(
+                # For other characteristics, check if a CouncilCharacteristic exists
+                has_data = CouncilCharacteristic.objects.filter(
                     council=council,
-                    field=field,
-                    year__isnull=True
+                    field=field
                 ).exclude(
                     value__in=['', None]
-                ).exclude(
-                    needs_populating=True
                 ).exists()
             
             if not has_data:
@@ -160,10 +156,9 @@ def smart_assess_data_issues() -> int:
     field_council_types = {}
     for field in financial_fields:
         field_council_types[field.id] = set(field.council_types.values_list('id', flat=True))
-    
-    # Get existing financial submissions for ALL years
+      # Get existing financial figures for ALL years
     existing_submissions = {}
-    submission_queryset = FigureSubmission.objects.select_related('field')
+    submission_queryset = FinancialFigure.objects.select_related('field')
     for fs in submission_queryset:
         existing_submissions[(fs.council_id, fs.field_id, fs.year_id)] = fs
     
@@ -183,10 +178,9 @@ def smart_assess_data_issues() -> int:
                 # Skip if already contributed
                 if key in contributed_keys:
                     continue
-                
-                # Check if we have existing data
+                  # Check if we have existing data
                 fs = existing_submissions.get(key)
-                if not fs or fs.needs_populating or fs.value in (None, ""):
+                if not fs or fs.value in (None, ""):
                     # Missing financial data
                     issue = DataIssue(
                         council=council,
@@ -286,10 +280,9 @@ def get_data_collection_priorities() -> Dict[str, any]:
     for year in relevant_years:
         total_possible = Council.objects.filter(status='active').count() * \
                         DataField.objects.exclude(category='characteristic').count()
-        
-        actual_submissions = FigureSubmission.objects.filter(year=year).exclude(
-            value__in=['', None]
-        ).exclude(needs_populating=True).count()
+          actual_submissions = FinancialFigure.objects.filter(year=year).exclude(
+            value__in=[None]
+        ).count()
         
         completeness = (actual_submissions / max(total_possible, 1)) * 100
         
