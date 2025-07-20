@@ -21,7 +21,7 @@ function contributeTable() {
     const pageSize = params.pageSize || container.dataset.pageSize || sizeInput.value;
     const q = searchInput.value.trim();
     const type = typeSelect.value;
-    let url = `/contribute/issues/?type=${type}&page=${page}&order=${order}&dir=${dir}&page_size=${pageSize}`;
+    let url = `/contribute/data-issues-table/?type=${type}&page=${page}&order=${order}&dir=${dir}&page_size=${pageSize}`;
     if (q) url += `&q=${encodeURIComponent(q)}`;
     if (params.refresh) url += '&refresh=1';
     if (loading) loading.classList.remove('hidden');

@@ -187,15 +187,15 @@ def assess_data_issues() -> int:
     
     logger.info(f"Cleared {deleted_total} existing DataIssue records")
     
-    # Get all ACTIVE data with optimized queries upfront
-    logger.info("Loading active councils...")
+    # Get all ACTIVE data with optimized queries upfront    logger.info("Loading active councils...")
     councils = list(Council.objects.select_related('council_type').filter(status='active'))
     council_count = len(councils)
     
     logger.info("Loading fields with council type relationships...")
     fields = list(DataField.objects.prefetch_related('council_types').exclude(slug="council_name"))
     field_count = len(fields)
-      logger.info("Loading years...")
+    
+    logger.info("Loading years...")
     years = list(FinancialYear.objects.all())
     year_count = len(years)
     
@@ -205,11 +205,11 @@ def assess_data_issues() -> int:
     field_council_types = {}
     for field in fields:
         field_council_types[field.id] = set(field.council_types.values_list('id', flat=True))
-    
-    # Build yearless field set from characteristics
+      # Build yearless field set from characteristics
     yearless_field_ids = set(
         CouncilCharacteristic.objects.values_list("field_id", flat=True)
-    )    yearless_field_ids.update(
+    )
+    yearless_field_ids.update(
         f.id for f in fields if f.slug in CHARACTERISTIC_SLUGS or f.category == "characteristic"
     )
     logger.info(f"Found {len(yearless_field_ids)} yearless fields")
@@ -374,16 +374,14 @@ def assess_data_issues_chunked() -> int:
     yearless_field_ids.update(
         f.id for f in fields if f.slug in CHARACTERISTIC_SLUGS or f.category == "characteristic"
     )
-    
-    # Process councils in chunks
+      # Process councils in chunks
     chunk_size = 50  # Process 50 councils at a time
     councils_paginator = Paginator(Council.objects.select_related('council_type').all(), chunk_size)
     
     total_count = 0
-    
     for page_num in councils_paginator.page_range:
         logger.info(f"Processing council chunk {page_num}/{councils_paginator.num_pages}")
-          councils_page = councils_paginator.get_page(page_num)
+        councils_page = councils_paginator.get_page(page_num)
         councils = list(councils_page)
         council_ids = [c.id for c in councils]
         
@@ -496,12 +494,11 @@ def quick_assess_data_issues() -> int:
     
     logger = logging.getLogger(__name__)
     logger.info("Starting quick data issues assessment (count only)...")
-    
-    # Get basic counts
+      # Get basic counts
     council_count = Council.objects.count()
     field_count = DataField.objects.exclude(slug="council_name").count()
     year_count = FinancialYear.objects.count()
-      logger.info(f"Database contains: {council_count} councils, {field_count} fields, {year_count} years")
+    logger.info(f"Database contains: {council_count} councils, {field_count} fields, {year_count} years")
     
     # Get existing data counts from both model types
     characteristic_count = CouncilCharacteristic.objects.count()
