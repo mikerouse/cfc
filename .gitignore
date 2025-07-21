@@ -75,3 +75,6 @@ Thumbs.db
 # Editor backups
 *~
 *.swp
+
+# Node.js Modules
+node_modules/
