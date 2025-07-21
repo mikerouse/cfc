@@ -84,14 +84,21 @@ TEMPLATES = [
 WSGI_APPLICATION = "council_finance.wsgi.application"
 
 DATABASES = {
-    "default": {
-        "ENGINE": "django.db.backends.sqlite3",
-        "NAME": BASE_DIR / "db.sqlite3",
-        # Increase the lock timeout to reduce "database is locked" errors
-        # when multiple connections (such as WebSockets) access SQLite.
-        "OPTIONS": {"timeout": 20},
-    }
+    "default": dj_database_url.parse(
+        os.getenv('DATABASE_URL', 'postgresql://localhost/councilfinancecounters'),
+        conn_max_age=600,
+        conn_health_checks=True,
+    )
 }
+
+# SQLite configuration (for rollback if needed)
+# DATABASES = {
+#     "default": {
+#         "ENGINE": "django.db.backends.sqlite3",
+#         "NAME": BASE_DIR / "db.sqlite3",
+#         "OPTIONS": {"timeout": 20},
+#     }
+# }
 
 AUTH_PASSWORD_VALIDATORS = []
 LANGUAGE_CODE = "en-us"

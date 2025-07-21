@@ -6,7 +6,13 @@
       "Bash(python manage.py:*)",
       "Bash(python:*)",
       "Bash(timeout 10 python manage.py runserver:*)",
-      "Bash(timeout:*)"
+      "Bash(timeout:*)",
+      "Bash(npm install:*)",
+      "Bash(npm run build-css-prod:*)",
+      "Bash(dir:*)",
+      "Bash(ls:*)",
+      "Bash(rm:*)",
+      "Bash(true)"
     ],
     "deny": []
   }
