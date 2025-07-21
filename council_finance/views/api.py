@@ -12,7 +12,10 @@ from django.core.exceptions import ValidationError
 from django.db.models import Q
 import json
 
-from council_finance.models import Council, DataField, ActivityLog
+from council_finance.models import (
+    Council, DataField, ActivityLog, CounterDefinition, 
+    FinancialYear, FactoidTemplate, FactoidPlaylist
+)
 from council_finance.forms import DataFieldForm
 
 # Import utility functions we'll need
@@ -197,3 +200,196 @@ def user_preferences_ajax(request):
         return JsonResponse({'error': 'Invalid JSON data'}, status=400)
     except Exception as e:
         return JsonResponse({'error': str(e)}, status=500)
+
+
+@require_GET
+def factoid_data_api(request, counter_slug, council_slug, year_label):
+    """API endpoint to get factoid data for a specific counter/council/year combination."""
+    try:
+        counter = get_object_or_404(CounterDefinition, slug=counter_slug)
+        council = None
+        if council_slug != 'all-councils':
+            council = get_object_or_404(Council, slug=council_slug)
+        year = get_object_or_404(FinancialYear, label=year_label)
+        
+        # Use the FactoidEngine to generate factoids
+        from council_finance.factoid_engine import FactoidEngine
+        engine = FactoidEngine()
+        
+        factoids = engine.generate_factoid_playlist(counter_slug, council_slug, year_label)
+        
+        return JsonResponse({
+            'success': True,
+            'counter': {
+                'name': counter.name,
+                'slug': counter.slug,
+            },
+            'council': {
+                'name': council.name if council else 'All Councils',
+                'slug': council.slug if council else 'all-councils',
+            } if council else {
+                'name': 'All Councils',
+                'slug': 'all-councils',
+            },
+            'year': {
+                'label': year.label,
+            },
+            'factoids': factoids,
+            'count': len(factoids)
+        })
+        
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'error': str(e)
+        }, status=500)
+
+
+@require_GET
+def factoid_playlist_api(request, counter_slug):
+    """API endpoint to get all factoid playlists for a specific counter."""
+    try:
+        counter = get_object_or_404(CounterDefinition, slug=counter_slug)
+        
+        playlists = FactoidPlaylist.objects.filter(
+            counter=counter
+        ).select_related('council', 'year').prefetch_related('factoid_templates')
+        
+        # Apply filters
+        council_slug = request.GET.get('council')
+        if council_slug:
+            playlists = playlists.filter(council__slug=council_slug)
+        
+        year_label = request.GET.get('year')
+        if year_label:
+            playlists = playlists.filter(year__label=year_label)
+        
+        auto_generate_only = request.GET.get('auto_generate', '').lower() == 'true'
+        if auto_generate_only:
+            playlists = playlists.filter(auto_generate=True)
+        
+        # Serialize playlist data
+        playlist_data = []
+        for playlist in playlists:
+            playlist_data.append({
+                'id': playlist.id,
+                'counter': {
+                    'name': playlist.counter.name,
+                    'slug': playlist.counter.slug,
+                },
+                'council': {
+                    'name': playlist.council.name if playlist.council else 'All Councils',
+                    'slug': playlist.council.slug if playlist.council else None,
+                } if playlist.council else None,
+                'year': {
+                    'label': playlist.year.label,
+                },
+                'auto_generate': playlist.auto_generate,
+                'computed_factoids': playlist.computed_factoids,
+                'last_computed': playlist.last_computed.isoformat() if playlist.last_computed else None,
+                'template_count': playlist.factoid_templates.count(),
+            })
+        
+        return JsonResponse({
+            'success': True,
+            'counter': {
+                'name': counter.name,
+                'slug': counter.slug,
+            },
+            'playlists': playlist_data,
+            'count': len(playlist_data)
+        })
+        
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'error': str(e)
+        }, status=500)
+
+
+@require_POST
+@csrf_exempt
+def regenerate_factoid_playlist_api(request, playlist_id):
+    """API endpoint to regenerate a factoid playlist."""
+    try:
+        playlist = get_object_or_404(FactoidPlaylist, id=playlist_id)
+        
+        # Use the FactoidEngine to regenerate factoids
+        from council_finance.factoid_engine import FactoidEngine
+        engine = FactoidEngine()
+        
+        factoids = engine.generate_factoid_playlist(
+            playlist.counter.slug,
+            playlist.council.slug if playlist.council else None,
+            playlist.year.label
+        )
+        
+        return JsonResponse({
+            'success': True,
+            'message': f'Playlist regenerated with {len(factoids)} factoids',
+            'factoids': factoids,
+            'count': len(factoids),
+            'regenerated_at': playlist.last_computed.isoformat() if playlist.last_computed else None
+        })
+        
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'error': str(e)
+        }, status=500)
+
+
+@require_GET  
+def factoid_template_preview_api(request, template_slug):
+    """API endpoint to preview a factoid template with sample data."""
+    try:
+        template = get_object_or_404(FactoidTemplate, slug=template_slug)
+        
+        # Get sample council and counter for preview
+        sample_council = request.GET.get('council_slug')
+        sample_counter = request.GET.get('counter_slug')
+        sample_year = request.GET.get('year_label')
+        
+        if sample_council and sample_counter and sample_year:
+            from council_finance.factoid_engine import FactoidEngine
+            engine = FactoidEngine()
+            
+            # Get real data for preview
+            counter_obj = CounterDefinition.objects.get(slug=sample_counter)
+            council_obj = Council.objects.get(slug=sample_council)
+            year_obj = FinancialYear.objects.get(label=sample_year)
+            
+            counter_data = engine._get_counter_data(counter_obj, council_obj, year_obj)
+            previous_data = engine._get_previous_year_data(counter_obj, council_obj, year_obj)
+            
+            factoid = engine._generate_factoid_from_template(template, counter_data, previous_data, council_obj)
+        else:
+            # Use mock data for preview
+            factoid = {
+                'type': template.factoid_type,
+                'text': template.template_text.replace('{{value}}', '£1,234,567').replace('{{council_name}}', 'Sample Council'),
+                'emoji': template.emoji or '📊',
+                'color': template.color_scheme,
+                'animation_duration': template.animation_duration,
+                'flip_animation': template.flip_animation,
+                'priority': template.priority,
+                'template_id': template.id,
+                'is_relevant': True
+            }
+        
+        return JsonResponse({
+            'success': True,
+            'template': {
+                'name': template.name,
+                'slug': template.slug,
+                'type': template.factoid_type,
+                'template_text': template.template_text,
+            },
+            'preview': factoid
+        })
+        
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'error': str(e)
+        }, status=500)

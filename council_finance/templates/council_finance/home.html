@@ -96,7 +96,11 @@
              data-friendly="{{ item.friendly_format|yesno:'true,false' }}"
              data-formatted="{{ item.formatted }}">0</div>
         
-        <div class="counter-factoid text-sm text-gray-600 font-medium min-h-[1.25rem]"></div>
+        <div class="counter-factoid" 
+             data-counter="{{ item.slug }}"
+             data-council="all-councils"
+             data-year="{{ current_year.label }}">
+        </div>
         
         {% if item.explanation %}
         <div id="info-{{ forloop.counter0 }}" class="hidden text-sm text-gray-700 bg-blue-50 p-3 rounded-lg border border-blue-200">
@@ -337,17 +341,10 @@
 {% block extra_scripts %}
 <script src="{% static 'js/countUp.umd.js' %}"></script>
 <script src="{% static 'js/live_search.js' %}"></script>
+<link rel="stylesheet" href="{% static 'css/factoid-system.css' %}">
+<script src="{% static 'js/factoid-playlist.js' %}"></script>
 
 <style>
-  .counter-factoid {
-    max-height: 0;
-    overflow: hidden;
-    transition: max-height 0.5s ease;
-  }
-  .counter-factoid.show {
-    max-height: 4rem;
-  }
-  
   /* Enhanced search results styling */
   #homepage-search-results li {
     @apply px-4 py-3 hover:bg-gray-50 cursor-pointer border-b border-gray-100 last:border-b-0;
@@ -391,34 +388,17 @@ document.addEventListener('DOMContentLoaded', () => {
             el.textContent = cu.formattingFn(0);
         }
         
+        // Initialize enhanced factoid system
         const container = el.closest('[data-slug]');
-        const factEl = container.querySelector('.counter-factoid');
-        let facts = [];
-        const script = document.getElementById('factoids-' + container.dataset.slug);
-        if (script) {
-            try { 
-                facts = JSON.parse(script.textContent); 
-            } catch (e) { 
-                facts = []; 
-            }
-        }
-        
-        function cycleFacts(i = 0) {
-            if (!factEl || !facts.length) return;
-            const f = facts[i];
-            factEl.innerHTML = f.icon ? `<i class='fas ${f.icon}'></i> ${f.text}` : f.text;
-            factEl.classList.add('show');
-            setTimeout(() => {
-                factEl.classList.remove('show');
-                setTimeout(() => cycleFacts((i + 1) % facts.length), 500);
-            }, 4000);
-        }
+        const factoidContainer = container.querySelector('.counter-factoid');
         
         if (!cu.error) {
-            cu.start(cycleFacts);
+            cu.start(() => {
+                // Counter animation completed, factoid will be automatically initialized
+                // by the factoid-playlist.js system
+            });
         } else {
             el.textContent = display;
-            cycleFacts();
         }
     });
     

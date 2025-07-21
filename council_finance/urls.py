@@ -159,6 +159,12 @@ urlpatterns = [
     path("api/field/<slug:field_slug>/options/", api_views.list_field_options, name="field_options_api"),
     path("api/council/<slug:council_slug>/recent-activity/", api_views.council_recent_activity_api, name="council_recent_activity_api"),
     path("api/council/<slug:council_slug>/recent-activity/<slug:field_slug>/", api_views.field_recent_activity_api, name="field_recent_activity_api"),
+    
+    # Factoid API endpoints
+    path("api/factoids/<slug:counter_slug>/<slug:council_slug>/<str:year_label>/", api_views.factoid_data_api, name="factoid_data_api"),
+    path("api/factoid-playlists/<slug:counter_slug>/", api_views.factoid_playlist_api, name="factoid_playlist_api"),
+    path("api/factoid-playlists/<int:playlist_id>/regenerate/", api_views.regenerate_factoid_playlist_api, name="regenerate_factoid_playlist_api"),
+    path("api/factoid-templates/<slug:template_slug>/preview/", api_views.factoid_template_preview_api, name="factoid_template_preview_api"),
     path("contribute/data-issues-table/", contrib_views.data_issues_table, name="data_issues_table"),
     path("contribute/stats/", contrib_views.contribute_stats, name="contribute_stats"),
     path("contribute/submit/", contrib_views.contribute_submit, name="submit_contribution"),
@@ -219,6 +225,17 @@ urlpatterns = [
     path("manage/fields/add/", admin_views.field_form, name="field_add"),
     path("manage/fields/<slug:slug>/", admin_views.field_form, name="field_edit"),
     path("manage/fields/<slug:slug>/delete/", admin_views.field_delete, name="field_delete"),
+    # Enhanced factoid template management
+    path("manage/factoid-templates/", admin_views.factoid_template_list, name="factoid_template_list"),
+    path("manage/factoid-templates/add/", admin_views.factoid_template_form, name="factoid_template_add"),
+    path("manage/factoid-templates/<slug:slug>/", admin_views.factoid_template_form, name="factoid_template_edit"),
+    path("manage/factoid-templates/<slug:slug>/delete/", admin_views.factoid_template_delete, name="factoid_template_delete"),
+    
+    # Factoid playlist management
+    path("manage/factoid-playlists/", admin_views.factoid_playlist_list, name="factoid_playlist_list"),
+    path("manage/factoid-playlists/<int:playlist_id>/regenerate/", admin_views.factoid_playlist_regenerate, name="factoid_playlist_regenerate"),
+    
+    # Legacy factoid management (backward compatibility)
     path("manage/factoids/", admin_views.factoid_list, name="factoid_list"),
     path("manage/factoids/add/", admin_views.factoid_form, name="factoid_add"),
     path("manage/factoids/preview/", admin_views.preview_factoid, name="preview_factoid"),
@@ -227,7 +244,9 @@ urlpatterns = [
         "manage/factoids/<slug:slug>/delete/",
         admin_views.factoid_delete,
         name="factoid_delete",
-    ),    path("god-mode/", admin_views.god_mode, name="god_mode"),
+    ),
+    
+    path("god-mode/", admin_views.god_mode, name="god_mode"),
     path("god-mode/activity-log/", admin_views.activity_log_entries, name="activity_log_entries"),
     path("god-mode/activity-log/<int:log_id>/json/", admin_views.activity_log_json, name="activity_log_json"),
     

@@ -1,0 +1,184 @@
+{% extends "base.html" %}
+{% load i18n %}
+
+{% block title %}Factoid Playlists - Council Finance Counters{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-6">
+    <div class="mb-6">
+        <h1 class="text-3xl font-bold text-gray-900 mb-2">Factoid Playlists</h1>
+        <p class="text-gray-600">Monitor and manage automatically generated factoid playlists for specific counter/council combinations.</p>
+    </div>
+
+    <!-- Actions bar -->
+    <div class="mb-6 flex flex-wrap gap-4 items-center justify-between">
+        <div class="flex flex-wrap gap-2">
+            <a href="{% url 'factoid_template_list' %}" 
+               class="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-md font-medium">
+                Manage Templates
+            </a>
+        </div>
+
+        <!-- Search -->
+        <div class="flex gap-2">
+            <form method="get" class="flex gap-2">
+                <input type="text" name="search" value="{{ search_query }}" 
+                       placeholder="Search playlists..." 
+                       class="border border-gray-300 rounded-md px-3 py-2 text-sm">
+                <button type="submit" class="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-md text-sm">
+                    Search
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Playlists table -->
+    <div class="bg-white shadow overflow-hidden sm:rounded-md">
+        <table class="min-w-full divide-y divide-gray-200">
+            <thead class="bg-gray-50">
+                <tr>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Counter & Context
+                    </th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Council
+                    </th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Year
+                    </th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Factoids
+                    </th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Last Updated
+                    </th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Actions
+                    </th>
+                </tr>
+            </thead>
+            <tbody class="bg-white divide-y divide-gray-200">
+                {% for playlist in playlists %}
+                <tr class="hover:bg-gray-50">
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <div>
+                            <div class="text-sm font-medium text-gray-900">{{ playlist.counter.name }}</div>
+                            <div class="text-sm text-gray-500">{{ playlist.counter.slug }}</div>
+                            {% if playlist.auto_generate %}
+                                <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800 mt-1">
+                                    Auto-generated
+                                </span>
+                            {% endif %}
+                        </div>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        {% if playlist.council %}
+                            <div class="font-medium">{{ playlist.council.name }}</div>
+                            <div class="text-gray-500">{{ playlist.council.slug }}</div>
+                        {% else %}
+                            <span class="text-gray-500 italic">All Councils</span>
+                        {% endif %}
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        <span class="font-mono">{{ playlist.year.label }}</span>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        <div class="flex items-center">
+                            {% if playlist.computed_factoids %}
+                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                    {{ playlist.computed_factoids|length }} factoid{{ playlist.computed_factoids|length|pluralize }}
+                                </span>
+                            {% else %}
+                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+                                    Not generated
+                                </span>
+                            {% endif %}
+                            <div class="ml-2 text-xs text-gray-500">
+                                {{ playlist.factoid_templates.count }} template{{ playlist.factoid_templates.count|pluralize }}
+                            </div>
+                        </div>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {% if playlist.last_computed %}
+                            {{ playlist.last_computed|timesince }} ago
+                        {% else %}
+                            <span class="text-gray-400">Never</span>
+                        {% endif %}
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                        <form method="post" action="{% url 'factoid_playlist_regenerate' playlist.id %}" class="inline">
+                            {% csrf_token %}
+                            <button type="submit" 
+                                    class="text-emerald-600 hover:text-emerald-900 mr-2"
+                                    onclick="return confirm('Regenerate factoids for this playlist?');">
+                                Regenerate
+                            </button>
+                        </form>
+                        
+                        <!-- API link for developers -->
+                        <a href="{% url 'factoid_data_api' playlist.counter.slug playlist.council.slug playlist.year.label %}" 
+                           target="_blank"
+                           class="text-blue-600 hover:text-blue-900 text-xs"
+                           title="View API data">
+                            API
+                        </a>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="6" class="px-6 py-4 text-center text-gray-500">
+                        No factoid playlists found.
+                        <p class="mt-2 text-xs text-gray-400">
+                            Playlists are automatically created when factoids are requested for specific counter/council/year combinations.
+                        </p>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Pagination -->
+    {% if playlists.has_other_pages %}
+    <div class="mt-6">
+        <nav class="flex items-center justify-between">
+            <div class="flex-1 flex justify-between sm:hidden">
+                {% if playlists.has_previous %}
+                    <a href="?page={{ playlists.previous_page_number }}" class="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">Previous</a>
+                {% endif %}
+                {% if playlists.has_next %}
+                    <a href="?page={{ playlists.next_page_number }}" class="ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">Next</a>
+                {% endif %}
+            </div>
+            <div class="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
+                <div>
+                    <p class="text-sm text-gray-700">
+                        Showing page <span class="font-medium">{{ playlists.number }}</span> of <span class="font-medium">{{ playlists.paginator.num_pages }}</span>
+                    </p>
+                </div>
+                <div>
+                    <span class="relative z-0 inline-flex rounded-md shadow-sm -space-x-px">
+                        {% if playlists.has_previous %}
+                            <a href="?page={{ playlists.previous_page_number }}" class="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50">Previous</a>
+                        {% endif %}
+                        {% if playlists.has_next %}
+                            <a href="?page={{ playlists.next_page_number }}" class="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50">Next</a>
+                        {% endif %}
+                    </span>
+                </div>
+            </div>
+        </nav>
+    </div>
+    {% endif %}
+
+    <!-- API Reference -->
+    <div class="mt-8 bg-gray-50 rounded-lg p-4">
+        <h3 class="text-lg font-medium text-gray-900 mb-2">Developer Reference</h3>
+        <div class="text-sm text-gray-600 space-y-1">
+            <div><strong>Get factoids for counter/council/year:</strong> <code class="text-xs bg-gray-200 px-2 py-1 rounded">/api/factoids/{counter_slug}/{council_slug}/{year_label}/</code></div>
+            <div><strong>List playlists for counter:</strong> <code class="text-xs bg-gray-200 px-2 py-1 rounded">/api/factoid-playlists/{counter_slug}/</code></div>
+            <div><strong>Regenerate playlist:</strong> <code class="text-xs bg-gray-200 px-2 py-1 rounded">POST /api/factoid-playlists/{playlist_id}/regenerate/</code></div>
+        </div>
+    </div>
+</div>
+{% endblock %}

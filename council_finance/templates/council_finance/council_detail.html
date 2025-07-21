@@ -384,8 +384,11 @@
                     {% if item.value is not None %}{{ item.formatted }}{% else %}No data{% endif %}
                   </div>
 
-                  <!-- Factoid Display -->
-                  <div class="counter-factoid text-sm text-gray-600 transition-all duration-500 ease-in-out overflow-hidden max-h-0">
+                  <!-- Enhanced Factoid Display -->
+                  <div class="counter-factoid" 
+                       data-counter="{{ item.counter.slug }}"
+                       data-council="{{ council.slug }}"
+                       data-year="{{ current_year.label }}">
                   </div>
 
                   <!-- Explanation -->
@@ -487,9 +490,8 @@
 {% if share_data %}{{ share_data|json_script:"share-data" }}{% endif %}
 
 <script src="{% static 'js/countUp.umd.js' %}"></script>
-<style>
-  .counter-factoid.show { max-height: 4rem; }
-</style>
+<link rel="stylesheet" href="{% static 'css/factoid-system.css' %}">
+<script src="{% static 'js/factoid-playlist.js' %}"></script>
 
 <script>
 // All the existing JavaScript functionality from the original template
@@ -588,30 +590,17 @@ function animateCounters() {
       el.textContent = cu.formattingFn(0);
     }
     
+    // Initialize enhanced factoid system
     const container = el.parentElement.parentElement;
-    const factEl = container.querySelector('.counter-factoid');
-    let facts = [];
-    const script = document.getElementById('factoids-' + container.dataset.counter);
-    if (script) {
-      try { facts = JSON.parse(script.textContent); } catch(e){ facts = []; }
-    }
-    
-    function cycleFacts(i=0){
-      if(!factEl || !facts.length) return;
-      const f = facts[i];
-      factEl.innerHTML = f.icon ? `<i class='fas ${f.icon}'></i> ${f.text}` : f.text;
-      factEl.classList.add('show');
-      setTimeout(() => {
-        factEl.classList.remove('show');
-        setTimeout(() => cycleFacts((i+1)%facts.length), 500);
-      }, 4000);
-    }
+    const factoidContainer = container.querySelector('.counter-factoid');
     
     if (!cu.error) {
-      cu.start(cycleFacts);
+      cu.start(() => {
+        // Counter animation completed, factoid will be automatically initialized
+        // by the factoid-playlist.js system
+      });
     } else {
       el.textContent = display;
-      cycleFacts();
     }
   });
 }

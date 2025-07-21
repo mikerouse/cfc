@@ -22,6 +22,10 @@ from council_finance.models import (
     FinancialFigure,
     FinancialFigureHistory,
     CouncilCharacteristicHistory,
+    Factoid,
+    FactoidTemplate,
+    FactoidPlaylist,
+    PlaylistItem,
 )
 from council_finance.forms import (
     CounterDefinitionForm,
@@ -697,19 +701,205 @@ def field_delete(request, slug):
     return render(request, "council_finance/field_delete.html", context)
 
 
+def factoid_template_list(request):
+    """List all factoid templates for management."""
+    templates = FactoidTemplate.objects.all().order_by('-priority', 'name')
+    search_query = request.GET.get('search', '')
+    if search_query:
+        templates = templates.filter(
+            Q(name__icontains=search_query) | 
+            Q(template_text__icontains=search_query) |
+            Q(factoid_type__icontains=search_query)
+        )
+    
+    type_filter = request.GET.get('type', '')
+    if type_filter:
+        templates = templates.filter(factoid_type=type_filter)
+    
+    paginator = Paginator(templates, 20)
+    page_number = request.GET.get('page')
+    templates_page = paginator.get_page(page_number)
+    
+    context = {
+        'templates': templates_page,
+        'search_query': search_query,
+        'type_filter': type_filter,
+        'factoid_types': FactoidTemplate.FACTOID_TYPES,
+    }
+    return render(request, "council_finance/factoid_template_list.html", context)
+
+
+def factoid_template_form(request, slug=None):
+    """Create or edit a factoid template."""
+    template = None
+    if slug:
+        template = get_object_or_404(FactoidTemplate, slug=slug)
+    
+    if request.method == 'POST':
+        try:
+            if template:
+                # Update existing template
+                template.name = request.POST['name']
+                template.factoid_type = request.POST['factoid_type']
+                template.template_text = request.POST['template_text']
+                template.emoji = request.POST.get('emoji', '')
+                template.color_scheme = request.POST['color_scheme']
+                template.animation_duration = int(request.POST.get('animation_duration', 5000))
+                template.flip_animation = request.POST.get('flip_animation') == 'on'
+                template.priority = int(request.POST.get('priority', 0))
+                template.min_value = request.POST.get('min_value') or None
+                template.max_value = request.POST.get('max_value') or None
+                template.requires_previous_year = request.POST.get('requires_previous_year') == 'on'
+                template.is_active = request.POST.get('is_active') == 'on'
+                template.save()
+                
+                # Handle many-to-many relationships
+                counters = request.POST.getlist('counters')
+                template.counters.set(CounterDefinition.objects.filter(id__in=counters))
+                
+                council_types = request.POST.getlist('council_types')
+                template.council_types.set(council_types)
+                
+                messages.success(request, f'Factoid template "{template.name}" updated successfully.')
+                log_activity(request.user, 'factoid_template_updated', 'FactoidTemplate', template.id)
+            else:
+                # Create new template
+                template = FactoidTemplate.objects.create(
+                    name=request.POST['name'],
+                    factoid_type=request.POST['factoid_type'],
+                    template_text=request.POST['template_text'],
+                    emoji=request.POST.get('emoji', ''),
+                    color_scheme=request.POST['color_scheme'],
+                    animation_duration=int(request.POST.get('animation_duration', 5000)),
+                    flip_animation=request.POST.get('flip_animation') == 'on',
+                    priority=int(request.POST.get('priority', 0)),
+                    min_value=request.POST.get('min_value') or None,
+                    max_value=request.POST.get('max_value') or None,
+                    requires_previous_year=request.POST.get('requires_previous_year') == 'on',
+                    is_active=request.POST.get('is_active', True) == 'on'
+                )
+                
+                # Handle many-to-many relationships
+                counters = request.POST.getlist('counters')
+                template.counters.set(CounterDefinition.objects.filter(id__in=counters))
+                
+                council_types = request.POST.getlist('council_types')
+                template.council_types.set(council_types)
+                
+                messages.success(request, f'Factoid template "{template.name}" created successfully.')
+                log_activity(request.user, 'factoid_template_created', 'FactoidTemplate', template.id)
+            
+            return redirect('factoid_template_list')
+        
+        except (ValueError, ValidationError) as e:
+            messages.error(request, f'Error saving factoid template: {str(e)}')
+    
+    # Get all available counters and council types for form
+    counters = CounterDefinition.objects.all().order_by('name')
+    from council_finance.models import CouncilType
+    council_types = CouncilType.objects.all().order_by('name')
+    
+    context = {
+        'template': template,
+        'counters': counters,
+        'council_types': council_types,
+        'factoid_types': FactoidTemplate.FACTOID_TYPES,
+        'color_schemes': FactoidTemplate.COLOR_SCHEMES,
+    }
+    return render(request, "council_finance/factoid_template_form.html", context)
+
+
+def factoid_template_delete(request, slug):
+    """Delete a factoid template."""
+    template = get_object_or_404(FactoidTemplate, slug=slug)
+    
+    if request.method == 'POST':
+        template_name = template.name
+        template.delete()
+        messages.success(request, f'Factoid template "{template_name}" deleted successfully.')
+        log_activity(request.user, 'factoid_template_deleted', 'FactoidTemplate', None)
+        return redirect('factoid_template_list')
+    
+    context = {'template': template}
+    return render(request, "council_finance/factoid_template_delete.html", context)
+
+
+def factoid_playlist_list(request):
+    """List factoid playlists for management."""
+    playlists = FactoidPlaylist.objects.select_related(
+        'counter', 'council', 'year'
+    ).prefetch_related('factoid_templates').all().order_by('-last_computed')
+    
+    search_query = request.GET.get('search', '')
+    if search_query:
+        playlists = playlists.filter(
+            Q(counter__name__icontains=search_query) |
+            Q(council__name__icontains=search_query) |
+            Q(year__label__icontains=search_query)
+        )
+    
+    paginator = Paginator(playlists, 20)
+    page_number = request.GET.get('page')
+    playlists_page = paginator.get_page(page_number)
+    
+    context = {
+        'playlists': playlists_page,
+        'search_query': search_query,
+    }
+    return render(request, "council_finance/factoid_playlist_list.html", context)
+
+
+def factoid_playlist_regenerate(request, playlist_id):
+    """Force regeneration of a factoid playlist."""
+    playlist = get_object_or_404(FactoidPlaylist, id=playlist_id)
+    
+    if request.method == 'POST':
+        from council_finance.factoid_engine import FactoidEngine
+        
+        engine = FactoidEngine()
+        try:
+            factoids = engine.generate_factoid_playlist(
+                playlist.counter.slug,
+                playlist.council.slug if playlist.council else None,
+                playlist.year.label
+            )
+            messages.success(request, f'Playlist regenerated with {len(factoids)} factoids.')
+            log_activity(request.user, 'factoid_playlist_regenerated', 'FactoidPlaylist', playlist.id)
+        except Exception as e:
+            messages.error(request, f'Error regenerating playlist: {str(e)}')
+    
+    return redirect('factoid_playlist_list')
+
+
+# Legacy factoid views for backward compatibility
 def factoid_list(request):
-    """List all factoids for management."""
-    return render(request, "council_finance/factoid_list.html", {})
+    """List legacy factoids for management."""
+    factoids = Factoid.objects.all().order_by('name')
+    context = {'factoids': factoids}
+    return render(request, "council_finance/factoid_list.html", context)
 
 
 def factoid_form(request, slug=None):
-    """Create or edit a factoid."""
-    return render(request, "council_finance/factoid_form.html", {})
+    """Create or edit a legacy factoid."""
+    factoid = None
+    if slug:
+        factoid = get_object_or_404(Factoid, slug=slug)
+    
+    context = {'factoid': factoid}
+    return render(request, "council_finance/factoid_form.html", context)
 
 
 def factoid_delete(request, slug):
-    """Delete a factoid."""
-    return JsonResponse({"status": "success", "message": "Factoid deleted"})
+    """Delete a legacy factoid."""
+    factoid = get_object_or_404(Factoid, slug=slug)
+    if request.method == 'POST':
+        factoid_name = factoid.name
+        factoid.delete()
+        messages.success(request, f'Legacy factoid "{factoid_name}" deleted.')
+        return redirect('factoid_list')
+    
+    context = {'factoid': factoid}
+    return render(request, "council_finance/factoid_delete.html", context)
 
 
 def god_mode(request):
@@ -905,6 +1095,11 @@ __all__ = [
     'field_list',
     'field_form',
     'field_delete',
+    'factoid_template_list',
+    'factoid_template_form',
+    'factoid_template_delete',
+    'factoid_playlist_list',
+    'factoid_playlist_regenerate',
     'factoid_list',
     'factoid_form',
     'factoid_delete',

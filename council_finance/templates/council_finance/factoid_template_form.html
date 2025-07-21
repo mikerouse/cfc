@@ -1,0 +1,207 @@
+{% extends "base.html" %}
+{% load i18n %}
+
+{% block title %}
+    {% if template %}Edit Factoid Template{% else %}Add Factoid Template{% endif %} - Council Finance Counters
+{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-6 max-w-4xl">
+    <div class="mb-6">
+        <h1 class="text-3xl font-bold text-gray-900 mb-2">
+            {% if template %}Edit Factoid Template{% else %}Create New Factoid Template{% endif %}
+        </h1>
+        <p class="text-gray-600">
+            Factoid templates generate dynamic insights that appear beneath counters with contextual data.
+        </p>
+    </div>
+
+    <form method="post" class="space-y-8">
+        {% csrf_token %}
+        
+        <!-- Basic Information -->
+        <div class="bg-white shadow rounded-lg p-6">
+            <h2 class="text-xl font-semibold mb-4">Basic Information</h2>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                    <label for="name" class="block text-sm font-medium text-gray-700 mb-2">Template Name</label>
+                    <input type="text" name="name" id="name" required
+                           value="{{ template.name|default:'' }}"
+                           class="w-full border border-gray-300 rounded-md px-3 py-2 focus:ring-emerald-500 focus:border-emerald-500"
+                           placeholder="e.g. Year-over-year percentage change">
+                </div>
+
+                <div>
+                    <label for="factoid_type" class="block text-sm font-medium text-gray-700 mb-2">Factoid Type</label>
+                    <select name="factoid_type" id="factoid_type" required
+                            class="w-full border border-gray-300 rounded-md px-3 py-2 focus:ring-emerald-500 focus:border-emerald-500">
+                        {% for value, label in factoid_types %}
+                            <option value="{{ value }}" {% if template.factoid_type == value %}selected{% endif %}>
+                                {{ label }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+
+            <div class="mt-6">
+                <label for="template_text" class="block text-sm font-medium text-gray-700 mb-2">
+                    Template Text
+                    <span class="text-xs text-gray-500 ml-2">Use {{variable}} for dynamic content</span>
+                </label>
+                <textarea name="template_text" id="template_text" rows="3" required
+                          class="w-full border border-gray-300 rounded-md px-3 py-2 focus:ring-emerald-500 focus:border-emerald-500"
+                          placeholder="{{change}}% {{change_direction}} vs last year ({{previous_formatted}} → {{formatted}})">{{ template.template_text|default:'' }}</textarea>                <div class="mt-2 text-xs text-gray-500">
+                    Available variables: {<!-- -->{value}}, {<!-- -->{formatted}}, {<!-- -->{council_name}}, {<!-- -->{counter_name}}, {<!-- -->{year_label}}, {<!-- -->{change}}, {<!-- -->{change_direction}}, {<!-- -->{previous_value}}, {<!-- -->{previous_formatted}}
+                </div>
+            </div>
+        </div>
+
+        <!-- Visual Properties -->
+        <div class="bg-white shadow rounded-lg p-6">
+            <h2 class="text-xl font-semibold mb-4">Visual Properties</h2>
+            
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div>
+                    <label for="emoji" class="block text-sm font-medium text-gray-700 mb-2">Emoji</label>
+                    <input type="text" name="emoji" id="emoji" maxlength="10"
+                           value="{{ template.emoji|default:'' }}"
+                           class="w-full border border-gray-300 rounded-md px-3 py-2 focus:ring-emerald-500 focus:border-emerald-500"
+                           placeholder="📊">
+                </div>
+
+                <div>
+                    <label for="color_scheme" class="block text-sm font-medium text-gray-700 mb-2">Color Scheme</label>
+                    <select name="color_scheme" id="color_scheme"
+                            class="w-full border border-gray-300 rounded-md px-3 py-2 focus:ring-emerald-500 focus:border-emerald-500">
+                        {% for value, label in color_schemes %}
+                            <option value="{{ value }}" {% if template.color_scheme == value %}selected{% endif %}>
+                                {{ label }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div>
+                    <label for="priority" class="block text-sm font-medium text-gray-700 mb-2">Priority</label>
+                    <input type="number" name="priority" id="priority"
+                           value="{{ template.priority|default:0 }}"
+                           class="w-full border border-gray-300 rounded-md px-3 py-2 focus:ring-emerald-500 focus:border-emerald-500"
+                           placeholder="0">
+                    <div class="mt-1 text-xs text-gray-500">Higher values show first</div>
+                </div>
+            </div>
+
+            <div class="mt-6 grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                    <label for="animation_duration" class="block text-sm font-medium text-gray-700 mb-2">Animation Duration (ms)</label>
+                    <input type="number" name="animation_duration" id="animation_duration" min="1000" max="30000"
+                           value="{{ template.animation_duration|default:5000 }}"
+                           class="w-full border border-gray-300 rounded-md px-3 py-2 focus:ring-emerald-500 focus:border-emerald-500">
+                </div>
+
+                <div class="flex items-center mt-8">
+                    <input type="checkbox" name="flip_animation" id="flip_animation" 
+                           {% if template.flip_animation %}checked{% endif %}
+                           class="h-4 w-4 text-emerald-600 focus:ring-emerald-500 border-gray-300 rounded">
+                    <label for="flip_animation" class="ml-2 block text-sm text-gray-900">Enable flip animation</label>
+                </div>
+            </div>
+        </div>
+
+        <!-- Targeting -->
+        <div class="bg-white shadow rounded-lg p-6">
+            <h2 class="text-xl font-semibold mb-4">Targeting</h2>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Counters</label>
+                    <div class="border border-gray-300 rounded-md p-3 max-h-40 overflow-y-auto">
+                        {% for counter in counters %}
+                            <label class="flex items-center mb-2">
+                                <input type="checkbox" name="counters" value="{{ counter.id }}" 
+                                       {% if counter in template.counters.all %}checked{% endif %}
+                                       class="h-4 w-4 text-emerald-600 focus:ring-emerald-500 border-gray-300 rounded">
+                                <span class="ml-2 text-sm">{{ counter.name }}</span>
+                            </label>
+                        {% endfor %}
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Council Types</label>
+                    <div class="border border-gray-300 rounded-md p-3 max-h-40 overflow-y-auto">
+                        {% for council_type in council_types %}
+                            <label class="flex items-center mb-2">
+                                <input type="checkbox" name="council_types" value="{{ council_type.id }}" 
+                                       {% if council_type in template.council_types.all %}checked{% endif %}
+                                       class="h-4 w-4 text-emerald-600 focus:ring-emerald-500 border-gray-300 rounded">
+                                <span class="ml-2 text-sm">{{ council_type.name }}</span>
+                            </label>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Conditions -->
+        <div class="bg-white shadow rounded-lg p-6">
+            <h2 class="text-xl font-semibold mb-4">Display Conditions</h2>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                    <label for="min_value" class="block text-sm font-medium text-gray-700 mb-2">Minimum Value</label>
+                    <input type="number" name="min_value" id="min_value" step="0.01"
+                           value="{{ template.min_value|default:'' }}"
+                           class="w-full border border-gray-300 rounded-md px-3 py-2 focus:ring-emerald-500 focus:border-emerald-500"
+                           placeholder="Optional">
+                </div>
+
+                <div>
+                    <label for="max_value" class="block text-sm font-medium text-gray-700 mb-2">Maximum Value</label>
+                    <input type="number" name="max_value" id="max_value" step="0.01"
+                           value="{{ template.max_value|default:'' }}"
+                           class="w-full border border-gray-300 rounded-md px-3 py-2 focus:ring-emerald-500 focus:border-emerald-500"
+                           placeholder="Optional">
+                </div>
+            </div>
+
+            <div class="mt-6 grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div class="flex items-center">
+                    <input type="checkbox" name="requires_previous_year" id="requires_previous_year" 
+                           {% if template.requires_previous_year %}checked{% endif %}
+                           class="h-4 w-4 text-emerald-600 focus:ring-emerald-500 border-gray-300 rounded">
+                    <label for="requires_previous_year" class="ml-2 block text-sm text-gray-900">Requires previous year data</label>
+                </div>
+
+                <div class="flex items-center">
+                    <input type="checkbox" name="is_active" id="is_active" 
+                           {% if template.is_active or not template %}checked{% endif %}
+                           class="h-4 w-4 text-emerald-600 focus:ring-emerald-500 border-gray-300 rounded">
+                    <label for="is_active" class="ml-2 block text-sm text-gray-900">Active</label>
+                </div>
+            </div>
+        </div>
+
+        <!-- Actions -->
+        <div class="flex gap-4 justify-end">
+            <a href="{% url 'factoid_template_list' %}" 
+               class="px-6 py-2 border border-gray-300 rounded-md text-gray-700 bg-white hover:bg-gray-50 font-medium">
+                Cancel
+            </a>
+            <button type="submit" 
+                    class="px-6 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-md font-medium">
+                {% if template %}Update Template{% else %}Create Template{% endif %}
+            </button>
+        </div>
+    </form>
+</div>
+
+<script>
+// Simple preview functionality
+document.getElementById('template_text').addEventListener('input', function() {
+    // Could add live preview here in the future
+});
+</script>
+{% endblock %}
