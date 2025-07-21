@@ -14,7 +14,12 @@
       "Bash(rm:*)",
       "Bash(true)",
       "Bash(mv:*)",
-      "Bash(pip install:*)"
+      "Bash(pip install:*)",
+      "Bash(mkdir:*)",
+      "Bash(cd:*)",
+      "Bash(npm run build-css:*)",
+      "Bash(npx tailwindcss:*)",
+      "Bash(grep:*)"
     ],
     "deny": []
   }

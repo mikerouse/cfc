@@ -6,6 +6,14 @@ module.exports = {
     "./council_finance/static/**/*.js",
     "./static/**/*.js",
   ],
+  safelist: [
+    'bg-emerald-600',
+    'bg-emerald-700',
+    'hover:bg-emerald-700',
+    'hover:bg-blue-700',
+    'hover:bg-gray-300',
+    'text-white'
+  ],
   theme: {
     extend: {
       colors: {

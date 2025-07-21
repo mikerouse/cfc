@@ -13,12 +13,13 @@ DEBUG = os.getenv('DEBUG', 'False').lower() == 'true'
 
 # Production-ready security configuration
 if DEBUG:
-    ALLOWED_HOSTS = ['localhost', '127.0.0.1', '[::1]']
+    ALLOWED_HOSTS = ['localhost', '127.0.0.1', '[::1]', 'testserver']
 else:
     ALLOWED_HOSTS = [
         'councilfinancecounters.onrender.com',
         'localhost',
         '127.0.0.1',
+        'testserver',
         '[::1]'
     ]
 

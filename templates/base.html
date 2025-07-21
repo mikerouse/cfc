@@ -19,8 +19,7 @@
             {% endfor %}
         }
     </style>
-    <!-- Font Awesome provides vector icons used across the site -->
-    <link rel="stylesheet" href="{% static 'fontawesome_free/css/all.min.css' %}" />
+    <!-- Using Heroicons SVG icons instead of FontAwesome -->
     {# Load math.js for client-side expression parsing used by the counter builder #}
     <script src="https://cdn.jsdelivr.net/npm/mathjs@11.11.1/lib/browser/math.js"></script>
 </head>
@@ -324,8 +323,7 @@
 
                     {% if user.is_superuser or user.profile.tier.level|default:0 >= 4 %}
                     <div class="h-4 border-l border-gray-600"></div>
-                    
-                    <a href="{% url 'counter_definitions' %}" class="flex items-center space-x-2 text-gray-300 hover:text-white transition-colors whitespace-nowrap">
+                      <a href="{% url 'counter_definitions' %}" class="flex items-center space-x-2 text-gray-300 hover:text-white transition-colors whitespace-nowrap">
                         <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
                         </svg>
@@ -352,12 +350,18 @@
                         <!-- Dropdown Menu -->
                         <div id="god-mode-menu" class="hidden absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 z-50 transition-all duration-200 opacity-0 transform scale-95"
                              style="transition: opacity 0.2s ease, transform 0.2s ease;">
-                            <div class="py-1">
-                                <a href="{% url 'god_mode' %}" class="flex items-center space-x-3 px-4 py-2 text-sm text-gray-700 hover:bg-red-50 hover:text-red-600 transition-colors">
+                            <div class="py-1">                                <a href="{% url 'god_mode' %}" class="flex items-center space-x-3 px-4 py-2 text-sm text-gray-700 hover:bg-red-50 hover:text-red-600 transition-colors">
                                     <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
                                         <path fill-rule="evenodd" d="M2.166 4.999A11.954 11.954 0 0010 1.944 11.954 11.954 0 0017.834 5c.11.65.166 1.32.166 2.001 0 5.225-3.34 9.67-8 11.317C5.34 16.67 2 12.225 2 7c0-.682.057-1.35.166-2.001zm11.541 3.708a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
                                     </svg>
                                     <span>God Mode Dashboard</span>
+                                </a>
+                                
+                                <a href="{% url 'council_management_dashboard' %}" class="flex items-center space-x-3 px-4 py-2 text-sm text-gray-700 hover:bg-emerald-50 hover:text-emerald-600 transition-colors">
+                                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/>
+                                    </svg>
+                                    <span>🏛️ Council Management</span>
                                 </a>
                                 
                                 <div class="border-t border-gray-100"></div>

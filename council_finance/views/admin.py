@@ -7,6 +7,7 @@ from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.db.models import Q
 from django.template.loader import render_to_string
+from django.core.exceptions import ValidationError
 
 from council_finance.models import (
     Council,
@@ -29,82 +30,9 @@ from council_finance.forms import (
     DataFieldForm,
 )
 from council_finance.factoids import previous_year_label
+from ..activity_logging import log_activity
 
 logger = logging.getLogger(__name__)
-
-
-def log_activity(
-    request,
-    *,
-    council=None,
-    activity="",
-    log_type="user",
-    action="",
-    request_data=None,
-    response="",
-    extra=None,
-):
-    """Helper to store troubleshooting events using the modern ActivityLog system."""
-    import json
-    import inspect
-
-    if isinstance(extra, dict) or extra is None:
-        extra_data = extra or {}
-    else:
-        try:
-            extra_data = json.loads(extra)
-        except Exception:
-            extra_data = {"note": str(extra)}
-
-    frame = inspect.currentframe()
-    if frame and frame.f_back:
-        caller = frame.f_back
-        module = caller.f_globals.get("__name__")
-        func = caller.f_code.co_name
-        cls = None
-        if "self" in caller.f_locals:
-            cls = caller.f_locals["self"].__class__.__name__
-        extra_data.update({
-            "module": module,
-            "function": func,
-        })
-        if cls:
-            extra_data["class"] = cls
-
-    if request_data is None:
-        request_data = request.method
-    if isinstance(request_data, dict):
-        request_data = json.dumps(request_data, ensure_ascii=False)
-    elif request_data is None:
-        request_data = ""
-
-    activity_type_mapping = {
-        'field_delete': 'delete',
-        'apply_contribution': 'contribution',
-        'submit_contribution': 'contribution',
-        'review_contribution': 'moderation',
-        'council_merge': 'council_merge',
-        'financial_year': 'financial_year',
-        'data_correction': 'data_correction',
-    }
-
-    modern_activity_type = activity_type_mapping.get(activity, 'system')
-
-    ActivityLog.log_activity(
-        activity_type=modern_activity_type,
-        description=f"{activity}: {action}" if action else activity or "Legacy activity",
-        user=request.user if getattr(request, "user", None) and request.user.is_authenticated else None,
-        related_council=council,
-        status='completed',
-        details={
-            'legacy_data': extra_data,
-            'request_method': request_data,
-            'response': response,
-            'page': request.path,
-            'action': action,
-        },
-        request=request
-    )
 
 
 @login_required
@@ -820,8 +748,7 @@ def god_mode(request):
                 try:
                     # Clear existing current year
                     FinancialYear.objects.filter(is_current=True).update(is_current=False)
-                    # Set new current year
-                    year = FinancialYear.objects.get(id=year_id)
+                    # Set new current year                    year = FinancialYear.objects.get(id=year_id)
                     year.is_current = True
                     year.save()
                     messages.success(request, f"Set {year.label} as current financial year")
@@ -835,208 +762,6 @@ def god_mode(request):
                 messages.success(request, f"Assessment complete: {issues_created} data issues identified")
             except Exception as e:
                 messages.error(request, f"Error during assessment: {str(e)}")
-            return HttpResponseRedirect(reverse('god_mode'))
-        
-        elif 'create_council' in request.POST:
-            council_name = request.POST.get('council_name', '').strip()
-            council_slug = request.POST.get('council_slug', '').strip()
-            council_type = request.POST.get('council_type', '').strip()
-            council_nation = request.POST.get('council_nation', '').strip()
-            
-            if council_name:
-                try:
-                    from django.utils.text import slugify
-                    # Auto-generate slug if not provided
-                    if not council_slug:
-                        council_slug = slugify(council_name)
-                    
-                    # Check if council already exists
-                    if Council.objects.filter(Q(name=council_name) | Q(slug=council_slug)).exists():
-                        messages.error(request, f"Council with name '{council_name}' or slug '{council_slug}' already exists")
-                    else:
-                        # Create the council
-                        council = Council.objects.create(
-                            name=council_name,
-                            slug=council_slug,
-                            council_type=council_type if council_type else None,
-                            status='active'
-                        )
-                        
-                        # Set nation if provided
-                        if council_nation:
-                            from council_finance.models import CouncilNation
-                            try:
-                                nation = CouncilNation.objects.get(slug=council_nation)
-                                council.council_nation = nation
-                                council.save()
-                            except CouncilNation.DoesNotExist:
-                                pass  # Nation doesn't exist, skip it
-                        
-                        # Generate missing data issues for the new council
-                        try:
-                            issues_created = generate_missing_data_issues_for_council(council)
-                            messages.success(request, f"Council '{council_name}' created successfully with {issues_created} data contribution opportunities added to queues")
-                        except Exception as e:
-                            # Council was created successfully, but data issue generation failed
-                            messages.success(request, f"Council '{council_name}' created successfully")
-                            messages.warning(request, f"Note: Could not auto-generate contribution queue entries: {str(e)}")
-                        
-                        # Log the activity
-                        log_activity(
-                            request,
-                            council=council,
-                            activity='council_creation',
-                            action='Created new council',
-                            extra=f"Council: {council_name}, Slug: {council_slug}, Type: {council_type}"
-                        )
-                        
-                except Exception as e:
-                    messages.error(request, f"Error creating council: {str(e)}")
-            else:
-                messages.error(request, "Council name is required")
-            return HttpResponseRedirect(reverse('god_mode'))
-        
-        elif 'import_councils' in request.POST:
-            import_file = request.FILES.get('council_import_file')
-            preview_import = request.POST.get('preview_import') == '1'
-            
-            if import_file:
-                try:
-                    import pandas as pd
-                    import json
-                    
-                    # Read the file based on its type
-                    if import_file.name.endswith('.csv'):
-                        df = pd.read_csv(import_file)
-                    elif import_file.name.endswith('.xlsx'):
-                        df = pd.read_excel(import_file)
-                    elif import_file.name.endswith('.json'):
-                        data = json.load(import_file)
-                        df = pd.DataFrame(data)
-                    else:
-                        messages.error(request, "Unsupported file format. Please use CSV, Excel, or JSON.")
-                        return HttpResponseRedirect(reverse('god_mode'))
-                    
-                    # Validate required columns
-                    required_columns = ['name']
-                    missing_columns = [col for col in required_columns if col not in df.columns]
-                    if missing_columns:
-                        messages.error(request, f"Missing required columns: {', '.join(missing_columns)}")
-                        return HttpResponseRedirect(reverse('god_mode'))
-                    
-                    if preview_import:
-                        # Preview mode - show what would be imported
-                        preview_data = df.head(10).to_dict('records')
-                        request.session['import_preview'] = {
-                            'data': preview_data,
-                            'total_rows': len(df)
-                        }
-                        messages.info(request, f"Preview: {len(df)} councils would be imported. Review the data and import again without preview to proceed.")
-                    else:
-                        # Import mode
-                        from django.utils.text import slugify
-                        created_count = 0
-                        skipped_count = 0
-                        total_issues_created = 0
-                        new_councils = []
-                        
-                        for _, row in df.iterrows():
-                            council_name = str(row['name']).strip()
-                            council_slug = slugify(row.get('slug', council_name))
-                            
-                            # Check if council already exists
-                            if not Council.objects.filter(Q(name=council_name) | Q(slug=council_slug)).exists():
-                                council = Council.objects.create(
-                                    name=council_name,
-                                    slug=council_slug,
-                                    council_type=row.get('council_type', ''),
-                                    status='active'
-                                )
-                                
-                                # Set additional fields if provided
-                                if 'website' in row and pd.notna(row['website']):
-                                    council.website = str(row['website'])
-                                if 'postcode' in row and pd.notna(row['postcode']):
-                                    council.postcode = str(row['postcode'])
-                                if 'population' in row and pd.notna(row['population']):
-                                    try:
-                                        council.population = int(row['population'])
-                                    except (ValueError, TypeError):
-                                        pass
-                                
-                                council.save()
-                                new_councils.append(council)
-                                created_count += 1
-                            else:
-                                skipped_count += 1
-                        
-                        # Generate missing data issues for all new councils
-                        if new_councils:
-                            try:
-                                for council in new_councils:
-                                    issues_created = generate_missing_data_issues_for_council(council)
-                                    total_issues_created += issues_created
-                                messages.success(request, f"Import complete: {created_count} councils created, {skipped_count} skipped (already exist), {total_issues_created} data contribution opportunities added to queues")
-                            except Exception as e:
-                                messages.success(request, f"Import complete: {created_count} councils created, {skipped_count} skipped (already exist)")
-                                messages.warning(request, f"Note: Could not auto-generate all contribution queue entries: {str(e)}")
-                        else:
-                            messages.success(request, f"Import complete: {created_count} councils created, {skipped_count} skipped (already exist)")
-                        
-                        # Log the import activity
-                        log_activity(
-                            request,
-                            activity='bulk_council_import',
-                            action='Imported councils from file',
-                            extra=f"File: {import_file.name}, Created: {created_count}, Skipped: {skipped_count}"
-                        )
-                        
-                except ImportError:
-                    messages.error(request, "pandas library not available. Please install it to use the import feature.")
-                except Exception as e:
-                    messages.error(request, f"Error importing councils: {str(e)}")
-            else:
-                messages.error(request, "Please select a file to import")
-            return HttpResponseRedirect(reverse('god_mode'))
-        
-        elif 'cleanup_duplicate_councils' in request.POST:
-            try:
-                from django.db import transaction
-                duplicates_removed = 0
-                
-                # Find duplicate councils by name (case-insensitive)
-                council_names = Council.objects.values_list('name', flat=True)
-                seen_names = set()
-                
-                with transaction.atomic():
-                    for council in Council.objects.all().order_by('id'):
-                        name_lower = council.name.lower()
-                        if name_lower in seen_names:
-                            # This is a duplicate - check if it has any data
-                            has_characteristics = council.characteristics.exists()
-                            has_financial_figures = council.financial_figures.exists()
-                            
-                            if not has_characteristics and not has_financial_figures:
-                                council.delete()
-                                duplicates_removed += 1
-                        else:
-                            seen_names.add(name_lower)
-                
-                if duplicates_removed > 0:
-                    messages.success(request, f"Cleanup complete: {duplicates_removed} duplicate councils removed")
-                else:
-                    messages.info(request, "No duplicate councils found or all duplicates have associated data")
-                    
-                # Log the cleanup activity
-                log_activity(
-                    request,
-                    activity='duplicate_cleanup',
-                    action='Cleaned up duplicate councils',
-                    extra=f"Removed: {duplicates_removed} councils"
-                )
-                
-            except Exception as e:
-                messages.error(request, f"Error during cleanup: {str(e)}")
             return HttpResponseRedirect(reverse('god_mode'))
         
         elif 'delete_financial_year' in request.POST:

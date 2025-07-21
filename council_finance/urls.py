@@ -15,6 +15,7 @@ from .views import (
     moderation as mod_views,
     councils as council_views,
     pages as page_views,
+    council_management as council_mgmt_views,
 )
 # Import following functions directly from general to avoid circular import issues
 from .views.general import (
@@ -226,10 +227,18 @@ urlpatterns = [
         "manage/factoids/<slug:slug>/delete/",
         admin_views.factoid_delete,
         name="factoid_delete",
-    ),
-    path("god-mode/", admin_views.god_mode, name="god_mode"),
+    ),    path("god-mode/", admin_views.god_mode, name="god_mode"),
     path("god-mode/activity-log/", admin_views.activity_log_entries, name="activity_log_entries"),
     path("god-mode/activity-log/<int:log_id>/json/", admin_views.activity_log_json, name="activity_log_json"),
+    
+    # Council Management under God Mode
+    path("god-mode/councils/", council_mgmt_views.council_management_dashboard, name="council_management_dashboard"),
+    path("god-mode/councils/create/", council_mgmt_views.create_council, name="create_council"),
+    path("god-mode/councils/<int:council_id>/edit/", council_mgmt_views.edit_council, name="edit_council"),
+    path("god-mode/councils/<int:council_id>/delete/", council_mgmt_views.delete_council, name="delete_council"),
+    path("god-mode/councils/import/", council_mgmt_views.import_page, name="import_councils"),
+    path("god-mode/councils/bulk-import/", council_mgmt_views.bulk_import, name="bulk_import_councils"),
+    path("god-mode/councils/cancel-import/", council_mgmt_views.cancel_import, name="cancel_import"),
     path("contribute/issue/<int:issue_id>/mark-invalid/", contrib_views.mark_issue_invalid, name="mark_issue_invalid"),
     
     # Include new data architecture URLs (commented out - file doesn't exist)

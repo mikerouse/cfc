@@ -1,0 +1,494 @@
+{% extends "base.html" %}
+{% load static %}
+{% block title %}Import Councils - Council Finance Counters{% endblock %}
+
+{% block content %}
+<div class="min-h-screen bg-gray-50">
+  <!-- Header -->
+  <div class="bg-white shadow-sm border-b border-gray-200">
+    <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="py-6">
+        <div class="flex items-center space-x-4">
+          <a href="{% url 'council_management_dashboard' %}" 
+             class="flex items-center text-gray-500 hover:text-gray-700 transition-colors">
+            <svg class="w-5 h-5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+            </svg>
+            Back to Council Management
+          </a>
+          <svg class="w-5 h-5 text-gray-300" fill="currentColor" viewBox="0 0 20 20">
+            <path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd"/>
+          </svg>
+          <h1 class="text-2xl font-bold text-gray-900">Import Councils</h1>
+        </div>
+        <p class="mt-2 text-sm text-gray-600">
+          Bulk import councils from CSV, Excel, or JSON files with automatic contribution queue generation
+        </p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Main Content -->
+  <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <!-- Import Form -->
+    <div class="bg-white rounded-lg shadow">
+      <div class="p-6">
+        <h2 class="text-lg font-medium text-gray-900 mb-4">Upload File</h2>
+        
+        <form id="importCouncilForm" method="POST" enctype="multipart/form-data" action="{% url 'bulk_import_councils' %}" class="space-y-6">
+          {% csrf_token %}
+          
+          <!-- File Input -->
+          <div>
+            <label for="councilImportFile" class="block text-sm font-medium text-gray-700 mb-2">
+              Choose File <span class="text-red-500">*</span>
+            </label>
+            <div class="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-gray-300 border-dashed rounded-lg hover:border-gray-400 transition-colors">
+              <div class="space-y-1 text-center">
+                <svg class="mx-auto h-12 w-12 text-gray-400" stroke="currentColor" fill="none" viewBox="0 0 48 48">
+                  <path d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+                <div class="flex text-sm text-gray-600">
+                  <label for="councilImportFile" class="relative cursor-pointer bg-white rounded-md font-medium text-blue-600 hover:text-blue-500 focus-within:outline-none focus-within:ring-2 focus-within:ring-offset-2 focus-within:ring-blue-500">
+                    <span>Upload a file</span>
+                    <input id="councilImportFile" name="council_import_file" type="file" accept=".csv,.json,.xlsx" class="sr-only" required>
+                  </label>
+                  <p class="pl-1">or drag and drop</p>
+                </div>
+                <p class="text-xs text-gray-500">CSV, Excel (.xlsx), or JSON up to {{ max_file_size }}</p>
+              </div>
+            </div>
+            
+            <!-- File info display -->
+            <div id="fileInfo" class="hidden mt-2 text-sm text-gray-600"></div>
+          </div>
+
+          <!-- Import Options -->
+          <div>
+            <h3 class="text-sm font-medium text-gray-900 mb-3">Import Options</h3>
+            <div class="space-y-2">
+              <label class="flex items-center">
+                <input type="checkbox" name="preview_import" id="preview_import" value="1" checked
+                       class="rounded border-gray-300 text-blue-600 focus:ring-blue-500">
+                <span class="ml-2 text-sm text-gray-700">Preview before importing (recommended)</span>
+              </label>
+            </div>
+          </div>
+
+          <!-- Progress Indicator for Bulk Import -->
+          <div id="importCouncilProgress" class="hidden">
+            <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
+              <div class="flex items-center space-x-3 mb-3">
+                <div class="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600"></div>
+                <div class="text-sm text-blue-700 font-medium" id="importStatus">Processing import...</div>
+              </div>
+              
+              <!-- Progress Bar -->
+              <div class="w-full bg-blue-100 rounded-full h-3 mb-2">
+                <div id="importProgressBar" class="bg-blue-600 h-3 rounded-full transition-all duration-300" style="width: 0%"></div>
+              </div>
+              
+              <!-- Progress Details -->
+              <div class="flex justify-between text-xs text-blue-600">
+                <span id="importProgressText">Initializing...</span>
+                <span id="importProgressPercentage">0%</span>
+              </div>
+              
+              <!-- Detailed Steps -->
+              <div id="importSteps" class="mt-3 space-y-1 text-xs">
+                <div id="step1" class="flex items-center space-x-2">
+                  <div class="w-4 h-4 border-2 border-blue-300 rounded-full flex items-center justify-center">
+                    <div class="w-2 h-2 bg-blue-300 rounded-full hidden" id="step1-complete"></div>
+                  </div>
+                  <span class="text-blue-600">Reading and validating file</span>
+                </div>
+                <div id="step2" class="flex items-center space-x-2">
+                  <div class="w-4 h-4 border-2 border-gray-300 rounded-full flex items-center justify-center">
+                    <div class="w-2 h-2 bg-gray-300 rounded-full hidden" id="step2-complete"></div>
+                  </div>
+                  <span class="text-gray-500">Creating council records</span>
+                </div>
+                <div id="step3" class="flex items-center space-x-2">
+                  <div class="w-4 h-4 border-2 border-gray-300 rounded-full flex items-center justify-center">
+                    <div class="w-2 h-2 bg-gray-300 rounded-full hidden" id="step3-complete"></div>
+                  </div>
+                  <span class="text-gray-500">Generating contribution opportunities</span>
+                </div>
+                <div id="step4" class="flex items-center space-x-2">
+                  <div class="w-4 h-4 border-2 border-gray-300 rounded-full flex items-center justify-center">
+                    <div class="w-2 h-2 bg-gray-300 rounded-full hidden" id="step4-complete"></div>
+                  </div>
+                  <span class="text-gray-500">Finalizing import</span>
+                </div>
+              </div>
+              
+              <!-- Time Estimate -->
+              <div class="mt-3 text-xs text-blue-500">
+                <span id="timeEstimate">Estimated time remaining: Calculating...</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Actions -->
+          <div class="flex flex-col sm:flex-row sm:justify-between sm:items-center space-y-3 sm:space-y-0 pt-6 border-t border-gray-200">
+            <div class="text-sm text-gray-500">
+              <span class="text-red-500">*</span> Required fields
+            </div>
+            <div class="flex space-x-3">
+              <a href="{% url 'council_management_dashboard' %}" 
+                 class="inline-flex items-center px-6 py-3 bg-gray-200 text-gray-700 font-medium rounded-lg hover:bg-gray-300 transition-colors">
+                Cancel
+              </a>
+              <button id="importCouncilBtn"
+                      type="submit" 
+                      class="inline-flex items-center px-6 py-3 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors">
+                <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/>
+                </svg>
+                Import Councils
+              </button>
+            </div>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- File Format Information -->
+    <div class="mt-8 grid grid-cols-1 md:grid-cols-2 gap-6">
+      <!-- Required Columns -->
+      <div class="bg-white rounded-lg shadow p-6">
+        <h3 class="text-lg font-medium text-gray-900 mb-4">Required Columns</h3>
+        <div class="space-y-2">
+          <div class="flex items-center space-x-2">
+            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
+              Required
+            </span>
+            <span class="text-sm"><code>name</code> - Council name</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Optional Columns -->
+      <div class="bg-white rounded-lg shadow p-6">
+        <h3 class="text-lg font-medium text-gray-900 mb-4">Optional Columns</h3>
+        <div class="space-y-2 text-sm">
+          <div><code>slug</code> - URL slug (auto-generated if empty)</div>
+          <div><code>council_type</code> - Council type slug or name</div>
+          <div><code>nation</code> - Nation slug or name</div>
+          <div><code>website</code> - Council website URL</div>
+          <div><code>postcode</code> - Main office postcode</div>
+          <div><code>population</code> - Estimated population served</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Sample Template -->
+    <div class="mt-8 bg-blue-50 border border-blue-200 rounded-lg p-6">
+      <div class="flex items-start space-x-3">
+        <svg class="h-5 w-5 text-blue-400 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+          <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"/>
+        </svg>
+        <div class="flex-1">
+          <h3 class="text-sm font-medium text-blue-800">Need a template?</h3>
+          <p class="mt-1 text-sm text-blue-700">
+            Download our sample CSV template to get started with the correct column format.
+          </p>
+          <div class="mt-3">
+            <a href="/static/council_import_template.csv" download 
+               class="inline-flex items-center px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors">
+              <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+              </svg>
+              Download Template
+            </a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// Include the same progress management JavaScript from god_mode.html
+// Progress management for council operations  
+class CouncilProgressManager {
+    constructor() {
+        this.startTime = null;
+        this.estimatedDuration = {
+            bulk: {
+                base: 2000,     // Base 2 seconds
+                perCouncil: 500 // 500ms per council
+            }
+        };
+        this.init();
+    }
+    
+    init() {
+        // Bulk import progress
+        const importForm = document.getElementById('importCouncilForm');
+        if (importForm) {
+            importForm.addEventListener('submit', (e) => {
+                const isPreview = document.getElementById('preview_import').checked;
+                const fileInput = document.getElementById('councilImportFile');
+                
+                if (!isPreview && fileInput.files.length > 0) {
+                    this.showImportProgress();
+                }
+            });
+        }
+        
+        // File input change handler for row count estimation
+        const fileInput = document.getElementById('councilImportFile');
+        if (fileInput) {
+            fileInput.addEventListener('change', (e) => {
+                this.handleFileChange(e.target.files[0]);
+            });
+        }
+    }
+    
+    handleFileChange(file) {
+        const fileInfo = document.getElementById('fileInfo');
+        
+        if (file && fileInfo) {
+            fileInfo.classList.remove('hidden');
+            fileInfo.innerHTML = `
+                <div class="flex items-center space-x-2">
+                    <svg class="w-4 h-4 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                    </svg>
+                    <span><strong>${file.name}</strong> (${(file.size/1024).toFixed(1)}KB)</span>
+                </div>
+            `;
+            
+            this.estimateFileSize(file);
+        } else if (fileInfo) {
+            fileInfo.classList.add('hidden');
+        }
+    }
+    
+    showImportProgress() {
+        const progress = document.getElementById('importCouncilProgress');
+        const button = document.getElementById('importCouncilBtn');
+        
+        if (progress && button) {
+            progress.classList.remove('hidden');
+            button.disabled = true;
+            button.innerHTML = '<span class="inline-flex items-center"><div class="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>Processing...</span>';
+            
+            this.startTime = Date.now();
+            this.simulateImportProgress();
+        }
+    }
+    
+    simulateImportProgress() {
+        const progressBar = document.getElementById('importProgressBar');
+        const progressText = document.getElementById('importProgressText');
+        const progressPercentage = document.getElementById('importProgressPercentage');
+        const importStatus = document.getElementById('importStatus');
+        const timeEstimate = document.getElementById('timeEstimate');
+        
+        const steps = [
+            { 
+                step: 1, 
+                progress: 10, 
+                status: "Reading file...", 
+                text: "Parsing file data", 
+                duration: 500
+            },
+            { 
+                step: 2, 
+                progress: 30, 
+                status: "Creating councils...", 
+                text: "Processing council records", 
+                duration: 1500
+            },
+            { 
+                step: 3, 
+                progress: 75, 
+                status: "Generating contribution opportunities...", 
+                text: "Creating data issues for contribution queues", 
+                duration: 2000
+            },
+            { 
+                step: 4, 
+                progress: 95, 
+                status: "Finalizing...", 
+                text: "Completing import process", 
+                duration: 500
+            },
+            { 
+                step: 5, 
+                progress: 100, 
+                status: "Complete!", 
+                text: "Import finished successfully", 
+                duration: 200
+            }
+        ];
+        
+        let currentStep = 0;
+        
+        const processStep = () => {
+            if (currentStep >= steps.length) return;
+            
+            const step = steps[currentStep];
+            
+            // Update progress bar
+            if (progressBar) {
+                progressBar.style.width = step.progress + '%';
+            }
+            
+            // Update text
+            if (progressText) {
+                progressText.textContent = step.text;
+            }
+            if (progressPercentage) {
+                progressPercentage.textContent = step.progress + '%';
+            }
+            if (importStatus) {
+                importStatus.textContent = step.status;
+            }
+            
+            // Update step indicator
+            this.updateStepIndicator(step.step);
+            
+            // Update time estimate
+            if (timeEstimate && step.progress < 100) {
+                const elapsed = Date.now() - this.startTime;
+                const estimated = (elapsed / step.progress) * (100 - step.progress);
+                const seconds = Math.ceil(estimated / 1000);
+                timeEstimate.textContent = `Estimated time remaining: ${seconds}s`;
+            } else if (timeEstimate && step.progress === 100) {
+                const elapsed = Date.now() - this.startTime;
+                timeEstimate.textContent = `Completed in ${Math.ceil(elapsed / 1000)}s`;
+            }
+            
+            currentStep++;
+            
+            if (currentStep < steps.length) {
+                setTimeout(processStep, step.duration);
+            }
+        };
+        
+        processStep();
+    }
+    
+    updateStepIndicator(completedStep) {
+        for (let i = 1; i <= 4; i++) {
+            const stepEl = document.getElementById(`step${i}`);
+            const completeEl = document.getElementById(`step${i}-complete`);
+            const circle = stepEl?.querySelector('.border-2');
+            const text = stepEl?.querySelector('span');
+            
+            if (i <= completedStep) {
+                // Completed step
+                if (circle) {
+                    circle.classList.remove('border-gray-300');
+                    circle.classList.add('border-green-500');
+                }
+                if (completeEl) {
+                    completeEl.classList.remove('hidden', 'bg-gray-300');
+                    completeEl.classList.add('bg-green-500');
+                }
+                if (text) {
+                    text.classList.remove('text-gray-500');
+                    text.classList.add('text-green-700');
+                }
+            } else if (i === completedStep + 1) {
+                // Current step
+                if (circle) {
+                    circle.classList.remove('border-gray-300');
+                    circle.classList.add('border-blue-500');
+                }
+                if (text) {
+                    text.classList.remove('text-gray-500');
+                    text.classList.add('text-blue-700');
+                }
+            }
+        }
+    }
+    
+    estimateFileSize(file) {
+        if (!file) return;
+        
+        // Rough estimate: assume 100 bytes per council record on average
+        const estimatedRecords = Math.ceil(file.size / 100);
+        
+        if (estimatedRecords > 10) {
+            const estimated = this.estimatedDuration.bulk.base + 
+                            (estimatedRecords * this.estimatedDuration.bulk.perCouncil);
+            const minutes = Math.ceil(estimated / 60000);
+            const seconds = Math.ceil((estimated % 60000) / 1000);
+            
+            let timeText = "";
+            if (minutes > 0) {
+                timeText = `${minutes}m ${seconds}s`;
+            } else {
+                timeText = `${seconds}s`;
+            }
+            
+            // Update file info with estimate
+            const fileInfo = document.getElementById('fileInfo');
+            if (fileInfo && estimatedRecords > 10) {
+                fileInfo.innerHTML += `
+                    <div class="text-xs text-blue-600 mt-1">
+                        📊 Estimated ${estimatedRecords} records, Processing time: ~${timeText}
+                    </div>
+                `;
+            }
+        }
+    }
+}
+
+// Initialize progress manager when DOM is loaded
+document.addEventListener('DOMContentLoaded', function() {
+    new CouncilProgressManager();
+    
+    // File drag and drop functionality
+    const fileInput = document.getElementById('councilImportFile');
+    const dropZone = fileInput.closest('.border-dashed');
+    
+    if (dropZone && fileInput) {
+        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+            dropZone.addEventListener(eventName, preventDefaults, false);
+        });
+        
+        ['dragenter', 'dragover'].forEach(eventName => {
+            dropZone.addEventListener(eventName, highlight, false);
+        });
+        
+        ['dragleave', 'drop'].forEach(eventName => {
+            dropZone.addEventListener(eventName, unhighlight, false);
+        });
+        
+        dropZone.addEventListener('drop', handleDrop, false);
+        
+        function preventDefaults(e) {
+            e.preventDefault();
+            e.stopPropagation();
+        }
+        
+        function highlight(e) {
+            dropZone.classList.add('border-blue-400', 'bg-blue-50');
+        }
+        
+        function unhighlight(e) {
+            dropZone.classList.remove('border-blue-400', 'bg-blue-50');
+        }
+        
+        function handleDrop(e) {
+            const dt = e.dataTransfer;
+            const files = dt.files;
+            
+            if (files.length > 0) {
+                fileInput.files = files;
+                
+                // Trigger change event
+                const event = new Event('change', { bubbles: true });
+                fileInput.dispatchEvent(event);
+            }
+        }
+    }
+});
+</script>
+
+{% endblock %}
