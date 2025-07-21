@@ -7,7 +7,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>{% block title %}Council Finance Counters{% endblock %}</title>
     <!-- Use Tailwind via CDN for quick styling -->
-    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="{% static 'css/output.css' %}" rel="stylesheet">
     {# Load the selected Google Font and apply user preferences #}
     <link rel="stylesheet" href="{{ google_fonts_url }}">
     
