@@ -1,15 +1,26 @@
 import os
 from pathlib import Path
 from dotenv import load_dotenv
+import dj_database_url
 
 # Load environment variables from .env file
 load_dotenv()
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-SECRET_KEY = "django-insecure-change-me"
+SECRET_KEY = os.getenv('SECRET_KEY', "django-insecure-change-me")
 DEBUG = os.getenv('DEBUG', 'False').lower() == 'true'
-ALLOWED_HOSTS = []
+
+# Production-ready security configuration
+if DEBUG:
+    ALLOWED_HOSTS = ['localhost', '127.0.0.1', '[::1]']
+else:
+    ALLOWED_HOSTS = [
+        'councilfinancecounters.onrender.com',
+        'localhost',
+        '127.0.0.1',
+        '[::1]'
+    ]
 
 INSTALLED_APPS = [
     "django.contrib.admin",
@@ -36,6 +47,7 @@ for plugin in os.listdir(PLUGINS_DIR):
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
+    "whitenoise.middleware.WhiteNoiseMiddleware",  # Add WhiteNoise for static files
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
@@ -138,3 +150,13 @@ CHANNEL_LAYERS = {
 # under the matching keys.
 AUTO_APPROVE_MIN_VERIFIED_IPS = 1
 AUTO_APPROVE_MIN_APPROVED = 3
+
+# Static files configuration
+import os
+STATICFILES_DIRS = [
+    os.path.join(BASE_DIR, "static"),
+]
+
+# Production static files settings (uncomment for production)
+# STATIC_ROOT = os.path.join(BASE_DIR, "staticfiles")
+# STATICFILES_STORAGE = "django.contrib.staticfiles.storage.StaticFilesStorage"
