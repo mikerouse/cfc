@@ -4,6 +4,7 @@ from django.urls import include, path
 from django.views.generic import RedirectView
 from django.conf import settings
 from django.conf.urls.static import static
+from django.contrib import admin
 
 from .views import (
     general as general_views,
@@ -88,8 +89,7 @@ urlpatterns = [
     # User preferences management
     path("accounts/preferences/", auth_views.user_preferences_view, name="user_preferences"),
     path("api/preferences/", api_views.user_preferences_ajax, name="user_preferences_ajax"),
-    path("councils/", council_views.council_list, name="council_list"),
-    path(
+    path("councils/", council_views.council_list, name="council_list"),    path(
         "councils/<slug:slug>/counters/",
         council_views.council_counters,
         name="council_counters",
@@ -103,14 +103,30 @@ urlpatterns = [
         "councils/<slug:slug>/edit-table/",
         council_views.edit_figures_table,
         name="edit_figures_table",
-    ),    path(
+    ),
+    # API endpoints for spreadsheet interface
+    path(
+        "councils/<slug:slug>/financial-data/",
+        council_views.financial_data_api,
+        name="financial_data_api",
+    ),
+    path(
+        "api/fields/<slug:field_slug>/options/",
+        council_views.field_options_api,
+        name="field_options_api",
+    ),
+    path(
+        "api/council/contribute/",
+        council_views.contribute_api,
+        name="contribute_api",
+    ),
+    path(
         "councils/<slug:slug>/log/",
         council_views.council_change_log,
         name="council_change_log",
-    ),
-    path("councils/<slug:slug>/", general_views.council_detail, name="council_detail"),
+    ),path("councils/<slug:slug>/", general_views.council_detail, name="council_detail"),
     # Common menu pages
-    path("leaderboards/", council_views.leaderboards, name="leaderboards"),
+    path("leaderboards/", general_views.leaderboards, name="leaderboards"),
     path("lists/", my_lists, name="my_lists"),
     path("lists/favourites/add/", add_favourite, name="add_favourite"),
     path("lists/favourites/remove/", remove_favourite, name="remove_favourite"),

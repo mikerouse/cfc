@@ -701,9 +701,9 @@ if (sharePrefs) {
   }
 }
 
-if (overridePrecision !== null) precisionSelect.value = overridePrecision;
-if (overrideThousands !== null) thousandsCheck.checked = overrideThousands === 'true';
-if (overrideFriendly !== null) friendlyCheck.checked = overrideFriendly === 'true';
+if (overridePrecision !== null && precisionSelect) precisionSelect.value = overridePrecision;
+if (overrideThousands !== null && thousandsCheck) thousandsCheck.checked = overrideThousands === 'true';
+if (overrideFriendly !== null && friendlyCheck) friendlyCheck.checked = overrideFriendly === 'true';
 
 function defaultCols() {
   if (window.innerWidth < 640) return 1;
@@ -779,9 +779,9 @@ slider.addEventListener('input', e => {
 });
 
 function saveFormatting() {
-  overridePrecision = precisionSelect.value || null;
-  overrideThousands = thousandsCheck.checked ? 'true' : 'false';
-  overrideFriendly = friendlyCheck.checked ? 'true' : 'false';
+  overridePrecision = precisionSelect ? (precisionSelect.value || null) : null;
+  overrideThousands = thousandsCheck ? (thousandsCheck.checked ? 'true' : 'false') : 'false';
+  overrideFriendly = friendlyCheck ? (friendlyCheck.checked ? 'true' : 'false') : 'false';
   if (overridePrecision !== null && overridePrecision !== '') {
     localStorage.setItem(`precision_${councilSlug}`, overridePrecision);
   } else {
@@ -794,9 +794,9 @@ function saveFormatting() {
   animateCounters();
 }
 
-precisionSelect.addEventListener('change', saveFormatting);
-thousandsCheck.addEventListener('change', saveFormatting);
-friendlyCheck.addEventListener('change', saveFormatting);
+if (precisionSelect) precisionSelect.addEventListener('change', saveFormatting);
+if (thousandsCheck) thousandsCheck.addEventListener('change', saveFormatting);
+if (friendlyCheck) friendlyCheck.addEventListener('change', saveFormatting);
 
 const defaultSlugs = JSON.parse(document.getElementById('default-slugs').textContent);
 
@@ -847,9 +847,9 @@ document.getElementById('share-link').addEventListener('click', async () => {
     .map(el => el.dataset.counter);
   endpoint.searchParams.set('year', year);
   endpoint.searchParams.set('counters', selectedCounters.join(','));
-  endpoint.searchParams.set('precision', precisionSelect.value || '');
-  endpoint.searchParams.set('thousands', thousandsCheck.checked);
-  endpoint.searchParams.set('friendly', friendlyCheck.checked);
+  endpoint.searchParams.set('precision', precisionSelect ? (precisionSelect.value || '') : '');
+  endpoint.searchParams.set('thousands', thousandsCheck ? thousandsCheck.checked : false);
+  endpoint.searchParams.set('friendly', friendlyCheck ? friendlyCheck.checked : false);
   try {
     const resp = await fetch(endpoint, {headers: {'X-Requested-With': 'XMLHttpRequest'}});
     const data = await resp.json();

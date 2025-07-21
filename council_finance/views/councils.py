@@ -13,13 +13,17 @@ from django.utils import timezone
 from django.urls import reverse
 from django.conf import settings
 import json
+import urllib.parse
+from django.http import JsonResponse
+from uuid import uuid4
 
 from council_finance.models import (
     Council, FinancialYear, 
     UserProfile, ActivityLog, CounterDefinition, SiteCounter,
     CouncilCounter, SiteSetting, DataField,
     CouncilCharacteristic, FinancialFigure, FinancialFigureHistory,
-    CouncilCharacteristicHistory, CouncilFollow
+    CouncilCharacteristicHistory, CouncilFollow, Contribution,
+    CouncilType, CouncilNation
 )
 from council_finance.agents.counter_agent import CounterAgent
 from council_finance.factoids import get_factoids
@@ -76,6 +80,12 @@ def council_list(request):
 def council_detail(request, slug):
     """Display detailed information about a council."""
     council = get_object_or_404(Council, slug=slug)
+    
+    # Handle share link parameters
+    share_data = None
+    share_id = request.GET.get('share')
+    if share_id and 'share_links' in request.session:
+        share_data = request.session['share_links'].get(share_id)
     
     # Get the current financial year
     current_year = current_financial_year_label()
@@ -187,14 +197,26 @@ def council_detail(request, slug):
         meta_values = CouncilCharacteristic.objects.filter(
             council=council
         ).select_related('field')[:10]  # Limit to prevent too many results
-    
-    # Log page view
+      # Log page view
     log_activity(
         request,
         council=council,
         activity=f"Viewed council detail page",
         extra=f"Council: {council.name}"
     )
+    
+    # Handle tab parameter for edit interface
+    tab = request.GET.get('tab', 'view')
+    
+    # Get pending contributions for edit interface
+    pending_slugs = []
+    if tab == 'edit':
+        from council_finance.models import Contribution
+        pending_contributions = Contribution.objects.filter(
+            council=council,
+            status='pending'
+        ).values_list('field__slug', flat=True)
+        pending_slugs = list(pending_contributions)
     
     # Get default counter slugs for JavaScript
     default_counter_slugs = [counter['counter'].slug for counter in counters]
@@ -211,6 +233,11 @@ def council_detail(request, slug):
         'meta_values': meta_values,
         'is_following': is_following,
         'default_counter_slugs': default_counter_slugs,
+        'share_data': share_data,
+        'tab': tab,
+        'edit_years': years,
+        'edit_selected_year': selected_year,
+        'pending_slugs': pending_slugs,
     }
     
     return render(request, 'council_finance/council_detail.html', context)
@@ -444,126 +471,343 @@ def edit_figures_table(request, slug):
 
 
 @login_required
-def generate_share_link(request):
-    """Generate shareable link for a council."""
+def financial_data_api(request, slug):
+    """API endpoint for financial data used by spreadsheet interface."""
+    council = get_object_or_404(Council, slug=slug)
+    
+    # Check if user has permission to view edit interface
+    if not request.user.is_superuser:
+        try:
+            profile = get_object_or_404(UserProfile, user=request.user)
+            if profile.tier.level < 2:  # Minimum trust tier for editing
+                return JsonResponse({
+                    'error': 'permission_denied',
+                    'message': 'You do not have permission to view this data.'
+                }, status=403)
+        except UserProfile.DoesNotExist:
+            return JsonResponse({
+                'error': 'permission_denied',
+                'message': 'User profile not found.'
+            }, status=403)
+    
+    # Get the requested year
+    requested_year = request.GET.get('year')
+    if requested_year:
+        try:
+            council_year = FinancialYear.objects.get(label=requested_year)
+        except FinancialYear.DoesNotExist:
+            return JsonResponse({'error': 'Year not found'}, status=404)
+    else:
+        # Default to current financial year
+        current_year = current_financial_year_label()
+        council_year, created = FinancialYear.objects.get_or_create(
+            label=current_year
+        )
+    
+    # Get financial data fields organized by category
+    financial_categories = ['balance_sheet', 'cash_flow', 'income', 'spending']
+    financial_fields = DataField.objects.filter(
+        category__in=financial_categories
+    ).order_by('category', 'name')
+    
+    # Get existing financial figures for this council and year
+    existing_figures = FinancialFigure.objects.filter(
+        council=council,
+        year=council_year
+    ).select_related('field')
+    
+    # Create a mapping of field slug to figure
+    figures_by_field = {figure.field.slug: figure for figure in existing_figures}
+    
+    # Get pending contributions for this council
+    pending_contributions = Contribution.objects.filter(
+        council=council,
+        year=council_year,
+        status='pending'
+    ).values_list('field__slug', flat=True)
+      # Build response data organized by category
+    fields_by_category = {}
+    for field in financial_fields:
+        figure = figures_by_field.get(field.slug)
+        
+        field_data = {
+            'slug': field.slug,
+            'name': field.name,
+            'description': field.explanation,
+            'data_type': field.content_type or 'text',
+            'category': field.category,
+            'value': figure.value if figure else None,
+            'source': figure.source_document if figure else None,
+            'last_updated': figure.updated.isoformat() if figure else None,
+            'is_pending': field.slug in pending_contributions
+        }
+        
+        if field.category not in fields_by_category:
+            fields_by_category[field.category] = []
+        fields_by_category[field.category].append(field_data)
+    
+    return JsonResponse({
+        'fields_by_category': fields_by_category,
+        'categories': financial_categories,        'year': {
+            'id': council_year.id,
+            'label': council_year.label,
+            'display': council_year.label  # Use label as display since no display field exists
+        },
+        'council': {
+            'slug': council.slug,
+            'name': council.name
+        }
+    })
+
+
+@login_required
+def field_options_api(request, field_slug):
+    """API endpoint for field options and metadata."""
+    try:
+        field = DataField.objects.get(slug=field_slug)
+    except DataField.DoesNotExist:
+        return JsonResponse({'error': 'Field not found'}, status=404)
+    
+    response_data = {
+        'field_type': 'text',  # default
+        'placeholder': f'Enter {field.name.lower()}...',
+        'options': []
+    }
+    
+    # Handle special field types
+    if field.slug == 'council_type':
+        response_data['field_type'] = 'select'
+        response_data['options'] = [
+            {'value': ct.slug, 'label': ct.name}
+            for ct in CouncilType.objects.all().order_by('name')
+        ]
+    elif field.slug == 'council_nation':
+        response_data['field_type'] = 'select'
+        response_data['options'] = [
+            {'value': cn.slug, 'label': cn.name}
+            for cn in CouncilNation.objects.all().order_by('name')
+        ]
+    elif field.data_type == 'currency':
+        response_data['placeholder'] = 'Enter amount in £ (e.g., 1000000 for £1M)'
+    elif field.data_type == 'percentage':
+        response_data['placeholder'] = 'Enter percentage (e.g., 15.5 for 15.5%)'
+    elif field.data_type == 'url':
+        response_data['placeholder'] = 'Enter full URL (e.g., https://example.com)'
+    
+    return JsonResponse(response_data)
+
+
+@login_required
+def contribute_api(request):
+    """API endpoint for submitting contributions from spreadsheet interface."""
     if request.method != 'POST':
         return JsonResponse({'error': 'POST method required'}, status=405)
     
+    if not request.user.is_authenticated:
+        return JsonResponse({'error': 'Login required'}, status=401)
+    
     try:
-        data = json.loads(request.body)
-        council_slug = data.get('council_slug')
+        # Get form data
+        field_slug = request.POST.get('field')
+        year_id = request.POST.get('year')
+        value = request.POST.get('value', '').strip()
+        source = request.POST.get('source', '').strip()
+        
+        # Debug logging
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.info(f'Contribute API called with: field={field_slug}, year_id={year_id}, value={value}, source={source}')
+        
+        if not field_slug:
+            return JsonResponse({'error': 'Field is required'}, status=400)
+        
+        # Allow empty values to clear/nullify fields
+        if not value:
+            value = None
+        
+        # Get field
+        try:
+            field = DataField.objects.get(slug=field_slug)
+        except DataField.DoesNotExist:
+            return JsonResponse({'error': 'Invalid field'}, status=400)
+        
+        # Get council from referrer or session
+        council_slug = None
+        referer = request.META.get('HTTP_REFERER', '')
+        logger.info(f'Referer URL: {referer}')
+        
+        if '/councils/' in referer:
+            try:
+                # Extract council slug from URL
+                parts = referer.split('/councils/')[1].split('/')
+                council_slug = parts[0]
+                logger.info(f'Extracted council slug: {council_slug}')
+            except (IndexError, AttributeError) as e:
+                logger.error(f'Error extracting council slug: {str(e)}')
+                pass
         
         if not council_slug:
-            return JsonResponse({'error': 'Council slug is required'}, status=400)
+            logger.error(f'Could not determine council from referer: {referer}')
+            return JsonResponse({'error': 'Could not determine council'}, status=400)
         
-        council = get_object_or_404(Council, slug=council_slug)
+        try:
+            council = Council.objects.get(slug=council_slug)
+        except Council.DoesNotExist:
+            return JsonResponse({'error': 'Invalid council'}, status=400)
         
-        # Generate shareable URL
-        share_url = request.build_absolute_uri(
-            reverse('council_detail', kwargs={'slug': council.slug})
-        )
+        # Get year if provided
+        year = None
+        if year_id:
+            logger.info(f'Looking up year with ID: {year_id}')
+            try:
+                year = FinancialYear.objects.get(id=year_id)
+                logger.info(f'Found year: {year.label}')
+            except FinancialYear.DoesNotExist:
+                logger.error(f'FinancialYear with ID {year_id} not found')
+                return JsonResponse({'error': 'Invalid year'}, status=400)
         
-        # Log the share action
+        # Check for existing pending contribution
+        from council_finance.models import Contribution
+        existing = Contribution.objects.filter(
+            user=request.user,
+            council=council,
+            field=field,
+            year=year,
+            status='pending'
+        ).first()
+        
+        if existing:
+            return JsonResponse({
+                'error': 'You already have a pending contribution for this field'
+            }, status=400)
+        
+        # Handle different field types
+        logger.info(f'Field category: {field.category}, slug: {field.slug}')
+        if field.category == 'characteristic':
+            # Council characteristics
+            if field.slug == 'council_type':
+                try:
+                    council_type = CouncilType.objects.get(slug=value)
+                    council.council_type = council_type
+                    council.save()
+                    points_awarded = 3
+                except CouncilType.DoesNotExist:
+                    return JsonResponse({'error': 'Invalid council type'}, status=400)
+            elif field.slug == 'council_nation':
+                try:
+                    council_nation = CouncilNation.objects.get(slug=value)
+                    council.council_nation = council_nation
+                    council.save()
+                    points_awarded = 3
+                except CouncilNation.DoesNotExist:
+                    return JsonResponse({'error': 'Invalid council nation'}, status=400)
+            elif field.slug == 'council_website':
+                council.website = value
+                council.save()
+                points_awarded = 3
+            else:
+                # Other characteristics - create or update
+                characteristic, created = CouncilCharacteristic.objects.update_or_create(
+                    council=council,
+                    field=field,
+                    defaults={'value': value}
+                )
+                points_awarded = 3
+        else:
+            # Financial data
+            if not year:
+                return JsonResponse({'error': 'Year is required for financial data'}, status=400)
+            
+            figure, created = FinancialFigure.objects.update_or_create(
+                council=council,
+                field=field,
+                year=year,
+                defaults={'value': value, 'source_document': source}
+            )
+            points_awarded = 2
+        
+        # Award points to user
+        try:
+            profile = UserProfile.objects.get(user=request.user)
+            profile.points += points_awarded
+            profile.save()
+        except UserProfile.DoesNotExist:
+            # Create profile if it doesn't exist
+            profile = UserProfile.objects.create(user=request.user, points=points_awarded)
+        
+        # Log the activity
         log_activity(
             request,
             council=council,
-            activity=f"Generated share link",
-            extra=f"Council: {council.name}"
+            activity='data_contribution',
+            action=f'Updated {field.name} via spreadsheet interface',
+            extra={
+                'field_slug': field_slug,
+                'year_label': year.label if year else None,
+                'value': value,
+                'points_awarded': points_awarded,
+                'interface': 'spreadsheet'
+            }
         )
         
         return JsonResponse({
             'success': True,
-            'share_url': share_url,
-            'council_name': council.name,
+            'message': f'Data saved successfully! {points_awarded} points awarded.',
+            'points_awarded': points_awarded,
+            'user_points': profile.points,
+            'field': field.slug,
+            'value': value
         })
         
-    except json.JSONDecodeError:
-        return JsonResponse({'error': 'Invalid JSON data'}, status=400)
+    except Exception as e:
+        import logging
+        import traceback
+        logger = logging.getLogger(__name__)
+        logger.error(f'Error in contribute_api: {str(e)}')
+        logger.error(f'Traceback: {traceback.format_exc()}')
+        return JsonResponse({
+            'error': f'An error occurred while saving your contribution: {str(e)}'
+        }, status=500)
+
+
+def generate_share_link(request, slug):
+    """
+    Generate a shareable link for council page with specific view settings
+    """
+    try:
+        council = get_object_or_404(Council, slug=slug)
+        
+        # Extract parameters from the request
+        share_data = {
+            'year': request.GET.get('year'),
+            'counters': request.GET.get('counters'),
+            'precision': request.GET.get('precision'),
+            'thousands': request.GET.get('thousands'),
+            'friendly': request.GET.get('friendly'),
+            'show_currency': request.GET.get('show_currency', 'true'),
+        }
+        
+        # Remove None values
+        share_data = {k: v for k, v in share_data.items() if v is not None}
+        
+        # Generate a unique share identifier
+        share_id = str(uuid4())[:8]
+        
+        # Store the share data in session or cache (using session for simplicity)
+        if 'share_links' not in request.session:
+            request.session['share_links'] = {}
+        
+        request.session['share_links'][share_id] = share_data
+        request.session.modified = True
+        
+        # Generate the shareable URL
+        base_url = request.build_absolute_uri(f'/councils/{slug}/')
+        share_url = f"{base_url}?share={share_id}"
+        
+        return JsonResponse({
+            'url': share_url,
+            'share_id': share_id
+        })
+        
     except Exception as e:
         return JsonResponse({'error': str(e)}, status=500)
-
-
-def leaderboards(request):
-    """Display council leaderboards."""
-    # Get the current financial year
-    current_year = current_financial_year_label()
-    
-    # Get the FinancialYear object
-    try:
-        financial_year = FinancialYear.objects.get(label=current_year)
-    except FinancialYear.DoesNotExist:
-        financial_year = None
-    
-    # Get leaderboard type
-    leaderboard_type = request.GET.get('type', 'total_debt')
-      # Get councils with financial data for the current year
-    councils = Council.objects.filter(
-        financial_figures__year__label=current_year
-    ).distinct()
-    
-    # Calculate leaderboard data based on type
-    leaderboard_data = []
-    
-    if leaderboard_type == 'total_debt':        # Calculate total debt for each council
-        for council in councils:
-            try:
-                debt_total = FinancialFigure.objects.filter(
-                    council=council,
-                    year=financial_year,
-                    field__category='Debt'
-                ).aggregate(
-                    total=Sum('value')
-                )['total'] or 0
-                
-                leaderboard_data.append({
-                    'council': council,
-                    'value': debt_total,
-                    'formatted_value': f"£{debt_total:,.2f}" if debt_total else '£0.00',
-                })
-            except Exception:
-                continue
-    
-    elif leaderboard_type == 'total_assets':        # Calculate total assets for each council
-        for council in councils:
-            try:
-                assets_total = FinancialFigure.objects.filter(
-                    council=council,
-                    year=financial_year,
-                    field__category='Assets'
-                ).aggregate(
-                    total=Sum('value')
-                )['total'] or 0
-                
-                leaderboard_data.append({
-                    'council': council,
-                    'value': assets_total,
-                    'formatted_value': f"£{assets_total:,.2f}" if assets_total else '£0.00',
-                })
-            except Exception:
-                continue
-    
-    # Sort leaderboard data
-    leaderboard_data.sort(key=lambda x: x['value'], reverse=True)
-    
-    # Add rankings
-    for i, item in enumerate(leaderboard_data, 1):
-        item['rank'] = i
-    
-    # Paginate results
-    paginator = Paginator(leaderboard_data, 50)
-    page_number = request.GET.get('page')
-    page_obj = paginator.get_page(page_number)
-    
-    context = {
-        'page_obj': page_obj,
-        'leaderboard_type': leaderboard_type,
-        'current_year': current_year,
-        'total_councils': len(leaderboard_data),
-        'leaderboard_types': [
-            ('total_debt', 'Total Debt'),
-            ('total_assets', 'Total Assets'),
-            ('council_tax', 'Council Tax'),
-        ],
-    }
-    
-    return render(request, 'council_finance/leaderboards.html', context)

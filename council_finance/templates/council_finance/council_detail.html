@@ -656,9 +656,12 @@ async function loadCounters(year) {
   }
 }
 
-document.getElementById('year-select').addEventListener('change', e => {
-  loadCounters(e.target.value);
-});
+const yearSelect = document.getElementById('year-select');
+if (yearSelect) {
+  yearSelect.addEventListener('change', e => {
+    loadCounters(e.target.value);
+  });
+}
 
 const councilSlug = '{{ council.slug }}';
 const grid = document.getElementById('counters-grid');

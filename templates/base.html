@@ -516,7 +516,10 @@
     document.addEventListener('DOMContentLoaded', () => {
         const messages = document.querySelectorAll('#message-area .message');
         messages.forEach((msg) => {
-            msg.querySelector('.close').addEventListener('click', () => msg.remove());
+            const closeBtn = msg.querySelector('.close');
+            if (closeBtn) {
+                closeBtn.addEventListener('click', () => msg.remove());
+            }
             setTimeout(() => msg.remove(), 8000);
         });
     });

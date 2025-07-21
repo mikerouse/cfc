@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python manage.py shell:*)",
+      "Bash(find:*)",
+      "Bash(python manage.py:*)",
+      "Bash(python:*)",
+      "Bash(timeout 10 python manage.py runserver:*)",
+      "Bash(timeout:*)"
+    ],
+    "deny": []
+  }
+}
