@@ -12,7 +12,9 @@
       "Bash(dir:*)",
       "Bash(ls:*)",
       "Bash(rm:*)",
-      "Bash(true)"
+      "Bash(true)",
+      "Bash(mv:*)",
+      "Bash(pip install:*)"
     ],
     "deny": []
   }

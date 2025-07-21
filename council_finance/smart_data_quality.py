@@ -44,7 +44,8 @@ def get_relevant_financial_years() -> Set[int]:
         recent_years = FinancialYear.objects.order_by('-label')[:2]
         relevant_years.update(recent_years.values_list('id', flat=True))
         logger.info(f"No current year marked, using {len(recent_years)} most recent years")
-      # Add any years that already have substantial data (>10% populated)
+    
+    # Add any years that already have substantial data (>10% populated)
     for year in FinancialYear.objects.all():
         submission_count = FinancialFigure.objects.filter(year=year).count()
         if submission_count > 100:  # Arbitrary threshold for "substantial data"
@@ -121,7 +122,7 @@ def smart_assess_data_issues() -> int:
             
             # Check if council already has this attribute
             has_data = False
-              if field.slug in COUNCIL_ATTRS:
+            if field.slug in COUNCIL_ATTRS:
                 has_data = COUNCIL_ATTRS[field.slug](council)
             else:
                 # For other characteristics, check if a CouncilCharacteristic exists
@@ -263,6 +264,132 @@ def mark_financial_year_as_current(year_label: str) -> bool:
         return False
 
 
+def generate_missing_data_issues_for_council(council) -> int:
+    """
+    Generate missing data issues for a specific council.
+    
+    This is used when a new council is created to automatically populate
+    the contribution queues with missing data fields.
+    
+    Returns the number of issues created.
+    """
+    logger.info(f"Generating missing data issues for council: {council.name}")
+    
+    # Get existing contributions to avoid double-flagging
+    from .models import Contribution
+    contributed_keys = set(
+        Contribution.objects.filter(council=council).values_list('council_id', 'field_id', 'year_id')
+    )
+    
+    issues_to_create = []
+    count = 0
+    
+    # Get all financial years and relevant years
+    all_years = list(FinancialYear.objects.all())
+    relevant_year_ids = get_relevant_financial_years()
+    
+    # === ASSESS CHARACTERISTIC DATA (yearless) ===
+    char_fields = list(DataField.objects.filter(category='characteristic').exclude(slug='council_name'))
+    
+    # Map characteristic slugs to council attribute checks
+    COUNCIL_ATTRS = {
+        "council_type": lambda c: c.council_type is not None,
+        "council_nation": lambda c: c.council_nation is not None,
+        "council_website": lambda c: bool(c.website and c.website.strip()),
+    }
+    
+    for field in char_fields:
+        # Skip if already contributed
+        if (council.id, field.id, None) in contributed_keys:
+            continue
+        
+        # Check if council already has this attribute
+        has_data = False
+        if field.slug in COUNCIL_ATTRS:
+            has_data = COUNCIL_ATTRS[field.slug](council)
+        else:
+            # For other characteristics, check if a CouncilCharacteristic exists
+            has_data = CouncilCharacteristic.objects.filter(
+                council=council,
+                field=field
+            ).exclude(
+                value__in=['', None]
+            ).exists()
+        
+        if not has_data:
+            # Create missing data issue for characteristic
+            issue = DataIssue(
+                council=council,
+                field=field,
+                year=None,
+                issue_type="missing",
+                value="",
+            )
+            # Mark characteristics as high priority
+            if hasattr(issue, 'priority'):
+                issue.priority = "high"
+            issues_to_create.append(issue)
+            count += 1
+    
+    # === ASSESS FINANCIAL DATA (ALL YEARS) ===
+    financial_fields = list(DataField.objects.exclude(category='characteristic'))
+    
+    # Build field-to-council-types mapping for efficiency
+    field_council_types = {}
+    for field in financial_fields:
+        field_council_types[field.id] = set(field.council_types.values_list('id', flat=True))
+    
+    # Get existing financial figures for this council
+    existing_submissions = {}
+    submission_queryset = FinancialFigure.objects.filter(council=council).select_related('field')
+    for fs in submission_queryset:
+        existing_submissions[(fs.council_id, fs.field_id, fs.year_id)] = fs
+    
+    for field in financial_fields:
+        # Check if field applies to this council type
+        field_types = field_council_types[field.id]
+        if field_types and council.council_type_id not in field_types:
+            continue
+        
+        # Check ALL financial years
+        for year in all_years:
+            key = (council.id, field.id, year.id)
+            
+            # Skip if already contributed
+            if key in contributed_keys:
+                continue
+            
+            # Check if we have existing data
+            fs = existing_submissions.get(key)
+            if not fs or fs.value in (None, ""):
+                # Missing financial data
+                issue = DataIssue(
+                    council=council,
+                    field=field,
+                    year=year,
+                    issue_type="missing",
+                    value=""
+                )
+                # Mark priority based on whether this is a relevant/current year
+                if hasattr(issue, 'priority'):
+                    if year.id in relevant_year_ids:
+                        issue.priority = "high"
+                    else:
+                        issue.priority = "normal"
+                issues_to_create.append(issue)
+                count += 1
+    
+    # Create all issues in a single batch
+    if issues_to_create:
+        with transaction.atomic():
+            DataIssue.objects.bulk_create(issues_to_create, ignore_conflicts=True)
+        logger.info(f"Created {count} missing data issues for council: {council.name}")
+    else:
+        logger.info(f"No missing data issues found for council: {council.name}")
+    
+    return count
+
+
 def get_data_collection_priorities() -> Dict[str, any]:
     """
     Get information about data collection priorities and relevant years.
@@ -280,7 +407,7 @@ def get_data_collection_priorities() -> Dict[str, any]:
     for year in relevant_years:
         total_possible = Council.objects.filter(status='active').count() * \
                         DataField.objects.exclude(category='characteristic').count()
-          actual_submissions = FinancialFigure.objects.filter(year=year).exclude(
+        actual_submissions = FinancialFigure.objects.filter(year=year).exclude(
             value__in=[None]
         ).count()
         

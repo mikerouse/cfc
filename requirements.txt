@@ -14,3 +14,6 @@ whitenoise>=6.5.0
 # New dependencies for enhanced spreadsheet-like editing
 django-widget-tweaks>=1.5.0
 django-datatables-view>=1.19.1
+# Data import/export capabilities
+pandas>=2.0.0
+openpyxl>=3.0.0

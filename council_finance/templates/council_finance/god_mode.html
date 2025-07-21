@@ -39,11 +39,11 @@
   </div>
   {% endif %}
 
-  <!-- Surveillance Grid Layout -->
-  <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+  <!-- Modern Two-Column Grid Layout -->
+  <div class="grid grid-cols-1 xl:grid-cols-2 gap-6">
     
-    <!-- Left Column: Real-Time Activity Surveillance -->
-    <div class="lg:col-span-1 space-y-6">
+    <!-- Left Column: Surveillance & Activity -->
+    <div class="space-y-6">
       
       <!-- Active User Surveillance -->
       <div class="bg-white rounded-lg shadow-sm border border-blue-200">
@@ -158,9 +158,6 @@
       </div>
     </div>
     
-    <!-- Center Column: Council Activity & Recent Events -->
-    <div class="lg:col-span-1 space-y-6">
-      
       <!-- Council Activity Hotspots -->
       <div class="bg-white rounded-lg shadow-sm border border-green-200">
         <div class="p-4 border-b border-gray-200 bg-green-50">
@@ -190,51 +187,6 @@
           <div class="text-center py-4 text-gray-500">
             <div class="text-2xl mb-2">🏛️</div>
             <p class="text-sm">No recent council activity detected</p>
-          </div>
-          {% endif %}
-        </div>
-      </div>
-
-      <!-- Recent Rejections Surveillance -->
-      <div class="bg-white rounded-lg shadow-sm border border-purple-200">
-        <div class="p-4 border-b border-gray-200 bg-purple-50">
-          <h2 class="text-lg font-semibold text-purple-900 flex items-center">
-            <span class="mr-2">❌</span>Recent Rejections
-          </h2>
-        </div>
-        <div class="p-4">
-          {% if recent_rejections %}
-          <div class="space-y-3">
-            {% for rejection in recent_rejections %}
-            <div class="border-l-4 border-red-300 pl-3 py-2">
-              <div class="flex items-center justify-between">
-                <div class="text-sm font-medium">
-                  {{ rejection.council.name|truncatechars:20 }}
-                </div>
-                <div class="text-xs text-gray-500">
-                  {{ rejection.created_at|timesince }} ago
-                </div>
-              </div>
-              <div class="text-xs text-gray-600 mt-1">
-                Field: {{ rejection.field_name }}
-              </div>
-              {% if rejection.reviewed_by %}
-              <div class="text-xs text-purple-600">
-                Reviewed by: {{ rejection.reviewed_by.username }}
-              </div>
-              {% endif %}
-              {% if rejection.reason %}
-              <div class="text-xs text-red-600 mt-1">
-                "{{ rejection.reason|truncatechars:50 }}"
-              </div>
-              {% endif %}
-            </div>
-            {% endfor %}
-          </div>
-          {% else %}
-          <div class="text-center py-4 text-gray-500">
-            <div class="text-2xl mb-2">✅</div>
-            <p class="text-sm">No recent rejections - All is well!</p>
           </div>
           {% endif %}
         </div>
@@ -322,9 +274,53 @@
       </div>
     </div>
     
-    <!-- Right Column: Divine Actions & System Controls -->
-    <div class="lg:col-span-1 space-y-6">
-      
+    <!-- Right Column: Management & Control Systems -->
+    <div class="space-y-6">
+      <!-- Recent Rejections Surveillance -->
+      <div class="bg-white rounded-lg shadow-sm border border-purple-200">
+        <div class="p-4 border-b border-gray-200 bg-purple-50">
+          <h2 class="text-lg font-semibold text-purple-900 flex items-center">
+            <span class="mr-2">❌</span>Recent Rejections
+          </h2>
+        </div>
+        <div class="p-4">
+          {% if recent_rejections %}
+          <div class="space-y-3">
+            {% for rejection in recent_rejections %}
+            <div class="border-l-4 border-red-300 pl-3 py-2">
+              <div class="flex items-center justify-between">
+                <div class="text-sm font-medium">
+                  {{ rejection.council.name|truncatechars:20 }}
+                </div>
+                <div class="text-xs text-gray-500">
+                  {{ rejection.created_at|timesince }} ago
+                </div>
+              </div>
+              <div class="text-xs text-gray-600 mt-1">
+                Field: {{ rejection.field_name }}
+              </div>
+              {% if rejection.reviewed_by %}
+              <div class="text-xs text-purple-600">
+                Reviewed by: {{ rejection.reviewed_by.username }}
+              </div>
+              {% endif %}
+              {% if rejection.reason %}
+              <div class="text-xs text-red-600 mt-1">
+                "{{ rejection.reason|truncatechars:50 }}"
+              </div>
+              {% endif %}
+            </div>
+            {% endfor %}
+          </div>
+          {% else %}
+          <div class="text-center py-4 text-gray-500">
+            <div class="text-2xl mb-2">✅</div>
+            <p class="text-sm">No recent rejections - All is well!</p>
+          </div>
+          {% endif %}
+        </div>
+      </div>
+
       <!-- Smart Data Quality Management -->
       <div class="bg-white rounded-lg shadow-sm border border-blue-200">
         <div class="p-4 border-b border-gray-200 bg-gradient-to-r from-blue-50 to-indigo-50">
@@ -430,6 +426,258 @@
                 </form>
               </div>
             </details>
+          </div>
+        </div>
+      </div>
+
+      <!-- Council Management -->
+      <div class="bg-white rounded-lg shadow-sm border border-emerald-200">
+        <div class="p-4 border-b border-gray-200 bg-gradient-to-r from-emerald-50 to-green-50">
+          <h2 class="text-lg font-semibold text-emerald-900 flex items-center">
+            <span class="mr-2">🏛️</span>Council Management
+          </h2>
+        </div>
+        <div class="p-4 space-y-4">
+          <!-- Add New Council -->
+          <div class="bg-emerald-50 rounded-lg p-3">
+            <h4 class="text-sm font-semibold text-emerald-900 mb-3">✨ Create New Council</h4>
+            <form id="createCouncilForm" method="post" class="space-y-3">
+              {% csrf_token %}
+              <div class="space-y-2">
+                <input type="text" name="council_name" 
+                       placeholder="Council Name (e.g., Birmingham City Council)" 
+                       class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-emerald-500 focus:border-emerald-500 text-sm"
+                       required>
+                <input type="text" name="council_slug" 
+                       placeholder="URL Slug (e.g., birmingham-city-council)" 
+                       class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-emerald-500 focus:border-emerald-500 text-sm">
+                <select name="council_type" 
+                        class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-emerald-500 focus:border-emerald-500 text-sm">
+                  <option value="">Select Council Type...</option>
+                  <option value="unitary">Unitary Authority</option>
+                  <option value="district">District Council</option>
+                  <option value="county">County Council</option>
+                  <option value="metropolitan">Metropolitan Borough</option>
+                  <option value="london-borough">London Borough</option>
+                  <option value="combined-authority">Combined Authority</option>
+                  <option value="city-corporation">City Corporation</option>
+                </select>
+                <select name="council_nation" 
+                        class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-emerald-500 focus:border-emerald-500 text-sm">
+                  <option value="">Select Nation...</option>
+                  <option value="england">England</option>
+                  <option value="scotland">Scotland</option>
+                  <option value="wales">Wales</option>
+                  <option value="northern-ireland">Northern Ireland</option>
+                </select>
+              </div>
+              
+              <!-- Progress Indicator for Single Council Creation -->
+              <div id="createCouncilProgress" class="hidden">
+                <div class="bg-emerald-50 border border-emerald-200 rounded-lg p-3">
+                  <div class="flex items-center space-x-3">
+                    <div class="animate-spin rounded-full h-4 w-4 border-b-2 border-emerald-600"></div>
+                    <div class="text-sm text-emerald-700">
+                      <div id="createCouncilStatus">Creating council and generating contribution opportunities...</div>
+                      <div class="text-xs text-emerald-600 mt-1">This may take a few moments</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              
+              <button id="createCouncilBtn" type="submit" name="create_council" value="1"
+                      class="w-full px-4 py-2 bg-emerald-600 text-white rounded-md hover:bg-emerald-700 transition-colors text-sm">
+                <span class="inline-flex items-center">
+                  <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+                  </svg>
+                  Create Council
+                </span>
+              </button>
+            </form>
+          </div>
+
+          <!-- Import Councils -->
+          <div class="bg-blue-50 rounded-lg p-3">
+            <h4 class="text-sm font-semibold text-blue-900 mb-3">📄 Import Council List</h4>
+            <form id="importCouncilForm" method="post" enctype="multipart/form-data" class="space-y-3">
+              {% csrf_token %}
+              <div class="space-y-2">
+                <input id="councilImportFile" type="file" name="council_import_file" 
+                       accept=".csv,.json,.xlsx"
+                       class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500 text-sm">
+                <div class="text-xs text-blue-600 space-y-1">
+                  <p>📋 Supported formats: CSV, JSON, Excel (.xlsx)</p>
+                  <p>📋 Required columns: name, slug (optional), council_type, nation</p>
+                  <p>📋 Optional columns: website, postcode, population</p>
+                  <p class="text-blue-800">
+                    <a href="/static/council_import_template.csv" download class="underline hover:no-underline">
+                      📥 Download sample CSV template
+                    </a>
+                  </p>
+                </div>
+                <div class="flex items-center space-x-2">
+                  <input type="checkbox" name="preview_import" id="preview_import" value="1" checked
+                         class="rounded border-gray-300 text-blue-600 focus:ring-blue-500">
+                  <label for="preview_import" class="text-xs text-blue-700">Preview before importing (recommended)</label>
+                </div>
+              </div>
+              
+              <!-- Progress Indicator for Bulk Import -->
+              <div id="importCouncilProgress" class="hidden">
+                <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                  <div class="flex items-center space-x-3 mb-3">
+                    <div class="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600"></div>
+                    <div class="text-sm text-blue-700 font-medium" id="importStatus">Processing import...</div>
+                  </div>
+                  
+                  <!-- Progress Bar -->
+                  <div class="w-full bg-blue-100 rounded-full h-3 mb-2">
+                    <div id="importProgressBar" class="bg-blue-600 h-3 rounded-full transition-all duration-300" style="width: 0%"></div>
+                  </div>
+                  
+                  <!-- Progress Details -->
+                  <div class="flex justify-between text-xs text-blue-600">
+                    <span id="importProgressText">Initializing...</span>
+                    <span id="importProgressPercentage">0%</span>
+                  </div>
+                  
+                  <!-- Detailed Steps -->
+                  <div id="importSteps" class="mt-3 space-y-1 text-xs">
+                    <div id="step1" class="flex items-center space-x-2">
+                      <div class="w-4 h-4 border-2 border-blue-300 rounded-full flex items-center justify-center">
+                        <div class="w-2 h-2 bg-blue-300 rounded-full hidden" id="step1-complete"></div>
+                      </div>
+                      <span class="text-blue-600">Reading and validating file</span>
+                    </div>
+                    <div id="step2" class="flex items-center space-x-2">
+                      <div class="w-4 h-4 border-2 border-gray-300 rounded-full flex items-center justify-center">
+                        <div class="w-2 h-2 bg-gray-300 rounded-full hidden" id="step2-complete"></div>
+                      </div>
+                      <span class="text-gray-500">Creating council records</span>
+                    </div>
+                    <div id="step3" class="flex items-center space-x-2">
+                      <div class="w-4 h-4 border-2 border-gray-300 rounded-full flex items-center justify-center">
+                        <div class="w-2 h-2 bg-gray-300 rounded-full hidden" id="step3-complete"></div>
+                      </div>
+                      <span class="text-gray-500">Generating contribution opportunities</span>
+                    </div>
+                    <div id="step4" class="flex items-center space-x-2">
+                      <div class="w-4 h-4 border-2 border-gray-300 rounded-full flex items-center justify-center">
+                        <div class="w-2 h-2 bg-gray-300 rounded-full hidden" id="step4-complete"></div>
+                      </div>
+                      <span class="text-gray-500">Finalizing import</span>
+                    </div>
+                  </div>
+                  
+                  <!-- Time Estimate -->
+                  <div class="mt-3 text-xs text-blue-500">
+                    <span id="timeEstimate">Estimated time remaining: Calculating...</span>
+                  </div>
+                </div>
+              </div>
+              
+              <button id="importCouncilBtn" type="submit" name="import_councils" value="1"
+                      class="w-full px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors text-sm">
+                <span class="inline-flex items-center">
+                  <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/>
+                  </svg>
+                  Import Councils
+                </span>
+              </button>
+            </form>
+          </div>
+
+          <!-- Council Statistics -->
+          <div class="bg-gray-50 rounded-lg p-3">
+            <h4 class="text-sm font-semibold text-gray-900 mb-2">📊 Council Statistics</h4>
+            <div class="grid grid-cols-2 gap-2 text-xs">
+              <div class="flex justify-between">
+                <span class="text-gray-600">Total Councils:</span>
+                <span class="font-medium">{{ all_councils|length }}</span>
+              </div>
+              <div class="flex justify-between">
+                <span class="text-gray-600">With Data:</span>
+                <span class="font-medium text-green-600">{{ councils_with_data|default:"0" }}</span>
+              </div>
+              <div class="flex justify-between">
+                <span class="text-gray-600">Missing Data:</span>
+                <span class="font-medium text-red-600">{{ councils_without_data|default:"0" }}</span>
+              </div>
+              <div class="flex justify-between">
+                <span class="text-gray-600">Active Today:</span>
+                <span class="font-medium text-blue-600">{{ councils_active_today|default:"0" }}</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Import Preview (if available) -->
+          {% if request.session.import_preview %}
+          <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
+            <h4 class="text-sm font-semibold text-yellow-900 mb-2">📋 Import Preview</h4>
+            <p class="text-xs text-yellow-700 mb-2">
+              {{ request.session.import_preview.total_rows }} councils ready to import. 
+              First 10 shown below:
+            </p>
+            <div class="max-h-32 overflow-y-auto bg-white rounded border text-xs">
+              <table class="w-full">
+                <thead class="bg-yellow-100">
+                  <tr>
+                    <th class="px-2 py-1 text-left">Name</th>
+                    <th class="px-2 py-1 text-left">Type</th>
+                    <th class="px-2 py-1 text-left">Nation</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {% for item in request.session.import_preview.data %}
+                  <tr class="border-t">
+                    <td class="px-2 py-1">{{ item.name|truncatechars:20 }}</td>
+                    <td class="px-2 py-1">{{ item.council_type|default:"-" }}</td>
+                    <td class="px-2 py-1">{{ item.nation|default:"-" }}</td>
+                  </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+            <form method="post" enctype="multipart/form-data" class="mt-2">
+              {% csrf_token %}
+              <input type="hidden" name="confirm_import" value="1">
+              <div class="flex space-x-2">
+                <button type="submit" name="import_councils" value="1"
+                        class="flex-1 px-3 py-1 bg-green-600 text-white rounded text-xs hover:bg-green-700">
+                  Confirm Import
+                </button>
+                <button type="submit" name="cancel_import" value="1"
+                        class="px-3 py-1 bg-gray-500 text-white rounded text-xs hover:bg-gray-600">
+                  Cancel
+                </button>
+              </div>
+            </form>
+          </div>
+          {% endif %}
+
+          <!-- Quick Actions -->
+          <div class="space-y-2">
+            <a href="{% url 'council_list' %}" 
+               class="w-full inline-flex items-center justify-center px-3 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 transition-colors text-sm">
+              <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16"/>
+              </svg>
+              View All Councils
+            </a>
+            <form method="post" class="w-full">
+              {% csrf_token %}
+              <button name="cleanup_duplicate_councils" value="1" 
+                      class="w-full px-3 py-2 bg-yellow-600 text-white rounded-md hover:bg-yellow-700 transition-colors text-sm">
+                <span class="inline-flex items-center">
+                  <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1-1H8a1 1 0 00-1 1v3M4 7h16"/>
+                  </svg>
+                  Clean Duplicate Councils
+                </span>
+              </button>
+            </form>
           </div>
         </div>
       </div>
@@ -608,6 +856,264 @@
 </div>
 
 <script>
+// Progress management for council operations
+class CouncilProgressManager {
+    constructor() {
+        this.startTime = null;
+        this.estimatedDuration = {
+            single: 3000,  // 3 seconds for single council creation
+            bulk: {
+                base: 2000,     // Base 2 seconds
+                perCouncil: 500 // 500ms per council
+            }
+        };
+        this.init();
+    }
+    
+    init() {
+        // Single council creation progress
+        const createForm = document.getElementById('createCouncilForm');
+        if (createForm) {
+            createForm.addEventListener('submit', (e) => {
+                this.showCreateProgress();
+            });
+        }
+        
+        // Bulk import progress
+        const importForm = document.getElementById('importCouncilForm');
+        if (importForm) {
+            importForm.addEventListener('submit', (e) => {
+                const isPreview = document.getElementById('preview_import').checked;
+                const fileInput = document.getElementById('councilImportFile');
+                
+                if (!isPreview && fileInput.files.length > 0) {
+                    this.showImportProgress();
+                }
+            });
+        }
+        
+        // File input change handler for row count estimation
+        const fileInput = document.getElementById('councilImportFile');
+        if (fileInput) {
+            fileInput.addEventListener('change', (e) => {
+                this.estimateFileSize(e.target.files[0]);
+            });
+        }
+    }
+    
+    showCreateProgress() {
+        const progress = document.getElementById('createCouncilProgress');
+        const button = document.getElementById('createCouncilBtn');
+        const status = document.getElementById('createCouncilStatus');
+        
+        if (progress && button && status) {
+            progress.classList.remove('hidden');
+            button.disabled = true;
+            button.innerHTML = '<span class="inline-flex items-center"><div class="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>Creating...</span>';
+            
+            this.startTime = Date.now();
+            this.simulateCreateProgress();
+        }
+    }
+    
+    simulateCreateProgress() {
+        const status = document.getElementById('createCouncilStatus');
+        const steps = [
+            { text: "Creating council record...", delay: 500 },
+            { text: "Validating council data...", delay: 800 },
+            { text: "Generating characteristic data issues...", delay: 1000 },
+            { text: "Generating financial data issues...", delay: 1500 },
+            { text: "Finalizing contribution opportunities...", delay: 2000 }
+        ];
+        
+        steps.forEach((step, index) => {
+            setTimeout(() => {
+                if (status) {
+                    status.textContent = step.text;
+                }
+            }, step.delay);
+        });
+    }
+    
+    showImportProgress() {
+        const progress = document.getElementById('importCouncilProgress');
+        const button = document.getElementById('importCouncilBtn');
+        
+        if (progress && button) {
+            progress.classList.remove('hidden');
+            button.disabled = true;
+            button.innerHTML = '<span class="inline-flex items-center"><div class="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>Processing...</span>';
+            
+            this.startTime = Date.now();
+            this.simulateImportProgress();
+        }
+    }
+    
+    simulateImportProgress() {
+        const progressBar = document.getElementById('importProgressBar');
+        const progressText = document.getElementById('importProgressText');
+        const progressPercentage = document.getElementById('importProgressPercentage');
+        const importStatus = document.getElementById('importStatus');
+        const timeEstimate = document.getElementById('timeEstimate');
+        
+        const steps = [
+            { 
+                step: 1, 
+                progress: 10, 
+                status: "Reading file...", 
+                text: "Parsing CSV data", 
+                duration: 500,
+                stepText: "Reading and validating file"
+            },
+            { 
+                step: 2, 
+                progress: 30, 
+                status: "Creating councils...", 
+                text: "Processing council records", 
+                duration: 1500,
+                stepText: "Creating council records"
+            },
+            { 
+                step: 3, 
+                progress: 75, 
+                status: "Generating contribution opportunities...", 
+                text: "Creating data issues for contribution queues", 
+                duration: 2000,
+                stepText: "Generating contribution opportunities"
+            },
+            { 
+                step: 4, 
+                progress: 95, 
+                status: "Finalizing...", 
+                text: "Completing import process", 
+                duration: 500,
+                stepText: "Finalizing import"
+            },
+            { 
+                step: 5, 
+                progress: 100, 
+                status: "Complete!", 
+                text: "Import finished successfully", 
+                duration: 200,
+                stepText: "Import complete"
+            }
+        ];
+        
+        let currentStep = 0;
+        
+        const processStep = () => {
+            if (currentStep >= steps.length) return;
+            
+            const step = steps[currentStep];
+            
+            // Update progress bar
+            if (progressBar) {
+                progressBar.style.width = step.progress + '%';
+            }
+            
+            // Update text
+            if (progressText) {
+                progressText.textContent = step.text;
+            }
+            if (progressPercentage) {
+                progressPercentage.textContent = step.progress + '%';
+            }
+            if (importStatus) {
+                importStatus.textContent = step.status;
+            }
+            
+            // Update step indicator
+            this.updateStepIndicator(step.step);
+            
+            // Update time estimate
+            if (timeEstimate && step.progress < 100) {
+                const elapsed = Date.now() - this.startTime;
+                const estimated = (elapsed / step.progress) * (100 - step.progress);
+                const seconds = Math.ceil(estimated / 1000);
+                timeEstimate.textContent = `Estimated time remaining: ${seconds}s`;
+            } else if (timeEstimate && step.progress === 100) {
+                const elapsed = Date.now() - this.startTime;
+                timeEstimate.textContent = `Completed in ${Math.ceil(elapsed / 1000)}s`;
+            }
+            
+            currentStep++;
+            
+            if (currentStep < steps.length) {
+                setTimeout(processStep, step.duration);
+            }
+        };
+        
+        processStep();
+    }
+    
+    updateStepIndicator(completedStep) {
+        for (let i = 1; i <= 4; i++) {
+            const stepEl = document.getElementById(`step${i}`);
+            const completeEl = document.getElementById(`step${i}-complete`);
+            const circle = stepEl?.querySelector('.border-2');
+            const text = stepEl?.querySelector('span');
+            
+            if (i <= completedStep) {
+                // Completed step
+                if (circle) {
+                    circle.classList.remove('border-gray-300');
+                    circle.classList.add('border-green-500');
+                }
+                if (completeEl) {
+                    completeEl.classList.remove('hidden', 'bg-gray-300');
+                    completeEl.classList.add('bg-green-500');
+                }
+                if (text) {
+                    text.classList.remove('text-gray-500');
+                    text.classList.add('text-green-700');
+                }
+            } else if (i === completedStep + 1) {
+                // Current step
+                if (circle) {
+                    circle.classList.remove('border-gray-300');
+                    circle.classList.add('border-blue-500');
+                }
+                if (text) {
+                    text.classList.remove('text-gray-500');
+                    text.classList.add('text-blue-700');
+                }
+            }
+        }
+    }
+    
+    estimateFileSize(file) {
+        if (!file) return;
+        
+        // Rough estimate: assume 100 bytes per council record on average
+        const estimatedRecords = Math.ceil(file.size / 100);
+        const timeEstimate = document.getElementById('timeEstimate');
+        
+        if (timeEstimate && estimatedRecords > 10) {
+            const estimated = this.estimatedDuration.bulk.base + 
+                            (estimatedRecords * this.estimatedDuration.bulk.perCouncil);
+            const minutes = Math.ceil(estimated / 60000);
+            const seconds = Math.ceil((estimated % 60000) / 1000);
+            
+            let timeText = "";
+            if (minutes > 0) {
+                timeText = `${minutes}m ${seconds}s`;
+            } else {
+                timeText = `${seconds}s`;
+            }
+            
+            // Show estimate in file input area
+            const importForm = document.getElementById('importCouncilForm');
+            let estimateEl = importForm.querySelector('.file-estimate');
+            if (!estimateEl) {
+                estimateEl = document.createElement('div');
+                estimateEl.className = 'file-estimate text-xs text-blue-500 mt-1';
+                document.getElementById('councilImportFile').parentNode.appendChild(estimateEl);
+            }
+            estimateEl.textContent = `📊 File size: ${(file.size/1024).toFixed(1)}KB, Estimated ${estimatedRecords} records, Processing time: ~${timeText}`;
+        }
+    }
+}
+
 function confirmDeleteYear(yearId, yearLabel, figureCount) {
     // Safety check for years with data
     if (figureCount > 0) {
@@ -630,6 +1136,11 @@ function confirmDeleteYear(yearId, yearLabel, figureCount) {
         document.getElementById('deleteYearForm').submit();
     }
 }
+
+// Initialize progress manager when DOM is loaded
+document.addEventListener('DOMContentLoaded', function() {
+    new CouncilProgressManager();
+});
 </script>
 
 {% endblock %}
