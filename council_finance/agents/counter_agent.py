@@ -4,6 +4,7 @@ from council_finance.models import (
     FinancialYear,
     FigureSubmission,
     CounterDefinition,
+    FinancialFigure,
 )
 
 
@@ -25,7 +26,7 @@ class CounterAgent(AgentBase):
         counters = CounterDefinition.objects.all()
         # Only include counters relevant to this council's type. When a counter
         # has no types assigned it applies everywhere.
-        if council.council_type_id:
+        if council.council_type:
             counters = counters.filter(
                 Q(council_types__isnull=True) | Q(council_types=council.council_type)
             )
@@ -33,36 +34,77 @@ class CounterAgent(AgentBase):
             counters = counters.filter(council_types__isnull=True)
         counters = counters.distinct()
 
-        # Preload all figures for this council/year. Any record flagged as
-        # needing population is recorded so formulas referencing it can raise a
-        # helpful error instead of silently using zero.
+        # Preload all figures for this council/year using the new FinancialFigure model
         figure_map = {}
         missing = set()
-        figures = FigureSubmission.objects.filter(council=council, year=year)
-        if council.council_type_id:
-            figures = figures.filter(
+        
+        # Try new model first (FinancialFigure)
+        financial_figures = FinancialFigure.objects.filter(council=council, year=year)
+        if council.council_type:
+            financial_figures = financial_figures.filter(
                 Q(field__council_types__isnull=True)
                 | Q(field__council_types=council.council_type)
             )
         else:
-            figures = figures.filter(field__council_types__isnull=True)
-        figures = figures.select_related("field").distinct()
+            financial_figures = financial_figures.filter(field__council_types__isnull=True)
+        financial_figures = financial_figures.select_related("field").distinct()
 
-        for f in figures:
+        for f in financial_figures:
             slug = f.field.slug
             # Record slugs with empty or invalid values so we can surface a
-            # helpful "no data" message later.  Figures marked as needing
-            # population are treated the same as entirely missing entries.
-            if f.needs_populating or f.value in (None, ""):
+            # helpful "no data" message later.
+            if f.value in (None, ""):
                 missing.add(slug)
                 continue
             try:
                 figure_map[slug] = float(f.value)
             except (TypeError, ValueError):
                 missing.add(slug)
+        
+        # Fallback to legacy model (FigureSubmission) if no data found in new model
+        if not figure_map:
+            legacy_figures = FigureSubmission.objects.filter(council=council, year=year)
+            if council.council_type:
+                legacy_figures = legacy_figures.filter(
+                    Q(field__council_types__isnull=True)
+                    | Q(field__council_types=council.council_type)
+                )
+            else:
+                legacy_figures = legacy_figures.filter(field__council_types__isnull=True)
+            legacy_figures = legacy_figures.select_related("field").distinct()
+
+            for f in legacy_figures:
+                slug = f.field.slug
+                # Record slugs with empty or invalid values so we can surface a
+                # helpful "no data" message later.  Figures marked as needing
+                # population are treated the same as entirely missing entries.
+                if f.needs_populating or f.value in (None, ""):
+                    missing.add(slug)
+                    continue
+                try:
+                    figure_map[slug] = float(f.value)
+                except (TypeError, ValueError):
+                    missing.add(slug)
 
         def eval_formula(formula: str) -> float:
             """Safely evaluate a formula using the loaded figure values."""
+            
+            # Handle field slugs with hyphens by creating a mapping
+            # from safe variable names to field values
+            safe_vars = {}
+            safe_formula = formula
+            
+            # Replace field slugs containing hyphens with safe variable names
+            for field_slug, value in figure_map.items():
+                if '-' in field_slug:
+                    # Create a safe variable name by replacing hyphens with underscores
+                    safe_var_name = field_slug.replace('-', '_')
+                    safe_vars[safe_var_name] = value
+                    # Replace the field slug in the formula
+                    safe_formula = safe_formula.replace(field_slug, safe_var_name)
+                else:
+                    safe_vars[field_slug] = value
+            
 
             allowed_ops = {
                 ast.Add: operator.add,
@@ -83,12 +125,12 @@ class CounterAgent(AgentBase):
                 if isinstance(node, ast.Name):
                     # When a figure is missing entirely return an explicit
                     # error so callers can display "No data" instead of zero.
-                    if node.id in missing or node.id not in figure_map:
+                    if node.id not in safe_vars:
                         raise MissingDataError(node.id)
-                    return figure_map[node.id]
+                    return safe_vars[node.id]
                 raise ValueError("Unsupported expression element")
 
-            tree = ast.parse(formula, mode="eval")
+            tree = ast.parse(safe_formula, mode="eval")
             return float(_eval(tree))
 
         results = {}
