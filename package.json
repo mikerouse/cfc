@@ -1,0 +1,23 @@
+{
+  "name": "council-finance-counters",
+  "version": "1.0.0",
+  "description": "Django app for Council Finance Counters with Tailwind CSS",
+  "main": "index.js",
+  "scripts": {
+    "build-css": "tailwindcss -i ./static/css/input.css -o ./static/css/output.css --watch",
+    "build-css-prod": "tailwindcss -i ./static/css/input.css -o ./static/css/output.css --minify"
+  },
+  "keywords": [
+    "django",
+    "tailwindcss",
+    "council-finance"
+  ],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "tailwindcss": "^3.4.0"
+  },
+  "dependencies": {
+    "@tailwindcss/forms": "^0.5.10"
+  }
+}
