@@ -31,7 +31,6 @@ env.bak/
 
 # Environment variables
 .env
-.env.*
 
 # Pytest cache
 .pytest_cache/
