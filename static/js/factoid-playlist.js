@@ -57,51 +57,33 @@ class FactoidPlaylist {
         const councilSlug = this.container.dataset.council;
         const year = this.container.dataset.year;
         
+        // Debug logging when needed
+        if (window.DEBUG) {
+            console.log('FactoidPlaylist Debug Info:', {
+                container: this.container,
+                counterSlug: counterSlug,
+                councilSlug: councilSlug,
+                year: year,
+                dataset: this.container.dataset,
+                attributes: Array.from(this.container.attributes).map(attr => ({name: attr.name, value: attr.value}))
+            });
+        }
+        
         if (!counterSlug || !councilSlug || !year) {
+            console.error('Missing data attributes:', {counterSlug, councilSlug, year});
             throw new Error('Missing required data attributes: counter, council, year');
         }
 
         this.container.innerHTML = `
-            <div class="factoid-container fade-in">
-                <div class="factoid-card" data-color="blue" tabindex="0" role="button" aria-label="Factoid">
-                    <div class="factoid-face factoid-front">
-                        <div class="factoid-loading">
-                            <div class="factoid-spinner"></div>
-                            Loading factoids...
-                        </div>
-                    </div>
-                    <div class="factoid-face factoid-back">
-                        <div class="factoid-loading">
-                            <div class="factoid-spinner"></div>
-                            Loading...
-                        </div>
-                    </div>
+            <div class="factoid-container">
+                <div class="factoid-loading">
+                    <div class="factoid-spinner"></div>
+                    Loading factoids...
                 </div>
-                
-                ${this.options.enableInteractions ? `
-                    <div class="factoid-controls" role="toolbar" aria-label="Factoid controls">
-                        <button class="factoid-control-btn play-pause-btn" 
-                                aria-label="Play/Pause factoids" 
-                                title="Play/Pause">
-                            ⏸️
-                        </button>
-                        <button class="factoid-control-btn next-btn" 
-                                aria-label="Next factoid" 
-                                title="Next">
-                            ⏭️
-                        </button>
-                    </div>
-                ` : ''}
-                
-                <div class="factoid-indicators" role="tablist" aria-label="Factoid indicators"></div>
             </div>
         `;
 
-        this.cardElement = this.container.querySelector('.factoid-card');
-        this.frontFace = this.container.querySelector('.factoid-front');
-        this.backFace = this.container.querySelector('.factoid-back');
-        this.controls = this.container.querySelector('.factoid-controls');
-        this.indicators = this.container.querySelector('.factoid-indicators');
+        this.factoidContainer = this.container.querySelector('.factoid-container');
     }
 
     /**
@@ -112,7 +94,9 @@ class FactoidPlaylist {
         const councilSlug = this.container.dataset.council;
         const year = this.container.dataset.year;
         
-        const url = `${this.options.apiBaseUrl}/factoids/${counterSlug}/${councilSlug}/${year}/`;
+        // Replace forward slash with dash for URL compatibility  
+        const urlSafeYear = year.replace(/\//g, '-');
+        const url = `${this.options.apiBaseUrl}/factoids/${counterSlug}/${councilSlug}/${urlSafeYear}/`;
         
         try {
             const response = await fetch(url);
@@ -268,24 +252,27 @@ class FactoidPlaylist {
      * Show a specific factoid
      */
     async showFactoid(index, animate = true) {
-        if (index < 0 || index >= this.factoids.length || this.isFlipping) return;
+        if (index < 0 || index >= this.factoids.length) return;
         
         const factoid = this.factoids[index];
-        const wasPlaying = this.isPlaying;
+        this.currentIndex = index;
         
-        if (animate && this.options.enableFlipAnimation && index !== this.currentIndex) {
-            await this.flipToFactoid(factoid);
+        // Simple fade transition for TV news style
+        if (animate) {
+            this.factoidContainer.style.opacity = '0';
+            setTimeout(() => {
+                this.updateFactoidContent(factoid);
+                this.factoidContainer.style.opacity = '1';
+            }, 200);
         } else {
-            this.updateFactoidContent(this.frontFace, factoid);
-            this.updateCardAppearance(factoid);
+            this.updateFactoidContent(factoid);
         }
         
-        this.currentIndex = index;
-        this.updateIndicators();
-        
-        // Update duration based on factoid settings
-        if (factoid.animation_duration && wasPlaying) {
-            this.play(); // Restart with new duration
+        // Auto-advance to next factoid after duration
+        if (this.options.autoPlay && factoid.animation_duration) {
+            setTimeout(() => {
+                this.next();
+            }, factoid.animation_duration);
         }
     }
 
@@ -340,13 +327,16 @@ class FactoidPlaylist {
     /**
      * Update factoid content in a face element
      */
-    updateFactoidContent(faceElement, factoid) {
+    updateFactoidContent(factoid) {
         const emoji = factoid.emoji || '📊';
         const text = factoid.text || 'No data available';
+        const color = factoid.color || 'blue';
         
-        faceElement.innerHTML = `
-            <span class="factoid-emoji" role="img" aria-hidden="true">${emoji}</span>
-            <span class="factoid-text">${text}</span>
+        this.factoidContainer.innerHTML = `
+            <div class="factoid-text" data-color="${color}">
+                <span class="factoid-emoji" role="img" aria-hidden="true">${emoji}</span>
+                ${text}
+            </div>
         `;
     }
 
@@ -463,8 +453,10 @@ class FactoidPlaylist {
      */
     showEmptyState() {
         this.container.innerHTML = `
-            <div class="factoid-empty">
-                No factoids available
+            <div class="factoid-container">
+                <div class="factoid-empty">
+                    No factoids available
+                </div>
             </div>
         `;
     }
@@ -474,9 +466,11 @@ class FactoidPlaylist {
      */
     showError(message) {
         this.container.innerHTML = `
-            <div class="factoid-error">
-                <span class="factoid-error-icon">⚠️</span>
-                ${message}
+            <div class="factoid-container">
+                <div class="factoid-error">
+                    <span class="factoid-error-icon">⚠️</span>
+                    ${message}
+                </div>
             </div>
         `;
     }

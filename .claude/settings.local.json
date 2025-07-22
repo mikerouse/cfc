@@ -19,7 +19,8 @@
       "Bash(cd:*)",
       "Bash(npm run build-css:*)",
       "Bash(npx tailwindcss:*)",
-      "Bash(grep:*)"
+      "Bash(grep:*)",
+      "Bash(curl:*)"
     ],
     "deny": []
   }

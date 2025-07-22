@@ -210,13 +210,16 @@ def factoid_data_api(request, counter_slug, council_slug, year_label):
         council = None
         if council_slug != 'all-councils':
             council = get_object_or_404(Council, slug=council_slug)
-        year = get_object_or_404(FinancialYear, label=year_label)
+        
+        # Convert URL-safe year format back to database format (e.g., "2023-24" -> "2023/24")
+        actual_year_label = year_label.replace('-', '/')
+        year = get_object_or_404(FinancialYear, label=actual_year_label)
         
         # Use the FactoidEngine to generate factoids
         from council_finance.factoid_engine import FactoidEngine
         engine = FactoidEngine()
         
-        factoids = engine.generate_factoid_playlist(counter_slug, council_slug, year_label)
+        factoids = engine.generate_factoid_playlist(counter_slug, council_slug, actual_year_label)
         
         return JsonResponse({
             'success': True,

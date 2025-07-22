@@ -1,499 +1,111 @@
 /* 
- * Enhanced Factoid System v2.0
- * Modern 3D flip animations and playlist management
+ * Minimal Factoid System - TV News Style
+ * Subtle, classy, simple presentation
  */
 
 /* ===== FACTOID CONTAINER ===== */
 .factoid-container {
     position: relative;
-    min-height: 48px; /* 3rem */
-    perspective: 1000px;
     margin-top: 0.75rem;
-}
-
-/* ===== FACTOID CARD ===== */
-.factoid-card {
-    position: relative;
-    width: 100%;
-    height: 48px;
-    transform-style: preserve-3d;
-    transition: transform 0.8s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-    cursor: pointer;
-}
-
-.factoid-card.flipping {
-    transform: rotateY(180deg);
-}
-
-/* ===== FACTOID FACES ===== */
-.factoid-face {
-    position: absolute;
-    width: 100%;
-    height: 100%;
-    backface-visibility: hidden;
-    border-radius: 0.75rem;
-    padding: 0.75rem 1rem;
-    display: flex;
-    align-items: center;
-    font-size: 0.875rem;
-    font-weight: 500;
-    line-height: 1.25rem;
-    box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
-    transition: all 0.3s ease;
-}
-
-.factoid-face:hover {
-    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
-    transform: translateY(-1px);
-}
-
-.factoid-front {
-    background: linear-gradient(135deg, #f3f4f6 0%, #e5e7eb 100%);
-    color: #374151;
-    border: 1px solid #d1d5db;
-}
-
-.factoid-back {
-    background: linear-gradient(135deg, #1f2937 0%, #374151 100%);
-    color: #f9fafb;
-    transform: rotateY(180deg);
-    border: 1px solid #4b5563;
-}
-
-/* ===== COLOR SCHEMES ===== */
-.factoid-card[data-color="green"] .factoid-front {
-    background: linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%);
-    color: #065f46;
-    border-color: #a7f3d0;
-}
-
-.factoid-card[data-color="green"] .factoid-back {
-    background: linear-gradient(135deg, #065f46 0%, #047857 100%);
-    color: #ecfdf5;
-    border-color: #059669;
-}
-
-.factoid-card[data-color="red"] .factoid-front {
-    background: linear-gradient(135deg, #fef2f2 0%, #fecaca 100%);
-    color: #7f1d1d;
-    border-color: #fca5a5;
-}
-
-.factoid-card[data-color="red"] .factoid-back {
-    background: linear-gradient(135deg, #7f1d1d 0%, #991b1b 100%);
-    color: #fef2f2;
-    border-color: #dc2626;
-}
-
-.factoid-card[data-color="blue"] .factoid-front {
-    background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
-    color: #1e3a8a;
-    border-color: #93c5fd;
-}
-
-.factoid-card[data-color="blue"] .factoid-back {
-    background: linear-gradient(135deg, #1e3a8a 0%, #1d4ed8 100%);
-    color: #eff6ff;
-    border-color: #3b82f6;
-}
-
-.factoid-card[data-color="orange"] .factoid-front {
-    background: linear-gradient(135deg, #fff7ed 0%, #fed7aa 100%);
-    color: #9a3412;
-    border-color: #fdba74;
-}
-
-.factoid-card[data-color="orange"] .factoid-back {
-    background: linear-gradient(135deg, #9a3412 0%, #c2410c 100%);
-    color: #fff7ed;
-    border-color: #ea580c;
-}
-
-.factoid-card[data-color="purple"] .factoid-front {
-    background: linear-gradient(135deg, #faf5ff 0%, #e9d5ff 100%);
-    color: #581c87;
-    border-color: #c4b5fd;
-}
-
-.factoid-card[data-color="purple"] .factoid-back {
-    background: linear-gradient(135deg, #581c87 0%, #6b21a8 100%);
-    color: #faf5ff;
-    border-color: #8b5cf6;
+    opacity: 0;
+    animation: subtleFadeIn 1s ease-out forwards;
 }
 
 /* ===== FACTOID CONTENT ===== */
-.factoid-emoji {
-    font-size: 1.25rem;
-    margin-right: 0.75rem;
-    line-height: 1;
-    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+.factoid-text {
+    font-size: 0.75rem;
+    font-weight: 400;
+    line-height: 1.2;
+    color: #4b5563;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.25rem 0;
+    transition: color 0.5s ease;
 }
 
-.factoid-text {
-    flex: 1;
-    font-weight: 500;
+.factoid-text:hover {
+    color: #374151;
+}
+
+.factoid-emoji {
+    font-size: 1rem;
+    opacity: 0.8;
 }
 
 .factoid-text strong {
-    font-weight: 700;
+    color: #1f2937;
+    font-weight: 600;
 }
 
-/* ===== FACTOID CONTROLS ===== */
-.factoid-controls {
-    position: absolute;
-    top: -2px;
-    right: -2px;
-    display: flex;
-    gap: 0.25rem;
-    opacity: 0;
-    transition: opacity 0.3s ease;
-    z-index: 10;
+/* ===== COLOR ACCENTS ===== */
+.factoid-text[data-color="green"] strong {
+    color: #059669;
 }
 
-.factoid-container:hover .factoid-controls {
-    opacity: 1;
+.factoid-text[data-color="red"] strong {
+    color: #dc2626;
 }
 
-.factoid-control-btn {
-    width: 24px;
-    height: 24px;
-    border-radius: 50%;
-    border: none;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 0.75rem;
-    transition: all 0.2s ease;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+.factoid-text[data-color="blue"] strong {
+    color: #2563eb;
 }
 
-.factoid-control-btn:hover {
-    transform: scale(1.1);
+.factoid-text[data-color="orange"] strong {
+    color: #ea580c;
 }
 
-.play-pause-btn {
-    background: #3b82f6;
-    color: white;
-}
-
-.play-pause-btn:hover {
-    background: #2563eb;
-}
-
-.next-btn {
-    background: #6b7280;
-    color: white;
-}
-
-.next-btn:hover {
-    background: #4b5563;
-}
-
-/* ===== FACTOID INDICATORS ===== */
-.factoid-indicators {
-    display: flex;
-    justify-content: center;
-    gap: 0.375rem;
-    margin-top: 0.5rem;
-    opacity: 0;
-    transition: opacity 0.3s ease;
-}
-
-.factoid-container:hover .factoid-indicators {
-    opacity: 1;
-}
-
-.factoid-indicator {
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
-    background: #d1d5db;
-    cursor: pointer;
-    transition: all 0.3s ease;
-}
-
-.factoid-indicator.active {
-    background: #3b82f6;
-    transform: scale(1.25);
-}
-
-.factoid-indicator:hover {
-    background: #6b7280;
-    transform: scale(1.1);
+.factoid-text[data-color="purple"] strong {
+    color: #7c3aed;
 }
 
 /* ===== LOADING STATE ===== */
 .factoid-loading {
     display: flex;
     align-items: center;
-    justify-content: center;
-    height: 48px;
-    background: linear-gradient(135deg, #f3f4f6 0%, #e5e7eb 100%);
-    border: 1px solid #d1d5db;
-    border-radius: 0.75rem;
-    color: #6b7280;
+    gap: 0.5rem;
+    color: #9ca3af;
     font-size: 0.875rem;
+    padding: 0.25rem 0;
 }
 
 .factoid-spinner {
-    width: 16px;
-    height: 16px;
-    border: 2px solid #d1d5db;
-    border-top: 2px solid #3b82f6;
+    width: 14px;
+    height: 14px;
+    border: 1.5px solid #e5e7eb;
+    border-top: 1.5px solid #6b7280;
     border-radius: 50%;
-    margin-right: 0.5rem;
-    animation: factoid-spin 1s linear infinite;
-}
-
-@keyframes factoid-spin {
-    0% { transform: rotate(0deg); }
-    100% { transform: rotate(360deg); }
+    animation: subtleSpin 1.5s linear infinite;
 }
 
 /* ===== ERROR STATE ===== */
 .factoid-error {
     display: flex;
     align-items: center;
-    height: 48px;
-    padding: 0.75rem 1rem;
-    background: linear-gradient(135deg, #fef2f2 0%, #fecaca 100%);
-    border: 1px solid #fca5a5;
-    border-radius: 0.75rem;
-    color: #7f1d1d;
+    gap: 0.5rem;
+    color: #6b7280;
     font-size: 0.875rem;
+    padding: 0.25rem 0;
 }
 
 .factoid-error-icon {
-    margin-right: 0.5rem;
-    font-size: 1rem;
+    font-size: 0.875rem;
+    opacity: 0.8;
 }
 
 /* ===== EMPTY STATE ===== */
 .factoid-empty {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    height: 48px;
-    background: linear-gradient(135deg, #fafafa 0%, #f5f5f5 100%);
-    border: 1px dashed #d1d5db;
-    border-radius: 0.75rem;
     color: #9ca3af;
     font-size: 0.875rem;
     font-style: italic;
+    padding: 0.25rem 0;
 }
 
-/* ===== RESPONSIVE DESIGN ===== */
-@media (max-width: 640px) {
-    .factoid-container {
-        min-height: 40px;
-    }
-    
-    .factoid-card {
-        height: 40px;
-    }
-    
-    .factoid-face {
-        padding: 0.5rem 0.75rem;
-        font-size: 0.8rem;
-    }
-    
-    .factoid-emoji {
-        font-size: 1rem;
-        margin-right: 0.5rem;
-    }
-    
-    .factoid-text {
-        font-size: 0.8rem;
-    }
-    
-    .factoid-controls {
-        padding: 0.25rem;
-        gap: 0.25rem;
-    }
-    
-    .factoid-control-btn {
-        width: 1.75rem;
-        height: 1.75rem;
-        font-size: 0.8rem;
-    }
-    
-    .factoid-indicators {
-        gap: 0.25rem;
-    }
-    
-    .factoid-indicator {
-        width: 0.5rem;
-        height: 0.5rem;
-    }
-}
-
-@media (max-width: 480px) {
-    .factoid-face {
-        padding: 0.5rem;
-        font-size: 0.75rem;
-    }
-    
-    .factoid-text {
-        font-size: 0.75rem;
-        line-height: 1.2;
-    }
-    
-    .factoid-emoji {
-        font-size: 0.9rem;
-        margin-right: 0.375rem;
-    }
-}
-
-/* ===== TOUCH INTERACTIONS ===== */
-@media (hover: none) and (pointer: coarse) {
-    .factoid-card {
-        touch-action: manipulation;
-    }
-    
-    .factoid-face:hover {
-        transform: none;
-        box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
-    }
-    
-    .factoid-control-btn:hover {
-        background-color: rgba(156, 163, 175, 0.1);
-        transform: none;
-    }
-    
-    .factoid-indicator:hover {
-        background-color: rgba(59, 130, 246, 0.6);
-        transform: none;
-    }
-    
-    /* Larger touch targets for mobile */
-    .factoid-control-btn {
-        min-width: 2.5rem;
-        min-height: 2.5rem;
-    }
-    
-    .factoid-indicator {
-        min-width: 1rem;
-        min-height: 1rem;
-    }
-}
-
-/* ===== MOTION PREFERENCES ===== */
-@media (prefers-reduced-motion: reduce) {
-    .factoid-card {
-        transition: none;
-    }
-    
-    .factoid-face {
-        transition: none;
-    }
-    
-    .factoid-control-btn,
-    .factoid-indicator {
-        transition: none;
-    }
-    
-    .fade-in,
-    .slide-in {
-        animation: none;
-    }
-    
-    /* Still allow basic flip animation but faster */
-    .factoid-card.flipping {
-        transition: transform 0.3s ease;
-    }
-}
-
-/* ===== PRINT STYLES ===== */
-@media print {
-    .factoid-container {
-        break-inside: avoid;
-    }
-    
-    .factoid-controls,
-    .factoid-indicators {
-        display: none;
-    }
-    
-    .factoid-card {
-        transform: none !important;
-        height: auto;
-    }
-    
-    .factoid-face {
-        position: static;
-        background: white !important;
-        color: black !important;
-        border: 1px solid #ccc;
-        box-shadow: none;
-    }
-    
-    .factoid-back {
-        display: none;
-    }
-}
-
-/* ===== LOADING AND ERROR STATES ===== */
-.factoid-loading {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 100%;
-    color: #6b7280;
-    font-size: 0.875rem;
-}
-
-.factoid-spinner {
-    width: 1rem;
-    height: 1rem;
-    border: 2px solid transparent;
-    border-top: 2px solid currentColor;
-    border-radius: 50%;
-    animation: spin 1s linear infinite;
-    margin-right: 0.5rem;
-}
-
-.factoid-error {
-    background: linear-gradient(135deg, #fef2f2 0%, #fecaca 100%);
-    color: #7f1d1d;
-    border-color: #fca5a5;
-}
-
-.factoid-empty {
-    background: linear-gradient(135deg, #f9fafb 0%, #f3f4f6 100%);
-    color: #6b7280;
-    border-color: #d1d5db;
-    font-style: italic;
-}
-
-@keyframes spin {
-    to {
-        transform: rotate(360deg);
-    }
-}
-
-/* ===== SMOOTH REVEAL ANIMATIONS ===== */
-.fade-in {
-    animation: fadeIn 0.5s ease-out;
-}
-
-.slide-in {
-    animation: slideIn 0.5s ease-out;
-}
-
-@keyframes fadeIn {
+/* ===== ANIMATIONS ===== */
+@keyframes subtleFadeIn {
     from {
         opacity: 0;
-    }
-    to {
-        opacity: 1;
-    }
-}
-
-@keyframes slideIn {
-    from {
-        opacity: 0;
-        transform: translateY(1rem);
+        transform: translateY(4px);
     }
     to {
         opacity: 1;
@@ -501,69 +113,72 @@
     }
 }
 
-/* ===== CONTAINER LAYOUT IMPROVEMENTS ===== */
-.factoid-container {
-    position: relative;
-    width: 100%;
-    max-width: 100%;
-    overflow: hidden;
+@keyframes subtleSpin {
+    to {
+        transform: rotate(360deg);
+    }
 }
 
-/* Ensure proper stacking context */
-.factoid-card {
-    isolation: isolate;
-    z-index: 1;
+/* ===== RESPONSIVE DESIGN ===== */
+@media (max-width: 640px) {
+    .factoid-text {
+        font-size: 0.8rem;
+    }
+    
+    .factoid-emoji {
+        font-size: 0.9rem;
+    }
 }
 
-.factoid-controls {
-    z-index: 2;
-}
-
-.factoid-indicators {
-    z-index: 2;
-}
-
-/* ===== ACCESSIBILITY ===== */
+/* ===== MOTION PREFERENCES ===== */
 @media (prefers-reduced-motion: reduce) {
-    .factoid-card,
-    .factoid-face,
-    .factoid-control-btn,
-    .factoid-indicator {
-        transition: none !important;
+    .factoid-container {
+        animation: none;
+        opacity: 1;
     }
     
-    .factoid-card.flipping {
-        transform: none !important;
+    .factoid-spinner {
+        animation: none;
+        border-top-color: #9ca3af;
     }
     
-    @keyframes factoid-spin {
-        0%, 100% { transform: rotate(0deg); }
+    .factoid-text {
+        transition: none;
     }
 }
 
-/* Focus states for keyboard navigation */
-.factoid-card:focus-visible,
-.factoid-control-btn:focus-visible,
-.factoid-indicator:focus-visible {
-    outline: 2px solid #3b82f6;
-    outline-offset: 2px;
+/* ===== PRINT STYLES ===== */
+@media print {
+    .factoid-container {
+        break-inside: avoid;
+        opacity: 1;
+        animation: none;
+    }
+    
+    .factoid-text {
+        color: #000 !important;
+    }
+    
+    .factoid-text strong {
+        color: #000 !important;
+    }
+    
+    .factoid-emoji {
+        display: none;
+    }
 }
 
 /* ===== HIGH CONTRAST MODE ===== */
 @media (prefers-contrast: high) {
-    .factoid-face {
-        border-width: 2px;
-    }
-    
-    .factoid-front {
-        background: #ffffff;
+    .factoid-text {
         color: #000000;
-        border-color: #000000;
     }
     
-    .factoid-back {
-        background: #000000;
-        color: #ffffff;
-        border-color: #ffffff;
+    .factoid-text strong {
+        color: #000000;
+    }
+    
+    .factoid-text:hover {
+        color: #000000;
     }
 }

@@ -86,6 +86,15 @@ class CounterDefinitionForm(forms.ModelForm):
         widget=forms.SelectMultiple,
         label="Council types",
     )
+    
+    # Select which factoid templates should be linked to this counter
+    factoid_templates = forms.ModelMultipleChoiceField(
+        queryset=None,
+        required=False,
+        widget=forms.CheckboxSelectMultiple,
+        label="Factoid Templates",
+        help_text="Templates that will generate automatic insights for this counter",
+    )
 
     class Meta:
         model = CounterDefinition
@@ -110,8 +119,7 @@ class CounterDefinitionForm(forms.ModelForm):
             ),
             "precision": forms.NumberInput(
                 attrs={"min": 0, "class": "border rounded p-1 w-full"}
-            ),
-            "show_currency": forms.CheckboxInput(attrs={"class": "mr-2"}),
+            ),            "show_currency": forms.CheckboxInput(attrs={"class": "mr-2"}),
             "friendly_format": forms.CheckboxInput(attrs={"class": "mr-2"}),
             "show_by_default": forms.CheckboxInput(attrs={"class": "mr-2"}),
             "headline": forms.CheckboxInput(attrs={"class": "mr-2"}),
@@ -122,12 +130,41 @@ class CounterDefinitionForm(forms.ModelForm):
         """Add Tailwind classes to text inputs for consistency."""
         super().__init__(*args, **kwargs)
         from .models import CouncilType
+        from .models.factoid import FactoidTemplate
+        
         # Ensure council type options reflect the current set without code changes.
         self.fields["council_types"].queryset = CouncilType.objects.all()
+        
+        # Set factoid templates queryset and initial values
+        self.fields["factoid_templates"].queryset = FactoidTemplate.objects.filter(is_active=True).order_by('name')
+          # Set initial factoid templates if editing existing counter
+        if self.instance.pk:
+            self.fields["factoid_templates"].initial = FactoidTemplate.objects.filter(
+                counters=self.instance
+            ).values_list('pk', flat=True)
+        
         for name, field in self.fields.items():
-            if name in ["show_currency", "friendly_format", "show_by_default", "headline"]:
+            if name in ["show_currency", "friendly_format", "show_by_default", "headline", "factoid_templates"]:
                 continue
             field.widget.attrs.setdefault("class", "border rounded p-1 w-full")
+
+    def save(self, commit=True):
+        """Save the counter and handle factoid template associations."""
+        counter = super().save(commit=commit)
+        
+        if commit:
+            # Handle factoid templates many-to-many relationship
+            factoid_templates = self.cleaned_data.get('factoid_templates', [])
+            
+            # Clear existing associations and add new ones
+            from .models.factoid import FactoidTemplate
+            for template in FactoidTemplate.objects.all():
+                if template in factoid_templates:
+                    template.counters.add(counter)
+                else:
+                    template.counters.remove(counter)
+        
+        return counter
 
 
 class DataFieldForm(forms.ModelForm):

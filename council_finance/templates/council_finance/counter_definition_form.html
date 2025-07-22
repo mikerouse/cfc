@@ -1,122 +1,466 @@
 {% extends "base.html" %}
-{% block title %}Edit Counter - Council Finance Counters{% endblock %}
+{% load i18n %}
+
+{% block title %}
+    {% if form.instance.pk %}Edit Counter{% else %}Create New Counter{% endif %} - Council Finance Counters
+{% endblock %}
+
 {% block content %}
-<h1 class="text-2xl font-bold mb-4">{{ form.instance.pk|yesno:'Edit Counter,Add Counter' }}</h1>
-<p class="mb-2">Click or drag fields into the formula box to build your counter.</p>
-<div class="flex flex-wrap gap-2 mb-4">
-    {% for field in available_fields %}
-    <span class="px-2 py-1 bg-gray-200 rounded cursor-pointer" draggable="true" data-insert="{{ field }}">{{ field }}</span>
-    {% endfor %}
-    <span class="px-2 py-1 bg-gray-200 rounded cursor-pointer" data-insert="+">+</span>
-    <span class="px-2 py-1 bg-gray-200 rounded cursor-pointer" data-insert="-">-</span>
-    <span class="px-2 py-1 bg-gray-200 rounded cursor-pointer" data-insert="*">*</span>
-    <span class="px-2 py-1 bg-gray-200 rounded cursor-pointer" data-insert="/">/</span>
-</div>
-<form method="post" class="space-y-4">
-    {% csrf_token %}
-    {{ form.non_field_errors }}
-    <table class="min-w-full border border-gray-300">
-        <tbody>
-            <tr class="odd:bg-gray-50">
-                <th class="text-left p-2 border w-40">{{ form.name.label_tag }}</th>
-                <td class="p-2 border">
-                    {{ form.name }}
-                    {{ form.name.errors }}
-                </td>
-            </tr>
-            <tr class="odd:bg-gray-50">
-                <th class="text-left p-2 border">{{ form.formula.label_tag }}</th>
-                <td class="p-2 border">
-                    {{ form.formula }}
-                    {{ form.formula.errors }}
-                </td>
-            </tr>
-            <tr class="odd:bg-gray-50">
-                <th class="text-left p-2 border">{{ form.explanation.label_tag }}</th>
-                <td class="p-2 border">
-                    {{ form.explanation }}
-                    {{ form.explanation.errors }}
-                </td>
-            </tr>
-            <tr class="odd:bg-gray-50">
-                <th class="text-left p-2 border">{{ form.duration.label_tag }}</th>
-                <td class="p-2 border">
-                    {{ form.duration }}
-                    {{ form.duration.errors }}
-                </td>
-            </tr>
-            <tr class="odd:bg-gray-50">
-                <th class="text-left p-2 border">{{ form.precision.label_tag }}</th>
-                <td class="p-2 border">
-                    {{ form.precision }}
-                    {{ form.precision.errors }}
-                </td>
-            </tr>
-            <tr class="odd:bg-gray-50">
-                <th class="text-left p-2 border">{{ form.show_currency.label_tag }}</th>
-                <td class="p-2 border flex items-center">
-                    {{ form.show_currency }} {{ form.show_currency.help_text }}
-                    {{ form.show_currency.errors }}
-                </td>
-            </tr>
-            <tr class="odd:bg-gray-50">
-                <th class="text-left p-2 border">{{ form.friendly_format.label_tag }}</th>
-                <td class="p-2 border flex items-center">
-                    {{ form.friendly_format }} {{ form.friendly_format.help_text }}
-                    {{ form.friendly_format.errors }}
-                </td>
-            </tr>
-            <tr class="odd:bg-gray-50">
-                <th class="text-left p-2 border">{{ form.show_by_default.label_tag }}</th>
-                <td class="p-2 border flex items-center">
-                    {{ form.show_by_default }} {{ form.show_by_default.help_text }}
-                    {{ form.show_by_default.errors }}
-                </td>
-            </tr>
-            <tr class="odd:bg-gray-50">
-                <th class="text-left p-2 border">{{ form.headline.label_tag }}</th>
-                <td class="p-2 border flex items-center">
-                    {{ form.headline }} {{ form.headline.help_text }}
-                    {{ form.headline.errors }}
-                </td>
-            </tr>
-            <tr class="odd:bg-gray-50">
-                <th class="text-left p-2 border">{{ form.council_types.label_tag }}</th>
-                <td class="p-2 border">{{ form.council_types }} {{ form.council_types.errors }}</td>
-            </tr>
-        </tbody>
-    </table>
-<div class="mt-2 p-2 bg-gray-50 rounded" id="preview-card">
-    <div class="flex items-center gap-2 mb-2">
-        <p class="text-sm text-gray-600 mb-0">Preview for</p>
-        <select id="preview-council" class="border rounded px-2 py-1">
-            {% for council in councils %}
-                <option value="{{ council.slug }}" {% if council.slug == preview_council_slug %}selected{% endif %}>{{ council.name }}</option>
-            {% endfor %}
-        </select>
-        <span class="text-sm text-gray-600">Year</span>
-        <select id="preview-year" class="border rounded px-2 py-1">
-            {% for year in years %}
-                <option value="{{ year.label }}" {% if year.label == preview_year_label %}selected{% endif %}>{{ year.display_label }}</option>
-            {% endfor %}
-        </select>
+<div class="container mx-auto px-4 py-6 max-w-6xl">
+    <!-- Header Section -->
+    <div class="mb-8">
+        <div class="flex items-center justify-between">
+            <div>
+                <h1 class="text-3xl font-bold text-gray-900 mb-2">
+                    {% if form.instance.pk %}
+                        <span class="text-blue-600">📊</span> Edit Counter: {{ form.instance.name }}
+                    {% else %}
+                        <span class="text-emerald-600">➕</span> Create New Counter
+                    {% endif %}
+                </h1>
+                <p class="text-gray-600">
+                    Build custom financial metrics by combining data fields into formulas.
+                    {% if not form.instance.pk %}Perfect for analyzing your favorite councils or creating insights for the community.{% endif %}
+                </p>
+            </div>
+            <div class="text-right">
+                <div class="text-sm text-gray-500 mb-2">Counter Builder</div>
+                <div class="flex items-center space-x-2">
+                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 border border-blue-200">
+                        🔧 Advanced Editor
+                    </span>
+                </div>
+            </div>
+        </div>
     </div>
-    <p class="text-lg font-bold" id="preview-value">0</p>
+
+    <form method="post" class="space-y-8">
+        {% csrf_token %}
+        
+        {% if form.non_field_errors %}
+        <div class="bg-red-50 border border-red-200 rounded-lg p-4">
+            <div class="flex">
+                <div class="flex-shrink-0">
+                    <svg class="h-5 w-5 text-red-400" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"/>
+                    </svg>
+                </div>
+                <div class="ml-3">
+                    <h3 class="text-sm font-medium text-red-800">Please fix the following errors:</h3>
+                    <div class="mt-2 text-sm text-red-700">
+                        {{ form.non_field_errors }}
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Formula Builder Section -->
+        <div class="bg-white shadow-lg rounded-lg border border-gray-200">
+            <div class="px-6 py-4 border-b border-gray-200 bg-gradient-to-r from-blue-50 to-indigo-50">
+                <h2 class="text-xl font-semibold text-gray-900 flex items-center">
+                    <span class="text-blue-600 mr-2">🧮</span> Formula Builder
+                </h2>
+                <p class="text-sm text-gray-600 mt-1">Click or drag fields to build your calculation formula</p>
+            </div>
+            
+            <div class="p-6">
+                <!-- Available Fields -->
+                <div class="mb-6">
+                    <label class="block text-sm font-medium text-gray-700 mb-3">Available Data Fields</label>
+                    <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-2">
+                        {% for field in available_fields %}
+                        <button type="button" 
+                                class="px-3 py-2 bg-blue-100 hover:bg-blue-200 text-blue-800 border border-blue-300 rounded-lg cursor-pointer transition-colors text-sm font-medium"
+                                draggable="true" 
+                                data-insert="{{ field }}"
+                                title="Click to add {{ field }} to formula">
+                            📊 {{ field }}
+                        </button>
+                        {% endfor %}
+                    </div>
+                </div>
+
+                <!-- Operators -->
+                <div class="mb-6">
+                    <label class="block text-sm font-medium text-gray-700 mb-3">Mathematical Operators</label>
+                    <div class="flex flex-wrap gap-2">
+                        <button type="button" class="px-3 py-2 bg-gray-100 hover:bg-gray-200 text-gray-800 border border-gray-300 rounded-lg cursor-pointer transition-colors font-mono" data-insert=" + " title="Addition">+ Add</button>
+                        <button type="button" class="px-3 py-2 bg-gray-100 hover:bg-gray-200 text-gray-800 border border-gray-300 rounded-lg cursor-pointer transition-colors font-mono" data-insert=" - " title="Subtraction">- Subtract</button>
+                        <button type="button" class="px-3 py-2 bg-gray-100 hover:bg-gray-200 text-gray-800 border border-gray-300 rounded-lg cursor-pointer transition-colors font-mono" data-insert=" * " title="Multiplication">× Multiply</button>
+                        <button type="button" class="px-3 py-2 bg-gray-100 hover:bg-gray-200 text-gray-800 border border-gray-300 rounded-lg cursor-pointer transition-colors font-mono" data-insert=" / " title="Division">÷ Divide</button>
+                        <button type="button" class="px-3 py-2 bg-gray-100 hover:bg-gray-200 text-gray-800 border border-gray-300 rounded-lg cursor-pointer transition-colors font-mono" data-insert="(" title="Open parenthesis">( </button>
+                        <button type="button" class="px-3 py-2 bg-gray-100 hover:bg-gray-200 text-gray-800 border border-gray-300 rounded-lg cursor-pointer transition-colors font-mono" data-insert=")" title="Close parenthesis"> )</button>
+                    </div>
+                </div>
+
+                <!-- Formula Input -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                        <label for="{{ form.formula.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-2">
+                            Formula
+                            <span class="text-red-500">*</span>
+                        </label>
+                        <textarea name="formula" id="{{ form.formula.id_for_label }}" rows="3" required
+                                  class="w-full border border-gray-300 rounded-md px-3 py-2 focus:ring-blue-500 focus:border-blue-500 font-mono text-sm"
+                                  placeholder="e.g. total_debt + current_liabilities">{{ form.formula.value|default:'' }}</textarea>
+                        {% if form.formula.errors %}
+                            <div class="mt-1 text-sm text-red-600">{{ form.formula.errors.0 }}</div>
+                        {% endif %}
+                        <div class="mt-2 text-xs text-gray-500">
+                            💡 Use field names connected by operators (+, -, *, /) and parentheses for grouping
+                        </div>
+                    </div>
+
+                    <!-- Live Preview -->
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Live Preview</label>
+                        <div class="bg-gray-50 border border-gray-300 rounded-md p-4">
+                            <div class="flex items-center gap-2 mb-3">
+                                <label for="preview-council" class="text-sm text-gray-600">Council:</label>
+                                <select id="preview-council" class="border border-gray-300 rounded px-2 py-1 text-sm">
+                                    {% for council in councils %}
+                                        <option value="{{ council.slug }}" {% if council.slug == preview_council_slug %}selected{% endif %}>{{ council.name }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="flex items-center gap-2 mb-3">
+                                <label for="preview-year" class="text-sm text-gray-600">Year:</label>
+                                <select id="preview-year" class="border border-gray-300 rounded px-2 py-1 text-sm">
+                                    {% for year in years %}
+                                        <option value="{{ year.label }}" {% if year.label == preview_year_label %}selected{% endif %}>{{ year.display_label }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="text-center p-4 bg-white rounded border">
+                                <div class="text-2xl font-bold text-gray-900" id="preview-value">£0</div>
+                                <div class="text-xs text-gray-500 mt-1">Preview calculation result</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Basic Information -->
+        <div class="bg-white shadow-lg rounded-lg border border-gray-200">
+            <div class="px-6 py-4 border-b border-gray-200 bg-gradient-to-r from-emerald-50 to-green-50">
+                <h2 class="text-xl font-semibold text-gray-900 flex items-center">
+                    <span class="text-emerald-600 mr-2">📝</span> Basic Information
+                </h2>
+            </div>
+            
+            <div class="p-6">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                        <label for="{{ form.name.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-2">
+                            Counter Name
+                            <span class="text-red-500">*</span>
+                        </label>
+                        <input type="text" name="name" id="{{ form.name.id_for_label }}" required
+                               value="{{ form.name.value|default:'' }}"
+                               class="w-full border border-gray-300 rounded-md px-3 py-2 focus:ring-emerald-500 focus:border-emerald-500"
+                               placeholder="e.g. Total Liabilities">
+                        {% if form.name.errors %}
+                            <div class="mt-1 text-sm text-red-600">{{ form.name.errors.0 }}</div>
+                        {% endif %}
+                    </div>
+
+                    <div>
+                        <label for="{{ form.council_types.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-2">
+                            Applicable Council Types
+                        </label>
+                        <select name="council_types" id="{{ form.council_types.id_for_label }}" multiple
+                                class="w-full border border-gray-300 rounded-md px-3 py-2 focus:ring-emerald-500 focus:border-emerald-500"
+                                size="3">
+                            {% for choice in form.council_types.field.queryset %}
+                                <option value="{{ choice.pk }}" 
+                                        {% if choice in form.council_types.value %}selected{% endif %}>
+                                    {{ choice.name }}
+                                </option>
+                            {% endfor %}
+                        </select>
+                        {% if form.council_types.errors %}
+                            <div class="mt-1 text-sm text-red-600">{{ form.council_types.errors.0 }}</div>
+                        {% endif %}
+                        <div class="mt-1 text-xs text-gray-500">Leave empty to apply to all council types</div>
+                    </div>
+                </div>
+
+                <div class="mt-6">
+                    <label for="{{ form.explanation.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-2">
+                        Explanation
+                    </label>
+                    <textarea name="explanation" id="{{ form.explanation.id_for_label }}" rows="3"
+                              class="w-full border border-gray-300 rounded-md px-3 py-2 focus:ring-emerald-500 focus:border-emerald-500"
+                              placeholder="Describe what this counter measures and why it's useful...">{{ form.explanation.value|default:'' }}</textarea>
+                    {% if form.explanation.errors %}
+                        <div class="mt-1 text-sm text-red-600">{{ form.explanation.errors.0 }}</div>
+                    {% endif %}
+                </div>            </div>
+        </div>
+
+        <!-- Display Properties Section -->
+        <div class="bg-white shadow-lg rounded-lg border border-gray-200">
+            <div class="px-6 py-4 border-b border-gray-200 bg-gradient-to-r from-purple-50 to-indigo-50">
+                <h2 class="text-xl font-semibold text-gray-900 flex items-center">
+                    <span class="text-purple-600 mr-2">🎨</span> Display Properties
+                </h2>
+                <p class="text-sm text-gray-600 mt-1">Control how values are formatted and displayed</p>
+            </div>
+            
+            <div class="p-6">
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    <div>
+                        <label for="{{ form.precision.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-2">
+                            Decimal Precision
+                        </label>
+                        <input type="number" name="precision" id="{{ form.precision.id_for_label }}" min="0" max="10"
+                               value="{{ form.precision.value|default:'0' }}"
+                               class="w-full border border-gray-300 rounded-md px-3 py-2 focus:ring-purple-500 focus:border-purple-500">
+                        {% if form.precision.errors %}
+                            <div class="mt-1 text-sm text-red-600">{{ form.precision.errors.0 }}</div>
+                        {% endif %}
+                        <div class="mt-1 text-xs text-gray-500">Number of decimal places to show</div>
+                    </div>
+
+                    <div>
+                        <label for="{{ form.duration.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-2">
+                            Animation Duration (ms)
+                        </label>
+                        <input type="number" name="duration" id="{{ form.duration.id_for_label }}" min="0" max="10000"
+                               value="{{ form.duration.value|default:'2000' }}"
+                               class="w-full border border-gray-300 rounded-md px-3 py-2 focus:ring-purple-500 focus:border-purple-500">
+                        {% if form.duration.errors %}
+                            <div class="mt-1 text-sm text-red-600">{{ form.duration.errors.0 }}</div>
+                        {% endif %}
+                        <div class="mt-1 text-xs text-gray-500">Counter animation speed in milliseconds</div>
+                    </div>
+
+                    <div class="space-y-4">
+                        <div class="flex items-center">
+                            <input type="checkbox" name="show_currency" id="{{ form.show_currency.id_for_label }}"
+                                   {% if form.show_currency.value %}checked{% endif %}
+                                   class="h-4 w-4 text-purple-600 focus:ring-purple-500 border-gray-300 rounded">
+                            <label for="{{ form.show_currency.id_for_label }}" class="ml-2 text-sm text-gray-700">
+                                Show Currency Symbol (£)
+                            </label>
+                        </div>
+                        {% if form.show_currency.errors %}
+                            <div class="text-sm text-red-600">{{ form.show_currency.errors.0 }}</div>
+                        {% endif %}
+
+                        <div class="flex items-center">
+                            <input type="checkbox" name="friendly_format" id="{{ form.friendly_format.id_for_label }}"
+                                   {% if form.friendly_format.value %}checked{% endif %}
+                                   class="h-4 w-4 text-purple-600 focus:ring-purple-500 border-gray-300 rounded">
+                            <label for="{{ form.friendly_format.id_for_label }}" class="ml-2 text-sm text-gray-700">
+                                Friendly Format (1m, 1k, etc.)
+                            </label>
+                        </div>
+                        {% if form.friendly_format.errors %}
+                            <div class="text-sm text-red-600">{{ form.friendly_format.errors.0 }}</div>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <!-- Format Preview -->
+                <div class="mt-6 p-4 bg-gray-50 border border-gray-200 rounded-lg">
+                    <h4 class="text-sm font-medium text-gray-700 mb-3">Format Preview</h4>
+                    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
+                        <div>
+                            <div class="text-xs text-gray-500 mb-1">Small Value</div>
+                            <div class="font-mono text-sm bg-white px-2 py-1 rounded border" id="format-preview-small">£1,234</div>
+                        </div>
+                        <div>
+                            <div class="text-xs text-gray-500 mb-1">Medium Value</div>
+                            <div class="font-mono text-sm bg-white px-2 py-1 rounded border" id="format-preview-medium">£1.2m</div>
+                        </div>
+                        <div>
+                            <div class="text-xs text-gray-500 mb-1">Large Value</div>
+                            <div class="font-mono text-sm bg-white px-2 py-1 rounded border" id="format-preview-large">£1.2b</div>
+                        </div>
+                        <div>
+                            <div class="text-xs text-gray-500 mb-1">Decimal Value</div>
+                            <div class="font-mono text-sm bg-white px-2 py-1 rounded border" id="format-preview-decimal">£123.45</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Factoid Linking Section -->
+        <div class="bg-white shadow-lg rounded-lg border border-gray-200">
+            <div class="px-6 py-4 border-b border-gray-200 bg-gradient-to-r from-amber-50 to-orange-50">
+                <h2 class="text-xl font-semibold text-gray-900 flex items-center">
+                    <span class="text-amber-600 mr-2">🔗</span> Factoid Templates
+                </h2>
+                <p class="text-sm text-gray-600 mt-1">Link this counter to automatic factoid generation</p>
+            </div>
+            
+            <div class="p-6">
+                <div class="mb-4">
+                    <label class="block text-sm font-medium text-gray-700 mb-3">Available Factoid Templates</label>
+                    <div class="space-y-3">                        {% for template in factoid_templates %}
+                        <div class="flex items-start p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
+                            <input type="checkbox" name="factoid_templates" value="{{ template.id }}" 
+                                   id="template_{{ template.id }}"
+                                   {% if template.id in form.factoid_templates.value|default_if_none:form.factoid_templates.initial|default_if_none:"" %}checked{% endif %}
+                                   class="mt-1 h-4 w-4 text-amber-600 focus:ring-amber-500 border-gray-300 rounded">
+                            <div class="ml-3 flex-1">
+                                <label for="template_{{ template.id }}" class="text-sm font-medium text-gray-900 cursor-pointer">
+                                    {{ template.name }}
+                                </label>
+                                <p class="text-sm text-gray-600 mt-1">{{ template.template_text|truncatechars:120 }}</p>                                <div class="flex items-center mt-2 text-xs text-gray-500">
+                                    <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-800">
+                                        {{ template.get_factoid_type_display }}
+                                    </span>
+                                    {% if template.min_value or template.max_value %}
+                                    <span class="ml-2">Conditional</span>
+                                    {% endif %}
+                                    {% if template.emoji %}
+                                    <span class="ml-2">{{ template.emoji }}</span>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                        {% empty %}
+                        <div class="text-center py-8 text-gray-500">
+                            <div class="text-4xl mb-2">📝</div>
+                            <p>No factoid templates available yet.</p>
+                            <p class="text-sm mt-1">Create factoid templates to enable automatic insights for this counter.</p>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+
+                {% if factoid_templates %}
+                <div class="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                    <div class="flex items-start">
+                        <div class="flex-shrink-0">
+                            <svg class="h-5 w-5 text-blue-400" fill="currentColor" viewBox="0 0 20 20">
+                                <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"/>
+                            </svg>
+                        </div>
+                        <div class="ml-3">
+                            <h4 class="text-sm font-medium text-blue-800">About Factoid Templates</h4>
+                            <p class="text-sm text-blue-700 mt-1">
+                                Selected templates will automatically generate insights when this counter is calculated. 
+                                Templates use variables like <code class="bg-blue-100 px-1 rounded">{<!-- -->{value}}</code> and <code class="bg-blue-100 px-1 rounded">{<!-- -->{council_name}}</code> 
+                                to create personalized factoids for each council.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Behavior Settings Section -->
+        <div class="bg-white shadow-lg rounded-lg border border-gray-200">
+            <div class="px-6 py-4 border-b border-gray-200 bg-gradient-to-r from-red-50 to-pink-50">
+                <h2 class="text-xl font-semibold text-gray-900 flex items-center">
+                    <span class="text-red-600 mr-2">⚙️</span> Behavior Settings
+                </h2>
+                <p class="text-sm text-gray-600 mt-1">Control when and how this counter appears</p>
+            </div>
+            
+            <div class="p-6">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div class="space-y-4">
+                        <div class="flex items-center">
+                            <input type="checkbox" name="show_by_default" id="{{ form.show_by_default.id_for_label }}"
+                                   {% if form.show_by_default.value %}checked{% endif %}
+                                   class="h-4 w-4 text-red-600 focus:ring-red-500 border-gray-300 rounded">
+                            <div class="ml-3">
+                                <label for="{{ form.show_by_default.id_for_label }}" class="text-sm font-medium text-gray-700">
+                                    Show by Default
+                                </label>
+                                <p class="text-xs text-gray-500">Display on council pages unless specifically disabled</p>
+                            </div>
+                        </div>
+                        {% if form.show_by_default.errors %}
+                            <div class="text-sm text-red-600">{{ form.show_by_default.errors.0 }}</div>
+                        {% endif %}
+
+                        <div class="flex items-center">
+                            <input type="checkbox" name="headline" id="{{ form.headline.id_for_label }}"
+                                   {% if form.headline.value %}checked{% endif %}
+                                   class="h-4 w-4 text-red-600 focus:ring-red-500 border-gray-300 rounded">
+                            <div class="ml-3">
+                                <label for="{{ form.headline.id_for_label }}" class="text-sm font-medium text-gray-700">
+                                    Headline Counter
+                                </label>
+                                <p class="text-xs text-gray-500">Emphasize this counter and show it first</p>
+                            </div>
+                        </div>
+                        {% if form.headline.errors %}
+                            <div class="text-sm text-red-600">{{ form.headline.errors.0 }}</div>
+                        {% endif %}
+                    </div>
+
+                    <div>
+                        <label for="{{ form.council_types.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-2">
+                            Applicable Council Types
+                        </label>
+                        <select name="council_types" id="{{ form.council_types.id_for_label }}" multiple
+                                class="w-full border border-gray-300 rounded-md px-3 py-2 focus:ring-red-500 focus:border-red-500"
+                                size="4">
+                            {% for choice in form.council_types.field.queryset %}
+                                <option value="{{ choice.pk }}" 
+                                        {% if choice in form.council_types.value %}selected{% endif %}>
+                                    {{ choice.name }}
+                                </option>
+                            {% endfor %}
+                        </select>
+                        {% if form.council_types.errors %}
+                            <div class="mt-1 text-sm text-red-600">{{ form.council_types.errors.0 }}</div>
+                        {% endif %}
+                        <div class="mt-1 text-xs text-gray-500">Leave empty to apply to all council types</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Action Buttons -->
+        <div class="bg-white shadow-lg rounded-lg border border-gray-200">
+            <div class="px-6 py-4">
+                <div class="flex items-center justify-between">
+                    <div class="flex space-x-3">
+                        <button type="submit" class="inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors">
+                            <span class="mr-2">💾</span>                        {% if form.instance.pk %}Update Counter{% else %}Create Counter{% endif %}
+                        </button>
+                    </div>
+
+                    <div class="flex space-x-2">
+                        <a href="{% url 'counter_definitions' %}" class="inline-flex items-center px-4 py-3 border border-gray-300 text-base font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 transition-colors">
+                            <span class="mr-2">↩️</span>
+                            Cancel
+                        </a>
+                        
+                        {% if form.instance.pk and request.user.is_staff %}
+                        <button type="button" onclick="deleteCounter()" class="inline-flex items-center px-4 py-3 border border-red-300 text-base font-medium rounded-md text-red-700 bg-red-50 hover:bg-red-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition-colors">
+                            <span class="mr-2">🗑️</span>
+                            Delete
+                        </button>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>    </form>
 </div>
-    <div class="mt-4">
-        <button class="bg-blue-600 text-white px-4 py-1 rounded" type="submit">Save</button>
-        <a href="{% url 'counter_definitions' %}" class="ml-2 underline">Cancel</a>
-    </div>
-</form>
+
 {{ available_fields|json_script:"available-fields" }}
 <script>
 const AVAILABLE_FIELDS = JSON.parse(document.getElementById('available-fields').textContent);
 let activeInput = null;
 const formulaInput = document.getElementById('id_formula');
 
+// Preview functionality
 const previewEl = document.getElementById('preview-value');
 const previewCouncil = document.getElementById('preview-council');
 const previewYear = document.getElementById('preview-year');
+
 function getPreviewParams() {
     return {
         council: previewCouncil.value,
@@ -127,6 +471,7 @@ function getPreviewParams() {
         friendly_format: document.getElementById('id_friendly_format').checked,
     };
 }
+
 async function updatePreview() {
     const params = getPreviewParams();
     const url = new URL("{% url 'preview_counter_value' %}", window.location.origin);
@@ -144,62 +489,141 @@ async function updatePreview() {
         previewEl.textContent = 'Error';
     }
 }
+
+// Format preview functionality
+function updateFormatPreviews() {
+    const precision = parseInt(document.getElementById('id_precision').value || '0');
+    const showCurrency = document.getElementById('id_show_currency').checked;
+    const friendlyFormat = document.getElementById('id_friendly_format').checked;
+    
+    const values = [1234, 1234567, 1234567890, 123.456];
+    const previews = ['format-preview-small', 'format-preview-medium', 'format-preview-large', 'format-preview-decimal'];
+    
+    values.forEach((value, index) => {
+        const element = document.getElementById(previews[index]);
+        if (element) {
+            element.textContent = formatValue(value, precision, showCurrency, friendlyFormat);
+        }
+    });
+}
+
+function formatValue(value, precision = 0, showCurrency = true, friendlyFormat = false) {
+    let formatted;
+    
+    if (friendlyFormat) {
+        const abs = Math.abs(value);
+        if (abs >= 1_000_000_000) {
+            formatted = (value / 1_000_000_000).toFixed(1) + 'b';
+        } else if (abs >= 1_000_000) {
+            formatted = (value / 1_000_000).toFixed(1) + 'm';
+        } else if (abs >= 1_000) {
+            formatted = (value / 1_000).toFixed(1) + 'k';
+        } else {
+            formatted = value.toFixed(precision);
+        }
+    } else {
+        formatted = value.toLocaleString(undefined, {
+            minimumFractionDigits: precision,
+            maximumFractionDigits: precision
+        });
+    }
+    
+    return showCurrency ? '£' + formatted : formatted;
+}
+
+// Event listeners
 if (formulaInput) {
     formulaInput.addEventListener('focus', () => activeInput = formulaInput);
     formulaInput.addEventListener('input', updatePreview);
 }
+
 if (previewCouncil) {
     previewCouncil.addEventListener('change', updatePreview);
 }
+
 if (previewYear) {
     previewYear.addEventListener('change', updatePreview);
 }
+
+// Format settings listeners
 ['id_precision', 'id_show_currency', 'id_friendly_format'].forEach(id => {
     const el = document.getElementById(id);
-    if (el) el.addEventListener('change', updatePreview);
+    if (el) {
+        el.addEventListener('change', () => {
+            updatePreview();
+            updateFormatPreviews();
+        });
+    }
 });
-setTimeout(updatePreview, 100);
 
+// Field and operator insertion
 document.querySelectorAll('[data-insert]').forEach(el => {
     el.addEventListener('click', () => {
         if (activeInput) {
-            activeInput.value += el.dataset.insert;
-            activeInput.dispatchEvent(new Event('input'));
+            const cursorPos = activeInput.selectionStart;
+            const currentValue = activeInput.value;
+            const newValue = currentValue.slice(0, cursorPos) + el.dataset.insert + currentValue.slice(cursorPos);
+            activeInput.value = newValue;
             activeInput.focus();
+            activeInput.setSelectionRange(cursorPos + el.dataset.insert.length, cursorPos + el.dataset.insert.length);
+            activeInput.dispatchEvent(new Event('input'));
         }
     });
+    
     el.addEventListener('dragstart', e => {
         e.dataTransfer.setData('text/plain', el.dataset.insert);
     });
 });
 
-const SAMPLE_VALUES = {};
-AVAILABLE_FIELDS.forEach(f => SAMPLE_VALUES[f] = 1000000);
-function formatValue(v) {
-    const prec = parseInt(document.getElementById('id_precision').value || '0');
-    const sc = document.getElementById('id_show_currency').checked;
-    const ff = document.getElementById('id_friendly_format').checked;
-    let out;
-    if (ff) {
-        const abs = Math.abs(v);
-        if (abs >= 1_000_000_000) { out = (v / 1_000_000_000).toFixed(1) + 'b'; }
-        else if (abs >= 1_000_000) { out = (v / 1_000_000).toFixed(1) + 'm'; }
-        else if (abs >= 1_000) { out = (v / 1_000).toFixed(1) + 'k'; }
-        else { out = v.toFixed(prec); }
-    } else {
-        out = v.toLocaleString(undefined, {minimumFractionDigits: prec, maximumFractionDigits: prec});
-    }
-    return sc ? '£' + out : out;
+// Drag and drop for formula input
+if (formulaInput) {
+    formulaInput.addEventListener('dragover', e => {
+        e.preventDefault();
+        formulaInput.classList.add('border-blue-400', 'bg-blue-50');
+    });
+    
+    formulaInput.addEventListener('dragleave', e => {
+        formulaInput.classList.remove('border-blue-400', 'bg-blue-50');
+    });
+    
+    formulaInput.addEventListener('drop', e => {
+        e.preventDefault();
+        formulaInput.classList.remove('border-blue-400', 'bg-blue-50');
+        
+        const text = e.dataTransfer.getData('text/plain');
+        const cursorPos = formulaInput.selectionStart;
+        const currentValue = formulaInput.value;
+        formulaInput.value = currentValue.slice(0, cursorPos) + text + currentValue.slice(cursorPos);
+        formulaInput.focus();
+        formulaInput.setSelectionRange(cursorPos + text.length, cursorPos + text.length);
+        formulaInput.dispatchEvent(new Event('input'));
+    });
 }
-function update() {
-    try {
-        const val = math.evaluate(formulaInput.value || '0', SAMPLE_VALUES);
-        previewEl.textContent = formatValue(val);
-    } catch (err) {
-        previewEl.textContent = 'Invalid';
+
+// Action functions
+function deleteCounter() {
+    if (confirm('Are you sure you want to delete this counter? This action cannot be undone.')) {
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.action = "{% if form.instance.pk %}{% url 'counter_delete' form.instance.slug %}{% endif %}";
+        
+        const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+        const csrfInput = document.createElement('input');
+        csrfInput.type = 'hidden';
+        csrfInput.name = 'csrfmiddlewaretoken';
+        csrfInput.value = csrfToken;
+        form.appendChild(csrfInput);
+        
+        document.body.appendChild(form);
+        form.submit();
     }
 }
-update();
+
+// Initialize previews
+setTimeout(() => {
+    updatePreview();
+    updateFormatPreviews();
+}, 100);
 </script>
 {% endblock %}
 

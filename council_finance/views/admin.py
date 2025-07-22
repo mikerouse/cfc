@@ -369,7 +369,7 @@ def counter_definition_form(request, slug=None):
             response="saved",
         )
         return redirect("counter_definitions")
-
+    
     context = {
         "form": form,
         "available_fields": [f.slug for f in DataField.objects.all()],
@@ -377,6 +377,7 @@ def counter_definition_form(request, slug=None):
         "years": years,
         "preview_council_slug": preview_council_slug,
         "preview_year_label": preview_year_label,
+        "factoid_templates": FactoidTemplate.objects.filter(is_active=True).order_by('priority', 'name'),
     }
     return render(
         request,
