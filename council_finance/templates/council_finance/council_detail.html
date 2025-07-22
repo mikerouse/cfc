@@ -648,7 +648,38 @@ async function loadCounters(year) {
 const yearSelect = document.getElementById('year-select');
 if (yearSelect) {
   yearSelect.addEventListener('change', e => {
-    loadCounters(e.target.value);
+    const newYear = e.target.value;
+    loadCounters(newYear);
+    
+    // Update factoid containers with new year and force refresh
+    document.querySelectorAll('.counter-factoid').forEach(factoidContainer => {
+      factoidContainer.setAttribute('data-year', newYear);
+      factoidContainer.setAttribute('data-force-refresh', 'true');
+      
+      // Destroy and recreate factoid playlist to force refresh
+      if (factoidContainer._factoidPlaylist) {
+        factoidContainer._factoidPlaylist.destroy();
+      }
+      
+      // Re-initialize factoid playlist with force refresh
+      try {
+        const playlist = new FactoidPlaylist(factoidContainer, {
+          autoPlay: true,
+          duration: 8000,
+          enableFlipAnimation: false,
+          enableInteractions: false,
+          apiBaseUrl: '/api'
+        });
+        factoidContainer._factoidPlaylist = playlist;
+        
+        // Clear the force refresh flag after initialization
+        setTimeout(() => {
+          factoidContainer.removeAttribute('data-force-refresh');
+        }, 1000);
+      } catch (error) {
+        console.error('Failed to refresh factoid playlist:', error);
+      }
+    });
   });
 }
 

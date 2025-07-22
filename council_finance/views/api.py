@@ -219,7 +219,10 @@ def factoid_data_api(request, counter_slug, council_slug, year_label):
         from council_finance.factoid_engine import FactoidEngine
         engine = FactoidEngine()
         
-        factoids = engine.generate_factoid_playlist(counter_slug, council_slug, actual_year_label)
+        # Check for force refresh parameter (useful for development/debugging)
+        force_refresh = request.GET.get('force_refresh', '').lower() == 'true'
+        
+        factoids = engine.generate_factoid_playlist(counter_slug, council_slug, actual_year_label, force_refresh=force_refresh)
         
         return JsonResponse({
             'success': True,

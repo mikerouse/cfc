@@ -20,7 +20,8 @@
       "Bash(npm run build-css:*)",
       "Bash(npx tailwindcss:*)",
       "Bash(grep:*)",
-      "Bash(curl:*)"
+      "Bash(curl:*)",
+      "Bash(del test_factoid_calculations.py)"
     ],
     "deny": []
   }

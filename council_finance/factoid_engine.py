@@ -23,7 +23,7 @@ class FactoidEngine:
     def __init__(self):
         self.counter_agent = CounterAgent()
     
-    def generate_factoid_playlist(self, counter_slug: str, council_slug: Optional[str], year_label: str) -> List[Dict[str, Any]]:
+    def generate_factoid_playlist(self, counter_slug: str, council_slug: Optional[str], year_label: str, force_refresh: bool = False) -> List[Dict[str, Any]]:
         """Generate comprehensive factoid playlist for a specific context"""
         try:
             counter = CounterDefinition.objects.get(slug=counter_slug)
@@ -43,7 +43,7 @@ class FactoidEngine:
         )
         
         # Check if we need to regenerate
-        if created or not playlist.computed_factoids or self._should_regenerate(playlist):
+        if created or not playlist.computed_factoids or self._should_regenerate(playlist, force_refresh):
             factoids = self._generate_all_factoids(counter, council, year)
             playlist.computed_factoids = factoids
             playlist.last_computed = datetime.now(timezone.utc)
@@ -51,9 +51,9 @@ class FactoidEngine:
         
         return playlist.computed_factoids
     
-    def _should_regenerate(self, playlist: FactoidPlaylist) -> bool:
+    def _should_regenerate(self, playlist: FactoidPlaylist, force_refresh: bool = False) -> bool:
         """Determine if playlist should be regenerated"""
-        if not playlist.last_computed:
+        if not playlist.last_computed or force_refresh:
             return True
         
         # Regenerate if older than 1 hour
@@ -351,6 +351,7 @@ class FactoidEngine:
                 return []
             
             change = ((current_val - previous_val) / previous_val) * 100
+            
             
             if abs(change) < 1:  # Skip insignificant changes
                 return []
