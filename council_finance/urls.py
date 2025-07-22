@@ -16,6 +16,7 @@ from .views import (
     councils as council_views,
     pages as page_views,
     council_management as council_mgmt_views,
+    email_status as email_status_views,
 )
 # Import following functions directly from general to avoid circular import issues
 from .views.general import (
@@ -92,6 +93,8 @@ urlpatterns = [
     path("accounts/profile/", auth_views.profile_view, name="profile"),
     # Email change modal endpoint
     path("accounts/profile/change-email/", auth_views.change_email_modal, name="change_email_modal"),
+    # Email change status endpoint
+    path("api/email-change-status/", email_status_views.email_change_status, name="email_change_status"),
     # User preferences management
     path("accounts/preferences/", auth_views.user_preferences_view, name="user_preferences"),
     path("api/preferences/", api_views.user_preferences_ajax, name="user_preferences_ajax"),

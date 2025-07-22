@@ -382,12 +382,12 @@ def handle_notification_form(request, profile):
 @login_required
 @require_POST
 def change_email_modal(request):
-    """Handle email change requests through modal interface with comprehensive debugging."""
+    """Handle email change requests through modal interface with enhanced security."""
     import json
     from django.core.validators import validate_email
     from django.core.exceptions import ValidationError
+    from council_finance.services.email_security import email_security_service
     
-    # DEBUG: Add basic error handling
     try:
         logger.info(f"Email change request from user: {request.user.username}")
         
@@ -411,13 +411,6 @@ def change_email_modal(request):
         data = json.loads(request.body)
         new_email = data.get('email', '').strip().lower()
         
-        # Comprehensive logging for debugging
-        log_activity(
-            request,
-            activity="Email change request received",
-            extra=f"Current email: {request.user.email}, Requested email: {new_email}, User: {request.user.username}"
-        )
-        
         # Validate email format
         if not new_email:
             return JsonResponse({
@@ -428,48 +421,58 @@ def change_email_modal(request):
         try:
             validate_email(new_email)
         except ValidationError:
-            log_activity(
-                request,
-                activity="Email change failed - invalid format",
-                extra=f"Invalid email format: {new_email}"
+            email_security_service.log_security_event(
+                request, request.user, 'invalid_email_format', 
+                {'email': new_email}
             )
             return JsonResponse({
                 'success': False,
                 'error': 'Please enter a valid email address'
             }, status=400)
         
-        # Check if email is the same as current
-        if new_email == request.user.email.lower():
+        # Enhanced security validation
+        security_check = email_security_service.validate_security_constraints(
+            request, request.user, new_email
+        )
+        
+        if not security_check['valid']:
+            email_security_service.log_security_event(
+                request, request.user, 'security_constraint_violation',
+                {
+                    'error_code': security_check['error_code'],
+                    'email': new_email,
+                    'details': security_check.get('details', {})
+                }
+            )
+            
+            # Record failed attempt for rate limiting
+            email_security_service.record_attempt(request, request.user, success=False)
+            
             return JsonResponse({
                 'success': False,
-                'error': 'This is already your current email address'
-            }, status=400)
+                'error': security_check['error']
+            }, status=429 if 'RATE_LIMIT' in security_check['error_code'] else 400)
         
         # Check if email is already in use by another user
         from django.contrib.auth.models import User
         if User.objects.filter(email__iexact=new_email).exclude(pk=request.user.pk).exists():
-            log_activity(
-                request,
-                activity="Email change failed - email already in use",
-                extra=f"Email {new_email} already exists for another user"
+            email_security_service.log_security_event(
+                request, request.user, 'email_already_exists',
+                {'email': new_email}
             )
+            email_security_service.record_attempt(request, request.user, success=False)
+            
             return JsonResponse({
                 'success': False,
                 'error': 'This email address is already registered to another account'
             }, status=400)
         
-        # Check rate limiting
-        profile, created = UserProfile.objects.get_or_create(user=request.user)
-        if not profile.can_send_confirmation():
-            log_activity(
-                request,
-                activity="Email change failed - rate limited",
-                extra=f"User {request.user.username} exceeded rate limit"
-            )
-            return JsonResponse({
-                'success': False,
-                'error': 'Please wait before requesting another email change. You can try again in a few minutes.'
-            }, status=429)
+        # Comprehensive logging for debugging
+        log_activity(
+            request,
+            activity="Email change request received",
+            extra=f"Current email: {request.user.email}, Requested email: {new_email}, User: {request.user.username}"
+        )
         
         # Attempt to send confirmation email
         try:
@@ -477,7 +480,15 @@ def change_email_modal(request):
             success = send_email_change_confirmation(request.user, new_email, request)
             logger.info(f"Email send result: {success}")
             
+            # Record attempt for rate limiting
+            email_security_service.record_attempt(request, request.user, success=success)
+            
             if success:
+                email_security_service.log_security_event(
+                    request, request.user, 'email_change_confirmation_sent',
+                    {'new_email': new_email, 'current_email': request.user.email}
+                )
+                
                 log_activity(
                     request,
                     activity="Email change confirmation sent successfully",
@@ -488,11 +499,21 @@ def change_email_modal(request):
                     'success': True,
                     'message': f'Please check {new_email} to confirm your email change. Your current email ({request.user.email}) remains active until confirmed.',
                     'new_email': new_email,
-                    'current_email': request.user.email
+                    'current_email': request.user.email,
+                    'security_info': {
+                        'ip_attempts_remaining': security_check.get('ip_info', {}).get('remaining', 0),
+                        'user_attempts_remaining': security_check.get('user_info', {}).get('remaining', 0)
+                    }
                 })
             else:
                 # Log the failure and send alert to admins
                 error_details = f"Failed to send email change confirmation to {new_email} for user {request.user.username}"
+                
+                email_security_service.log_security_event(
+                    request, request.user, 'email_send_failure',
+                    {'new_email': new_email, 'error_details': error_details}
+                )
+                
                 log_activity(
                     request,
                     activity="Email change confirmation failed",

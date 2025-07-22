@@ -716,6 +716,47 @@ function closeChangeEmailModal() {
   `;
 }
 
+function cancelPendingEmailChange() {
+  if (confirm('Are you sure you want to cancel the pending email change?')) {
+    fetch('{% url "cancel_email_change" %}', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRFToken': getCookie('csrftoken')
+      }
+    })
+    .then(response => response.json())
+    .then(data => {
+      if (data.success) {
+        location.reload(); // Refresh to update UI
+      } else {
+        alert('Failed to cancel email change. Please try again.');
+      }
+    })
+    .catch(error => {
+      console.error('Cancel email change error:', error);
+      alert('An error occurred. Please try again.');
+    });
+  }
+}
+
+function validateEmail(email) {
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  return emailRegex.test(email);
+}
+
+function showModalError(message) {
+  document.getElementById('modalError').classList.remove('hidden');
+  document.getElementById('modalErrorMsg').textContent = message;
+  document.getElementById('modalSuccess').classList.add('hidden');
+}
+
+function showModalSuccess(message) {
+  document.getElementById('modalSuccess').classList.remove('hidden');
+  document.getElementById('modalSuccessMsg').textContent = message;
+  document.getElementById('modalError').classList.add('hidden');
+}
+
 function submitEmailChange() {
   const email = document.getElementById('emailInput').value.trim();
   const submitBtn = document.getElementById('submitEmailChange');
@@ -729,6 +770,16 @@ function submitEmailChange() {
   
   if (!email) {
     showModalError('Please enter an email address');
+    return;
+  }
+  
+  if (!validateEmail(email)) {
+    showModalError('Please enter a valid email address');
+    return;
+  }
+  
+  if (email.toLowerCase() === '{{ user.email|lower }}') {
+    showModalError('This is already your current email address');
     return;
   }
   
@@ -831,7 +882,32 @@ document.addEventListener('DOMContentLoaded', function() {
       <div class="mb-4 p-3 bg-gray-50 rounded-md">
         <p class="text-sm text-gray-600">Current email:</p>
         <p class="text-sm font-medium text-gray-900">{{ user.email }}</p>
+        {% if user.profile.pending_email %}
+        <div class="mt-2 p-2 bg-yellow-50 border border-yellow-200 rounded">
+          <p class="text-xs text-yellow-800">
+            ⏳ Pending change to: <strong>{{ user.profile.pending_email }}</strong>
+          </p>
+          <p class="text-xs text-yellow-600 mt-1">
+            Check your email for the confirmation link or 
+            <button type="button" onclick="cancelPendingEmailChange()" class="underline hover:no-underline">cancel this change</button>
+          </p>
+        </div>
+        {% endif %}
       </div>
+      
+      <!-- Email Change Progress (if there's a pending change) -->
+      {% if user.profile.pending_email %}
+      <div class="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-md">
+        <div class="flex items-center justify-between mb-2">
+          <h4 class="text-sm font-medium text-blue-900">Email Change Progress</h4>
+          <span class="text-xs text-blue-600">Step 1 of 2</span>
+        </div>
+        <div class="w-full bg-blue-200 rounded-full h-2">
+          <div class="bg-blue-600 h-2 rounded-full" style="width: 50%"></div>
+        </div>
+        <p class="text-xs text-blue-700 mt-2">Confirmation email sent. Check your inbox and click the link to complete the change.</p>
+      </div>
+      {% endif %}
       
       <!-- New Email Input -->
       <div class="mb-4">
