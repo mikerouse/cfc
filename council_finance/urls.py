@@ -90,10 +90,13 @@ urlpatterns = [
     ),
     # Show information about the logged in user.
     path("accounts/profile/", auth_views.profile_view, name="profile"),
+    # Email change modal endpoint
+    path("accounts/profile/change-email/", auth_views.change_email_modal, name="change_email_modal"),
     # User preferences management
     path("accounts/preferences/", auth_views.user_preferences_view, name="user_preferences"),
     path("api/preferences/", api_views.user_preferences_ajax, name="user_preferences_ajax"),
-    path("councils/", council_views.council_list, name="council_list"),    path(
+    path("councils/", council_views.council_list, name="council_list"),
+    path(
         "councils/<slug:slug>/counters/",
         council_views.council_counters,
         name="council_counters",
@@ -128,7 +131,8 @@ urlpatterns = [
         "councils/<slug:slug>/log/",
         council_views.council_change_log,
         name="council_change_log",
-    ),path("councils/<slug:slug>/", general_views.council_detail, name="council_detail"),
+    ),
+    path("councils/<slug:slug>/", general_views.council_detail, name="council_detail"),
     # Common menu pages
     path("leaderboards/", general_views.leaderboards, name="leaderboards"),
     path("lists/", my_lists, name="my_lists"),

@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Email Address Changed</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background-color: #f5f5f5;
+            margin: 0;
+            padding: 20px;
+        }
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+        .header h1 {
+            margin: 0;
+            font-size: 24px;
+            font-weight: 600;
+        }
+        .content {
+            padding: 30px;
+        }
+        .success-icon {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        .success-icon::before {
+            content: "✅";
+            font-size: 48px;
+        }
+        .change-details {
+            background: #f8f9fa;
+            border-radius: 6px;
+            padding: 20px;
+            margin: 20px 0;
+            border-left: 4px solid #28a745;
+        }
+        .email-change {
+            font-family: 'Courier New', monospace;
+            background: #e9ecef;
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+        .footer {
+            background: #f8f9fa;
+            padding: 20px 30px;
+            text-align: center;
+            border-top: 1px solid #dee2e6;
+            font-size: 14px;
+            color: #6c757d;
+        }
+        .security-note {
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            border-radius: 6px;
+            padding: 15px;
+            margin: 20px 0;
+        }
+        .security-note h3 {
+            margin: 0 0 10px 0;
+            color: #856404;
+            font-size: 16px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Email Address Changed Successfully</h1>
+        </div>
+        
+        <div class="content">
+            <div class="success-icon"></div>
+            
+            <p>Hello {{ user.first_name|default:user.username }},</p>
+            
+            <p>Your email address has been successfully changed on Council Finance Counters.</p>
+            
+            <div class="change-details">
+                <h3>Change Details:</h3>
+                <p><strong>Previous email:</strong></p>
+                <div class="email-change">{{ old_email }}</div>
+                
+                <p><strong>New email:</strong></p>
+                <div class="email-change">{{ new_email }}</div>
+                
+                <p><strong>Changed on:</strong> {{ changed_at|date:"F j, Y \a\t g:i A T" }}</p>
+            </div>
+            
+            <div class="security-note">
+                <h3>🔐 Security Information</h3>
+                <p>This change has been applied to your account. You'll now receive all future notifications at your new email address.</p>
+                <p>If you didn't make this change, please contact our support team immediately.</p>
+            </div>
+            
+            <p>You can now sign in using your new email address. Your password remains the same.</p>
+            
+            <p>Thank you for using Council Finance Counters!</p>
+        </div>
+        
+        <div class="footer">
+            <p>This is an automated message from Council Finance Counters.</p>
+            <p>If you have any questions, please contact our support team.</p>
+        </div>
+    </div>
+</body>
+</html>

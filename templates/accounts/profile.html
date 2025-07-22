@@ -1,36 +1,45 @@
-{# Profile page for logged in users using the common base template #}
+{# Modern Profile Management Page with Tabbed Interface #}
 {% extends "base.html" %}
 {% load notifications %}
 {% block title %}My Profile - Council Finance Counters{% endblock %}
 
 {% block content %}
 <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+  <!-- Header -->
   <div class="mb-8">
-    <h1 class="text-3xl font-bold text-gray-900 mb-2">My Profile</h1>
-    <p class="text-gray-600">Manage your account settings and personal information</p>
-  </div>
-
-  <!-- Navigation Tabs -->
-  <div class="mb-8">
-    <div class="border-b border-gray-200">
-      <nav class="-mb-px flex space-x-8">
-        <a href="{% url 'profile' %}" 
-           class="{% if tab == 'profile' %}border-blue-500 text-blue-600{% else %}border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300{% endif %} whitespace-nowrap py-2 px-1 border-b-2 font-medium text-sm transition-colors duration-200">
-          Profile
-        </a>
-        <a href="{% url 'profile' %}?tab=custom" 
-           class="{% if tab == 'custom' %}border-blue-500 text-blue-600{% else %}border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300{% endif %} whitespace-nowrap py-2 px-1 border-b-2 font-medium text-sm transition-colors duration-200">
-          Customization
-        </a>
-        <a href="{% url 'user_preferences' %}" 
-           class="border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 whitespace-nowrap py-2 px-1 border-b-2 font-medium text-sm transition-colors duration-200">
-          Preferences
-        </a>
-        <a href="{% url 'notifications' %}" 
-           class="border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 whitespace-nowrap py-2 px-1 border-b-2 font-medium text-sm transition-colors duration-200">
-          Notifications
-        </a>
-      </nav>
+    <div class="flex items-center justify-between">
+      <div>
+        <h1 class="text-3xl font-bold text-gray-900 mb-2">My Profile</h1>
+        <p class="text-gray-600">Manage your account settings and personal information</p>
+      </div>
+      <div class="flex items-center space-x-4">
+        <div class="relative">
+          {% if gravatar_url %}
+          <img src="{{ gravatar_url }}" alt="Profile Picture" 
+               class="w-16 h-16 rounded-full border-4 border-gray-200 shadow-sm">
+          {% else %}
+          <div class="w-16 h-16 bg-gray-200 rounded-full border-4 border-gray-200 shadow-sm flex items-center justify-center">
+            <svg class="w-8 h-8 text-gray-400" fill="currentColor" viewBox="0 0 20 20">
+              <path fill-rule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clip-rule="evenodd"/>
+            </svg>
+          </div>
+          {% endif %}
+          <div class="absolute bottom-0 right-0 w-5 h-5 bg-white rounded-full border-2 border-gray-200 flex items-center justify-center">
+            <a href="https://gravatar.com" target="_blank" class="text-gray-400 hover:text-gray-600" title="Change avatar at Gravatar">
+              <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z"/>
+              </svg>
+            </a>
+          </div>
+        </div>
+        <div>
+          <h3 class="text-lg font-semibold text-gray-900">{{ user.username }}</h3>
+          {% if profile.tier %}
+          <p class="text-sm text-gray-500">{{ profile.tier.name }}</p>
+          {% endif %}
+          <p class="text-xs text-gray-400">Level {{ profile.level }} • {{ profile.badge }}</p>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -58,456 +67,584 @@
             <div class="ml-3">
               <p class="text-sm font-medium">{{ message }}</p>
             </div>
+            <div class="ml-auto pl-3">
+              <button type="button" class="inline-flex rounded-md text-gray-400 hover:text-gray-500 focus:outline-none" onclick="this.parentElement.parentElement.parentElement.remove()">
+                <span class="sr-only">Dismiss</span>
+                <svg class="h-5 w-5" fill="currentColor" viewBox="0 0 20 20">
+                  <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"/>
+                </svg>
+              </button>
+            </div>
           </div>
         </div>
       {% endfor %}
     </div>
   {% endif %}
 
-  <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
-    <!-- Main Content -->
-    <div class="lg:col-span-2">
-      {% if tab == 'custom' %}
-        <!-- Customization Tab -->
-        <div class="bg-white shadow-sm rounded-lg border border-gray-200">
-          <div class="px-6 py-4 border-b border-gray-200">
-            <h2 class="text-lg font-semibold text-gray-900">Customization Settings</h2>
-            <p class="text-sm text-gray-500 mt-1">Personalize your experience</p>
+  <!-- Email Confirmation Status -->
+  {% if not confirmation_status.email_confirmed or confirmation_status.requires_reconfirmation %}
+    {% if confirmation_status.requires_reconfirmation %}
+    <div class="mb-6 bg-red-50 border border-red-200 rounded-lg p-4">
+      <div class="flex">
+        <div class="flex-shrink-0">
+          <svg class="h-5 w-5 text-red-400" fill="currentColor" viewBox="0 0 20 20">
+            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"/>
+          </svg>
+        </div>
+        <div class="ml-3 flex-1">
+          <h3 class="text-sm font-medium text-red-800">Email re-confirmation required</h3>
+          <div class="mt-2 text-sm text-red-700">
+            <p>Due to recent security changes, please re-confirm your email address to continue using all features.</p>
           </div>
-          <form method="post" class="p-6 space-y-6">
+          <div class="mt-3 flex items-center space-x-4">
+            {% if confirmation_status.can_send_confirmation %}
+              <a href="{% url 'resend_confirmation' %}" 
+                 class="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition-colors">
+                Send Confirmation Email
+              </a>
+            {% else %}
+              <span class="text-sm text-red-600">Please wait before requesting another confirmation email</span>
+            {% endif %}
+            <span class="text-xs text-red-500">{{ confirmation_status.attempts_remaining }} attempts remaining</span>
+          </div>
+        </div>
+      </div>
+    </div>
+    {% else %}
+    <div class="mb-6 bg-amber-50 border border-amber-200 rounded-lg p-4">
+      <div class="flex">
+        <div class="flex-shrink-0">
+          <svg class="h-5 w-5 text-amber-400" fill="currentColor" viewBox="0 0 20 20">
+            <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/>
+          </svg>
+        </div>
+        <div class="ml-3 flex-1">
+          <h3 class="text-sm font-medium text-amber-800">Email confirmation required</h3>
+          <div class="mt-2 text-sm text-amber-700">
+            <p>Please confirm your email address to access all features.</p>
+          </div>
+          <div class="mt-3 flex items-center space-x-4">
+            {% if confirmation_status.can_send_confirmation %}
+              <a href="{% url 'resend_confirmation' %}" 
+                 class="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md text-white bg-amber-600 hover:bg-amber-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-amber-500 transition-colors">
+                Send Confirmation Email
+              </a>
+            {% else %}
+              <span class="text-sm text-amber-600">Please wait before requesting another confirmation email</span>
+            {% endif %}
+            <span class="text-xs text-amber-500">{{ confirmation_status.attempts_remaining }} attempts remaining</span>
+          </div>
+        </div>
+      </div>
+    </div>
+    {% endif %}
+  {% endif %}
+
+  <!-- Pending Email Changes -->
+  {% if confirmation_status.has_pending_email %}
+  <div class="mb-6 bg-blue-50 border border-blue-200 rounded-lg p-4">
+    <div class="flex">
+      <div class="flex-shrink-0">
+        <svg class="h-5 w-5 text-blue-400" fill="currentColor" viewBox="0 0 20 20">
+          <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"/>
+        </svg>
+      </div>
+      <div class="ml-3 flex-1">
+        <h3 class="text-sm font-medium text-blue-800">Email change pending</h3>
+        <div class="mt-2 text-sm text-blue-700">
+          <p>You have a pending email change that requires confirmation. Check your new email address for a confirmation link.</p>
+          {% if profile.pending_email %}
+            <p class="mt-1"><strong>New email:</strong> {{ profile.pending_email }}</p>
+          {% endif %}
+        </div>
+        <div class="mt-3">
+          <form method="post" action="{% url 'cancel_email_change' %}" class="inline">
             {% csrf_token %}
+            <button type="submit" 
+                    class="text-sm font-medium text-blue-800 underline hover:text-blue-900 transition-colors"
+                    onclick="return confirm('Are you sure you want to cancel this email change?')">
+              Cancel email change
+            </button>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- Modern Tab Navigation -->
+  <div class="mb-8">
+    <div class="border-b border-gray-200 bg-white rounded-t-lg">
+      <nav class="flex space-x-8 px-6 py-4">
+        <a href="{% url 'profile' %}?tab=basic" 
+           class="{% if tab == 'basic' %}border-blue-500 text-blue-600 bg-blue-50 px-3 py-2 rounded-md{% else %}border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50 px-3 py-2 rounded-md{% endif %} whitespace-nowrap font-medium text-sm transition-all duration-200 border-b-2">
+          <div class="flex items-center space-x-2">
+            <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+              <path fill-rule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clip-rule="evenodd"/>
+            </svg>
+            <span>Basic Info</span>
+          </div>
+        </a>
+        <a href="{% url 'profile' %}?tab=additional" 
+           class="{% if tab == 'additional' %}border-blue-500 text-blue-600 bg-blue-50 px-3 py-2 rounded-md{% else %}border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50 px-3 py-2 rounded-md{% endif %} whitespace-nowrap font-medium text-sm transition-all duration-200 border-b-2">
+          <div class="flex items-center space-x-2">
+            <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+              <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+            </svg>
+            <span>Additional Info</span>
+          </div>
+        </a>
+        <a href="{% url 'profile' %}?tab=customization" 
+           class="{% if tab == 'customization' %}border-blue-500 text-blue-600 bg-blue-50 px-3 py-2 rounded-md{% else %}border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50 px-3 py-2 rounded-md{% endif %} whitespace-nowrap font-medium text-sm transition-all duration-200 border-b-2">
+          <div class="flex items-center space-x-2">
+            <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+              <path fill-rule="evenodd" d="M11.49 3.17c-.38-1.56-2.6-1.56-2.98 0a1.532 1.532 0 01-2.286.948c-1.372-.836-2.942.734-2.106 2.106.54.886.061 2.042-.947 2.287-1.561.379-1.561 2.6 0 2.978a1.532 1.532 0 01.947 2.287c-.836 1.372.734 2.942 2.106 2.106a1.532 1.532 0 012.287.947c.379 1.561 2.6 1.561 2.978 0a1.533 1.533 0 012.287-.947c1.372.836 2.942-.734 2.106-2.106a1.533 1.533 0 01.947-2.287c1.561-.379 1.561-2.6 0-2.978a1.532 1.532 0 01-.947-2.287c.836-1.372-.734-2.942-2.106-2.106a1.532 1.532 0 01-2.287-.947zM10 13a3 3 0 100-6 3 3 0 000 6z" clip-rule="evenodd"/>
+            </svg>
+            <span>Customization</span>
+          </div>
+        </a>
+        <a href="{% url 'profile' %}?tab=notifications" 
+           class="{% if tab == 'notifications' %}border-blue-500 text-blue-600 bg-blue-50 px-3 py-2 rounded-md{% else %}border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50 px-3 py-2 rounded-md{% endif %} whitespace-nowrap font-medium text-sm transition-all duration-200 border-b-2 relative">
+          <div class="flex items-center space-x-2">
+            <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+              <path d="M10 2a6 6 0 00-6 6v3.586l-.707.707A1 1 0 004 14h12a1 1 0 00.707-1.707L16 11.586V8a6 6 0 00-6-6zM10 18a3 3 0 01-3-3h6a3 3 0 01-3 3z"/>
+            </svg>
+            <span>Notifications</span>
+            {% if notifications|length > 0 %}
+            <span class="absolute -top-1 -right-1 inline-flex items-center justify-center px-2 py-1 text-xs font-bold leading-none text-white bg-red-600 rounded-full">{{ notifications|length }}</span>
+            {% endif %}
+          </div>
+        </a>
+      </nav>
+    </div>
+  </div>
+
+  <!-- Tab Content -->
+  <div class="bg-white shadow-sm rounded-b-lg border border-gray-200 min-h-96">
+    
+    <!-- Basic Information Tab -->
+    {% if tab == 'basic' %}
+    <div class="p-6">
+      <div class="mb-6">
+        <h2 class="text-xl font-semibold text-gray-900 mb-2">Basic Information</h2>
+        <p class="text-sm text-gray-600">Manage your basic account details, email, password, and profile visibility</p>
+      </div>
+      
+      <form method="post" class="space-y-6">
+        {% csrf_token %}
+        <input type="hidden" name="basic_form" value="1">
+        
+        <div class="grid grid-cols-1 gap-6 lg:grid-cols-2">
+          <!-- Personal Details -->
+          <div class="space-y-6">
+            <h3 class="text-lg font-medium text-gray-900">Personal Details</h3>
+            
             <div>
-              <label for="preferred_font" class="block text-sm font-medium text-gray-700 mb-2">
-                Preferred Font
-              </label>
-              <select name="preferred_font" id="preferred_font" 
-                      class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
-                {% for font in fonts %}
-                <option value="{{ font }}" {% if profile.preferred_font == font %}selected{% endif %} style="font-family: {{ font }};">
-                  {{ font }}
-                </option>
-                {% endfor %}
-              </select>
+              <label for="{{ basic_form.first_name.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-2">{{ basic_form.first_name.label }}</label>
+              {{ basic_form.first_name }}
+              {% if basic_form.first_name.help_text %}
+              <p class="mt-1 text-sm text-gray-500">{{ basic_form.first_name.help_text }}</p>
+              {% endif %}
             </div>
             
-            {% if user.is_superuser %}
             <div>
-              <label for="tier" class="block text-sm font-medium text-gray-700 mb-2">
-                Trust Tier
-              </label>
-              <select name="tier" id="tier"
-                      class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
-                {% for t in tiers %}
-                <option value="{{ t.id }}" {% if profile.tier_id == t.id %}selected{% endif %}>
-                  {{ t.name }}
-                </option>
-                {% endfor %}
-              </select>
+              <label for="{{ basic_form.last_name.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-2">{{ basic_form.last_name.label }}</label>
+              {{ basic_form.last_name }}
+              {% if basic_form.last_name.help_text %}
+              <p class="mt-1 text-sm text-gray-500">{{ basic_form.last_name.help_text }}</p>
+              {% endif %}
             </div>
-            {% endif %}
+            
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-2">Email Address</label>
+              <div class="flex items-center space-x-3">
+                <input type="text" value="{{ user.email }}" disabled 
+                       class="mt-1 block flex-1 px-3 py-2 bg-gray-100 border border-gray-300 rounded-md shadow-sm text-sm text-gray-600 cursor-not-allowed">
+                <button type="button" onclick="openChangeEmailModal()" 
+                        class="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors">
+                  <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+                  </svg>
+                  Change Email
+                </button>
+              </div>
+              <p class="mt-1 text-sm text-gray-500">Changes require email confirmation</p>
+              {% if profile.email_confirmed %}
+              <p class="mt-1 text-sm text-green-600 flex items-center">
+                <svg class="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                  <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+                </svg>
+                Email verified
+              </p>
+              {% else %}
+              <p class="mt-1 text-sm text-red-600 flex items-center">
+                <svg class="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                  <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"/>
+                </svg>
+                Email not verified
+              </p>
+              {% endif %}
+            </div>
+          </div>
+          
+          <!-- Account Security & Privacy -->
+          <div class="space-y-6">
+            <h3 class="text-lg font-medium text-gray-900">Security & Privacy</h3>
+            
+            <div>
+              <label for="{{ basic_form.password1.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-2">{{ basic_form.password1.label }}</label>
+              {{ basic_form.password1 }}
+              {% if basic_form.password1.help_text %}
+              <p class="mt-1 text-sm text-gray-500">{{ basic_form.password1.help_text }}</p>
+              {% endif %}
+            </div>
+            
+            <div>
+              <label for="{{ basic_form.password2.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-2">{{ basic_form.password2.label }}</label>
+              {{ basic_form.password2 }}
+            </div>
+            
+            <div>
+              <label for="{{ basic_form.visibility.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-2">Profile Visibility</label>
+              {{ basic_form.visibility }}
+              <p class="mt-1 text-sm text-gray-500">Control who can see your profile and activity</p>
+            </div>
+          </div>
+        </div>
+        
+        <!-- Location Information -->
+        <div class="border-t border-gray-200 pt-6">
+          <h3 class="text-lg font-medium text-gray-900 mb-4">Location Information</h3>
+          <div class="grid grid-cols-1 gap-6 lg:grid-cols-2">
+            <div>
+              <label for="{{ basic_form.postcode.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-2">{{ basic_form.postcode.label }}</label>
+              {{ basic_form.postcode }}
+              {% if basic_form.postcode.help_text %}
+              <p class="mt-1 text-sm text-gray-500">{{ basic_form.postcode.help_text }}</p>
+              {% endif %}
+            </div>
+            <div class="flex items-center">
+              <div class="flex items-center h-5">
+                {{ basic_form.postcode_refused }}
+              </div>
+              <div class="ml-3 text-sm">
+                <label for="{{ basic_form.postcode_refused.id_for_label }}" class="font-medium text-gray-700">{{ basic_form.postcode_refused.label }}</label>
+                <p class="text-gray-500">Some location-based features will not be available</p>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <div class="flex justify-end">
+          <button type="submit" class="inline-flex justify-center py-2 px-6 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200">
+            Save Changes
+          </button>
+        </div>
+      </form>
+    </div>
+    
+    <!-- Additional Information Tab -->
+    {% elif tab == 'additional' %}
+    <div class="p-6">
+      <div class="mb-6">
+        <h2 class="text-xl font-semibold text-gray-900 mb-2">Additional Information</h2>
+        <p class="text-sm text-gray-600">Help us understand your connection to local government and improve your experience</p>
+      </div>
+      
+      <form method="post" class="space-y-6">
+        {% csrf_token %}
+        <input type="hidden" name="additional_form" value="1">
+        
+        <div class="grid grid-cols-1 gap-8 lg:grid-cols-2">
+          <!-- Political & Professional Information -->
+          <div class="space-y-6">
+            <h3 class="text-lg font-medium text-gray-900">Political & Professional Information</h3>
+            
+            <div>
+              <label for="{{ additional_form.political_affiliation.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-2">{{ additional_form.political_affiliation.label }}</label>
+              {{ additional_form.political_affiliation }}
+              <p class="mt-1 text-sm text-gray-500">Optional - helps us understand different perspectives</p>
+            </div>
+            
+            <div class="space-y-4">
+              <div class="flex items-center">
+                <div class="flex items-center h-5">
+                  {{ additional_form.works_for_council }}
+                </div>
+                <div class="ml-3 text-sm">
+                  <label for="{{ additional_form.works_for_council.id_for_label }}" class="font-medium text-gray-700">{{ additional_form.works_for_council.label }}</label>
+                  <p class="text-gray-500">This may affect your trust level and contribution privileges</p>
+                </div>
+              </div>
+            </div>
+          </div>
+          
+          <!-- Council Employment Details -->
+          <div class="space-y-6">
+            <h3 class="text-lg font-medium text-gray-900">Council Employment Details</h3>
+            
+            <div>
+              <label for="{{ additional_form.employer_council.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-2">Which council do you work for?</label>
+              {{ additional_form.employer_council }}
+              <p class="mt-1 text-sm text-gray-500">Select your employer council if applicable</p>
+            </div>
+            
+            <div>
+              <label for="{{ additional_form.official_email.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-2">{{ additional_form.official_email.label }}</label>
+              {{ additional_form.official_email }}
+              <p class="mt-1 text-sm text-gray-500">Official .gov.uk email can help verify your council connection</p>
+              {% if profile.official_email_confirmed %}
+              <p class="mt-1 text-sm text-green-600 flex items-center">
+                <svg class="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                  <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+                </svg>
+                Official email verified
+              </p>
+              {% elif profile.official_email %}
+              <p class="mt-1 text-sm text-amber-600 flex items-center">
+                <svg class="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                  <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/>
+                </svg>
+                Official email pending verification
+              </p>
+              {% endif %}
+            </div>
+          </div>
+        </div>
+        
+        <div class="flex justify-end">
+          <button type="submit" class="inline-flex justify-center py-2 px-6 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200">
+            Save Additional Information
+          </button>
+        </div>
+      </form>
+    </div>
+    
+    <!-- Customization Tab -->
+    {% elif tab == 'customization' %}
+    <div class="p-6">
+      <div class="mb-6">
+        <h2 class="text-xl font-semibold text-gray-900 mb-2">Customization</h2>
+        <p class="text-sm text-gray-600">Personalize your experience with fonts, colors, and display preferences</p>
+      </div>
+      
+      <form method="post" class="space-y-8">
+        {% csrf_token %}
+        <input type="hidden" name="customization_form" value="1">
+        
+        <div class="grid grid-cols-1 gap-8 lg:grid-cols-2">
+          <!-- Typography Settings -->
+          <div class="space-y-6">
+            <h3 class="text-lg font-medium text-gray-900">Typography</h3>
+            
+            <div>
+              <label for="{{ customization_form.preferred_font.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-2">{{ customization_form.preferred_font.label }}</label>
+              {{ customization_form.preferred_font }}
+              <p class="mt-1 text-sm text-gray-500">Choose your preferred font for better readability</p>
+            </div>
+            
+            <div>
+              <label for="{{ customization_form.font_size.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-2">{{ customization_form.font_size.label }}</label>
+              {{ customization_form.font_size }}
+              <p class="mt-1 text-sm text-gray-500">{{ customization_form.font_size.help_text }}</p>
+            </div>
+          </div>
+          
+          <!-- Display Settings -->
+          <div class="space-y-6">
+            <h3 class="text-lg font-medium text-gray-900">Display & Accessibility</h3>
+            
+            <div>
+              <label for="{{ customization_form.color_theme.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-2">{{ customization_form.color_theme.label }}</label>
+              {{ customization_form.color_theme }}
+              <p class="mt-1 text-sm text-gray-500">{{ customization_form.color_theme.help_text }}</p>
+            </div>
+            
+            <div class="space-y-4">
+              <div class="flex items-center">
+                <div class="flex items-center h-5">
+                  {{ customization_form.high_contrast_mode }}
+                </div>
+                <div class="ml-3 text-sm">
+                  <label for="{{ customization_form.high_contrast_mode.id_for_label }}" class="font-medium text-gray-700">{{ customization_form.high_contrast_mode.label }}</label>
+                  <p class="text-gray-500">{{ customization_form.high_contrast_mode.help_text }}</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <!-- Preview Section -->
+        <div class="border-t border-gray-200 pt-6">
+          <h3 class="text-lg font-medium text-gray-900 mb-4">Preview</h3>
+          <div class="bg-gray-50 border rounded-lg p-6" id="customization-preview">
+            <h4 class="text-lg font-semibold mb-2" style="font-family: {{ profile.preferred_font }}">Sample Text</h4>
+            <p class="text-gray-700 mb-4" style="font-family: {{ profile.preferred_font }}">
+              This is how text will appear with your current customization settings. 
+              The font family, size, and contrast settings will be applied across the entire application.
+            </p>
+            <div class="flex items-center space-x-4">
+              <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">Sample Badge</span>
+              <button type="button" class="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md text-white bg-blue-600">Sample Button</button>
+            </div>
+          </div>
+        </div>
+        
+        <div class="flex justify-end">
+          <button type="submit" class="inline-flex justify-center py-2 px-6 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200">
+            Save Customization
+          </button>
+        </div>
+      </form>
+    </div>
+    
+    <!-- Notifications Tab -->
+    {% elif tab == 'notifications' %}
+    <div class="p-6">
+      <div class="mb-6">
+        <h2 class="text-xl font-semibold text-gray-900 mb-2">Notifications</h2>
+        <p class="text-sm text-gray-600">Manage your notification preferences and view recent activity</p>
+      </div>
+      
+      <div class="grid grid-cols-1 gap-8 lg:grid-cols-2">
+        <!-- Notification Preferences -->
+        <div>
+          <h3 class="text-lg font-medium text-gray-900 mb-4">Notification Preferences</h3>
+          
+          <form method="post" class="space-y-4">
+            {% csrf_token %}
+            <input type="hidden" name="notification_form" value="1">
+            
+            <div class="space-y-4">
+              <div class="flex items-center justify-between py-3">
+                <div class="flex items-center">
+                  {{ notification_form.email_notifications }}
+                  <div class="ml-3">
+                    <label for="{{ notification_form.email_notifications.id_for_label }}" class="font-medium text-gray-700">{{ notification_form.email_notifications.label }}</label>
+                    <p class="text-sm text-gray-500">{{ notification_form.email_notifications.help_text }}</p>
+                  </div>
+                </div>
+              </div>
+              
+              <div class="flex items-center justify-between py-3">
+                <div class="flex items-center">
+                  {{ notification_form.contribution_notifications }}
+                  <div class="ml-3">
+                    <label for="{{ notification_form.contribution_notifications.id_for_label }}" class="font-medium text-gray-700">{{ notification_form.contribution_notifications.label }}</label>
+                    <p class="text-sm text-gray-500">{{ notification_form.contribution_notifications.help_text }}</p>
+                  </div>
+                </div>
+              </div>
+              
+              <div class="flex items-center justify-between py-3">
+                <div class="flex items-center">
+                  {{ notification_form.council_update_notifications }}
+                  <div class="ml-3">
+                    <label for="{{ notification_form.council_update_notifications.id_for_label }}" class="font-medium text-gray-700">{{ notification_form.council_update_notifications.label }}</label>
+                    <p class="text-sm text-gray-500">{{ notification_form.council_update_notifications.help_text }}</p>
+                  </div>
+                </div>
+              </div>
+              
+              <div class="flex items-center justify-between py-3">
+                <div class="flex items-center">
+                  {{ notification_form.weekly_digest }}
+                  <div class="ml-3">
+                    <label for="{{ notification_form.weekly_digest.id_for_label }}" class="font-medium text-gray-700">{{ notification_form.weekly_digest.label }}</label>
+                    <p class="text-sm text-gray-500">{{ notification_form.weekly_digest.help_text }}</p>
+                  </div>
+                </div>
+              </div>
+            </div>
             
             <div class="pt-4">
-              <button type="submit" 
-                      class="inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200">
-                Save Customization
+              <button type="submit" class="inline-flex justify-center py-2 px-6 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200">
+                Save Preferences
               </button>
             </div>
           </form>
         </div>
-      {% else %}
-        <!-- Profile Tab Content -->
-        <div class="space-y-8">
-          <!-- Email Confirmation Status -->
-          {% if not confirmation_status.email_confirmed or confirmation_status.requires_reconfirmation %}
-            {% if confirmation_status.requires_reconfirmation %}
-            <div class="bg-red-50 border border-red-200 rounded-md p-4">
-              <div class="flex">
+        
+        <!-- Recent Notifications -->
+        <div>
+          <h3 class="text-lg font-medium text-gray-900 mb-4">Recent Activity</h3>
+          
+          {% if notifications %}
+          <div class="space-y-3 max-h-96 overflow-y-auto">
+            {% for notification in notifications %}
+            <div class="bg-gray-50 border rounded-lg p-4 {% if not notification.read %}border-blue-200 bg-blue-50{% endif %}">
+              <div class="flex items-start">
                 <div class="flex-shrink-0">
-                  <svg class="h-5 w-5 text-red-400" fill="currentColor" viewBox="0 0 20 20">
-                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"/>
-                  </svg>
+                  <div class="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
+                    <svg class="w-4 h-4 text-blue-600" fill="currentColor" viewBox="0 0 20 20">
+                      <path d="M10 2a6 6 0 00-6 6v3.586l-.707.707A1 1 0 004 14h12a1 1 0 00.707-1.707L16 11.586V8a6 6 0 00-6-6zM10 18a3 3 0 01-3-3h6a3 3 0 01-3 3z"/>
+                    </svg>
+                  </div>
                 </div>
                 <div class="ml-3 flex-1">
-                  <h3 class="text-sm font-medium text-red-800">Email re-confirmation required</h3>
-                  <div class="mt-2 text-sm text-red-700">
-                    <p>Due to recent security changes, please re-confirm your email address to continue using all features.</p>
-                  </div>
-                  <div class="mt-3 flex items-center space-x-4">
-                    {% if confirmation_status.can_send_confirmation %}
-                      <a href="{% url 'resend_confirmation' %}" 
-                         class="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500">
-                        Send Confirmation Email
-                      </a>
-                    {% else %}
-                      <span class="text-sm text-red-600">Please wait before requesting another confirmation email</span>
-                    {% endif %}
-                    <span class="text-xs text-red-500">{{ confirmation_status.attempts_remaining }} attempts remaining</span>
-                  </div>
+                  <p class="text-sm font-medium text-gray-900">{{ notification.title }}</p>
+                  <p class="text-sm text-gray-600 mt-1">{{ notification.message }}</p>
+                  <p class="text-xs text-gray-500 mt-2">{{ notification.created_at|timesince }} ago</p>
                 </div>
+                {% if not notification.read %}
+                <div class="ml-2">
+                  <span class="inline-block w-2 h-2 bg-blue-600 rounded-full"></span>
+                </div>
+                {% endif %}
               </div>
             </div>
-            {% else %}
-            <div class="bg-amber-50 border border-amber-200 rounded-md p-4">
-              <div class="flex">
-                <div class="flex-shrink-0">
-                  <svg class="h-5 w-5 text-amber-400" fill="currentColor" viewBox="0 0 20 20">
-                    <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/>
-                  </svg>
-                </div>
-                <div class="ml-3 flex-1">
-                  <h3 class="text-sm font-medium text-amber-800">Email confirmation required</h3>
-                  <div class="mt-2 text-sm text-amber-700">
-                    <p>Please confirm your email address to access all features.</p>
-                  </div>
-                  <div class="mt-3 flex items-center space-x-4">
-                    {% if confirmation_status.can_send_confirmation %}
-                      <a href="{% url 'resend_confirmation' %}" 
-                         class="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md text-white bg-amber-600 hover:bg-amber-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-amber-500">
-                        Send Confirmation Email
-                      </a>
-                    {% else %}
-                      <span class="text-sm text-amber-600">Please wait before requesting another confirmation email</span>
-                    {% endif %}
-                    <span class="text-xs text-amber-500">{{ confirmation_status.attempts_remaining }} attempts remaining</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-            {% endif %}
-          {% endif %}
-
-          <!-- Pending Email Changes -->
-          {% if confirmation_status.has_pending_email %}
-          <div class="bg-blue-50 border border-blue-200 rounded-md p-4">
-            <div class="flex">
-              <div class="flex-shrink-0">
-                <svg class="h-5 w-5 text-blue-400" fill="currentColor" viewBox="0 0 20 20">
-                  <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"/>
-                </svg>
-              </div>
-              <div class="ml-3 flex-1">
-                <h3 class="text-sm font-medium text-blue-800">Email change pending</h3>
-                <div class="mt-2 text-sm text-blue-700">
-                  <p>You have a pending email change that requires confirmation. Check your new email address for a confirmation link.</p>
-                  {% if profile.pending_email %}
-                    <p class="mt-1"><strong>New email:</strong> {{ profile.pending_email }}</p>
-                  {% endif %}
-                </div>
-                <div class="mt-3">
-                  <form method="post" action="{% url 'cancel_email_change' %}" class="inline">
-                    {% csrf_token %}
-                    <button type="submit" 
-                            class="text-sm font-medium text-blue-800 underline hover:text-blue-900"
-                            onclick="return confirm('Are you sure you want to cancel this email change?')">
-                      Cancel email change
-                    </button>
-                  </form>
-                </div>
-              </div>
-            </div>
+            {% endfor %}
           </div>
-          {% endif %}
-
-          <!-- Pending Changes List -->
-          {% if confirmation_status.pending_changes %}
-          <div class="bg-gray-50 border border-gray-200 rounded-md p-4">
-            <h3 class="text-sm font-medium text-gray-800 mb-3">Pending Changes</h3>
-            <div class="space-y-2">
-              {% for change in confirmation_status.pending_changes %}
-              <div class="flex items-center justify-between bg-white px-3 py-2 rounded border">
-                <div class="flex-1">
-                  <span class="text-sm font-medium text-gray-900">{{ change.type }}</span>
-                  <span class="text-sm text-gray-500 ml-2">{{ change.field }}</span>
-                </div>
-                <div class="text-xs text-gray-400">
-                  {% if change.is_expired %}
-                    Expired
-                  {% else %}
-                    Expires {{ change.expires|timesince }}
-                  {% endif %}
-                </div>
-              </div>
-              {% endfor %}
-            </div>
-          </div>
-          {% endif %}
-
-          <!-- Postcode Prompt -->
-          {% if not profile.postcode and not profile.postcode_refused %}
-          <div class="bg-red-50 border border-red-200 rounded-md p-4">
-            <div class="flex">
-              <div class="flex-shrink-0">
-                <svg class="h-5 w-5 text-red-400" fill="currentColor" viewBox="0 0 20 20">
-                  <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"/>
-                </svg>
-              </div>
-              <div class="ml-3 flex-1">
-                <h3 class="text-sm font-medium text-red-800">Add your postcode</h3>
-                <div class="mt-2 text-sm text-red-700">
-                  <p>Many features rely on location data. Please add your postcode to get personalized views and data.</p>
-                </div>
-                <div class="mt-4 flex items-center space-x-3">
-                  <input id="postcode-input" type="text" placeholder="Enter postcode" 
-                         class="flex-1 px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-red-500 focus:border-red-500 sm:text-sm">
-                  <button id="postcode-save" type="button" 
-                          class="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500">
-                    Save
-                  </button>
-                </div>
-                <div class="mt-3">
-                  <label class="flex items-center">
-                    <input id="postcode-refused" type="checkbox" 
-                           class="rounded border-gray-300 text-red-600 shadow-sm focus:border-red-300 focus:ring focus:ring-red-200 focus:ring-opacity-50">
-                    <span class="ml-2 text-sm text-red-700">I don't want to provide my postcode</span>
-                  </label>
-                </div>
-              </div>
-            </div>
-          </div>
-          {% elif profile.postcode_refused %}
-          <div class="bg-gray-50 border border-gray-200 rounded-md p-4">
-            <div class="flex">
-              <div class="flex-shrink-0">
-                <svg class="h-5 w-5 text-gray-400" fill="currentColor" viewBox="0 0 20 20">
-                  <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"/>
-                </svg>
-              </div>
-              <div class="ml-3">
-                <p class="text-sm text-gray-700">You've chosen not to provide a postcode. Some location-based features will not be available.</p>
-              </div>
-            </div>
-          </div>
-          {% endif %}
-
-          <!-- Basic Information -->
-          <div class="bg-white shadow-sm rounded-lg border border-gray-200">
-            <div class="px-6 py-4 border-b border-gray-200">
-              <h2 class="text-lg font-semibold text-gray-900">Basic Information</h2>
-            </div>
-            <div class="px-6 py-4">
-              <dl class="grid grid-cols-1 gap-x-4 gap-y-4 sm:grid-cols-2">
-                <div>
-                  <dt class="text-sm font-medium text-gray-500">Username</dt>
-                  <dd class="mt-1 text-sm text-gray-900">{{ user.username }}</dd>
-                </div>
-                <div>
-                  <dt class="text-sm font-medium text-gray-500">Email</dt>
-                  <dd class="mt-1 text-sm text-gray-900">
-                    {{ user.email }}
-                    {% if profile.email_confirmed %}
-                      <span class="ml-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">Verified</span>
-                    {% else %}
-                      <span class="ml-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">Unverified</span>
-                    {% endif %}
-                  </dd>
-                </div>
-                <div>
-                  <dt class="text-sm font-medium text-gray-500">First name</dt>
-                  <dd class="mt-1 text-sm text-gray-900">{{ user.first_name|default:"-" }}</dd>
-                </div>
-                <div>
-                  <dt class="text-sm font-medium text-gray-500">Last name</dt>
-                  <dd class="mt-1 text-sm text-gray-900">{{ user.last_name|default:"-" }}</dd>
-                </div>
-                <div>
-                  <dt class="text-sm font-medium text-gray-500">Postcode</dt>
-                  <dd class="mt-1 text-sm text-gray-900">{{ profile.postcode|default:"-" }}</dd>
-                </div>
-                <div>
-                  <dt class="text-sm font-medium text-gray-500">Profile visibility</dt>
-                  <dd class="mt-1 text-sm text-gray-900">{{ profile.get_visibility_display }}</dd>
-                </div>
-              </dl>
-            </div>
-          </div>
-
-          <!-- Edit Profile Details -->
-          <div class="bg-white shadow-sm rounded-lg border border-gray-200">
-            <div class="px-6 py-4 border-b border-gray-200">
-              <h2 class="text-lg font-semibold text-gray-900">Update Profile</h2>
-              <p class="text-sm text-gray-500 mt-1">Changes to email address require confirmation</p>
-            </div>
-            <form method="post" class="p-6 space-y-6">
+          
+          <div class="mt-4 text-center">
+            <form method="post" action="{% url 'mark_all_notifications_read' %}" class="inline">
               {% csrf_token %}
-              <input type="hidden" name="change_details" value="1">
-              
-              <div class="grid grid-cols-1 gap-6 sm:grid-cols-2">
-                <div>
-                  <label for="first_name" class="block text-sm font-medium text-gray-700">First name</label>
-                  <input type="text" name="first_name" id="first_name" value="{{ user.first_name }}" 
-                         class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
-                </div>
-                <div>
-                  <label for="last_name" class="block text-sm font-medium text-gray-700">Last name</label>
-                  <input type="text" name="last_name" id="last_name" value="{{ user.last_name }}" 
-                         class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
-                </div>
-              </div>
-              
-              <div>
-                <label for="email" class="block text-sm font-medium text-gray-700">Email address</label>
-                <input type="email" name="email" id="email" value="{{ user.email }}" 
-                       class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
-                <p class="mt-2 text-xs text-gray-500">You'll need to confirm any email address changes</p>
-              </div>
-              
-              <div class="grid grid-cols-1 gap-6 sm:grid-cols-2">
-                <div>
-                  <label for="password1" class="block text-sm font-medium text-gray-700">New password</label>
-                  <input type="password" name="password1" id="password1" 
-                         class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
-                  <p class="mt-1 text-xs text-gray-500">Leave blank to keep current password</p>
-                </div>
-                <div>
-                  <label for="password2" class="block text-sm font-medium text-gray-700">Confirm new password</label>
-                  <input type="password" name="password2" id="password2" 
-                         class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
-                </div>
-              </div>
-              
-              <div class="pt-4">
-                <button type="submit" 
-                        class="inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200">
-                  Update Profile
-                </button>
-              </div>
+              <button type="submit" class="text-sm text-blue-600 hover:text-blue-700 font-medium">
+                Mark all as read
+              </button>
             </form>
           </div>
-
-          <!-- Profile Visibility -->
-          <div class="bg-white shadow-sm rounded-lg border border-gray-200">
-            <div class="px-6 py-4 border-b border-gray-200">
-              <h2 class="text-lg font-semibold text-gray-900">Profile Visibility</h2>
-            </div>
-            <form method="post" class="p-6">
-              {% csrf_token %}
-              <div class="space-y-4">
-                <label class="block text-sm font-medium text-gray-700">Who can see your profile?</label>
-                <select name="visibility" 
-                        class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
-                  {% for val, label in visibility_choices %}
-                    <option value="{{ val }}" {% if profile.visibility == val %}selected{% endif %}>{{ label }}</option>
-                  {% endfor %}
-                </select>
-                <button type="submit" 
-                        class="inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200">
-                  Save Visibility Setting
-                </button>
-              </div>
-            </form>
-          </div>
-
-          <!-- Additional Information -->
-          <div class="bg-white shadow-sm rounded-lg border border-gray-200">
-            <div class="px-6 py-4 border-b border-gray-200">
-              <h2 class="text-lg font-semibold text-gray-900">Additional Information</h2>
-              <p class="text-sm text-gray-500 mt-1">Help us understand your connection to local government</p>
-            </div>
-            <form method="post" class="p-6 space-y-6">
-              {% csrf_token %}
-              <input type="hidden" name="update_extra" value="1">
-              
-              <div>
-                <label for="political_affiliation" class="block text-sm font-medium text-gray-700">Political affiliation (optional)</label>
-                <input type="text" name="political_affiliation" id="political_affiliation" 
-                       value="{{ profile.political_affiliation }}" 
-                       class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
-              </div>
-              
-              <div class="flex items-center">
-                <input type="checkbox" name="works_for_council" value="1" 
-                       {% if profile.works_for_council %}checked{% endif %}
-                       class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded">
-                <label class="ml-2 block text-sm text-gray-700">I work for a council</label>
-              </div>
-              
-              <div>
-                <label for="employer_council" class="block text-sm font-medium text-gray-700">Which council? (if applicable)</label>
-                <select name="employer_council" id="employer_council"
-                        class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
-                  <option value="">Select a council...</option>
-                  {% for c in councils %}
-                  <option value="{{ c.id }}" {% if profile.employer_council_id == c.id %}selected{% endif %}>{{ c.name }}</option>
-                  {% endfor %}
-                </select>
-              </div>
-              
-              <div>
-                <label for="official_email" class="block text-sm font-medium text-gray-700">Official .gov.uk email (optional)</label>
-                <input type="email" name="official_email" id="official_email" 
-                       value="{{ profile.official_email }}" 
-                       class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
-                <p class="mt-1 text-xs text-gray-500">This can help verify your council connection</p>
-              </div>
-              
-              <div class="pt-4">
-                <button type="submit" 
-                        class="inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200">
-                  Save Information
-                </button>
-              </div>
-            </form>
-          </div>
-
-          <!-- Followers Section -->
-          {% if followers %}
-          <div class="bg-white shadow-sm rounded-lg border border-gray-200">
-            <div class="px-6 py-4 border-b border-gray-200">
-              <h2 class="text-lg font-semibold text-gray-900">Followers</h2>
-            </div>
-            <div class="overflow-hidden">
-              <ul class="divide-y divide-gray-200">
-                {% for f in followers %}
-                <li class="px-6 py-4">
-                  <div class="flex items-center justify-between">
-                    <div class="text-sm font-medium text-gray-900">{{ f.follower.username }}</div>
-                    <div class="text-sm text-gray-500">{{ f.created_at|date:"M j, Y" }}</div>
-                  </div>
-                </li>
-                {% endfor %}
-              </ul>
-            </div>
+          {% else %}
+          <div class="text-center py-8">
+            <svg class="w-12 h-12 text-gray-400 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-5 5v-5zM8 17H3l5 5v-5zM12 3v12"/>
+            </svg>
+            <p class="text-gray-500">No notifications yet</p>
+            <p class="text-sm text-gray-400 mt-1">You'll see updates about your contributions and followed councils here</p>
           </div>
           {% endif %}
         </div>
-      {% endif %}
+      </div>
     </div>
+    {% endif %}
+  </div>
 
-    <!-- Sidebar -->
-    <div class="lg:col-span-1">
-      <div class="bg-white shadow-sm rounded-lg border border-gray-200 overflow-hidden">
-        <div class="px-6 py-4 border-b border-gray-200 text-center">
-          <div class="relative inline-block">
-            {% if gravatar_url %}
-            <img src="{{ gravatar_url }}" alt="Profile Picture" 
-                 class="w-24 h-24 rounded-full mx-auto border-4 border-gray-200 shadow-sm">
-            {% else %}
-            <div class="w-24 h-24 bg-gray-200 rounded-full mx-auto border-4 border-gray-200 shadow-sm flex items-center justify-center">
-              <svg class="w-12 h-12 text-gray-400" fill="currentColor" viewBox="0 0 20 20">
-                <path fill-rule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clip-rule="evenodd"/>
-              </svg>
-            </div>
-            {% endif %}
-            <div class="absolute bottom-0 right-0 w-6 h-6 bg-white rounded-full border-2 border-gray-200 flex items-center justify-center">
-              <a href="https://gravatar.com" target="_blank" class="text-gray-400 hover:text-gray-600" title="Change avatar at Gravatar">
-                <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
-                  <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z"/>
-                </svg>
-              </a>
-            </div>
-          </div>
-          <div class="mt-4">
-            <h3 class="text-lg font-semibold text-gray-900">{{ user.username }}</h3>
-            {% if profile.tier %}
-            <p class="text-sm text-gray-500">{{ profile.tier.name }}</p>
-            {% endif %}
-          </div>
+  <!-- Profile Statistics Card -->
+  <div class="mt-8 bg-white shadow-sm rounded-lg border border-gray-200">
+    <div class="px-6 py-4 border-b border-gray-200">
+      <h3 class="text-lg font-semibold text-gray-900">Profile Statistics</h3>
+    </div>
+    <div class="p-6">
+      <div class="grid grid-cols-1 gap-6 sm:grid-cols-3 lg:grid-cols-5">
+        <div class="text-center">
+          <div class="text-2xl font-bold text-blue-600">{{ profile.level }}</div>
+          <div class="text-sm text-gray-500">Level</div>
         </div>
-        <div class="px-6 py-4">
-          <div class="text-center">
-            <div class="text-xs text-gray-500 mb-2">Profile Picture</div>
-            <p class="text-xs text-gray-400">Avatar powered by <a href="https://gravatar.com" target="_blank" class="text-blue-500 hover:text-blue-600">Gravatar</a></p>
-          </div>
+        <div class="text-center">
+          <div class="text-2xl font-bold text-green-600">{{ profile.points }}</div>
+          <div class="text-sm text-gray-500">Points</div>
+        </div>
+        <div class="text-center">
+          <div class="text-2xl font-bold text-purple-600">{{ profile.approved_submission_count }}</div>
+          <div class="text-sm text-gray-500">Contributions</div>
+        </div>
+        <div class="text-center">
+          <div class="text-2xl font-bold text-orange-600">{{ profile.completion_percent }}%</div>
+          <div class="text-sm text-gray-500">Profile Complete</div>
+        </div>
+        <div class="text-center">
+          <div class="text-2xl font-bold text-gray-600">{{ profile.favourites.count }}</div>
+          <div class="text-sm text-gray-500">Favourite Councils</div>
         </div>
       </div>
     </div>
@@ -515,43 +652,260 @@
 </div>
 
 <script>
-// Helper used for AJAX requests to include the CSRF token
+// Helper for CSRF tokens
 function getCookie(name) {
   const m = document.cookie.match('(^|;)\\s*' + name + '\\s*=\\s*([^;]+)');
   return m ? m.pop() : '';
 }
 
-// Handle postcode saving
-const saveBtn = document.getElementById('postcode-save');
-if (saveBtn) {
-  saveBtn.onclick = function() {
-    const refused = document.getElementById('postcode-refused').checked;
-    const pc = document.getElementById('postcode-input').value;
-    const body = refused ? 'refused=1' : 'postcode=' + encodeURIComponent(pc);
-    
-    // Show loading state
-    saveBtn.disabled = true;
-    saveBtn.textContent = 'Saving...';
-    
-    fetch('{% url "update_postcode" %}', {
-      method: 'POST',
-      headers: {
-        'X-CSRFToken': getCookie('csrftoken'),
-        'Content-Type': 'application/x-www-form-urlencoded'
-      },
-      body: body
-    })
-    .then(r => r.json())
-    .then(() => {
-      location.reload();
-    })
-    .catch(error => {
-      console.error('Error:', error);
-      saveBtn.disabled = false;
-      saveBtn.textContent = 'Save';
-      alert('An error occurred. Please try again.');
+// Live preview for customization changes
+document.addEventListener('DOMContentLoaded', function() {
+  const fontSelect = document.getElementById('id_preferred_font');
+  const themeSelect = document.getElementById('id_color_theme');
+  const preview = document.getElementById('customization-preview');
+  
+  if (fontSelect && preview) {
+    fontSelect.addEventListener('change', function() {
+      const selectedFont = this.value;
+      const previewText = preview.querySelectorAll('h4, p');
+      previewText.forEach(element => {
+        element.style.fontFamily = selectedFont;
+      });
     });
-  };
+  }
+  
+  if (themeSelect && preview) {
+    themeSelect.addEventListener('change', function() {
+      const selectedTheme = this.value;
+      // Apply theme preview changes
+      if (selectedTheme === 'dark') {
+        preview.classList.add('bg-gray-800', 'text-white');
+        preview.classList.remove('bg-gray-50');
+      } else if (selectedTheme === 'high-contrast') {
+        preview.classList.add('bg-black', 'text-white', 'border-white');
+        preview.classList.remove('bg-gray-50');
+      } else {
+        preview.classList.remove('bg-gray-800', 'text-white', 'bg-black', 'border-white');
+        preview.classList.add('bg-gray-50');
+      }
+    });
+  }
+});
+
+// Email Change Modal Functions
+function openChangeEmailModal() {
+  document.getElementById('changeEmailModal').classList.remove('hidden');
+  document.getElementById('emailInput').focus();
 }
+
+function closeChangeEmailModal() {
+  document.getElementById('changeEmailModal').classList.add('hidden');
+  // Clear form and messages
+  document.getElementById('emailInput').value = '';
+  document.getElementById('modalError').classList.add('hidden');
+  document.getElementById('modalSuccess').classList.add('hidden');
+  document.getElementById('modalLoading').classList.add('hidden');
+  // Re-enable button
+  const submitBtn = document.getElementById('submitEmailChange');
+  submitBtn.disabled = false;
+  submitBtn.innerHTML = `
+    <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 4.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
+    </svg>
+    Send Confirmation Email
+  `;
+}
+
+function submitEmailChange() {
+  const email = document.getElementById('emailInput').value.trim();
+  const submitBtn = document.getElementById('submitEmailChange');
+  const errorDiv = document.getElementById('modalError');
+  const successDiv = document.getElementById('modalSuccess');
+  const loadingDiv = document.getElementById('modalLoading');
+  
+  // Hide previous messages
+  errorDiv.classList.add('hidden');
+  successDiv.classList.add('hidden');
+  
+  if (!email) {
+    showModalError('Please enter an email address');
+    return;
+  }
+  
+  // Show loading state
+  loadingDiv.classList.remove('hidden');
+  submitBtn.disabled = true;
+  submitBtn.innerHTML = `
+    <div class="animate-spin inline-block w-4 h-4 border-2 border-current border-t-transparent text-white rounded-full mr-2" role="status"></div>
+    Sending...
+  `;
+  
+  // Make API call
+  fetch('{% url "change_email_modal" %}', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-CSRFToken': getCookie('csrftoken')
+    },
+    body: JSON.stringify({ email: email })
+  })
+  .then(response => response.json())
+  .then(data => {
+    loadingDiv.classList.add('hidden');
+    submitBtn.disabled = false;
+    submitBtn.innerHTML = `
+      <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 4.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
+      </svg>
+      Send Confirmation Email
+    `;
+    
+    if (data.success) {
+      showModalSuccess(data.message);
+      // Auto-close modal after 3 seconds
+      setTimeout(() => {
+        closeChangeEmailModal();
+      }, 3000);
+    } else {
+      showModalError(data.error || 'An error occurred. Please try again.');
+    }
+  })
+  .catch(error => {
+    console.error('Email change error:', error);
+    loadingDiv.classList.add('hidden');
+    submitBtn.disabled = false;
+    submitBtn.innerHTML = `
+      <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 4.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
+      </svg>
+      Send Confirmation Email
+    `;
+    showModalError('Network error. Please check your connection and try again.');
+  });
+}
+
+function showModalError(message) {
+  const errorDiv = document.getElementById('modalError');
+  const errorMsg = document.getElementById('modalErrorMsg');
+  errorMsg.textContent = message;
+  errorDiv.classList.remove('hidden');
+}
+
+function showModalSuccess(message) {
+  const successDiv = document.getElementById('modalSuccess');
+  const successMsg = document.getElementById('modalSuccessMsg');
+  successMsg.textContent = message;
+  successDiv.classList.remove('hidden');
+}
+
+// Handle Enter key in email input
+document.addEventListener('DOMContentLoaded', function() {
+  const emailInput = document.getElementById('emailInput');
+  if (emailInput) {
+    emailInput.addEventListener('keypress', function(e) {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        submitEmailChange();
+      }
+    });
+  }
+});
 </script>
+
+<!-- Email Change Modal -->
+<div id="changeEmailModal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+  <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+    <div class="mt-3">
+      <!-- Modal Header -->
+      <div class="flex items-center justify-between mb-4">
+        <h3 class="text-lg font-semibold text-gray-900">Change Email Address</h3>
+        <button type="button" onclick="closeChangeEmailModal()" 
+                class="text-gray-400 hover:text-gray-600 transition-colors">
+          <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+          </svg>
+        </button>
+      </div>
+      
+      <!-- Current Email Display -->
+      <div class="mb-4 p-3 bg-gray-50 rounded-md">
+        <p class="text-sm text-gray-600">Current email:</p>
+        <p class="text-sm font-medium text-gray-900">{{ user.email }}</p>
+      </div>
+      
+      <!-- New Email Input -->
+      <div class="mb-4">
+        <label for="emailInput" class="block text-sm font-medium text-gray-700 mb-2">New Email Address</label>
+        <input type="email" id="emailInput" 
+               class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+               placeholder="Enter your new email address">
+      </div>
+      
+      <!-- Loading State -->
+      <div id="modalLoading" class="hidden mb-4 p-3 bg-blue-50 border border-blue-200 rounded-md">
+        <div class="flex items-center">
+          <div class="animate-spin inline-block w-5 h-5 border-2 border-current border-t-transparent text-blue-600 rounded-full mr-2"></div>
+          <p class="text-sm text-blue-800">Sending confirmation email...</p>
+        </div>
+      </div>
+      
+      <!-- Error Message -->
+      <div id="modalError" class="hidden mb-4 p-3 bg-red-50 border border-red-200 rounded-md">
+        <div class="flex">
+          <div class="flex-shrink-0">
+            <svg class="h-5 w-5 text-red-400" fill="currentColor" viewBox="0 0 20 20">
+              <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"/>
+            </svg>
+          </div>
+          <div class="ml-3">
+            <p class="text-sm text-red-800" id="modalErrorMsg"></p>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Success Message -->
+      <div id="modalSuccess" class="hidden mb-4 p-3 bg-green-50 border border-green-200 rounded-md">
+        <div class="flex">
+          <div class="flex-shrink-0">
+            <svg class="h-5 w-5 text-green-400" fill="currentColor" viewBox="0 0 20 20">
+              <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+            </svg>
+          </div>
+          <div class="ml-3">
+            <p class="text-sm text-green-800" id="modalSuccessMsg"></p>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Modal Info -->
+      <div class="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-md">
+        <div class="flex">
+          <div class="flex-shrink-0">
+            <svg class="h-5 w-5 text-blue-400" fill="currentColor" viewBox="0 0 20 20">
+              <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"/>
+            </svg>
+          </div>
+          <div class="ml-3">
+            <p class="text-sm text-blue-800">We'll send a confirmation link to your new email address. Your current email will remain active until confirmed.</p>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Modal Actions -->
+      <div class="flex items-center justify-end space-x-3">
+        <button type="button" onclick="closeChangeEmailModal()" 
+                class="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-200 border border-gray-300 rounded-md hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 transition-colors">
+          Cancel
+        </button>
+        <button type="button" id="submitEmailChange" onclick="submitEmailChange()" 
+                class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors">
+          <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 4.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
+          </svg>
+          Send Confirmation Email
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
 {% endblock %}

@@ -42,7 +42,7 @@ class PendingProfileChange(models.Model):
     
     # Enhanced security and tracking
     token = models.CharField(max_length=64, unique=True)
-    expires_at = models.DateTimeField(default=timezone.now)  # Will be set properly in save()
+    expires_at = models.DateTimeField(null=True, blank=True)  # Will be set properly in save()
     confirmed_at = models.DateTimeField(null=True, blank=True)
     
     # Security metadata
@@ -65,7 +65,9 @@ class PendingProfileChange(models.Model):
         if not self.token:
             self.token = get_random_string(64)
         if not self.expires_at:
-            self.expires_at = timezone.now() + datetime.timedelta(hours=24)
+            # Set expiration based on change type - email changes get longer time
+            hours = 24 if self.change_type == 'email' else 1
+            self.expires_at = timezone.now() + datetime.timedelta(hours=hours)
         super().save(*args, **kwargs)
 
     def __str__(self) -> str:

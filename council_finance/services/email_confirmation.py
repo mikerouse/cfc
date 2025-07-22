@@ -17,7 +17,6 @@ from django.http import HttpRequest
 
 from council_finance.models import UserProfile, PendingProfileChange
 from council_finance.emails import send_email_enhanced as send_email
-from council_finance.views.general import log_activity
 
 logger = logging.getLogger(__name__)
 
@@ -27,6 +26,14 @@ class EmailConfirmationService:
     
     def __init__(self):
         self.from_email = getattr(settings, 'DEFAULT_FROM_EMAIL', 'noreply@councilfinance.com')
+    
+    def _safe_log_activity(self, request, activity, details=None, extra=None):
+        """Safely log activity, avoiding circular imports."""
+        try:
+            from council_finance.views.general import log_activity
+            log_activity(request, activity=activity, details=details, extra=extra)
+        except ImportError:
+            logger.info(f"Activity: {activity}" + (f" - {details}" if details else ""))
     
     def send_initial_confirmation(self, user: User, request: HttpRequest = None) -> bool:
         """Send initial email confirmation for new users."""
@@ -60,7 +67,7 @@ class EmailConfirmationService:
             )
             
             if success and request:
-                log_activity(
+                self._safe_log_activity(
                     request,
                     activity=f"Initial confirmation email sent to {user.username}",
                     details=f"Email: {user.email}, Token: {token[:10]}..."
@@ -111,7 +118,7 @@ class EmailConfirmationService:
             )
             
             if success and request:
-                log_activity(
+                self._safe_log_activity(
                     request,
                     activity=f"Re-confirmation email sent to {user.username}",
                     details=f"Reason: {reason}, Email: {user.email}"
@@ -184,10 +191,10 @@ class EmailConfirmationService:
                 )
             
             if success and request:
-                log_activity(
+                self._safe_log_activity(
                     request,
                     activity=f"Email change confirmation sent to {user.username}",
-                    details=f"From: {user.email} To: {new_email}"
+                    extra=f"From: {user.email} To: {new_email}"
                 )
             
             return success
@@ -207,7 +214,7 @@ class EmailConfirmationService:
                     profile.save()
                     
                     if request:
-                        log_activity(
+                        self._safe_log_activity(
                             request,
                             activity=f"Email confirmed for {profile.user.username}",
                             details=f"Email: {profile.user.email}"
@@ -233,7 +240,7 @@ class EmailConfirmationService:
                     success = pending_change.confirm()
                     if success:
                         if request:
-                            log_activity(
+                            self._safe_log_activity(
                                 request,
                                 activity=f"Email change confirmed for {pending_change.user.username}",
                                 details=f"New email: {pending_change.new_value}"

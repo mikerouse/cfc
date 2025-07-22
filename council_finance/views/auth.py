@@ -4,6 +4,7 @@ This module handles user registration, login, profile management, and notificati
 """
 
 import hashlib
+import logging
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth import login, update_session_auth_hash
 from django.contrib.auth.decorators import login_required
@@ -15,9 +16,13 @@ from django.utils import timezone
 from django.template.loader import render_to_string
 from django.urls import reverse
 from django.views.decorators.http import require_POST
+from django.conf import settings
 
 from council_finance.models import UserProfile, PendingProfileChange, Council, TrustTier
-from council_finance.forms import SignUpForm, ProfileExtraForm
+from council_finance.forms import (
+    SignUpForm, ProfileExtraForm, ProfileBasicForm, 
+    ProfileAdditionalForm, ProfileCustomizationForm, ProfileNotificationForm
+)
 from council_finance.emails import send_email
 from council_finance.notifications import create_notification
 from council_finance.services.email_confirmation import (
@@ -30,6 +35,8 @@ from council_finance.services.email_confirmation import (
 
 # Import utility functions we'll need
 from .general import log_activity
+
+logger = logging.getLogger(__name__)
 
 
 def signup_view(request):
@@ -161,27 +168,46 @@ def get_gravatar_url(email, size=200, default='identicon'):
 
 @login_required
 def profile_view(request):
-    """Display user profile."""
+    """Display user profile with modern tabbed interface."""
     profile, created = UserProfile.objects.get_or_create(user=request.user)
     
-    # Handle different form submissions
+    # Get active tab
+    tab = request.GET.get('tab', 'basic')
+    
+    # Handle form submissions based on tab
     if request.method == 'POST':
-        if 'change_details' in request.POST:
-            return handle_profile_change(request, profile)
-        elif 'visibility' in request.POST:
-            return handle_visibility_change(request, profile)
-        elif 'update_extra' in request.POST:
-            return handle_extra_info_update(request, profile)
-        elif 'preferred_font' in request.POST or 'tier' in request.POST:
-            return handle_customization_update(request, profile)
+        if 'basic_form' in request.POST:
+            return handle_basic_form(request, profile)
+        elif 'additional_form' in request.POST:
+            return handle_additional_form(request, profile)
+        elif 'customization_form' in request.POST:
+            return handle_customization_form(request, profile)
+        elif 'notification_form' in request.POST:
+            return handle_notification_form(request, profile)
     
-    # Get tab parameter
-    tab = request.GET.get('tab', 'profile')
+    # Initialize forms with current data
+    basic_form = ProfileBasicForm(initial={
+        'first_name': request.user.first_name,
+        'last_name': request.user.last_name,
+        'postcode': profile.postcode,
+        'postcode_refused': profile.postcode_refused,
+        'visibility': profile.visibility,
+    })
     
-    # Get required data for template
-    councils = Council.objects.filter(active=True).order_by('name')
+    additional_form = ProfileAdditionalForm(instance=profile)
+    customization_form = ProfileCustomizationForm(instance=profile)
+    
+    # Initialize notification preferences
+    notification_form = ProfileNotificationForm(initial={
+        'email_notifications': profile.email_notifications,
+        'contribution_notifications': profile.contribution_notifications,
+        'council_update_notifications': profile.council_update_notifications,
+        'weekly_digest': profile.weekly_digest,
+    })
+    
+    # Get required data
+    councils = Council.objects.filter(status='active').order_by('name')
     tiers = TrustTier.objects.all().order_by('level')
-    fonts = ['Arial', 'Helvetica', 'Georgia', 'Times New Roman', 'Verdana', 'Tahoma']
     
     # Get followers (check if the relationship exists)
     try:
@@ -192,8 +218,14 @@ def profile_view(request):
     # Get confirmation status
     confirmation_status = email_confirmation_service.get_confirmation_status(request.user)
     
-    # Visibility choices
-    visibility_choices = UserProfile.VISIBILITY_CHOICES
+    # Get notifications for notifications tab
+    from council_finance.notifications import create_notification
+    try:
+        notifications = create_notification.objects.filter(
+            user=request.user
+        ).order_by('-created_at')[:20]
+    except:
+        notifications = []
     
     context = {
         'profile': profile,
@@ -201,61 +233,46 @@ def profile_view(request):
         'tab': tab,
         'councils': councils,
         'tiers': tiers,
-        'fonts': fonts,
         'followers': followers,
-        'visibility_choices': visibility_choices,
         'gravatar_url': get_gravatar_url(request.user.email),
         'confirmation_status': confirmation_status,
+        'notifications': notifications,
+        'basic_form': basic_form,
+        'additional_form': additional_form,
+        'customization_form': customization_form,
+        'notification_form': notification_form,
     }
     
     return render(request, 'accounts/profile.html', context)
 
 
-def handle_profile_change(request, profile):
-    """Handle profile detail changes (email, name, password)."""
-    first_name = request.POST.get('first_name', '').strip()
-    last_name = request.POST.get('last_name', '').strip()
-    email = request.POST.get('email', '').strip()
-    password1 = request.POST.get('password1', '').strip()
-    password2 = request.POST.get('password2', '').strip()
+def handle_basic_form(request, profile):
+    """Handle basic profile information form."""
+    form = ProfileBasicForm(request.POST)
     
-    changes_made = False
-    password_changed = False
-    
-    # Update name fields
-    if first_name != request.user.first_name:
-        request.user.first_name = first_name
-        changes_made = True
-    
-    if last_name != request.user.last_name:
-        request.user.last_name = last_name
-        changes_made = True
-    
-    # Handle email change (requires confirmation)
-    if email != request.user.email:
-        # Validate email format
-        from django.core.validators import validate_email
-        from django.core.exceptions import ValidationError
+    if form.is_valid():
+        changes_made = False
+        password_changed = False
         
-        try:
-            validate_email(email)
-            # Use new email confirmation service
-            success = send_email_change_confirmation(request.user, email, request)
-            if success:
-                messages.success(request, f'Please check {email} to confirm your email change. Your current email remains active until confirmed.')
-            else:
-                messages.error(request, 'Failed to send confirmation email. Please try again later.')
-        except ValidationError:
-            messages.error(request, 'Please enter a valid email address.')
-    
-    # Handle password change
-    if password1 and password2:
-        if password1 != password2:
-            messages.error(request, 'Passwords do not match.')
-        elif len(password1) < 8:
-            messages.error(request, 'Password must be at least 8 characters long.')
-        else:
-            # Update password
+        # Update user fields
+        first_name = form.cleaned_data['first_name']
+        last_name = form.cleaned_data['last_name']
+        password1 = form.cleaned_data['password1']
+        password2 = form.cleaned_data['password2']
+        
+        if first_name != request.user.first_name:
+            request.user.first_name = first_name
+            changes_made = True
+        
+        if last_name != request.user.last_name:
+            request.user.last_name = last_name
+            changes_made = True
+        
+        # Email changes are now handled through the modal API endpoint
+        # Remove the direct email change handling from here
+        
+        # Handle password change
+        if password1:
             request.user.set_password(password1)
             profile.last_password_change = timezone.now()
             password_changed = True
@@ -263,87 +280,305 @@ def handle_profile_change(request, profile):
             
             # Keep user logged in after password change
             update_session_auth_hash(request, request.user)
-            
             messages.success(request, 'Password updated successfully. Please check your email to re-confirm your account for security.')
-    
-    # Save changes
-    if changes_made:
-        request.user.save()
-        profile.save()
-        log_activity(request, activity="Profile details updated")
         
-        # If password was changed, require email re-confirmation for security
-        if password_changed:
-            success = send_reconfirmation_email(request.user, "password_change", request)
-            if not success:
-                messages.warning(request, 'Password updated but failed to send confirmation email. Please use the resend option.')
+        # Update profile fields
+        postcode = form.cleaned_data['postcode']
+        postcode_refused = form.cleaned_data['postcode_refused']
+        visibility = form.cleaned_data['visibility']
         
-        if not password_changed:  # Only show general success if no password change
-            messages.success(request, 'Profile updated successfully.')
+        if postcode_refused:
+            profile.postcode_refused = True
+            profile.postcode = ""
+            changes_made = True
+        elif postcode != profile.postcode:
+            profile.postcode = postcode
+            profile.postcode_refused = False
+            changes_made = True
+        
+        if visibility != profile.visibility:
+            profile.visibility = visibility
+            changes_made = True
+        
+        # Save changes
+        if changes_made:
+            request.user.save()
+            profile.save()
+            log_activity(request, activity="Basic profile information updated")
+            
+            # If password was changed, require email re-confirmation for security
+            if password_changed:
+                success = send_reconfirmation_email(request.user, "password_change", request)
+                if not success:
+                    messages.warning(request, 'Password updated but failed to send confirmation email. Please use the resend option.')
+            
+            if not password_changed:
+                messages.success(request, 'Basic information updated successfully.')
+    else:
+        for field, errors in form.errors.items():
+            for error in errors:
+                messages.error(request, f'{field}: {error}')
     
-    return redirect('profile')
+    return redirect('profile' + '?tab=basic')
 
 
-def handle_visibility_change(request, profile):
-    """Handle profile visibility change."""
-    visibility = request.POST.get('visibility')
-    if visibility in dict(UserProfile.VISIBILITY_CHOICES):
-        profile.visibility = visibility
+def handle_additional_form(request, profile):
+    """Handle additional profile information form."""
+    form = ProfileAdditionalForm(request.POST, instance=profile)
+    
+    if form.is_valid():
+        form.save()
+        messages.success(request, 'Additional information updated successfully.')
+        log_activity(request, activity="Additional profile information updated")
+    else:
+        for field, errors in form.errors.items():
+            for error in errors:
+                messages.error(request, f'{field}: {error}')
+    
+    return redirect('profile' + '?tab=additional')
+
+
+def handle_customization_form(request, profile):
+    """Handle customization settings form."""
+    form = ProfileCustomizationForm(request.POST, instance=profile)
+    
+    if form.is_valid():
+        form.save()
+        messages.success(request, 'Customization settings updated successfully.')
+        log_activity(request, activity="Profile customization updated")
+    else:
+        for field, errors in form.errors.items():
+            for error in errors:
+                messages.error(request, f'{field}: {error}')
+    
+    return redirect('profile' + '?tab=customization')
+
+
+def handle_notification_form(request, profile):
+    """Handle notification preferences form."""
+    form = ProfileNotificationForm(request.POST)
+    
+    if form.is_valid():
+        # Save notification preferences to the profile
+        profile.email_notifications = form.cleaned_data['email_notifications']
+        profile.contribution_notifications = form.cleaned_data['contribution_notifications']
+        profile.council_update_notifications = form.cleaned_data['council_update_notifications']
+        profile.weekly_digest = form.cleaned_data['weekly_digest']
         profile.save()
-        messages.success(request, 'Profile visibility updated.')
-        log_activity(request, activity=f"Profile visibility changed to {visibility}")
+        
+        messages.success(request, 'Notification preferences updated successfully.')
+        log_activity(request, activity="Notification preferences updated")
     else:
-        messages.error(request, 'Invalid visibility setting.')
+        for field, errors in form.errors.items():
+            for error in errors:
+                messages.error(request, f'{field}: {error}')
     
-    return redirect('profile')
+    return redirect('profile' + '?tab=notifications')
 
 
-def handle_extra_info_update(request, profile):
-    """Handle extra profile information update."""
-    political_affiliation = request.POST.get('political_affiliation', '').strip()
-    works_for_council = request.POST.get('works_for_council') == '1'
-    employer_council_id = request.POST.get('employer_council')
-    official_email = request.POST.get('official_email', '').strip()
+# Old handler functions removed - using new tabbed form handlers above
+
+
+@login_required
+@require_POST
+def change_email_modal(request):
+    """Handle email change requests through modal interface with comprehensive debugging."""
+    import json
+    from django.core.validators import validate_email
+    from django.core.exceptions import ValidationError
     
-    profile.political_affiliation = political_affiliation
-    profile.works_for_council = works_for_council
-    profile.official_email = official_email
+    # DEBUG: Add basic error handling
+    try:
+        logger.info(f"Email change request from user: {request.user.username}")
+        
+        # Check if request body exists
+        if not request.body:
+            logger.error("Empty request body")
+            return JsonResponse({
+                'success': False,
+                'error': 'No data provided'
+            }, status=400)
     
-    if employer_council_id:
+    except Exception as e:
+        logger.error(f"Initial setup error: {str(e)}")
+        return JsonResponse({
+            'success': False,
+            'error': 'Request processing error'
+        }, status=500)
+    
+    try:
+        # Parse JSON data from the modal
+        data = json.loads(request.body)
+        new_email = data.get('email', '').strip().lower()
+        
+        # Comprehensive logging for debugging
+        log_activity(
+            request,
+            activity="Email change request received",
+            extra=f"Current email: {request.user.email}, Requested email: {new_email}, User: {request.user.username}"
+        )
+        
+        # Validate email format
+        if not new_email:
+            return JsonResponse({
+                'success': False,
+                'error': 'Email address is required'
+            }, status=400)
+        
         try:
-            profile.employer_council = Council.objects.get(id=employer_council_id)
-        except Council.DoesNotExist:
-            profile.employer_council = None
-    else:
-        profile.employer_council = None
-    
-    profile.save()
-    messages.success(request, 'Volunteer information updated.')
-    log_activity(request, activity="Volunteer information updated")
-    
-    return redirect('profile')
-
-
-def handle_customization_update(request, profile):
-    """Handle customization settings update."""
-    preferred_font = request.POST.get('preferred_font')
-    tier_id = request.POST.get('tier')
-    
-    if preferred_font:
-        profile.preferred_font = preferred_font
-    
-    if tier_id and request.user.is_superuser:
+            validate_email(new_email)
+        except ValidationError:
+            log_activity(
+                request,
+                activity="Email change failed - invalid format",
+                extra=f"Invalid email format: {new_email}"
+            )
+            return JsonResponse({
+                'success': False,
+                'error': 'Please enter a valid email address'
+            }, status=400)
+        
+        # Check if email is the same as current
+        if new_email == request.user.email.lower():
+            return JsonResponse({
+                'success': False,
+                'error': 'This is already your current email address'
+            }, status=400)
+        
+        # Check if email is already in use by another user
+        from django.contrib.auth.models import User
+        if User.objects.filter(email__iexact=new_email).exclude(pk=request.user.pk).exists():
+            log_activity(
+                request,
+                activity="Email change failed - email already in use",
+                extra=f"Email {new_email} already exists for another user"
+            )
+            return JsonResponse({
+                'success': False,
+                'error': 'This email address is already registered to another account'
+            }, status=400)
+        
+        # Check rate limiting
+        profile, created = UserProfile.objects.get_or_create(user=request.user)
+        if not profile.can_send_confirmation():
+            log_activity(
+                request,
+                activity="Email change failed - rate limited",
+                extra=f"User {request.user.username} exceeded rate limit"
+            )
+            return JsonResponse({
+                'success': False,
+                'error': 'Please wait before requesting another email change. You can try again in a few minutes.'
+            }, status=429)
+        
+        # Attempt to send confirmation email
         try:
-            profile.tier = TrustTier.objects.get(id=tier_id)
-        except TrustTier.DoesNotExist:
-            messages.error(request, 'Invalid trust tier.')
-            return redirect('profile')
+            logger.info(f"Attempting to send confirmation email to {new_email}")
+            success = send_email_change_confirmation(request.user, new_email, request)
+            logger.info(f"Email send result: {success}")
+            
+            if success:
+                log_activity(
+                    request,
+                    activity="Email change confirmation sent successfully",
+                    extra=f"Confirmation email sent from {request.user.email} to {new_email}"
+                )
+                
+                return JsonResponse({
+                    'success': True,
+                    'message': f'Please check {new_email} to confirm your email change. Your current email ({request.user.email}) remains active until confirmed.',
+                    'new_email': new_email,
+                    'current_email': request.user.email
+                })
+            else:
+                # Log the failure and send alert to admins
+                error_details = f"Failed to send email change confirmation to {new_email} for user {request.user.username}"
+                log_activity(
+                    request,
+                    activity="Email change confirmation failed",
+                    extra=error_details
+                )
+                
+                # Send alert email to admins
+                try:
+                    from council_finance.emails import send_email_enhanced
+                    send_email_enhanced(
+                        to_email=settings.ADMIN_EMAIL if hasattr(settings, 'ADMIN_EMAIL') else 'admin@councilfinance.com',
+                        subject='Email Service Alert: Email change confirmation failed',
+                        template='emails/admin_alert.html',
+                        context={
+                            'alert_type': 'Email Change Failure',
+                            'user': request.user,
+                            'details': error_details,
+                            'timestamp': timezone.now(),
+                            'ip_address': request.META.get('REMOTE_ADDR', 'Unknown')
+                        }
+                    )
+                except Exception as alert_error:
+                    logger.error(f"Failed to send admin alert: {alert_error}")
+                
+                return JsonResponse({
+                    'success': False,
+                    'error': 'Failed to send confirmation email. Our team has been notified. Please try again later.'
+                }, status=500)
+                
+        except Exception as email_error:
+            error_details = f"Exception during email change for {request.user.username}: {str(email_error)}"
+            log_activity(
+                request,
+                activity="Email change exception",
+                extra=error_details
+            )
+            logger.error(error_details)
+            
+            # Send alert email to admins about the exception
+            try:
+                from council_finance.emails import send_email_enhanced
+                send_email_enhanced(
+                    to_email=settings.ADMIN_EMAIL if hasattr(settings, 'ADMIN_EMAIL') else 'admin@councilfinance.com',
+                    subject='Email Service Alert: Email change exception',
+                    template='emails/admin_alert.html',
+                    context={
+                        'alert_type': 'Email Change Exception',
+                        'user': request.user,
+                        'details': error_details,
+                        'timestamp': timezone.now(),
+                        'ip_address': request.META.get('REMOTE_ADDR', 'Unknown'),
+                        'user_agent': request.META.get('HTTP_USER_AGENT', 'Unknown')
+                    }
+                )
+            except Exception as alert_error:
+                logger.error(f"Failed to send admin alert for exception: {alert_error}")
+            
+            return JsonResponse({
+                'success': False,
+                'error': 'An unexpected error occurred. Our team has been notified. Please try again later.'
+            }, status=500)
     
-    profile.save()
-    messages.success(request, 'Customization settings updated.')
-    log_activity(request, activity="Customization settings updated")
+    except json.JSONDecodeError:
+        log_activity(
+            request,
+            activity="Email change failed - invalid JSON",
+            extra="Invalid JSON in request body"
+        )
+        return JsonResponse({
+            'success': False,
+            'error': 'Invalid request format'
+        }, status=400)
     
-    return redirect('profile')
+    except Exception as e:
+        error_details = f"Unexpected error in email change modal: {str(e)}"
+        log_activity(
+            request,
+            activity="Email change modal - unexpected error",
+            extra=error_details
+        )
+        logger.error(error_details)
+        
+        return JsonResponse({
+            'success': False,
+            'error': 'An unexpected error occurred. Please try again later.'
+        }, status=500)
 
 
 @login_required
@@ -443,36 +678,129 @@ def update_postcode(request):
 
 
 def confirm_profile_change(request, token):
-    """Confirm profile changes."""
+    """Confirm profile changes with improved error handling."""
     try:
-        pending_change = get_object_or_404(
-            PendingProfileChange,
-            token=token,
-            expires_at__gt=timezone.now()
-        )
+        # First, try to find any record with this token (regardless of expiration)
+        try:
+            pending_change = PendingProfileChange.objects.get(token=token)
+        except PendingProfileChange.DoesNotExist:
+            messages.error(request, 'Invalid confirmation token. This link may be incorrect or the request may have been cancelled.')
+            log_activity(
+                request,
+                council=None,
+                activity=f"Failed confirmation attempt - token not found: {token[:20]}...",
+                extra=f"IP: {request.META.get('REMOTE_ADDR', 'Unknown')}"
+            )
+            return redirect('profile' if request.user.is_authenticated else 'login')
+        
+        # Check if the token has expired
+        if pending_change.is_expired:
+            # For email changes, offer to resend confirmation
+            if pending_change.field == 'email':
+                messages.error(request, 
+                    f'This email change confirmation has expired. '
+                    f'You can request a new email change from your profile page to change your email to {pending_change.new_value}.'
+                )
+                log_activity(
+                    request,
+                    council=None,
+                    activity=f"Expired email change confirmation attempted",
+                    extra=f"User: {pending_change.user.username}, Expired: {pending_change.expires_at}, Target: {pending_change.new_value}"
+                )
+            else:
+                messages.error(request, f'This {pending_change.field} change confirmation has expired. Please try making the change again.')
+                log_activity(
+                    request,
+                    council=None,
+                    activity=f"Expired {pending_change.field} change confirmation attempted",
+                    extra=f"User: {pending_change.user.username}, Expired: {pending_change.expires_at}"
+                )
+            
+            # Clean up expired record
+            pending_change.delete()
+            return redirect('profile' if request.user.is_authenticated else 'login')
+        
+        # Check if already confirmed
+        if hasattr(pending_change, 'status') and pending_change.status == 'confirmed':
+            messages.info(request, 'This change has already been confirmed.')
+            return redirect('profile' if request.user.is_authenticated else 'login')
         
         # Apply the change
         profile, created = UserProfile.objects.get_or_create(user=pending_change.user)
         
         if pending_change.field == 'postcode':
+            old_postcode = profile.postcode
             profile.postcode = pending_change.new_value
             profile.save()
             
-            messages.success(request, 'Postcode updated successfully!')
+            messages.success(request, f'Postcode updated successfully from "{old_postcode or "none"}" to "{pending_change.new_value}"!')
             log_activity(
                 request,
                 council=None,
-                activity=f"Postcode updated to: {pending_change.new_value}",
-                details=f"User: {pending_change.user.username}"
+                activity=f"Postcode confirmed and updated to: {pending_change.new_value}",
+                extra=f"User: {pending_change.user.username}, Previous: {old_postcode}"
             )
+            
+        elif pending_change.field == 'email':
+            # Handle email change confirmation
+            old_email = pending_change.user.email
+            new_email = pending_change.new_value
+            
+            # Update user email
+            pending_change.user.email = new_email
+            pending_change.user.save()
+            
+            # Update profile
+            profile.email_confirmed = True
+            profile.pending_email = None
+            profile.pending_email_token = None
+            profile.pending_email_expires = None
+            profile.save()
+            
+            messages.success(request, f'Email address successfully changed from {old_email} to {new_email}!')
+            log_activity(
+                request,
+                council=None,
+                activity=f"Email confirmed and updated from {old_email} to {new_email}",
+                extra=f"User: {pending_change.user.username}, Token: {token[:20]}..."
+            )
+            
+            # Send confirmation notification to new email
+            try:
+                from council_finance.emails import send_email
+                send_email(
+                    to_email=new_email,
+                    subject='Email address change confirmed',
+                    template='emails/email_change_success.html',
+                    context={
+                        'user': pending_change.user,
+                        'old_email': old_email,
+                        'new_email': new_email,
+                        'changed_at': timezone.now(),
+                    }
+                )
+            except Exception as e:
+                logger.error(f"Failed to send email change success notification: {e}")
         
-        # Delete the pending change
+        # Mark as confirmed and delete the pending change
+        if hasattr(pending_change, 'status'):
+            pending_change.status = 'confirmed'
+            pending_change.confirmed_at = timezone.now()
+            pending_change.save()
+        
         pending_change.delete()
         
-    except PendingProfileChange.DoesNotExist:
-        messages.error(request, 'Invalid or expired confirmation token.')
+    except Exception as e:
+        logger.error(f"Error in confirm_profile_change: {e}")
+        messages.error(request, 'An error occurred while confirming your change. Please try again or contact support.')
+        log_activity(
+            request,
+            council=None,
+            activity=f"Error in profile change confirmation: {str(e)}",
+            extra=f"Token: {token[:20]}..., IP: {request.META.get('REMOTE_ADDR', 'Unknown')}"
+        )
     
-    return redirect('profile')
+    return redirect('profile' if request.user.is_authenticated else 'login')
 
 
 @login_required

@@ -122,6 +122,24 @@ class UserProfile(models.Model):
     # Total number of contributions by this user that moderators approved.
     # Used for auto-approval thresholds.
     approved_submission_count = models.IntegerField(default=0)
+    
+    # Notification preferences
+    email_notifications = models.BooleanField(
+        default=True,
+        help_text="Receive email notifications for important updates"
+    )
+    contribution_notifications = models.BooleanField(
+        default=True,
+        help_text="Get notified when your contributions are reviewed"
+    )
+    council_update_notifications = models.BooleanField(
+        default=False,
+        help_text="Receive notifications about councils you follow"
+    )
+    weekly_digest = models.BooleanField(
+        default=False,
+        help_text="Receive a weekly summary of activity and updates"
+    )
 
     def __str__(self) -> str:
         return f"Profile for {self.user.username}"

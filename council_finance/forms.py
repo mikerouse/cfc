@@ -15,9 +15,18 @@ from django.contrib.contenttypes.models import ContentType
 
 
 class SignUpForm(UserCreationForm):
-    """Extend the built-in user creation form with a required postcode."""
+    """Extend the built-in user creation form with an optional postcode."""
 
-    postcode = forms.CharField(max_length=20, help_text="Required")
+    postcode = forms.CharField(
+        max_length=20, 
+        required=False,  # Make postcode optional
+        help_text="Optional - helps us provide location-specific features"
+    )
+    postcode_refused = forms.BooleanField(
+        required=False,
+        label="I prefer not to provide my postcode",
+        help_text="Check this if you don't want to provide location information"
+    )
 
     class Meta(UserCreationForm.Meta):
         model = get_user_model()
@@ -26,9 +35,19 @@ class SignUpForm(UserCreationForm):
     def save(self, commit=True):
         user = super().save(commit)
         postcode = self.cleaned_data["postcode"]
+        postcode_refused = self.cleaned_data["postcode_refused"]
+        
         # Ensure the profile exists (signal may have created it already)
         profile, _ = UserProfile.objects.get_or_create(user=user)
-        profile.postcode = postcode
+        
+        # Handle postcode logic
+        if postcode_refused:
+            profile.postcode_refused = True
+            profile.postcode = ""
+        elif postcode:
+            profile.postcode = postcode
+            profile.postcode_refused = False
+        
         # Extra volunteer details are gathered later on the profile page
         # so signup only stores the essential postcode.
         if not profile.confirmation_token:
@@ -60,6 +79,166 @@ class ProfileExtraForm(forms.ModelForm):
             "employer_council": forms.Select(attrs={"class": "border rounded p-1 w-full"}),
             "official_email": forms.EmailInput(attrs={"class": "border rounded p-1 w-full"}),
         }
+
+
+class ProfileBasicForm(forms.ModelForm):
+    """Form for basic profile information including email and password changes."""
+    
+    # User fields
+    first_name = forms.CharField(
+        max_length=150,
+        required=False,
+        widget=forms.TextInput(attrs={'class': 'mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm'})
+    )
+    last_name = forms.CharField(
+        max_length=150,
+        required=False,
+        widget=forms.TextInput(attrs={'class': 'mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm'})
+    )
+# Email field removed - handled through modal
+    
+    # Password fields
+    password1 = forms.CharField(
+        label='New password',
+        widget=forms.PasswordInput(attrs={'class': 'mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm'}),
+        required=False,
+        help_text='Leave blank to keep current password'
+    )
+    password2 = forms.CharField(
+        label='Confirm new password',
+        widget=forms.PasswordInput(attrs={'class': 'mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm'}),
+        required=False
+    )
+    
+    # Profile fields
+    postcode = forms.CharField(
+        max_length=20,
+        required=False,
+        widget=forms.TextInput(attrs={'class': 'mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm'}),
+        help_text='Optional - helps us provide location-specific features'
+    )
+    postcode_refused = forms.BooleanField(
+        required=False,
+        label="I prefer not to provide my postcode",
+        widget=forms.CheckboxInput(attrs={'class': 'h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded'})
+    )
+
+    class Meta:
+        model = UserProfile
+        fields = ['postcode', 'postcode_refused', 'visibility']
+        widgets = {
+            'visibility': forms.Select(attrs={'class': 'mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm'})
+        }
+
+    def clean(self):
+        cleaned_data = super().clean()
+        password1 = cleaned_data.get('password1')
+        password2 = cleaned_data.get('password2')
+        
+        if password1 and password1 != password2:
+            raise forms.ValidationError('Passwords do not match.')
+            
+        if password1 and len(password1) < 8:
+            raise forms.ValidationError('Password must be at least 8 characters long.')
+            
+        return cleaned_data
+
+
+class ProfileAdditionalForm(forms.ModelForm):
+    """Form for additional profile information."""
+    
+    class Meta:
+        model = UserProfile
+        fields = [
+            'political_affiliation',
+            'works_for_council',
+            'employer_council',
+            'official_email'
+        ]
+        widgets = {
+            'political_affiliation': forms.TextInput(attrs={'class': 'mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm'}),
+            'works_for_council': forms.CheckboxInput(attrs={'class': 'h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded'}),
+            'employer_council': forms.Select(attrs={'class': 'mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm'}),
+            'official_email': forms.EmailInput(attrs={'class': 'mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm'})
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Set up council choices with empty option
+        self.fields['employer_council'].empty_label = "Select a council..."
+        # Make sure councils are ordered by name
+        from .models import Council
+        self.fields['employer_council'].queryset = Council.objects.filter(status='active').order_by('name')
+
+
+class ProfileCustomizationForm(forms.ModelForm):
+    """Form for profile customization settings."""
+    
+    class Meta:
+        model = UserProfile
+        fields = [
+            'preferred_font',
+            'font_size',
+            'color_theme',
+            'high_contrast_mode'
+        ]
+        widgets = {
+            'preferred_font': forms.Select(attrs={'class': 'mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm'}),
+            'font_size': forms.Select(attrs={'class': 'mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm'}),
+            'color_theme': forms.Select(attrs={'class': 'mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm'}),
+            'high_contrast_mode': forms.CheckboxInput(attrs={'class': 'h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded'})
+        }
+    
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        
+        # Define font choices
+        font_choices = [
+            ('Arial', 'Arial'),
+            ('Helvetica', 'Helvetica'),
+            ('Georgia', 'Georgia'),
+            ('Times New Roman', 'Times New Roman'),
+            ('Verdana', 'Verdana'),
+            ('Tahoma', 'Tahoma'),
+            ('Cairo', 'Cairo'),
+            ('Inter', 'Inter'),
+            ('Open Sans', 'Open Sans'),
+            ('Roboto', 'Roboto'),
+        ]
+        
+        self.fields['preferred_font'].widget.choices = font_choices
+
+
+class ProfileNotificationForm(forms.Form):
+    """Form for notification preferences."""
+    
+    email_notifications = forms.BooleanField(
+        required=False,
+        label="Email notifications",
+        help_text="Receive email notifications for important updates",
+        widget=forms.CheckboxInput(attrs={'class': 'h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded'})
+    )
+    
+    contribution_notifications = forms.BooleanField(
+        required=False,
+        label="Contribution notifications",
+        help_text="Get notified when your contributions are reviewed",
+        widget=forms.CheckboxInput(attrs={'class': 'h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded'})
+    )
+    
+    council_update_notifications = forms.BooleanField(
+        required=False,
+        label="Council update notifications",
+        help_text="Receive notifications about councils you follow",
+        widget=forms.CheckboxInput(attrs={'class': 'h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded'})
+    )
+    
+    weekly_digest = forms.BooleanField(
+        required=False,
+        label="Weekly digest",
+        help_text="Receive a weekly summary of activity and updates",
+        widget=forms.CheckboxInput(attrs={'class': 'h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded'})
+    )
 class CouncilListForm(forms.ModelForm):
     """Create a simple list of councils."""
 
