@@ -1,0 +1,395 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}{% if configuration %}Edit{% else %}Add{% endif %} AI Configuration - Council Finance Counters{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto px-4 py-6">
+  <!-- Header -->
+  <div class="bg-white rounded-lg shadow-sm border border-gray-200 mb-6">
+    <div class="px-6 py-4 border-b border-gray-200">
+      <div class="flex items-center justify-between">
+        <div>
+          <h1 class="text-2xl font-bold text-gray-900 flex items-center">
+            <svg class="w-6 h-6 mr-2 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/>
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+            </svg>
+            {% if configuration %}Edit AI Configuration{% else %}Add AI Configuration{% endif %}
+          </h1>
+          <p class="text-gray-600 text-sm mt-1">Configure AI analysis settings by combining models and templates</p>
+        </div>
+        <div class="flex space-x-2">
+          <a href="{% url 'ai_management_dashboard' %}" class="bg-gray-600 text-white px-4 py-2 rounded-md hover:bg-gray-700 transition-colors text-sm">
+            Cancel
+          </a>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Form -->
+  <div class="bg-white rounded-lg shadow-sm border border-gray-200">
+    <form method="post" class="space-y-6">
+      {% csrf_token %}
+      
+      <div class="px-6 py-4 border-b border-gray-200">
+        <h2 class="text-lg font-semibold text-gray-900">Configuration Settings</h2>
+        <p class="text-sm text-gray-600 mt-1">Combine AI models and templates into analysis configurations</p>
+      </div>
+
+      <div class="px-6 space-y-6">
+        <!-- Name -->
+        <div>
+          <label for="name" class="block text-sm font-medium text-gray-700 mb-2">
+            Configuration Name <span class="text-red-500">*</span>
+          </label>
+          <input 
+            type="text" 
+            name="name" 
+            id="name"
+            value="{{ configuration.name|default:'' }}"
+            required
+            class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500"
+            placeholder="e.g., GPT-4 Financial Analysis, Claude Council Summary"
+          >
+          <p class="text-xs text-gray-500 mt-1">A descriptive name for this analysis configuration</p>
+        </div>
+
+        <!-- Model Selection -->
+        <div>
+          <label for="model" class="block text-sm font-medium text-gray-700 mb-2">
+            AI Model <span class="text-red-500">*</span>
+          </label>
+          <select 
+            name="model" 
+            id="model"
+            required
+            class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500"
+          >
+            <option value="">Select AI model...</option>
+            {% for model in models %}
+              <option value="{{ model.id }}" {% if configuration.model_id == model.id %}selected{% endif %}>
+                {{ model.provider.name }} - {{ model.name }}
+                {% if model.cost_per_token %}({{ model.cost_per_token }}/token){% endif %}
+              </option>
+            {% endfor %}
+          </select>
+          <p class="text-xs text-gray-500 mt-1">The AI model that will perform the analysis</p>
+        </div>
+
+        <!-- Template Selection -->
+        <div>
+          <label for="template" class="block text-sm font-medium text-gray-700 mb-2">
+            Analysis Template <span class="text-red-500">*</span>
+          </label>
+          <select 
+            name="template" 
+            id="template"
+            required
+            class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500"
+          >
+            <option value="">Select analysis template...</option>
+            {% for template in templates %}
+              <option value="{{ template.id }}" {% if configuration.template_id == template.id %}selected{% endif %}>
+                {{ template.name }}
+                {% if template.analysis_type %} - {{ template.get_analysis_type_display }}{% endif %}
+              </option>
+            {% endfor %}
+          </select>
+          <p class="text-xs text-gray-500 mt-1">The template that defines what analysis to perform</p>
+        </div>
+      </div>
+
+      <!-- Performance Settings -->
+      <div class="px-6">
+        <div class="border-t border-gray-200 pt-6">
+          <h3 class="text-lg font-medium text-gray-900 mb-4">Performance & Caching</h3>
+          
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <!-- Cache Duration -->
+            <div>
+              <label for="cache_duration_minutes" class="block text-sm font-medium text-gray-700 mb-2">
+                Cache Duration (minutes)
+              </label>
+              <input 
+                type="number" 
+                name="cache_duration_minutes" 
+                id="cache_duration_minutes"
+                value="{{ configuration.cache_duration_minutes|default:60 }}"
+                min="5"
+                max="1440"
+                class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500"
+              >
+              <p class="text-xs text-gray-500 mt-1">How long to cache results (5-1440 min)</p>
+            </div>
+
+            <!-- Max Retries -->
+            <div>
+              <label for="max_retries" class="block text-sm font-medium text-gray-700 mb-2">
+                Max Retries
+              </label>
+              <input 
+                type="number" 
+                name="max_retries" 
+                id="max_retries"
+                value="{{ configuration.max_retries|default:3 }}"
+                min="1"
+                max="5"
+                class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500"
+              >
+              <p class="text-xs text-gray-500 mt-1">Retry attempts on failures (1-5)</p>
+            </div>
+
+            <!-- Timeout -->
+            <div>
+              <label for="timeout_seconds" class="block text-sm font-medium text-gray-700 mb-2">
+                Timeout (seconds)
+              </label>
+              <input 
+                type="number" 
+                name="timeout_seconds" 
+                id="timeout_seconds"
+                value="{{ configuration.timeout_seconds|default:30 }}"
+                min="10"
+                max="120"
+                class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500"
+              >
+              <p class="text-xs text-gray-500 mt-1">Request timeout (10-120 sec)</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Configuration Status -->
+      <div class="px-6">
+        <div class="border-t border-gray-200 pt-6">
+          <h3 class="text-lg font-medium text-gray-900 mb-4">Status Settings</h3>
+          
+          <div class="space-y-4">
+            <!-- Is Default -->
+            <div class="flex items-start">
+              <div class="flex items-center h-5">
+                <input 
+                  type="checkbox" 
+                  name="is_default" 
+                  id="is_default"
+                  {% if configuration.is_default %}checked{% endif %}
+                  class="h-4 w-4 text-green-600 border-gray-300 rounded focus:ring-green-500"
+                >
+              </div>
+              <div class="ml-3 text-sm">
+                <label for="is_default" class="font-medium text-gray-700">Default Configuration</label>
+                <p class="text-gray-500">Use this configuration when no specific configuration is requested</p>
+                <p class="text-xs text-amber-600 mt-1">⚠️ Setting this will unset any existing default configuration</p>
+              </div>
+            </div>
+
+            <!-- Is Active -->
+            <div class="flex items-start">
+              <div class="flex items-center h-5">
+                <input 
+                  type="checkbox" 
+                  name="is_active" 
+                  id="is_active"
+                  {% if configuration.is_active or not configuration %}checked{% endif %}
+                  class="h-4 w-4 text-green-600 border-gray-300 rounded focus:ring-green-500"
+                >
+              </div>
+              <div class="ml-3 text-sm">
+                <label for="is_active" class="font-medium text-gray-700">Configuration is Active</label>
+                <p class="text-gray-500">Active configurations are available for use in analysis requests</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Submit -->
+      <div class="px-6 py-4 border-t border-gray-200 bg-gray-50">
+        <div class="flex items-center justify-end space-x-3">
+          <a href="{% url 'ai_management_dashboard' %}" class="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50">
+            Cancel
+          </a>
+          <button type="submit" class="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500">
+            {% if configuration %}Update Configuration{% else %}Create Configuration{% endif %}
+          </button>
+        </div>
+      </div>
+    </form>
+  </div>
+
+  <!-- Configuration Preview -->
+  <div id="config-preview" class="mt-6 bg-blue-50 border border-blue-200 rounded-lg p-6 hidden">
+    <h3 class="text-lg font-medium text-blue-900 mb-3">Configuration Preview</h3>
+    <div class="text-sm text-blue-800">
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div>
+          <p><strong>Selected Model:</strong></p>
+          <div id="preview-model" class="bg-blue-100 border border-blue-300 rounded p-2 mt-1 font-mono text-xs">
+            Select a model to see details
+          </div>
+        </div>
+        <div>
+          <p><strong>Selected Template:</strong></p>
+          <div id="preview-template" class="bg-blue-100 border border-blue-300 rounded p-2 mt-1 font-mono text-xs">
+            Select a template to see details  
+          </div>
+        </div>
+      </div>
+      
+      <div class="mt-4">
+        <p><strong>Performance Settings:</strong></p>
+        <div id="preview-settings" class="bg-blue-100 border border-blue-300 rounded p-2 mt-1 font-mono text-xs">
+          Adjust settings to see preview
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Help Section -->
+  <div class="mt-6 bg-blue-50 border border-blue-200 rounded-lg p-6">
+    <h3 class="text-lg font-medium text-blue-900 mb-3">Configuration Tips</h3>
+    <div class="text-sm text-blue-800 space-y-3">
+      <div>
+        <p><strong>Model Selection:</strong></p>
+        <ul class="list-disc list-inside space-y-1 ml-4">
+          <li><strong>GPT-4 models:</strong> Best for detailed financial analysis, higher cost</li>
+          <li><strong>GPT-3.5 models:</strong> Good for basic summaries, cost-effective</li>
+          <li><strong>Claude models:</strong> Excellent for analytical writing and insights</li>
+        </ul>
+      </div>
+      
+      <div>
+        <p><strong>Performance Settings:</strong></p>
+        <ul class="list-disc list-inside space-y-1 ml-4">
+          <li><strong>Cache Duration:</strong> Longer cache = fewer API calls but potentially stale data</li>
+          <li><strong>Max Retries:</strong> Higher retries = better reliability but slower failures</li>
+          <li><strong>Timeout:</strong> Longer timeout = handles complex analysis but may impact user experience</li>
+        </ul>
+      </div>
+      
+      <div class="bg-blue-100 border border-blue-300 rounded p-3 mt-3">
+        <p class="font-medium">💡 Best Practice:</p>
+        <p>Create separate configurations for different use cases: quick summaries (fast model, short cache) vs. detailed analysis (powerful model, longer cache).</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const modelSelect = document.getElementById('model');
+    const templateSelect = document.getElementById('template');
+    const nameInput = document.getElementById('name');
+    const configPreview = document.getElementById('config-preview');
+    const previewModel = document.getElementById('preview-model');
+    const previewTemplate = document.getElementById('preview-template');
+    const previewSettings = document.getElementById('preview-settings');
+    
+    // Auto-generate name based on selections
+    function updateConfigurationName() {
+        if (nameInput.value) return; // Don't overwrite existing names
+        
+        const modelText = modelSelect.options[modelSelect.selectedIndex]?.text || '';
+        const templateText = templateSelect.options[templateSelect.selectedIndex]?.text || '';
+        
+        if (modelSelect.value && templateSelect.value) {
+            // Extract model name and template name
+            const modelName = modelText.split(' - ')[1] || modelText;
+            const templateName = templateText.split(' - ')[0] || templateText;
+            
+            nameInput.value = `${modelName} + ${templateName}`;
+        }
+    }
+    
+    // Update preview
+    function updatePreview() {
+        const hasSelections = modelSelect.value || templateSelect.value;
+        
+        if (hasSelections) {
+            configPreview.classList.remove('hidden');
+            
+            // Update model preview
+            if (modelSelect.value) {
+                const modelText = modelSelect.options[modelSelect.selectedIndex].text;
+                previewModel.textContent = modelText;
+            } else {
+                previewModel.textContent = 'No model selected';
+            }
+            
+            // Update template preview
+            if (templateSelect.value) {
+                const templateText = templateSelect.options[templateSelect.selectedIndex].text;
+                previewTemplate.textContent = templateText;
+            } else {
+                previewTemplate.textContent = 'No template selected';
+            }
+            
+            // Update settings preview
+            const cacheMinutes = document.getElementById('cache_duration_minutes').value || '60';
+            const retries = document.getElementById('max_retries').value || '3';
+            const timeout = document.getElementById('timeout_seconds').value || '30';
+            
+            previewSettings.innerHTML = `
+                Cache: ${cacheMinutes} minutes | 
+                Retries: ${retries} | 
+                Timeout: ${timeout}s
+            `;
+        } else {
+            configPreview.classList.add('hidden');
+        }
+    }
+    
+    // Event listeners
+    modelSelect.addEventListener('change', function() {
+        updateConfigurationName();
+        updatePreview();
+    });
+    
+    templateSelect.addEventListener('change', function() {
+        updateConfigurationName();
+        updatePreview();
+    });
+    
+    // Update preview on settings change
+    ['cache_duration_minutes', 'max_retries', 'timeout_seconds'].forEach(id => {
+        const element = document.getElementById(id);
+        if (element) {
+            element.addEventListener('input', updatePreview);
+        }
+    });
+    
+    // Initial preview update
+    updatePreview();
+    
+    // Validation warnings for default configuration
+    const defaultCheckbox = document.getElementById('is_default');
+    if (defaultCheckbox) {
+        defaultCheckbox.addEventListener('change', function() {
+            const warningText = this.closest('.flex').querySelector('.text-amber-600');
+            if (this.checked) {
+                warningText.classList.remove('hidden');
+            } else {
+                warningText.classList.add('hidden');
+            }
+        });
+    }
+    
+    // Form validation
+    document.querySelector('form').addEventListener('submit', function(e) {
+        if (!modelSelect.value || !templateSelect.value) {
+            e.preventDefault();
+            alert('Please select both a model and template for this configuration.');
+            return false;
+        }
+        
+        // Confirm if setting as default
+        if (defaultCheckbox.checked && !confirm('Setting this as the default configuration will unset the current default. Continue?')) {
+            e.preventDefault();
+            return false;
+        }
+    });
+});
+</script>
+{% endblock %}
