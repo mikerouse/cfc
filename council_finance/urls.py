@@ -165,6 +165,10 @@ urlpatterns = [
     path("api/factoid-playlists/<slug:counter_slug>/", api_views.factoid_playlist_api, name="factoid_playlist_api"),
     path("api/factoid-playlists/<int:playlist_id>/regenerate/", api_views.regenerate_factoid_playlist_api, name="regenerate_factoid_playlist_api"),
     path("api/factoid-templates/<slug:template_slug>/preview/", api_views.factoid_template_preview_api, name="factoid_template_preview_api"),
+    
+    # AI Analysis API endpoints
+    path("api/ai-analysis/<slug:council_slug>/<str:year_label>/", api_views.council_ai_analysis_api, name="council_ai_analysis_api"),
+    path("api/ai-analysis/status/<int:analysis_id>/", api_views.ai_analysis_status_api, name="ai_analysis_status_api"),
     path("contribute/data-issues-table/", contrib_views.data_issues_table, name="data_issues_table"),
     path("contribute/stats/", contrib_views.contribute_stats, name="contribute_stats"),
     path("contribute/submit/", contrib_views.contribute_submit, name="submit_contribution"),
@@ -258,6 +262,16 @@ urlpatterns = [
     path("god-mode/councils/import/", council_mgmt_views.import_page, name="import_councils"),
     path("god-mode/councils/bulk-import/", council_mgmt_views.bulk_import, name="bulk_import_councils"),
     path("god-mode/councils/cancel-import/", council_mgmt_views.cancel_import, name="cancel_import"),
+    
+    # AI Management under God Mode
+    path("god-mode/ai/", admin_views.ai_management_dashboard, name="ai_management_dashboard"),
+    path("god-mode/ai/models/add/", admin_views.ai_model_form, name="ai_model_add"),
+    path("god-mode/ai/models/<int:model_id>/", admin_views.ai_model_form, name="ai_model_edit"),
+    path("god-mode/ai/templates/add/", admin_views.ai_template_form, name="ai_template_add"),
+    path("god-mode/ai/templates/<int:template_id>/", admin_views.ai_template_form, name="ai_template_edit"),
+    path("god-mode/ai/configurations/add/", admin_views.ai_configuration_form, name="ai_configuration_add"),
+    path("god-mode/ai/configurations/<int:config_id>/", admin_views.ai_configuration_form, name="ai_configuration_edit"),
+    path("god-mode/ai/analysis/<int:analysis_id>/", admin_views.ai_analysis_detail, name="ai_analysis_detail"),
     path("contribute/issue/<int:issue_id>/mark-invalid/", contrib_views.mark_issue_invalid, name="mark_issue_invalid"),
     
     # Include new data architecture URLs (commented out - file doesn't exist)

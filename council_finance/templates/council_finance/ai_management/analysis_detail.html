@@ -1,0 +1,204 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}AI Analysis Detail - Council Finance Counters{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto px-4 py-6">
+  <!-- Header -->
+  <div class="bg-white rounded-lg shadow-sm border border-gray-200 mb-6">
+    <div class="px-6 py-4 border-b border-gray-200">
+      <div class="flex items-center justify-between">
+        <div>
+          <h1 class="text-2xl font-bold text-gray-900 flex items-center">
+            <svg class="w-6 h-6 mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+            </svg>
+            AI Analysis Details
+          </h1>
+          <p class="text-gray-600 text-sm mt-1">{{ analysis.council.name }} - {{ analysis.year.label }}</p>
+        </div>
+        <div class="flex space-x-2">
+          <a href="{% url 'ai_management_dashboard' %}" class="bg-gray-600 text-white px-4 py-2 rounded-md hover:bg-gray-700 transition-colors text-sm">
+            Back to AI Management
+          </a>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Analysis Metadata -->
+  <div class="bg-white rounded-lg shadow-sm border border-gray-200 mb-6">
+    <div class="px-6 py-4 border-b border-gray-200">
+      <h2 class="text-lg font-semibold text-gray-900">Analysis Information</h2>
+    </div>
+    <div class="p-6">
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div>
+          <label class="block text-sm font-medium text-gray-700">Status</label>
+          <span class="mt-1 px-3 py-1 inline-flex text-sm rounded-full bg-{% if analysis.status == 'completed' %}green{% elif analysis.status == 'failed' %}red{% else %}yellow{% endif %}-100 text-{% if analysis.status == 'completed' %}green{% elif analysis.status == 'failed' %}red{% else %}yellow{% endif %}-800">
+            {{ analysis.status|capfirst }}
+          </span>
+        </div>
+        
+        <div>
+          <label class="block text-sm font-medium text-gray-700">Configuration</label>
+          <p class="mt-1 text-sm text-gray-900">{{ analysis.configuration.name }}</p>
+        </div>
+        
+        <div>
+          <label class="block text-sm font-medium text-gray-700">AI Model</label>
+          <p class="mt-1 text-sm text-gray-900">{{ analysis.configuration.model.name }}</p>
+        </div>
+        
+        <div>
+          <label class="block text-sm font-medium text-gray-700">Template</label>
+          <p class="mt-1 text-sm text-gray-900">{{ analysis.configuration.template.name }}</p>
+        </div>
+        
+        <div>
+          <label class="block text-sm font-medium text-gray-700">Created</label>
+          <p class="mt-1 text-sm text-gray-900">{{ analysis.created|date:"M j, Y g:i A" }}</p>
+        </div>
+        
+        <div>
+          <label class="block text-sm font-medium text-gray-700">Processing Time</label>
+          <p class="mt-1 text-sm text-gray-900">
+            {% if analysis.processing_time %}
+              {{ analysis.processing_time|floatformat:2 }}s
+            {% else %}
+              -
+            {% endif %}
+          </p>
+        </div>
+        
+        <div>
+          <label class="block text-sm font-medium text-gray-700">Tokens Used</label>
+          <p class="mt-1 text-sm text-gray-900">
+            {% if analysis.tokens_used %}
+              {{ analysis.tokens_used|floatformat:0 }}
+            {% else %}
+              -
+            {% endif %}
+          </p>
+        </div>
+        
+        <div>
+          <label class="block text-sm font-medium text-gray-700">Estimated Cost</label>
+          <p class="mt-1 text-sm text-gray-900">
+            {% if analysis.estimated_cost %}
+              ${{ analysis.estimated_cost|floatformat:4 }}
+            {% else %}
+              -
+            {% endif %}
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  {% if analysis.error_message %}
+  <!-- Error Information -->
+  <div class="bg-red-50 border border-red-200 rounded-lg mb-6">
+    <div class="px-6 py-4 border-b border-red-200">
+      <h2 class="text-lg font-semibold text-red-900">Error Details</h2>
+    </div>
+    <div class="p-6">
+      <div class="bg-red-100 border border-red-300 rounded-md p-4">
+        <pre class="text-sm text-red-800 whitespace-pre-wrap">{{ analysis.error_message }}</pre>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
+  {% if analysis.analysis_result %}
+  <!-- Analysis Result -->
+  <div class="bg-white rounded-lg shadow-sm border border-gray-200 mb-6">
+    <div class="px-6 py-4 border-b border-gray-200">
+      <h2 class="text-lg font-semibold text-gray-900">Analysis Result</h2>
+    </div>
+    <div class="p-6">
+      <div class="prose max-w-none">
+        <div class="bg-gray-50 border border-gray-200 rounded-lg p-6">
+          <pre class="whitespace-pre-wrap text-sm text-gray-900">{{ analysis.analysis_result }}</pre>
+        </div>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- Source Data Used -->
+  {% if analysis.source_data %}
+  <div class="bg-white rounded-lg shadow-sm border border-gray-200">
+    <div class="px-6 py-4 border-b border-gray-200">
+      <h2 class="text-lg font-semibold text-gray-900">Source Data</h2>
+      <p class="text-sm text-gray-600 mt-1">Data that was provided to the AI for analysis</p>
+    </div>
+    <div class="p-6">
+      <div class="bg-gray-50 border border-gray-200 rounded-lg p-4">
+        <pre class="text-xs text-gray-700 whitespace-pre-wrap overflow-x-auto">{{ analysis.source_data|pprint }}</pre>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- Council Context -->
+  <div class="mt-6 bg-white rounded-lg shadow-sm border border-gray-200">
+    <div class="px-6 py-4 border-b border-gray-200">
+      <h2 class="text-lg font-semibold text-gray-900">Council Information</h2>
+    </div>
+    <div class="p-6">
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div>
+          <label class="block text-sm font-medium text-gray-700">Council Name</label>
+          <p class="mt-1 text-sm text-gray-900">{{ analysis.council.name }}</p>
+        </div>
+        
+        <div>
+          <label class="block text-sm font-medium text-gray-700">Council Type</label>
+          <p class="mt-1 text-sm text-gray-900">{{ analysis.council.council_type.name|default:"-" }}</p>
+        </div>
+        
+        <div>
+          <label class="block text-sm font-medium text-gray-700">Nation</label>
+          <p class="mt-1 text-sm text-gray-900">{{ analysis.council.nation.name|default:"-" }}</p>
+        </div>
+        
+        <div>
+          <label class="block text-sm font-medium text-gray-700">Financial Year</label>
+          <p class="mt-1 text-sm text-gray-900">{{ analysis.year.label }}</p>
+        </div>
+      </div>
+      
+      <div class="mt-4">
+        <a href="{% url 'council_detail' analysis.council.slug %}" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-blue-700 bg-blue-100 hover:bg-blue-200 transition-colors">
+          <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-2M7 7l10 10M17 7v4h-4"/>
+          </svg>
+          View Council Page
+        </a>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Add syntax highlighting for JSON data if possible
+    const preElements = document.querySelectorAll('pre');
+    preElements.forEach(pre => {
+        // Basic JSON formatting for better readability
+        try {
+            const text = pre.textContent.trim();
+            if (text.startsWith('{') || text.startsWith('[')) {
+                const formatted = JSON.stringify(JSON.parse(text), null, 2);
+                pre.textContent = formatted;
+                pre.classList.add('language-json');
+            }
+        } catch (e) {
+            // Not valid JSON, leave as is
+        }
+    });
+});
+</script>
+{% endblock %}

@@ -92,6 +92,10 @@ DATABASES = {
     )
 }
 
+# AI Service Configuration
+OPENAI_API_KEY = os.getenv('OPENAI_API_KEY')
+ANTHROPIC_API_KEY = os.getenv('ANTHROPIC_API_KEY')
+
 # SQLite configuration (for rollback if needed)
 # DATABASES = {
 #     "default": {

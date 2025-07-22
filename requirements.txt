@@ -17,3 +17,5 @@ django-datatables-view>=1.19.1
 # Data import/export capabilities
 pandas>=2.0.0
 openpyxl>=3.0.0
+# AI Analysis support
+openai>=1.0.0

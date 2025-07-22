@@ -21,7 +21,8 @@
       "Bash(npx tailwindcss:*)",
       "Bash(grep:*)",
       "Bash(curl:*)",
-      "Bash(del test_factoid_calculations.py)"
+      "Bash(del test_factoid_calculations.py)",
+      "Bash(git checkout:*)"
     ],
     "deny": []
   }

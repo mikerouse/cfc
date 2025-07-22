@@ -26,6 +26,11 @@ from council_finance.models import (
     FactoidTemplate,
     FactoidPlaylist,
     PlaylistItem,
+    AIProvider,
+    AIModel,
+    AIAnalysisTemplate,
+    AIAnalysisConfiguration,
+    CouncilAIAnalysis,
 )
 from council_finance.forms import (
     CounterDefinitionForm,
@@ -1107,4 +1112,190 @@ __all__ = [
     'god_mode',
     'activity_log_entries',
     'activity_log_json',
+    'ai_management_dashboard',
+    'ai_model_form',
+    'ai_template_form',
+    'ai_configuration_form',
+    'ai_analysis_detail',
 ]
+
+
+# AI Management Views for God Mode
+
+def ai_management_dashboard(request):
+    if not request.user.is_superuser:
+        return redirect('home')
+    """Main AI management dashboard"""
+    context = {
+        'providers': AIProvider.objects.all().order_by('name'),
+        'models': AIModel.objects.select_related('provider').order_by('provider__name', 'name'),
+        'templates': AIAnalysisTemplate.objects.order_by('name'),
+        'configurations': AIAnalysisConfiguration.objects.select_related('model', 'template').order_by('-is_default', 'name'),
+        'recent_analyses': CouncilAIAnalysis.objects.select_related('council', 'year', 'configuration').order_by('-created')[:10],
+    }
+    
+    return render(request, 'council_finance/ai_management/dashboard.html', context)
+
+
+def ai_model_form(request, model_id=None):
+    if not request.user.is_superuser:
+        return redirect('home')
+    """Add or edit AI model"""
+    if model_id:
+        model = get_object_or_404(AIModel, id=model_id)
+    else:
+        model = None
+    
+    if request.method == 'POST':
+        try:
+            provider_id = request.POST.get('provider')
+            provider = get_object_or_404(AIProvider, id=provider_id)
+            
+            if model:
+                model.provider = provider
+                model.name = request.POST.get('name')
+                model.model_id = request.POST.get('model_id') 
+                model.max_tokens = int(request.POST.get('max_tokens', 2000))
+                model.temperature = float(request.POST.get('temperature', 0.7))
+                model.is_active = request.POST.get('is_active') == 'on'
+                cost_per_token = request.POST.get('cost_per_token')
+                model.cost_per_token = float(cost_per_token) if cost_per_token else None
+                model.save()
+                messages.success(request, f'AI model "{model.name}" updated successfully')
+            else:
+                model = AIModel.objects.create(
+                    provider=provider,
+                    name=request.POST.get('name'),
+                    model_id=request.POST.get('model_id'),
+                    max_tokens=int(request.POST.get('max_tokens', 2000)),
+                    temperature=float(request.POST.get('temperature', 0.7)),
+                    is_active=request.POST.get('is_active') == 'on',
+                    cost_per_token=float(request.POST.get('cost_per_token')) if request.POST.get('cost_per_token') else None
+                )
+                messages.success(request, f'AI model "{model.name}" created successfully')
+            
+            return redirect('ai_management_dashboard')
+            
+        except Exception as e:
+            messages.error(request, f'Error saving AI model: {str(e)}')
+    
+    context = {
+        'model': model,
+        'providers': AIProvider.objects.filter(is_active=True).order_by('name'),
+    }
+    
+    return render(request, 'council_finance/ai_management/model_form.html', context)
+
+
+def ai_template_form(request, template_id=None):
+    if not request.user.is_superuser:
+        return redirect('home')
+    """Add or edit AI analysis template"""
+    if template_id:
+        template = get_object_or_404(AIAnalysisTemplate, id=template_id)
+    else:
+        template = None
+    
+    if request.method == 'POST':
+        try:
+            if template:
+                template.name = request.POST.get('name')
+                template.description = request.POST.get('description')
+                template.system_prompt = request.POST.get('system_prompt')
+                template.analysis_type = request.POST.get('analysis_type')
+                template.is_active = request.POST.get('is_active') == 'on'
+                template.save()
+                messages.success(request, f'AI template "{template.name}" updated successfully')
+            else:
+                template = AIAnalysisTemplate.objects.create(
+                    name=request.POST.get('name'),
+                    slug=request.POST.get('name').lower().replace(' ', '-'),
+                    description=request.POST.get('description'),
+                    system_prompt=request.POST.get('system_prompt'),
+                    analysis_type=request.POST.get('analysis_type'),
+                    is_active=request.POST.get('is_active') == 'on',
+                    created_by=request.user
+                )
+                messages.success(request, f'AI template "{template.name}" created successfully')
+            
+            return redirect('ai_management_dashboard')
+            
+        except Exception as e:
+            messages.error(request, f'Error saving AI template: {str(e)}')
+    
+    context = {
+        'template': template,
+        'analysis_types': AIAnalysisTemplate._meta.get_field('analysis_type').choices,
+    }
+    
+    return render(request, 'council_finance/ai_management/template_form.html', context)
+
+
+def ai_configuration_form(request, config_id=None):
+    if not request.user.is_superuser:
+        return redirect('home')
+    """Add or edit AI analysis configuration"""
+    if config_id:
+        configuration = get_object_or_404(AIAnalysisConfiguration, id=config_id)
+    else:
+        configuration = None
+    
+    if request.method == 'POST':
+        try:
+            model_id = request.POST.get('model')
+            template_id = request.POST.get('template')
+            model = get_object_or_404(AIModel, id=model_id)
+            template = get_object_or_404(AIAnalysisTemplate, id=template_id)
+            
+            if configuration:
+                configuration.name = request.POST.get('name')
+                configuration.model = model
+                configuration.template = template
+                configuration.cache_duration_minutes = int(request.POST.get('cache_duration_minutes', 60))
+                configuration.max_retries = int(request.POST.get('max_retries', 3))
+                configuration.timeout_seconds = int(request.POST.get('timeout_seconds', 30))
+                configuration.is_default = request.POST.get('is_default') == 'on'
+                configuration.is_active = request.POST.get('is_active') == 'on'
+                configuration.save()
+                messages.success(request, f'AI configuration "{configuration.name}" updated successfully')
+            else:
+                configuration = AIAnalysisConfiguration.objects.create(
+                    name=request.POST.get('name'),
+                    model=model,
+                    template=template,
+                    cache_duration_minutes=int(request.POST.get('cache_duration_minutes', 60)),
+                    max_retries=int(request.POST.get('max_retries', 3)),
+                    timeout_seconds=int(request.POST.get('timeout_seconds', 30)),
+                    is_default=request.POST.get('is_default') == 'on',
+                    is_active=request.POST.get('is_active') == 'on'
+                )
+                messages.success(request, f'AI configuration "{configuration.name}" created successfully')
+            
+            return redirect('ai_management_dashboard')
+            
+        except Exception as e:
+            messages.error(request, f'Error saving AI configuration: {str(e)}')
+    
+    context = {
+        'configuration': configuration,
+        'models': AIModel.objects.filter(is_active=True).select_related('provider').order_by('provider__name', 'name'),
+        'templates': AIAnalysisTemplate.objects.filter(is_active=True).order_by('name'),
+    }
+    
+    return render(request, 'council_finance/ai_management/configuration_form.html', context)
+
+
+def ai_analysis_detail(request, analysis_id):
+    if not request.user.is_superuser:
+        return redirect('home')
+    """View detailed AI analysis results"""
+    analysis = get_object_or_404(
+        CouncilAIAnalysis.objects.select_related('council', 'year', 'configuration', 'configuration__model', 'configuration__template'),
+        id=analysis_id
+    )
+    
+    context = {
+        'analysis': analysis,
+    }
+    
+    return render(request, 'council_finance/ai_management/analysis_detail.html', context)

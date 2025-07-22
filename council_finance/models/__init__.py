@@ -56,6 +56,13 @@ from .council_data import (
     CouncilData,
     DataApprovalLog,
 )
+from .ai_analysis import (
+    AIProvider,
+    AIModel,
+    AIAnalysisTemplate,
+    AIAnalysisConfiguration,
+    CouncilAIAnalysis,
+)
 
 __all__ = [
     'Council',
@@ -109,4 +116,9 @@ __all__ = [
     'FlagComment',
     'CouncilData',
     'DataApprovalLog',
+    'AIProvider',
+    'AIModel',
+    'AIAnalysisTemplate',
+    'AIAnalysisConfiguration',
+    'CouncilAIAnalysis',
 ]

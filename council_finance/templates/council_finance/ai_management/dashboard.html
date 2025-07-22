@@ -1,0 +1,243 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}AI Analysis Management - Council Finance Counters{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto px-4 py-6">
+  <!-- Header -->
+  <div class="bg-white rounded-lg shadow-sm border border-gray-200 mb-6">
+    <div class="px-6 py-4 border-b border-gray-200">
+      <div class="flex items-center justify-between">
+        <div>
+          <h1 class="text-2xl font-bold text-gray-900 flex items-center">
+            <svg class="w-6 h-6 mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/>
+            </svg>
+            AI Analysis Management
+          </h1>
+          <p class="text-gray-600 text-sm mt-1">Configure AI models, templates, and analysis settings</p>
+        </div>
+        <div class="flex space-x-2">
+          <a href="{% url 'ai_configuration_add' %}" class="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition-colors text-sm">
+            New Configuration
+          </a>
+          <a href="{% url 'god_mode' %}" class="bg-gray-600 text-white px-4 py-2 rounded-md hover:bg-gray-700 transition-colors text-sm">
+            Back to God Mode
+          </a>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Stats Overview -->
+  <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
+    <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+      <div class="flex items-center">
+        <div class="p-2 bg-blue-100 rounded-lg">
+          <svg class="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z"/>
+          </svg>
+        </div>
+        <div class="ml-3">
+          <p class="text-sm font-medium text-gray-600">AI Models</p>
+          <p class="text-2xl font-bold text-gray-900">{{ models|length }}</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+      <div class="flex items-center">
+        <div class="p-2 bg-purple-100 rounded-lg">
+          <svg class="w-5 h-5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+          </svg>
+        </div>
+        <div class="ml-3">
+          <p class="text-sm font-medium text-gray-600">Templates</p>
+          <p class="text-2xl font-bold text-gray-900">{{ templates|length }}</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+      <div class="flex items-center">
+        <div class="p-2 bg-green-100 rounded-lg">
+          <svg class="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/>
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+          </svg>
+        </div>
+        <div class="ml-3">
+          <p class="text-sm font-medium text-gray-600">Configurations</p>
+          <p class="text-2xl font-bold text-gray-900">{{ configurations|length }}</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+      <div class="flex items-center">
+        <div class="p-2 bg-orange-100 rounded-lg">
+          <svg class="w-5 h-5 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v4a2 2 0 01-2 2h-2a2 2 0 00-2 2z"/>
+          </svg>
+        </div>
+        <div class="ml-3">
+          <p class="text-sm font-medium text-gray-600">Recent Analyses</p>
+          <p class="text-2xl font-bold text-gray-900">{{ recent_analyses|length }}</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Main Content -->
+  <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+    
+    <!-- Configurations -->
+    <div class="bg-white rounded-lg shadow-sm border border-gray-200">
+      <div class="px-6 py-4 border-b border-gray-200">
+        <div class="flex items-center justify-between">
+          <h2 class="text-lg font-semibold text-gray-900">Active Configurations</h2>
+          <a href="{% url 'ai_configuration_add' %}" class="text-blue-600 hover:text-blue-800 text-sm">Add New</a>
+        </div>
+      </div>
+      <div class="p-6">
+        {% if configurations %}
+          <div class="space-y-3">
+            {% for config in configurations %}
+              <div class="flex items-center justify-between p-3 border border-gray-200 rounded-lg {% if config.is_default %}bg-blue-50 border-blue-200{% endif %}">
+                <div class="flex-1">
+                  <div class="flex items-center space-x-2">
+                    <h3 class="font-medium text-gray-900">{{ config.name }}</h3>
+                    {% if config.is_default %}
+                      <span class="px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded-full">Default</span>
+                    {% endif %}
+                    {% if not config.is_active %}
+                      <span class="px-2 py-1 bg-gray-100 text-gray-600 text-xs rounded-full">Inactive</span>
+                    {% endif %}
+                  </div>
+                  <p class="text-sm text-gray-600">{{ config.model.name }} • {{ config.template.name }}</p>
+                </div>
+                <a href="{% url 'ai_configuration_edit' config.id %}" class="text-gray-400 hover:text-gray-600">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/>
+                  </svg>
+                </a>
+              </div>
+            {% endfor %}
+          </div>
+        {% else %}
+          <p class="text-gray-500 text-center py-4">No configurations yet</p>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- Recent Analyses -->
+    <div class="bg-white rounded-lg shadow-sm border border-gray-200">
+      <div class="px-6 py-4 border-b border-gray-200">
+        <h2 class="text-lg font-semibold text-gray-900">Recent AI Analyses</h2>
+      </div>
+      <div class="p-6">
+        {% if recent_analyses %}
+          <div class="space-y-3">
+            {% for analysis in recent_analyses %}
+              <div class="flex items-center justify-between p-3 border border-gray-200 rounded-lg">
+                <div class="flex-1">
+                  <h3 class="font-medium text-gray-900">{{ analysis.council.name }}</h3>
+                  <div class="flex items-center space-x-2 text-sm text-gray-600">
+                    <span>{{ analysis.year.label }}</span>
+                    <span>•</span>
+                    <span class="px-2 py-1 bg-{% if analysis.status == 'completed' %}green{% elif analysis.status == 'failed' %}red{% else %}yellow{% endif %}-100 text-{% if analysis.status == 'completed' %}green{% elif analysis.status == 'failed' %}red{% else %}yellow{% endif %}-800 text-xs rounded">
+                      {{ analysis.status|capfirst }}
+                    </span>
+                    <span>•</span>
+                    <span>{{ analysis.created|timesince }} ago</span>
+                  </div>
+                </div>
+                <a href="{% url 'ai_analysis_detail' analysis.id %}" class="text-blue-600 hover:text-blue-800 text-sm">View</a>
+              </div>
+            {% endfor %}
+          </div>
+        {% else %}
+          <p class="text-gray-500 text-center py-4">No analyses yet</p>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- AI Models -->
+    <div class="bg-white rounded-lg shadow-sm border border-gray-200">
+      <div class="px-6 py-4 border-b border-gray-200">
+        <div class="flex items-center justify-between">
+          <h2 class="text-lg font-semibold text-gray-900">AI Models</h2>
+          <a href="{% url 'ai_model_add' %}" class="text-blue-600 hover:text-blue-800 text-sm">Add New</a>
+        </div>
+      </div>
+      <div class="p-6">
+        {% if models %}
+          <div class="space-y-3">
+            {% for model in models %}
+              <div class="flex items-center justify-between p-3 border border-gray-200 rounded-lg">
+                <div class="flex-1">
+                  <h3 class="font-medium text-gray-900">{{ model.name }}</h3>
+                  <div class="flex items-center space-x-2 text-sm text-gray-600">
+                    <span>{{ model.provider.name }}</span>
+                    <span>•</span>
+                    <span>{{ model.model_id }}</span>
+                    {% if not model.is_active %}
+                      <span>•</span>
+                      <span class="text-red-600">Inactive</span>
+                    {% endif %}
+                  </div>
+                </div>
+                <a href="{% url 'ai_model_edit' model.id %}" class="text-gray-400 hover:text-gray-600">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/>
+                  </svg>
+                </a>
+              </div>
+            {% endfor %}
+          </div>
+        {% else %}
+          <p class="text-gray-500 text-center py-4">No models configured</p>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- Templates -->
+    <div class="bg-white rounded-lg shadow-sm border border-gray-200">
+      <div class="px-6 py-4 border-b border-gray-200">
+        <div class="flex items-center justify-between">
+          <h2 class="text-lg font-semibold text-gray-900">Analysis Templates</h2>
+          <a href="{% url 'ai_template_add' %}" class="text-blue-600 hover:text-blue-800 text-sm">Add New</a>
+        </div>
+      </div>
+      <div class="p-6">
+        {% if templates %}
+          <div class="space-y-3">
+            {% for template in templates %}
+              <div class="flex items-center justify-between p-3 border border-gray-200 rounded-lg">
+                <div class="flex-1">
+                  <h3 class="font-medium text-gray-900">{{ template.name }}</h3>
+                  <div class="flex items-center space-x-2 text-sm text-gray-600">
+                    <span class="px-2 py-1 bg-gray-100 text-gray-700 text-xs rounded">{{ template.get_analysis_type_display }}</span>
+                    {% if not template.is_active %}
+                      <span class="text-red-600">Inactive</span>
+                    {% endif %}
+                  </div>
+                </div>
+                <a href="{% url 'ai_template_edit' template.id %}" class="text-gray-400 hover:text-gray-600">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/>
+                  </svg>
+                </a>
+              </div>
+            {% endfor %}
+          </div>
+        {% else %}
+          <p class="text-gray-500 text-center py-4">No templates configured</p>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
