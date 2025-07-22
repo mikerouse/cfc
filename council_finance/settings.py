@@ -55,6 +55,7 @@ MIDDLEWARE = [
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
+    "council_finance.middleware.error_alerting.ErrorAlertingMiddleware",  # Email alerts for errors
 ]
 
 ROOT_URLCONF = "council_finance.urls"
@@ -140,6 +141,10 @@ LOGIN_REDIRECT_URL = "/accounts/profile/"
 EMAIL_BACKEND = "django.core.mail.backends.locmem.EmailBackend"
 # Address used for all outgoing system emails
 DEFAULT_FROM_EMAIL = "counters@mikerouse.co.uk"
+
+# Email Alert Configuration using Brevo API
+BREVO_API_KEY = os.getenv('BREVO_API_KEY')
+ERROR_ALERTS_EMAIL_ADDRESS = os.getenv('ERROR_ALERTS_EMAIL_ADDRESS')
 
 # Default financial year label used across the site until updated via
 # the SiteSetting admin. This ensures new pages load figures for the
