@@ -169,6 +169,7 @@ urlpatterns = [
     # AI Analysis API endpoints
     path("api/ai-analysis/<slug:council_slug>/<str:year_label>/", api_views.council_ai_analysis_api, name="council_ai_analysis_api"),
     path("api/ai-analysis/status/<int:analysis_id>/", api_views.ai_analysis_status_api, name="ai_analysis_status_api"),
+    path("api/ai-providers/<int:provider_id>/models/", api_views.provider_models_api, name="provider_models_api"),
     path("contribute/data-issues-table/", contrib_views.data_issues_table, name="data_issues_table"),
     path("contribute/stats/", contrib_views.contribute_stats, name="contribute_stats"),
     path("contribute/submit/", contrib_views.contribute_submit, name="submit_contribution"),

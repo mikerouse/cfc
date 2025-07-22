@@ -22,7 +22,8 @@
       "Bash(grep:*)",
       "Bash(curl:*)",
       "Bash(del test_factoid_calculations.py)",
-      "Bash(git checkout:*)"
+      "Bash(git checkout:*)",
+      "Bash(tail:*)"
     ],
     "deny": []
   }

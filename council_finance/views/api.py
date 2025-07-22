@@ -530,3 +530,117 @@ def ai_analysis_status_api(request, analysis_id):
             'success': False,
             'error': str(e)
         }, status=500)
+
+
+@require_GET
+def provider_models_api(request, provider_id):
+    """API endpoint to fetch available models from an AI provider."""
+    if not request.user.is_superuser:
+        return JsonResponse({'success': False, 'error': 'Unauthorized'}, status=403)
+    
+    try:
+        from council_finance.models.ai_analysis import AIProvider
+        
+        provider = get_object_or_404(AIProvider, id=provider_id)
+        models = []
+        
+        # Handle different providers
+        if provider.slug == 'openai':
+            models = _fetch_openai_models()
+        elif provider.slug == 'anthropic':
+            models = _fetch_anthropic_models()
+        elif provider.slug == 'google':
+            models = _fetch_google_models()
+        else:
+            # Return empty list for unsupported providers
+            models = []
+        
+        return JsonResponse({
+            'success': True,
+            'provider': provider.name,
+            'models': models
+        })
+        
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'error': str(e)
+        }, status=500)
+
+
+def _fetch_openai_models():
+    """Fetch available models from OpenAI API."""
+    try:
+        from openai import OpenAI
+        import os
+        
+        # Check if API key is available
+        api_key = os.getenv('OPENAI_API_KEY')
+        if not api_key:
+            return [{
+                'id': 'gpt-4-turbo',
+                'name': 'GPT-4 Turbo (API key not configured)',
+                'available': False
+            }]
+        
+        client = OpenAI(api_key=api_key)
+        response = client.models.list()
+        
+        # Filter for relevant models and sort by name
+        relevant_models = []
+        model_names = {
+            'gpt-4': 'GPT-4',
+            'gpt-4-turbo': 'GPT-4 Turbo',
+            'gpt-4-turbo-preview': 'GPT-4 Turbo Preview',
+            'gpt-4o': 'GPT-4o',
+            'gpt-4o-mini': 'GPT-4o Mini',
+            'gpt-3.5-turbo': 'GPT-3.5 Turbo',
+            'gpt-3.5-turbo-16k': 'GPT-3.5 Turbo 16K'
+        }
+        
+        for model in response.data:
+            if model.id in model_names:
+                relevant_models.append({
+                    'id': model.id,
+                    'name': model_names[model.id],
+                    'available': True
+                })
+        
+        # Sort by preference order
+        model_order = ['gpt-4o', 'gpt-4o-mini', 'gpt-4-turbo', 'gpt-4', 'gpt-3.5-turbo']
+        relevant_models.sort(key=lambda x: model_order.index(x['id']) if x['id'] in model_order else 999)
+        
+        return relevant_models
+        
+    except ImportError:
+        return [{
+            'id': 'gpt-4-turbo',
+            'name': 'GPT-4 Turbo (OpenAI library not installed)',
+            'available': False
+        }]
+    except Exception as e:
+        return [{
+            'id': 'error',
+            'name': f'Error fetching models: {str(e)}',
+            'available': False
+        }]
+
+
+def _fetch_anthropic_models():
+    """Fetch available models from Anthropic (static list since they don't have a models API)."""
+    return [
+        {'id': 'claude-3-5-sonnet-20241022', 'name': 'Claude 3.5 Sonnet (Latest)', 'available': True},
+        {'id': 'claude-3-5-sonnet-20240620', 'name': 'Claude 3.5 Sonnet (June)', 'available': True},
+        {'id': 'claude-3-opus-20240229', 'name': 'Claude 3 Opus', 'available': True},
+        {'id': 'claude-3-sonnet-20240229', 'name': 'Claude 3 Sonnet', 'available': True},
+        {'id': 'claude-3-haiku-20240307', 'name': 'Claude 3 Haiku', 'available': True}
+    ]
+
+
+def _fetch_google_models():
+    """Fetch available models from Google (static list)."""
+    return [
+        {'id': 'gemini-pro', 'name': 'Gemini Pro', 'available': True},
+        {'id': 'gemini-1.5-pro', 'name': 'Gemini 1.5 Pro', 'available': True},
+        {'id': 'gemini-1.5-flash', 'name': 'Gemini 1.5 Flash', 'available': True}
+    ]
