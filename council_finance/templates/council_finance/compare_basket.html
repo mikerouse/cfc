@@ -1,0 +1,273 @@
+{% extends "base.html" %}
+{% load static %}
+{% block title %}Council Comparison Basket{% endblock %}
+
+{% block extra_css %}
+<style>
+.council-card {
+    transition: all 0.2s ease-in-out;
+}
+.council-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-8">
+    <!-- Header Section -->
+    <div class="mb-8">
+        <h1 class="text-3xl font-bold text-gray-900 mb-2">🛒 Council Comparison Basket</h1>
+        <p class="text-gray-600">Your selected councils for comparison.</p>
+    </div>
+
+    {% if councils %}
+    <!-- Controls -->
+    <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
+        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div class="flex items-center gap-2">
+                <span class="text-sm font-medium text-gray-700">
+                    {{ councils|length }} council{{ councils|length|pluralize }} selected
+                </span>
+            </div>
+            <div class="flex items-center gap-2">
+                <button id="clear-basket-btn" class="px-4 py-2 text-sm font-medium text-red-600 bg-red-50 border border-red-200 rounded-md hover:bg-red-100 focus:outline-none focus:ring-2 focus:ring-red-500">
+                    Clear Basket
+                </button>
+                {% if user.is_authenticated %}
+                <button id="save-list-btn" class="px-4 py-2 bg-green-600 text-white text-sm font-medium rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500">
+                    Save as List
+                </button>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Council Cards -->
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+        {% for council in councils %}
+        <div class="council-card bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+            <div class="flex items-start justify-between mb-4">
+                <div class="flex-1">
+                    <h3 class="text-lg font-semibold text-gray-900 mb-1">{{ council.name }}</h3>
+                    <p class="text-sm text-gray-500">{{ council.council_type.name|default:"Council" }}</p>
+                </div>
+                <button class="remove-council-btn text-red-400 hover:text-red-600 p-1" 
+                        data-slug="{{ council.slug }}" 
+                        title="Remove from basket">
+                    <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                    </svg>
+                </button>
+            </div>
+            
+            <div class="space-y-2 mb-4">
+                {% if council.council_nation %}
+                <div class="flex items-center text-sm text-gray-600">
+                    <svg class="w-4 h-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/>
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/>
+                    </svg>
+                    {{ council.council_nation.name }}
+                </div>
+                {% endif %}
+                
+                {% if council.population %}
+                <div class="flex items-center text-sm text-gray-600">
+                    <svg class="w-4 h-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z"/>
+                    </svg>
+                    Population: {{ council.population|floatformat:0|default:"Unknown" }}
+                </div>
+                {% endif %}
+            </div>
+            
+            <div class="flex items-center justify-between">
+                <a href="{% url 'council_detail' council.slug %}" 
+                   class="text-blue-600 hover:text-blue-800 text-sm font-medium flex items-center">
+                    View Details
+                    <svg class="w-4 h-4 ml-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+                    </svg>
+                </a>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    <!-- Comparison Actions -->
+    <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+        <h3 class="text-lg font-semibold text-gray-900 mb-4">Compare Data</h3>
+        <p class="text-gray-600 mb-4">
+            Ready to compare these {{ councils|length }} councils? You can view detailed financial comparisons and analytics.
+        </p>
+        
+        <div class="flex flex-col sm:flex-row gap-4">
+            <a href="{% url 'comparison_basket' %}" 
+               class="inline-flex items-center px-6 py-3 bg-blue-600 text-white font-medium rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors">
+                <svg class="w-5 h-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
+                </svg>
+                Start Detailed Comparison
+            </a>
+            
+            <button class="inline-flex items-center px-6 py-3 border border-gray-300 text-gray-700 font-medium rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-500 transition-colors">
+                <svg class="w-5 h-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                </svg>
+                Export Data
+            </button>
+        </div>
+    </div>
+
+    <!-- Save List Modal -->
+    {% if user.is_authenticated %}
+    <div id="save-list-modal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden z-50">
+        <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+            <div class="mt-3">
+                <div class="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-green-100 mb-4">
+                    <svg class="h-6 w-6 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+                    </svg>
+                </div>
+                <h3 class="text-lg font-medium text-gray-900 text-center mb-4">Save as List</h3>
+                <form id="save-list-form" method="post">
+                    {% csrf_token %}
+                    <input type="hidden" name="save_list" value="1">
+                    <div class="mb-4">
+                        <label for="list-name" class="block text-sm font-medium text-gray-700 mb-2">List Name</label>
+                        <input type="text" id="list-name" name="name" required 
+                               class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                               placeholder="My Council Comparison">
+                    </div>
+                    <div class="flex justify-end gap-3">
+                        <button type="button" id="cancel-save-btn" 
+                                class="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 border border-gray-300 rounded-md hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-gray-500">
+                            Cancel
+                        </button>
+                        <button type="submit" 
+                                class="px-4 py-2 text-sm font-medium text-white bg-green-600 border border-transparent rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500">
+                            Save List
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    {% else %}
+    <!-- Empty State -->
+    <div class="text-center py-16">
+        <div class="mx-auto h-24 w-24 text-gray-400 mb-6">
+            <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M3 3h2l.4 2M7 13h10l4-8H5.4m0 0L7 13m0 0l-2.293 2.293a1 1 0 000 1.414L6 18h12M7 13v8a2 2 0 002 2h6a2 2 0 002-2v-8"/>
+            </svg>
+        </div>
+        <h3 class="text-xl font-medium text-gray-900 mb-2">Your comparison basket is empty</h3>
+        <p class="text-gray-500 mb-8 max-w-md mx-auto">
+            Add councils to your basket from any council page to start comparing their financial data and characteristics.
+        </p>
+        <div class="flex flex-col sm:flex-row gap-4 justify-center">
+            <a href="{% url 'council_list' %}" class="inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                <svg class="w-5 h-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+                </svg>
+                Browse Councils
+            </a>
+            <a href="{% url 'home' %}" class="inline-flex items-center px-6 py-3 border border-gray-300 text-base font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-500">
+                <svg class="w-5 h-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/>
+                </svg>
+                Go Home
+            </a>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<!-- JavaScript -->
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const clearBasketBtn = document.getElementById('clear-basket-btn');
+    const saveListBtn = document.getElementById('save-list-btn');
+    const saveListModal = document.getElementById('save-list-modal');
+    const cancelSaveBtn = document.getElementById('cancel-save-btn');
+
+    // Clear basket
+    if (clearBasketBtn) {
+        clearBasketBtn.addEventListener('click', function() {
+            if (confirm('Are you sure you want to clear your comparison basket?')) {
+                fetch('/compare/clear/', {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+                        'Content-Type': 'application/json',
+                    }
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === 'success') {
+                        location.reload();
+                    }
+                })
+                .catch(error => {
+                    console.error('Error clearing basket:', error);
+                    alert('Error clearing basket. Please try again.');
+                });
+            }
+        });
+    }
+
+    // Save list modal
+    if (saveListBtn) {
+        saveListBtn.addEventListener('click', function() {
+            saveListModal.classList.remove('hidden');
+        });
+    }
+
+    if (cancelSaveBtn) {
+        cancelSaveBtn.addEventListener('click', function() {
+            saveListModal.classList.add('hidden');
+        });
+    }
+
+    // Remove council from basket
+    document.addEventListener('click', function(e) {
+        if (e.target.closest('.remove-council-btn')) {
+            const btn = e.target.closest('.remove-council-btn');
+            const slug = btn.dataset.slug;
+            
+            if (confirm('Remove this council from the comparison basket?')) {
+                fetch(`/compare/remove/${slug}/`, {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+                    }
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === 'success') {
+                        location.reload();
+                    }
+                })
+                .catch(error => {
+                    console.error('Error removing council:', error);
+                    alert('Error removing council. Please try again.');
+                });
+            }
+        }
+    });
+
+    // Close modal when clicking outside
+    if (saveListModal) {
+        saveListModal.addEventListener('click', function(e) {
+            if (e.target === saveListModal) {
+                saveListModal.classList.add('hidden');
+            }
+        });
+    }
+});
+</script>
+{% endblock %}
