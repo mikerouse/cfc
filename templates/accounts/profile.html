@@ -1,0 +1,557 @@
+{# Profile page for logged in users using the common base template #}
+{% extends "base.html" %}
+{% load notifications %}
+{% block title %}My Profile - Council Finance Counters{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+  <div class="mb-8">
+    <h1 class="text-3xl font-bold text-gray-900 mb-2">My Profile</h1>
+    <p class="text-gray-600">Manage your account settings and personal information</p>
+  </div>
+
+  <!-- Navigation Tabs -->
+  <div class="mb-8">
+    <div class="border-b border-gray-200">
+      <nav class="-mb-px flex space-x-8">
+        <a href="{% url 'profile' %}" 
+           class="{% if tab == 'profile' %}border-blue-500 text-blue-600{% else %}border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300{% endif %} whitespace-nowrap py-2 px-1 border-b-2 font-medium text-sm transition-colors duration-200">
+          Profile
+        </a>
+        <a href="{% url 'profile' %}?tab=custom" 
+           class="{% if tab == 'custom' %}border-blue-500 text-blue-600{% else %}border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300{% endif %} whitespace-nowrap py-2 px-1 border-b-2 font-medium text-sm transition-colors duration-200">
+          Customization
+        </a>
+        <a href="{% url 'user_preferences' %}" 
+           class="border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 whitespace-nowrap py-2 px-1 border-b-2 font-medium text-sm transition-colors duration-200">
+          Preferences
+        </a>
+        <a href="{% url 'notifications' %}" 
+           class="border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 whitespace-nowrap py-2 px-1 border-b-2 font-medium text-sm transition-colors duration-200">
+          Notifications
+        </a>
+      </nav>
+    </div>
+  </div>
+
+  <!-- Messages -->
+  {% if messages %}
+    <div class="mb-6">
+      {% for message in messages %}
+        <div class="mb-3 p-4 rounded-md {% if message.tags == 'success' %}bg-green-50 border border-green-200 text-green-800{% elif message.tags == 'error' %}bg-red-50 border border-red-200 text-red-800{% elif message.tags == 'warning' %}bg-yellow-50 border border-yellow-200 text-yellow-800{% else %}bg-blue-50 border border-blue-200 text-blue-800{% endif %}">
+          <div class="flex">
+            <div class="flex-shrink-0">
+              {% if message.tags == 'success' %}
+                <svg class="h-5 w-5 text-green-400" fill="currentColor" viewBox="0 0 20 20">
+                  <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+                </svg>
+              {% elif message.tags == 'error' %}
+                <svg class="h-5 w-5 text-red-400" fill="currentColor" viewBox="0 0 20 20">
+                  <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"/>
+                </svg>
+              {% else %}
+                <svg class="h-5 w-5 text-blue-400" fill="currentColor" viewBox="0 0 20 20">
+                  <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"/>
+                </svg>
+              {% endif %}
+            </div>
+            <div class="ml-3">
+              <p class="text-sm font-medium">{{ message }}</p>
+            </div>
+          </div>
+        </div>
+      {% endfor %}
+    </div>
+  {% endif %}
+
+  <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+    <!-- Main Content -->
+    <div class="lg:col-span-2">
+      {% if tab == 'custom' %}
+        <!-- Customization Tab -->
+        <div class="bg-white shadow-sm rounded-lg border border-gray-200">
+          <div class="px-6 py-4 border-b border-gray-200">
+            <h2 class="text-lg font-semibold text-gray-900">Customization Settings</h2>
+            <p class="text-sm text-gray-500 mt-1">Personalize your experience</p>
+          </div>
+          <form method="post" class="p-6 space-y-6">
+            {% csrf_token %}
+            <div>
+              <label for="preferred_font" class="block text-sm font-medium text-gray-700 mb-2">
+                Preferred Font
+              </label>
+              <select name="preferred_font" id="preferred_font" 
+                      class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
+                {% for font in fonts %}
+                <option value="{{ font }}" {% if profile.preferred_font == font %}selected{% endif %} style="font-family: {{ font }};">
+                  {{ font }}
+                </option>
+                {% endfor %}
+              </select>
+            </div>
+            
+            {% if user.is_superuser %}
+            <div>
+              <label for="tier" class="block text-sm font-medium text-gray-700 mb-2">
+                Trust Tier
+              </label>
+              <select name="tier" id="tier"
+                      class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
+                {% for t in tiers %}
+                <option value="{{ t.id }}" {% if profile.tier_id == t.id %}selected{% endif %}>
+                  {{ t.name }}
+                </option>
+                {% endfor %}
+              </select>
+            </div>
+            {% endif %}
+            
+            <div class="pt-4">
+              <button type="submit" 
+                      class="inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200">
+                Save Customization
+              </button>
+            </div>
+          </form>
+        </div>
+      {% else %}
+        <!-- Profile Tab Content -->
+        <div class="space-y-8">
+          <!-- Email Confirmation Status -->
+          {% if not confirmation_status.email_confirmed or confirmation_status.requires_reconfirmation %}
+            {% if confirmation_status.requires_reconfirmation %}
+            <div class="bg-red-50 border border-red-200 rounded-md p-4">
+              <div class="flex">
+                <div class="flex-shrink-0">
+                  <svg class="h-5 w-5 text-red-400" fill="currentColor" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"/>
+                  </svg>
+                </div>
+                <div class="ml-3 flex-1">
+                  <h3 class="text-sm font-medium text-red-800">Email re-confirmation required</h3>
+                  <div class="mt-2 text-sm text-red-700">
+                    <p>Due to recent security changes, please re-confirm your email address to continue using all features.</p>
+                  </div>
+                  <div class="mt-3 flex items-center space-x-4">
+                    {% if confirmation_status.can_send_confirmation %}
+                      <a href="{% url 'resend_confirmation' %}" 
+                         class="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500">
+                        Send Confirmation Email
+                      </a>
+                    {% else %}
+                      <span class="text-sm text-red-600">Please wait before requesting another confirmation email</span>
+                    {% endif %}
+                    <span class="text-xs text-red-500">{{ confirmation_status.attempts_remaining }} attempts remaining</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+            {% else %}
+            <div class="bg-amber-50 border border-amber-200 rounded-md p-4">
+              <div class="flex">
+                <div class="flex-shrink-0">
+                  <svg class="h-5 w-5 text-amber-400" fill="currentColor" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/>
+                  </svg>
+                </div>
+                <div class="ml-3 flex-1">
+                  <h3 class="text-sm font-medium text-amber-800">Email confirmation required</h3>
+                  <div class="mt-2 text-sm text-amber-700">
+                    <p>Please confirm your email address to access all features.</p>
+                  </div>
+                  <div class="mt-3 flex items-center space-x-4">
+                    {% if confirmation_status.can_send_confirmation %}
+                      <a href="{% url 'resend_confirmation' %}" 
+                         class="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md text-white bg-amber-600 hover:bg-amber-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-amber-500">
+                        Send Confirmation Email
+                      </a>
+                    {% else %}
+                      <span class="text-sm text-amber-600">Please wait before requesting another confirmation email</span>
+                    {% endif %}
+                    <span class="text-xs text-amber-500">{{ confirmation_status.attempts_remaining }} attempts remaining</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+            {% endif %}
+          {% endif %}
+
+          <!-- Pending Email Changes -->
+          {% if confirmation_status.has_pending_email %}
+          <div class="bg-blue-50 border border-blue-200 rounded-md p-4">
+            <div class="flex">
+              <div class="flex-shrink-0">
+                <svg class="h-5 w-5 text-blue-400" fill="currentColor" viewBox="0 0 20 20">
+                  <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"/>
+                </svg>
+              </div>
+              <div class="ml-3 flex-1">
+                <h3 class="text-sm font-medium text-blue-800">Email change pending</h3>
+                <div class="mt-2 text-sm text-blue-700">
+                  <p>You have a pending email change that requires confirmation. Check your new email address for a confirmation link.</p>
+                  {% if profile.pending_email %}
+                    <p class="mt-1"><strong>New email:</strong> {{ profile.pending_email }}</p>
+                  {% endif %}
+                </div>
+                <div class="mt-3">
+                  <form method="post" action="{% url 'cancel_email_change' %}" class="inline">
+                    {% csrf_token %}
+                    <button type="submit" 
+                            class="text-sm font-medium text-blue-800 underline hover:text-blue-900"
+                            onclick="return confirm('Are you sure you want to cancel this email change?')">
+                      Cancel email change
+                    </button>
+                  </form>
+                </div>
+              </div>
+            </div>
+          </div>
+          {% endif %}
+
+          <!-- Pending Changes List -->
+          {% if confirmation_status.pending_changes %}
+          <div class="bg-gray-50 border border-gray-200 rounded-md p-4">
+            <h3 class="text-sm font-medium text-gray-800 mb-3">Pending Changes</h3>
+            <div class="space-y-2">
+              {% for change in confirmation_status.pending_changes %}
+              <div class="flex items-center justify-between bg-white px-3 py-2 rounded border">
+                <div class="flex-1">
+                  <span class="text-sm font-medium text-gray-900">{{ change.type }}</span>
+                  <span class="text-sm text-gray-500 ml-2">{{ change.field }}</span>
+                </div>
+                <div class="text-xs text-gray-400">
+                  {% if change.is_expired %}
+                    Expired
+                  {% else %}
+                    Expires {{ change.expires|timesince }}
+                  {% endif %}
+                </div>
+              </div>
+              {% endfor %}
+            </div>
+          </div>
+          {% endif %}
+
+          <!-- Postcode Prompt -->
+          {% if not profile.postcode and not profile.postcode_refused %}
+          <div class="bg-red-50 border border-red-200 rounded-md p-4">
+            <div class="flex">
+              <div class="flex-shrink-0">
+                <svg class="h-5 w-5 text-red-400" fill="currentColor" viewBox="0 0 20 20">
+                  <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"/>
+                </svg>
+              </div>
+              <div class="ml-3 flex-1">
+                <h3 class="text-sm font-medium text-red-800">Add your postcode</h3>
+                <div class="mt-2 text-sm text-red-700">
+                  <p>Many features rely on location data. Please add your postcode to get personalized views and data.</p>
+                </div>
+                <div class="mt-4 flex items-center space-x-3">
+                  <input id="postcode-input" type="text" placeholder="Enter postcode" 
+                         class="flex-1 px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-red-500 focus:border-red-500 sm:text-sm">
+                  <button id="postcode-save" type="button" 
+                          class="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500">
+                    Save
+                  </button>
+                </div>
+                <div class="mt-3">
+                  <label class="flex items-center">
+                    <input id="postcode-refused" type="checkbox" 
+                           class="rounded border-gray-300 text-red-600 shadow-sm focus:border-red-300 focus:ring focus:ring-red-200 focus:ring-opacity-50">
+                    <span class="ml-2 text-sm text-red-700">I don't want to provide my postcode</span>
+                  </label>
+                </div>
+              </div>
+            </div>
+          </div>
+          {% elif profile.postcode_refused %}
+          <div class="bg-gray-50 border border-gray-200 rounded-md p-4">
+            <div class="flex">
+              <div class="flex-shrink-0">
+                <svg class="h-5 w-5 text-gray-400" fill="currentColor" viewBox="0 0 20 20">
+                  <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"/>
+                </svg>
+              </div>
+              <div class="ml-3">
+                <p class="text-sm text-gray-700">You've chosen not to provide a postcode. Some location-based features will not be available.</p>
+              </div>
+            </div>
+          </div>
+          {% endif %}
+
+          <!-- Basic Information -->
+          <div class="bg-white shadow-sm rounded-lg border border-gray-200">
+            <div class="px-6 py-4 border-b border-gray-200">
+              <h2 class="text-lg font-semibold text-gray-900">Basic Information</h2>
+            </div>
+            <div class="px-6 py-4">
+              <dl class="grid grid-cols-1 gap-x-4 gap-y-4 sm:grid-cols-2">
+                <div>
+                  <dt class="text-sm font-medium text-gray-500">Username</dt>
+                  <dd class="mt-1 text-sm text-gray-900">{{ user.username }}</dd>
+                </div>
+                <div>
+                  <dt class="text-sm font-medium text-gray-500">Email</dt>
+                  <dd class="mt-1 text-sm text-gray-900">
+                    {{ user.email }}
+                    {% if profile.email_confirmed %}
+                      <span class="ml-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">Verified</span>
+                    {% else %}
+                      <span class="ml-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">Unverified</span>
+                    {% endif %}
+                  </dd>
+                </div>
+                <div>
+                  <dt class="text-sm font-medium text-gray-500">First name</dt>
+                  <dd class="mt-1 text-sm text-gray-900">{{ user.first_name|default:"-" }}</dd>
+                </div>
+                <div>
+                  <dt class="text-sm font-medium text-gray-500">Last name</dt>
+                  <dd class="mt-1 text-sm text-gray-900">{{ user.last_name|default:"-" }}</dd>
+                </div>
+                <div>
+                  <dt class="text-sm font-medium text-gray-500">Postcode</dt>
+                  <dd class="mt-1 text-sm text-gray-900">{{ profile.postcode|default:"-" }}</dd>
+                </div>
+                <div>
+                  <dt class="text-sm font-medium text-gray-500">Profile visibility</dt>
+                  <dd class="mt-1 text-sm text-gray-900">{{ profile.get_visibility_display }}</dd>
+                </div>
+              </dl>
+            </div>
+          </div>
+
+          <!-- Edit Profile Details -->
+          <div class="bg-white shadow-sm rounded-lg border border-gray-200">
+            <div class="px-6 py-4 border-b border-gray-200">
+              <h2 class="text-lg font-semibold text-gray-900">Update Profile</h2>
+              <p class="text-sm text-gray-500 mt-1">Changes to email address require confirmation</p>
+            </div>
+            <form method="post" class="p-6 space-y-6">
+              {% csrf_token %}
+              <input type="hidden" name="change_details" value="1">
+              
+              <div class="grid grid-cols-1 gap-6 sm:grid-cols-2">
+                <div>
+                  <label for="first_name" class="block text-sm font-medium text-gray-700">First name</label>
+                  <input type="text" name="first_name" id="first_name" value="{{ user.first_name }}" 
+                         class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
+                </div>
+                <div>
+                  <label for="last_name" class="block text-sm font-medium text-gray-700">Last name</label>
+                  <input type="text" name="last_name" id="last_name" value="{{ user.last_name }}" 
+                         class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
+                </div>
+              </div>
+              
+              <div>
+                <label for="email" class="block text-sm font-medium text-gray-700">Email address</label>
+                <input type="email" name="email" id="email" value="{{ user.email }}" 
+                       class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
+                <p class="mt-2 text-xs text-gray-500">You'll need to confirm any email address changes</p>
+              </div>
+              
+              <div class="grid grid-cols-1 gap-6 sm:grid-cols-2">
+                <div>
+                  <label for="password1" class="block text-sm font-medium text-gray-700">New password</label>
+                  <input type="password" name="password1" id="password1" 
+                         class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
+                  <p class="mt-1 text-xs text-gray-500">Leave blank to keep current password</p>
+                </div>
+                <div>
+                  <label for="password2" class="block text-sm font-medium text-gray-700">Confirm new password</label>
+                  <input type="password" name="password2" id="password2" 
+                         class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
+                </div>
+              </div>
+              
+              <div class="pt-4">
+                <button type="submit" 
+                        class="inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200">
+                  Update Profile
+                </button>
+              </div>
+            </form>
+          </div>
+
+          <!-- Profile Visibility -->
+          <div class="bg-white shadow-sm rounded-lg border border-gray-200">
+            <div class="px-6 py-4 border-b border-gray-200">
+              <h2 class="text-lg font-semibold text-gray-900">Profile Visibility</h2>
+            </div>
+            <form method="post" class="p-6">
+              {% csrf_token %}
+              <div class="space-y-4">
+                <label class="block text-sm font-medium text-gray-700">Who can see your profile?</label>
+                <select name="visibility" 
+                        class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
+                  {% for val, label in visibility_choices %}
+                    <option value="{{ val }}" {% if profile.visibility == val %}selected{% endif %}>{{ label }}</option>
+                  {% endfor %}
+                </select>
+                <button type="submit" 
+                        class="inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200">
+                  Save Visibility Setting
+                </button>
+              </div>
+            </form>
+          </div>
+
+          <!-- Additional Information -->
+          <div class="bg-white shadow-sm rounded-lg border border-gray-200">
+            <div class="px-6 py-4 border-b border-gray-200">
+              <h2 class="text-lg font-semibold text-gray-900">Additional Information</h2>
+              <p class="text-sm text-gray-500 mt-1">Help us understand your connection to local government</p>
+            </div>
+            <form method="post" class="p-6 space-y-6">
+              {% csrf_token %}
+              <input type="hidden" name="update_extra" value="1">
+              
+              <div>
+                <label for="political_affiliation" class="block text-sm font-medium text-gray-700">Political affiliation (optional)</label>
+                <input type="text" name="political_affiliation" id="political_affiliation" 
+                       value="{{ profile.political_affiliation }}" 
+                       class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
+              </div>
+              
+              <div class="flex items-center">
+                <input type="checkbox" name="works_for_council" value="1" 
+                       {% if profile.works_for_council %}checked{% endif %}
+                       class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded">
+                <label class="ml-2 block text-sm text-gray-700">I work for a council</label>
+              </div>
+              
+              <div>
+                <label for="employer_council" class="block text-sm font-medium text-gray-700">Which council? (if applicable)</label>
+                <select name="employer_council" id="employer_council"
+                        class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
+                  <option value="">Select a council...</option>
+                  {% for c in councils %}
+                  <option value="{{ c.id }}" {% if profile.employer_council_id == c.id %}selected{% endif %}>{{ c.name }}</option>
+                  {% endfor %}
+                </select>
+              </div>
+              
+              <div>
+                <label for="official_email" class="block text-sm font-medium text-gray-700">Official .gov.uk email (optional)</label>
+                <input type="email" name="official_email" id="official_email" 
+                       value="{{ profile.official_email }}" 
+                       class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
+                <p class="mt-1 text-xs text-gray-500">This can help verify your council connection</p>
+              </div>
+              
+              <div class="pt-4">
+                <button type="submit" 
+                        class="inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200">
+                  Save Information
+                </button>
+              </div>
+            </form>
+          </div>
+
+          <!-- Followers Section -->
+          {% if followers %}
+          <div class="bg-white shadow-sm rounded-lg border border-gray-200">
+            <div class="px-6 py-4 border-b border-gray-200">
+              <h2 class="text-lg font-semibold text-gray-900">Followers</h2>
+            </div>
+            <div class="overflow-hidden">
+              <ul class="divide-y divide-gray-200">
+                {% for f in followers %}
+                <li class="px-6 py-4">
+                  <div class="flex items-center justify-between">
+                    <div class="text-sm font-medium text-gray-900">{{ f.follower.username }}</div>
+                    <div class="text-sm text-gray-500">{{ f.created_at|date:"M j, Y" }}</div>
+                  </div>
+                </li>
+                {% endfor %}
+              </ul>
+            </div>
+          </div>
+          {% endif %}
+        </div>
+      {% endif %}
+    </div>
+
+    <!-- Sidebar -->
+    <div class="lg:col-span-1">
+      <div class="bg-white shadow-sm rounded-lg border border-gray-200 overflow-hidden">
+        <div class="px-6 py-4 border-b border-gray-200 text-center">
+          <div class="relative inline-block">
+            {% if gravatar_url %}
+            <img src="{{ gravatar_url }}" alt="Profile Picture" 
+                 class="w-24 h-24 rounded-full mx-auto border-4 border-gray-200 shadow-sm">
+            {% else %}
+            <div class="w-24 h-24 bg-gray-200 rounded-full mx-auto border-4 border-gray-200 shadow-sm flex items-center justify-center">
+              <svg class="w-12 h-12 text-gray-400" fill="currentColor" viewBox="0 0 20 20">
+                <path fill-rule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clip-rule="evenodd"/>
+              </svg>
+            </div>
+            {% endif %}
+            <div class="absolute bottom-0 right-0 w-6 h-6 bg-white rounded-full border-2 border-gray-200 flex items-center justify-center">
+              <a href="https://gravatar.com" target="_blank" class="text-gray-400 hover:text-gray-600" title="Change avatar at Gravatar">
+                <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                  <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z"/>
+                </svg>
+              </a>
+            </div>
+          </div>
+          <div class="mt-4">
+            <h3 class="text-lg font-semibold text-gray-900">{{ user.username }}</h3>
+            {% if profile.tier %}
+            <p class="text-sm text-gray-500">{{ profile.tier.name }}</p>
+            {% endif %}
+          </div>
+        </div>
+        <div class="px-6 py-4">
+          <div class="text-center">
+            <div class="text-xs text-gray-500 mb-2">Profile Picture</div>
+            <p class="text-xs text-gray-400">Avatar powered by <a href="https://gravatar.com" target="_blank" class="text-blue-500 hover:text-blue-600">Gravatar</a></p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// Helper used for AJAX requests to include the CSRF token
+function getCookie(name) {
+  const m = document.cookie.match('(^|;)\\s*' + name + '\\s*=\\s*([^;]+)');
+  return m ? m.pop() : '';
+}
+
+// Handle postcode saving
+const saveBtn = document.getElementById('postcode-save');
+if (saveBtn) {
+  saveBtn.onclick = function() {
+    const refused = document.getElementById('postcode-refused').checked;
+    const pc = document.getElementById('postcode-input').value;
+    const body = refused ? 'refused=1' : 'postcode=' + encodeURIComponent(pc);
+    
+    // Show loading state
+    saveBtn.disabled = true;
+    saveBtn.textContent = 'Saving...';
+    
+    fetch('{% url "update_postcode" %}', {
+      method: 'POST',
+      headers: {
+        'X-CSRFToken': getCookie('csrftoken'),
+        'Content-Type': 'application/x-www-form-urlencoded'
+      },
+      body: body
+    })
+    .then(r => r.json())
+    .then(() => {
+      location.reload();
+    })
+    .catch(error => {
+      console.error('Error:', error);
+      saveBtn.disabled = false;
+      saveBtn.textContent = 'Save';
+      alert('An error occurred. Please try again.');
+    });
+  };
+}
+</script>
+{% endblock %}

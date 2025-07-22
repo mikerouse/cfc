@@ -1,0 +1,228 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Security Alert: Email Change Request</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background-color: #f8fafc;
+            margin: 0;
+            padding: 0;
+        }
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+        }
+        .header {
+            background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);
+            color: white;
+            padding: 2rem;
+            text-align: center;
+        }
+        .header h1 {
+            margin: 0;
+            font-size: 24px;
+            font-weight: 600;
+        }
+        .content {
+            padding: 2rem;
+        }
+        .alert-box {
+            background-color: #fef2f2;
+            border: 2px solid #fecaca;
+            border-radius: 6px;
+            padding: 1.5rem;
+            margin: 1.5rem 0;
+        }
+        .alert-box h3 {
+            margin-top: 0;
+            color: #dc2626;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        .change-details {
+            background-color: #f9fafb;
+            border-radius: 6px;
+            padding: 1.5rem;
+            margin: 1.5rem 0;
+        }
+        .detail-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 0.5rem;
+            padding: 0.5rem 0;
+            border-bottom: 1px solid #e5e7eb;
+        }
+        .detail-row:last-child {
+            border-bottom: none;
+            margin-bottom: 0;
+        }
+        .detail-label {
+            font-weight: 600;
+            color: #374151;
+        }
+        .detail-value {
+            color: #6b7280;
+            font-family: monospace;
+            font-size: 14px;
+        }
+        .email-addresses {
+            display: flex;
+            gap: 1rem;
+            margin: 1rem 0;
+            align-items: center;
+        }
+        .email-box {
+            background-color: #f3f4f6;
+            padding: 0.75rem;
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 14px;
+            flex: 1;
+            text-align: center;
+        }
+        .old-email {
+            border: 2px solid #ef4444;
+            color: #dc2626;
+        }
+        .new-email {
+            border: 2px solid #f59e0b;
+            color: #d97706;
+        }
+        .arrow {
+            font-size: 20px;
+            color: #6b7280;
+        }
+        .security-actions {
+            background-color: #f0fdf4;
+            border: 1px solid #bbf7d0;
+            border-radius: 6px;
+            padding: 1.5rem;
+            margin: 1.5rem 0;
+        }
+        .security-actions h4 {
+            margin-top: 0;
+            color: #166534;
+        }
+        .action-button {
+            display: inline-block;
+            background: #dc2626;
+            color: white;
+            padding: 10px 20px;
+            text-decoration: none;
+            border-radius: 6px;
+            font-weight: 600;
+            margin: 0.5rem 0.5rem 0.5rem 0;
+            transition: background-color 0.2s;
+        }
+        .action-button:hover {
+            background: #b91c1c;
+        }
+        .footer {
+            background-color: #f3f4f6;
+            padding: 1.5rem;
+            text-align: center;
+            font-size: 14px;
+            color: #6b7280;
+        }
+        .timestamp {
+            color: #9ca3af;
+            font-size: 12px;
+            font-family: monospace;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🚨 Security Alert</h1>
+        </div>
+        
+        <div class="content">
+            <div class="alert-box">
+                <h3>
+                    ⚠️ Email Change Request Detected
+                </h3>
+                <p>Someone has requested to change the email address associated with your Council Finance Counters account.</p>
+            </div>
+            
+            <p>Hello {{ user.first_name|default:user.username }},</p>
+            
+            <p>This is a security notification to inform you that an email address change has been requested for your account.</p>
+            
+            <div class="change-details">
+                <h4 style="margin-top: 0;">Change Details:</h4>
+                <div class="detail-row">
+                    <span class="detail-label">Account:</span>
+                    <span class="detail-value">{{ user.username }}</span>
+                </div>
+                <div class="detail-row">
+                    <span class="detail-label">Current Email:</span>
+                    <span class="detail-value">{{ old_email }}</span>
+                </div>
+                <div class="detail-row">
+                    <span class="detail-label">Requested New Email:</span>
+                    <span class="detail-value">{{ new_email }}</span>
+                </div>
+                <div class="detail-row">
+                    <span class="detail-label">Request Time:</span>
+                    <span class="detail-value">{{ requested_at|date:"M j, Y \a\t g:i A T" }}</span>
+                </div>
+                <div class="detail-row">
+                    <span class="detail-label">IP Address:</span>
+                    <span class="detail-value">{{ ip_address }}</span>
+                </div>
+            </div>
+            
+            <div class="email-addresses">
+                <div class="email-box old-email">
+                    <strong>Current Email</strong><br>{{ old_email }}<br><small>(This email - remains active)</small>
+                </div>
+                <div class="arrow">→</div>
+                <div class="email-box new-email">
+                    <strong>New Email</strong><br>{{ new_email }}<br><small>(Pending confirmation)</small>
+                </div>
+            </div>
+            
+            <div class="security-actions">
+                <h4>What You Need to Know:</h4>
+                <ul>
+                    <li><strong>Your current email address remains active</strong> until the change is confirmed</li>
+                    <li>The new email address must confirm the change before it takes effect</li>
+                    <li>If this wasn't you, your account is still secure with your current email</li>
+                    <li>You can continue using your account normally</li>
+                </ul>
+                
+                <p><strong>If you did NOT request this change:</strong></p>
+                <ul>
+                    <li>No action is needed - the change won't take effect unless confirmed</li>
+                    <li>Consider changing your password as a precaution</li>
+                    <li>Review recent account activity</li>
+                </ul>
+            </div>
+            
+            <p><strong>Important:</strong> This is a notification-only email. We're informing you about this request for transparency and security.</p>
+            
+            <div class="timestamp">
+                Email sent: {{ "now"|date:"M j, Y \a\t g:i A T" }}
+            </div>
+        </div>
+        
+        <div class="footer">
+            <p>&copy; Council Finance Counters - Account Security Team</p>
+            <p>This is an automated security notification. Please do not reply to this email.</p>
+            <p>If you have concerns about your account security, please contact our support team.</p>
+        </div>
+    </div>
+</body>
+</html>

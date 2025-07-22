@@ -1,0 +1,178 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Confirm Your New Email Address</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background-color: #f8fafc;
+            margin: 0;
+            padding: 0;
+        }
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+        }
+        .header {
+            background: linear-gradient(135deg, #059669 0%, #047857 100%);
+            color: white;
+            padding: 2rem;
+            text-align: center;
+        }
+        .header h1 {
+            margin: 0;
+            font-size: 24px;
+            font-weight: 600;
+        }
+        .content {
+            padding: 2rem;
+        }
+        .confirm-button {
+            display: inline-block;
+            background: #059669;
+            color: white;
+            padding: 12px 24px;
+            text-decoration: none;
+            border-radius: 6px;
+            font-weight: 600;
+            margin: 1.5rem 0;
+            transition: background-color 0.2s;
+        }
+        .confirm-button:hover {
+            background: #047857;
+        }
+        .email-change-info {
+            background-color: #f0f9ff;
+            border: 1px solid #0ea5e9;
+            border-radius: 6px;
+            padding: 1.5rem;
+            margin: 1.5rem 0;
+        }
+        .email-change-info h3 {
+            margin-top: 0;
+            color: #0c4a6e;
+        }
+        .email-addresses {
+            display: flex;
+            gap: 1rem;
+            margin: 1rem 0;
+            align-items: center;
+        }
+        .email-box {
+            background-color: #f3f4f6;
+            padding: 0.5rem 1rem;
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 14px;
+            flex: 1;
+        }
+        .old-email {
+            border: 2px solid #ef4444;
+            color: #dc2626;
+        }
+        .new-email {
+            border: 2px solid #10b981;
+            color: #059669;
+        }
+        .arrow {
+            font-size: 20px;
+            color: #6b7280;
+        }
+        .security-note {
+            background-color: #fef3c7;
+            border: 1px solid #f59e0b;
+            border-radius: 6px;
+            padding: 1rem;
+            margin: 1.5rem 0;
+            font-size: 14px;
+            color: #92400e;
+        }
+        .footer {
+            background-color: #f3f4f6;
+            padding: 1.5rem;
+            text-align: center;
+            font-size: 14px;
+            color: #6b7280;
+        }
+        .link-fallback {
+            word-break: break-all;
+            background-color: #f3f4f6;
+            padding: 0.5rem;
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 12px;
+            margin-top: 1rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📧 Confirm Email Change</h1>
+        </div>
+        
+        <div class="content">
+            <p>Hello {{ user.first_name|default:user.username }},</p>
+            
+            <p>You've requested to change your email address on Council Finance Counters. Please confirm this change by clicking the button below.</p>
+            
+            <div class="email-change-info">
+                <h3>Email Address Change Request</h3>
+                <div class="email-addresses">
+                    <div class="email-box old-email">
+                        <strong>Current:</strong><br>{{ old_email }}
+                    </div>
+                    <div class="arrow">→</div>
+                    <div class="email-box new-email">
+                        <strong>New:</strong><br>{{ new_email }}
+                    </div>
+                </div>
+                <p><small>Your current email address will remain active until this change is confirmed.</small></p>
+            </div>
+            
+            <div style="text-align: center;">
+                <a href="{{ confirm_url }}" class="confirm-button">
+                    ✅ Confirm New Email Address
+                </a>
+            </div>
+            
+            <div class="security-note">
+                <strong>Security Information:</strong>
+                <ul style="margin: 0.5rem 0; padding-left: 1.5rem;">
+                    <li>This email was sent to your NEW email address</li>
+                    <li>Your current email address remains active until confirmed</li>
+                    <li>If you didn't request this change, please ignore this email</li>
+                    <li>The change will not take effect unless you confirm it</li>
+                </ul>
+            </div>
+            
+            <p><strong>What happens after confirmation:</strong></p>
+            <ul>
+                <li>Your email address will be updated to {{ new_email }}</li>
+                <li>All future notifications will be sent to the new address</li>
+                <li>You'll need to use the new email for password resets</li>
+                <li>We'll send a security notification to your old email</li>
+            </ul>
+            
+            <p>If the button above doesn't work, copy and paste this link into your browser:</p>
+            <div class="link-fallback">{{ confirm_url }}</div>
+            
+            <p><em>This confirmation link will expire in 24 hours for security purposes.</em></p>
+        </div>
+        
+        <div class="footer">
+            <p>&copy; Council Finance Counters - Secure account management</p>
+            <p>If you didn't request this change, you can safely ignore this email.</p>
+        </div>
+    </div>
+</body>
+</html>

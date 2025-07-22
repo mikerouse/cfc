@@ -1,5 +1,8 @@
 from django.conf import settings
 from django.db import models
+from django.utils import timezone
+from django.utils.crypto import get_random_string
+import datetime
 
 from .council import Council
 from .trust_tier import TrustTier
@@ -21,10 +24,24 @@ class UserProfile(models.Model):
     postcode_refused = models.BooleanField(default=False)
     # Councils the user has marked as favourites.
     favourites = models.ManyToManyField(Council, blank=True, related_name="fans")
-    # Has the user verified their email address?
+    # Enhanced email confirmation system
     email_confirmed = models.BooleanField(default=False)
-    # Token used in confirmation links; blank when confirmed.
     confirmation_token = models.CharField(max_length=64, blank=True)
+    
+    # Pending email change system
+    pending_email = models.EmailField(blank=True, help_text="New email address awaiting confirmation")
+    pending_email_token = models.CharField(max_length=64, blank=True)
+    pending_email_expires = models.DateTimeField(null=True, blank=True)
+    
+    # Confirmation tracking
+    last_confirmation_sent = models.DateTimeField(null=True, blank=True)
+    confirmation_attempts = models.IntegerField(default=0)
+    max_confirmation_attempts = models.IntegerField(default=5)
+    
+    # Security tracking
+    email_confirmed_at = models.DateTimeField(null=True, blank=True)
+    last_password_change = models.DateTimeField(null=True, blank=True)
+    requires_reconfirmation = models.BooleanField(default=False, help_text="Requires email re-confirmation due to security changes")
     # Visibility of this profile. Friends is the default.
     VISIBILITY_CHOICES = [
         ("private", "Private"),
@@ -159,3 +176,84 @@ class UserProfile(models.Model):
             5: "Champion",
         }
         return badges.get(self.level(), "Newcomer")
+
+    # --- Email Confirmation helpers -------------------------------------------
+    
+    def can_send_confirmation(self) -> bool:
+        """Check if user can send another confirmation email (rate limiting)."""
+        if not self.last_confirmation_sent:
+            return True
+        
+        # Allow one confirmation email every 5 minutes
+        time_since_last = timezone.now() - self.last_confirmation_sent
+        return time_since_last >= datetime.timedelta(minutes=5)
+    
+    def has_exceeded_confirmation_attempts(self) -> bool:
+        """Check if user has exceeded maximum confirmation attempts."""
+        return self.confirmation_attempts >= self.max_confirmation_attempts
+    
+    def generate_confirmation_token(self) -> str:
+        """Generate a new confirmation token."""
+        token = get_random_string(64)
+        self.confirmation_token = token
+        return token
+    
+    def generate_pending_email_token(self) -> str:
+        """Generate a new token for pending email changes."""
+        token = get_random_string(64)
+        self.pending_email_token = token
+        self.pending_email_expires = timezone.now() + datetime.timedelta(hours=24)
+        return token
+    
+    def is_pending_email_expired(self) -> bool:
+        """Check if pending email change has expired."""
+        if not self.pending_email_expires:
+            return True
+        return timezone.now() > self.pending_email_expires
+    
+    def clear_pending_email(self):
+        """Clear pending email change data."""
+        self.pending_email = ''
+        self.pending_email_token = ''
+        self.pending_email_expires = None
+    
+    def confirm_email(self):
+        """Mark email as confirmed."""
+        self.email_confirmed = True
+        self.email_confirmed_at = timezone.now()
+        self.confirmation_token = ''
+        self.confirmation_attempts = 0
+        self.requires_reconfirmation = False
+    
+    def require_reconfirmation(self, reason="security_change"):
+        """Mark account as requiring email re-confirmation."""
+        self.requires_reconfirmation = True
+        self.email_confirmed = False
+        # Keep email_confirmed_at for reference but require new confirmation
+    
+    def get_confirmation_status(self) -> dict:
+        """Get comprehensive confirmation status."""
+        return {
+            'email_confirmed': self.email_confirmed,
+            'requires_reconfirmation': self.requires_reconfirmation,
+            'has_pending_email': bool(self.pending_email),
+            'pending_email_expired': self.is_pending_email_expired() if self.pending_email else False,
+            'can_send_confirmation': self.can_send_confirmation(),
+            'attempts_remaining': max(0, self.max_confirmation_attempts - self.confirmation_attempts),
+            'confirmation_status': self._get_status_message()
+        }
+    
+    def _get_status_message(self) -> str:
+        """Get human-readable confirmation status message."""
+        if self.email_confirmed and not self.requires_reconfirmation:
+            return "Email confirmed"
+        elif self.requires_reconfirmation:
+            return "Email re-confirmation required"
+        elif self.pending_email and not self.is_pending_email_expired():
+            return f"Email change pending confirmation ({self.pending_email})"
+        elif self.pending_email and self.is_pending_email_expired():
+            return "Email change expired - please try again"
+        elif self.has_exceeded_confirmation_attempts():
+            return "Maximum confirmation attempts exceeded - contact support"
+        else:
+            return "Email confirmation required"

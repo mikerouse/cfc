@@ -66,6 +66,9 @@ urlpatterns = [
     ),
     path("accounts/signup/", auth_views.signup_view, name="signup"),
     path("accounts/confirm/<str:token>/", auth_views.confirm_email, name="confirm_email"),
+    path("accounts/confirm-change/<str:token>/", auth_views.confirm_profile_change, name="confirm_profile_change"),
+    path("accounts/cancel-email-change/", auth_views.cancel_email_change, name="cancel_email_change"),
+    path("accounts/confirmation-status/", auth_views.confirmation_status, name="confirmation_status"),
     path(
         "accounts/resend-confirmation/",
         auth_views.resend_confirmation,

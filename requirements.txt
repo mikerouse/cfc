@@ -19,3 +19,9 @@ pandas>=2.0.0
 openpyxl>=3.0.0
 # AI Analysis support
 openai>=1.0.0
+# Enhanced authentication and rate limiting
+django-allauth>=0.57.0
+django-ratelimit>=4.1.0
+django-extensions>=3.2.0
+# For better email handling
+django-ses>=3.5.0
