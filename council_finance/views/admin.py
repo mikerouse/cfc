@@ -1223,9 +1223,50 @@ def ai_template_form(request, template_id=None):
         except Exception as e:
             messages.error(request, f'Error saving AI template: {str(e)}')
     
+    # Get available template variables from database
+    from council_finance.models import DataField
+    
+    # Get council characteristics (non-financial fields)
+    characteristic_fields = DataField.objects.filter(
+        category='characteristic'
+    ).order_by('name')
+    
+    # Get financial fields grouped by category
+    financial_fields = DataField.objects.exclude(
+        category='characteristic'
+    ).order_by('category', 'name')
+    
+    # Build dynamic variable list
+    template_variables = [
+        # Core council variables
+        '{{ council.name }}',
+        '{{ council.council_type.name }}',
+        '{{ council.nation.name }}',
+        '{{ year.label }}',
+        '{{ current_data }}',
+        '{{ previous_data }}',
+        '{{ comparison_data }}',
+    ]
+    
+    # Add characteristic variables
+    for field in characteristic_fields:
+        template_variables.append(f'{{{{ council.{field.slug} }}}}')
+    
+    # Add financial field variables grouped by category
+    current_category = None
+    for field in financial_fields:
+        if field.category != current_category:
+            current_category = field.category
+            # Add category separator comment in the list
+            template_variables.append(f'<!-- {field.get_category_display()} Fields -->')
+        template_variables.append(f'{{{{ financial_data.{field.slug} }}}}')
+    
     context = {
         'template': template,
         'analysis_types': AIAnalysisTemplate._meta.get_field('analysis_type').choices,
+        'template_variables': template_variables,
+        'characteristic_fields': characteristic_fields,
+        'financial_fields': financial_fields,
     }
     
     return render(request, 'council_finance/ai_management/template_form.html', context)

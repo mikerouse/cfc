@@ -116,15 +116,44 @@
             >{{ template.system_prompt|default:'' }}</textarea>
             <div class="mt-2 text-xs text-gray-500">
               <p><strong>Available variables:</strong></p>
-              <ul class="list-disc list-inside mt-1 space-y-1">
-                <li><code>{{ council.name }}</code> - Council name</li>
-                <li><code>{{ council.council_type.name }}</code> - Council type</li>
-                <li><code>{{ council.nation.name }}</code> - Nation (England, Scotland, etc.)</li>
-                <li><code>{{ year.label }}</code> - Financial year label</li>
-                <li><code>{{ current_data }}</code> - Current year financial data</li>
-                <li><code>{{ previous_data }}</code> - Previous year financial data</li>
-                <li><code>{{ comparison_data }}</code> - Year-over-year comparisons</li>
-              </ul>
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-2">
+                <!-- Core Variables -->
+                <div>
+                  <p class="font-medium text-gray-700 mb-1">Core Council Data:</p>
+                  <ul class="list-disc list-inside space-y-1">
+                    <li><code>{{ council.name }}</code> - Council name</li>
+                    <li><code>{{ council.council_type.name }}</code> - Council type</li>
+                    <li><code>{{ council.nation.name }}</code> - Nation (England, Scotland, etc.)</li>
+                    <li><code>{{ year.label }}</code> - Financial year label</li>
+                    <li><code>{{ current_data }}</code> - Current year financial data</li>
+                    <li><code>{{ previous_data }}</code> - Previous year financial data</li>
+                    <li><code>{{ comparison_data }}</code> - Year-over-year comparisons</li>
+                  </ul>
+                </div>
+                
+                <!-- Dynamic Variables -->
+                <div>
+                  <p class="font-medium text-gray-700 mb-1">Council Characteristics:</p>
+                  <ul class="list-disc list-inside space-y-1 max-h-32 overflow-y-auto">
+                    {% for field in characteristic_fields %}
+                      <li><code>{<!-- -->{ council.{{ field.slug }} }}</code> - {{ field.name }}</li>
+                    {% endfor %}
+                  </ul>
+                  
+                  {% if financial_fields %}
+                  <p class="font-medium text-gray-700 mb-1 mt-3">Financial Data Fields:</p>
+                  <ul class="list-disc list-inside space-y-1 max-h-32 overflow-y-auto">
+                    {% regroup financial_fields by category as grouped_fields %}
+                    {% for category_group in grouped_fields %}
+                      <li class="font-medium text-gray-600">{{ category_group.grouper|title }}:</li>
+                      {% for field in category_group.list %}
+                        <li class="ml-4"><code>{<!-- -->{ financial_data.{{ field.slug }} }}</code> - {{ field.name }}</li>
+                      {% endfor %}
+                    {% endfor %}
+                  </ul>
+                  {% endif %}
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -251,13 +280,13 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Template variable helper
     const variables = [
-        '{{ council.name }}',
-        '{{ council.council_type.name }}', 
-        '{{ council.nation.name }}',
-        '{{ year.label }}',
-        '{{ current_data }}',
-        '{{ previous_data }}',
-        '{{ comparison_data }}'
+        {% for variable in template_variables %}
+            {% if '<!--' in variable %}
+                // {{ variable|slice:"5:-4"|title }}
+            {% else %}
+                '{{ variable|escapejs }}',
+            {% endif %}
+        {% endfor %}
     ];
     
     // Add quick insert buttons (optional enhancement)
