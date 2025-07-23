@@ -432,8 +432,12 @@ def home(request):
         # Sort by value
         councils_with_data.sort(key=lambda x: x['value'])
         
-        # Factoid 1: Number of councils
-        factoids.append(f"Based on data from {len(councils_with_data)} councils")
+        # Factoid 1: Number of councils with caution if incomplete
+        total_councils = Council.objects.count()
+        if total_councils < 200:
+            factoids.append(f"⚠️ Incomplete data: Based on {len(councils_with_data)} of {total_councils} councils. <a href='/contribute/' class='text-blue-600 hover:text-blue-800'>Help us get more accurate figures</a>")
+        else:
+            factoids.append(f"Based on data from {len(councils_with_data)} councils")
         
         # Factoid 2: Highest council (if we have data)
         if councils_with_data:
@@ -465,6 +469,8 @@ def home(request):
         formatted = CounterDefinition.format_value(sc, value)
         promoted.append({
             "slug": sc.slug,
+            "counter_slug": sc.counter.slug,  # Add counter definition slug for factoids
+            "year": sc.year.label if sc.year else None,  # Add year for factoids
             "name": sc.name,
             "formatted": formatted,
             "raw": value,

@@ -68,9 +68,9 @@
                data-formatted="{{ item.formatted }}">0</div>
           
           <div class="counter-factoid text-sm text-gray-600" 
-               data-counter="{{ item.slug }}"
+               data-counter="{{ item.counter_slug }}"
                data-council="all-councils"
-               data-year="{{ current_year }}">
+               data-year="{% if item.year %}{{ item.year }}{% else %}{{ current_year }}{% endif %}">
           </div>
           
           {% if item.explanation %}
