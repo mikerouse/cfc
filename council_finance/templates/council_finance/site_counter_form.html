@@ -291,6 +291,7 @@ document.addEventListener('DOMContentLoaded', function() {
         return;
       }
       
+      // Send the counter field value (ID) - backend now handles both ID and slug lookup
       url.searchParams.append('counter', counterField.value);
       if (yearField && yearField.value) url.searchParams.append('year', yearField.value);
       if (precisionField) url.searchParams.append('precision', precisionField.value);
@@ -298,6 +299,10 @@ document.addEventListener('DOMContentLoaded', function() {
       if (friendlyFormatField) url.searchParams.append('friendly_format', friendlyFormatField.checked);
       
       const resp = await fetch(url, {headers: {'X-Requested-With': 'XMLHttpRequest'}});
+      if (!resp.ok) {
+        const errorText = await resp.text();
+        throw new Error(`HTTP ${resp.status}: ${errorText}`);
+      }
       const data = await resp.json();
       document.getElementById('preview-value').textContent = data.formatted || data.error || '0';
     } catch (error) {

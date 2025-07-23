@@ -480,9 +480,21 @@ def preview_aggregate_counter(request):
     """Preview a site or group counter by summing across councils."""
     from council_finance.agents.counter_agent import CounterAgent
 
-    counter_slug = request.GET.get("counter")
-    if not counter_slug:
+    counter_param = request.GET.get("counter")
+    if not counter_param:
         return JsonResponse({"error": "Missing counter"}, status=400)
+    
+    # Handle both slug and ID lookups for counter
+    if str(counter_param).isdigit():
+        counter = CounterDefinition.objects.filter(pk=counter_param).first()
+    else:
+        counter = CounterDefinition.objects.filter(slug=counter_param).first()
+    
+    if not counter:
+        return JsonResponse({"error": "Counter not found"}, status=400)
+    
+    counter_slug = counter.slug
+    
     year_param = request.GET.get("year")
     if year_param and year_param != "all":
         year = (
@@ -491,13 +503,13 @@ def preview_aggregate_counter(request):
             else FinancialYear.objects.filter(label=year_param).first()
         )
         if not year:
-            return JsonResponse({"error": "Invalid data"}, status=400)
+            return JsonResponse({"error": "Invalid year"}, status=400)
         years = [year]
     else:
         years = list(FinancialYear.objects.order_by("-label"))
-    counter = CounterDefinition.objects.filter(slug=counter_slug).first()
-    if not counter or not years:
-        return JsonResponse({"error": "Invalid data"}, status=400)
+    
+    if not years:
+        return JsonResponse({"error": "No financial years available"}, status=400)
 
     councils = Council.objects.all()
     cslugs = request.GET.get("councils")
