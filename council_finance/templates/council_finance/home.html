@@ -51,7 +51,7 @@
   <!-- Live Financial Data -->
   <section class="mb-12">
     {% if promoted_counters %}
-    <h2 class="text-2xl font-bold text-gray-900 mb-6">Live Financial Data</h2>
+    <h2 class="text-2xl font-bold text-gray-900 mb-6">Local Government Financial Data</h2>
     <div id="homepage-counters" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
       {% for item in promoted_counters %}
       <div id="counter-{{ item.slug }}" class="bg-white border border-gray-200 rounded-lg p-6 hover:shadow-sm transition-shadow 
@@ -105,31 +105,43 @@
       <section class="bg-white border border-gray-200 rounded-lg p-6">
         <h3 class="text-xl font-semibold text-gray-900 mb-6">Featured Councils</h3>
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {% for council in featured_councils %}
+          {% for council_data in featured_councils %}
           <div class="border border-gray-200 rounded-lg p-4 hover:bg-gray-50 transition-colors">
             <div class="flex items-start justify-between">
               <div class="flex-1">
                 <h4 class="font-medium text-gray-900 mb-1">
-                  <a href="{% url 'council_detail' council.slug %}" class="hover:text-blue-600">
-                    {{ council.name }}
+                  <a href="{% url 'council_detail' council_data.council.slug %}" class="hover:text-blue-600">
+                    {{ council_data.council.name }}
                   </a>
                 </h4>
                 <div class="text-sm text-gray-600 mb-3">
-                  {% if council.council_type %}{{ council.council_type.name }}{% endif %}
-                  {% if council.council_nation %} • {{ council.council_nation.name }}{% endif %}
+                  {% if council_data.council.council_type %}{{ council_data.council.council_type.name }}{% endif %}
+                  {% if council_data.council.council_nation %} • {{ council_data.council.council_nation.name }}{% endif %}
                 </div>
-                <div class="grid grid-cols-2 gap-3 text-sm">
-                  <div>
-                    <div class="font-medium text-gray-900">{{ council.total_debt_millions|floatformat:0|default:"N/A" }}</div>
-                    <div class="text-gray-600">Debt (£M)</div>
+                
+                <!-- Financial Data Carousel -->
+                {% if council_data.financial_years %}
+                <div class="financial-carousel" data-council="{{ council_data.council.slug }}">
+                  {% for year_data in council_data.financial_years %}
+                  <div class="carousel-item {% if forloop.first %}active{% endif %} text-sm">
+                    <div class="grid grid-cols-2 gap-3">
+                      <div>
+                        <div class="font-medium text-gray-900">{{ year_data.value }}</div>
+                        <div class="text-gray-600">Current Liabilities</div>
+                      </div>
+                      <div>
+                        <div class="font-medium text-gray-900">{{ year_data.year }}</div>
+                        <div class="text-gray-600">Financial Year</div>
+                      </div>
+                    </div>
                   </div>
-                  <div>
-                    <div class="font-medium text-gray-900">{{ council.population|intcomma|default:"N/A" }}</div>
-                    <div class="text-gray-600">Population</div>
-                  </div>
+                  {% endfor %}
                 </div>
+                {% else %}
+                <div class="text-sm text-gray-500">No financial data available</div>
+                {% endif %}
               </div>
-              <a href="{% url 'council_detail' council.slug %}" class="text-gray-400 hover:text-blue-600 ml-4">
+              <a href="{% url 'council_detail' council_data.council.slug %}" class="text-gray-400 hover:text-blue-600 ml-4">
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
                 </svg>
@@ -286,13 +298,56 @@
 <link rel="stylesheet" href="{% static 'css/factoid-system.css' %}">
 <script src="{% static 'js/factoid-playlist.js' %}"></script>
 
+<style>
+.financial-carousel {
+    position: relative;
+    height: 60px;
+    overflow: hidden;
+}
+
+.carousel-item {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    opacity: 0;
+    transition: opacity 0.5s ease-in-out;
+}
+
+.carousel-item.active {
+    opacity: 1;
+}
+</style>
+
 <script>
 function toggleInfo(id) {
     const el = document.getElementById(id);
     if (el) el.classList.toggle('hidden');
 }
 
+// Financial data carousel functionality
+function initCarousels() {
+    document.querySelectorAll('.financial-carousel').forEach(carousel => {
+        const items = carousel.querySelectorAll('.carousel-item');
+        if (items.length <= 1) return; // Skip if only one item
+        
+        let currentIndex = 0;
+        
+        function showNext() {
+            items[currentIndex].classList.remove('active');
+            currentIndex = (currentIndex + 1) % items.length;
+            items[currentIndex].classList.add('active');
+        }
+        
+        // Auto-advance every 3 seconds
+        setInterval(showNext, 3000);
+    });
+}
+
 document.addEventListener('DOMContentLoaded', () => {
+    // Initialize carousels
+    initCarousels();
+    
     // Animate counters
     document.querySelectorAll('.counter-value').forEach(el => {
         const val = parseFloat(el.dataset.value || '0');

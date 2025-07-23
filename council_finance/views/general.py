@@ -292,8 +292,35 @@ def home(request):
             council_of_the_day = Council.objects.all()[council_index]
             
             # Get a few more featured councils (exclude council of the day)
-            featured_councils = list(Council.objects.exclude(id=council_of_the_day.id).order_by('?')[:5])
-            featured_councils.insert(0, council_of_the_day)  # Put council of the day first
+            featured_councils_raw = list(Council.objects.exclude(id=council_of_the_day.id).order_by('?')[:5])
+            featured_councils_raw.insert(0, council_of_the_day)  # Put council of the day first
+            
+            # Enhance featured councils with financial data carousel
+            featured_councils = []
+            from council_finance.agents.counter_agent import CounterAgent
+            agent = CounterAgent()
+            
+            for council in featured_councils_raw:
+                council_data = {'council': council, 'financial_years': []}
+                
+                # Get current liabilities data for available years
+                for year in all_years[:3]:  # Show up to 3 most recent years
+                    result = agent.run(council_slug=council.slug, year_label=year.label)
+                    current_liabilities = result.get('current-liabilities')
+                    
+                    if current_liabilities and current_liabilities.get('value') and current_liabilities.get('value') > 0:
+                        # Use friendly format for carousel display
+                        from council_finance.models.counter import CounterDefinition
+                        counter_def = CounterDefinition.objects.filter(slug='current-liabilities').first()
+                        if counter_def:
+                            friendly_value = counter_def.format_value(current_liabilities['value'])
+                            council_data['financial_years'].append({
+                                'year': year.label,
+                                'value': friendly_value,
+                                'raw_value': current_liabilities['value']
+                            })
+                
+                featured_councils.append(council_data)
 
     # Get recent activity for the homepage
     recent_contributions = Contribution.objects.filter(
@@ -381,6 +408,52 @@ def home(request):
         # a slight delay, but subsequent requests will hit the cache.
         SiteTotalsAgent().run()
 
+    def get_site_counter_factoids(site_counter):
+        """Generate custom factoids for site counters with council-specific data."""
+        factoids = []
+        
+        # Get council data for this counter
+        from council_finance.agents.counter_agent import CounterAgent
+        agent = CounterAgent()
+        councils_with_data = []
+        
+        year_label = site_counter.year.label if site_counter.year else "2024/25"
+        
+        for council in Council.objects.all():
+            result = agent.run(council_slug=council.slug, year_label=year_label)
+            counter_data = result.get(site_counter.counter.slug)
+            if counter_data and counter_data.get('value') and counter_data.get('value') > 0:
+                councils_with_data.append({
+                    'council': council,
+                    'value': counter_data['value'],
+                    'formatted': counter_data['formatted']
+                })
+        
+        # Sort by value
+        councils_with_data.sort(key=lambda x: x['value'])
+        
+        # Factoid 1: Number of councils
+        factoids.append(f"Based on data from {len(councils_with_data)} councils")
+        
+        # Factoid 2: Highest council (if we have data)
+        if councils_with_data:
+            highest = councils_with_data[-1]
+            friendly_format = site_counter.counter.format_value(highest['value'])
+            factoids.append(f"Highest: {highest['council'].name} ({friendly_format})")
+        
+        # Factoid 3: Lowest council (if we have multiple councils)
+        if len(councils_with_data) > 1:
+            lowest = councils_with_data[0]
+            friendly_format = site_counter.counter.format_value(lowest['value'])
+            factoids.append(f"Lowest: {lowest['council'].name} ({friendly_format})")
+        elif len(councils_with_data) == 1:
+            # If only one council, show it as the only contributor
+            only = councils_with_data[0]
+            friendly_format = site_counter.counter.format_value(only['value'])
+            factoids.append(f"Only data available: {only['council'].name} ({friendly_format})")
+        
+        return factoids
+
     # Now build the list of promoted counters using the cached totals. This may
     # happen after the agent has populated the cache above.
     for sc in SiteCounter.objects.filter(promote_homepage=True):
@@ -401,10 +474,7 @@ def home(request):
             "friendly_format": sc.friendly_format,
             "explanation": sc.explanation,
             "columns": sc.columns,
-            "factoids": get_factoids(
-                sc.counter.slug,
-                {"value": formatted, "raw": value, "previous_raw": prev_value},
-            ),
+            "factoids": get_site_counter_factoids(sc),
         })
 
     # Group counters follow the same pattern but target a subset of councils.
