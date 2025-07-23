@@ -49,18 +49,13 @@
   </div>
 
   <!-- Live Financial Data -->
-  <section class="mb-12 bg-green-50 border border-green-200 rounded-lg p-6">
-    <h2 class="text-2xl font-bold text-gray-900 mb-6">🔥 COUNTERS DEBUG ({{ promoted_counters|length }} found) 🔥</h2>
+  <section class="mb-12">
     {% if promoted_counters %}
-    <div class="bg-blue-50 p-4 rounded mb-4">
-      <h3 class="font-bold text-blue-900">Counters Found:</h3>
-      {% for counter in promoted_counters %}
-      <div class="text-sm text-blue-800">{{ forloop.counter }}. {{ counter.name }} - {{ counter.formatted }}</div>
-      {% endfor %}
-    </div>
+    <h2 class="text-2xl font-bold text-gray-900 mb-6">Live Financial Data</h2>
     <div id="homepage-counters" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
       {% for item in promoted_counters %}
-      <div id="counter-{{ item.slug }}" class="bg-white border border-gray-200 rounded-lg p-6 hover:shadow-sm transition-shadow">
+      <div id="counter-{{ item.slug }}" class="bg-white border border-gray-200 rounded-lg p-6 hover:shadow-sm transition-shadow 
+           {% if item.columns == 2 %}md:col-span-2 lg:col-span-2{% elif item.columns == 3 %}md:col-span-2 lg:col-span-3{% endif %}">
         <div class="text-center">
           <h3 class="text-sm font-medium text-gray-600 mb-4">{{ item.name }}</h3>
           
@@ -95,12 +90,6 @@
         {% endwith %}
       </div>
       {% endfor %}
-    </div>
-    </div>
-    {% else %}
-    <div class="bg-red-50 p-4 rounded">
-      <h3 class="font-bold text-red-900">No Counters Found!</h3>
-      <p class="text-red-800">promoted_counters is empty or None</p>
     </div>
     {% endif %}
   </section>

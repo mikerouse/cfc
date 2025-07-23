@@ -50,7 +50,7 @@ urlpatterns = [
     # Favicon redirect to avoid 404 errors
     path('favicon.ico', RedirectView.as_view(url=settings.STATIC_URL + 'favicon.ico', permanent=True)),
     
-    path("", page_views.home, name="home"),
+    path("", general_views.home, name="home"),
     path("search/", general_views.search_results, name="search_results"),
     path("api/councils/search/", api_views.search_councils, name="search_councils"),
     path("admin/", admin.site.urls),
