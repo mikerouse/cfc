@@ -79,3 +79,4 @@ Thumbs.db
 # Node.js Modules
 node_modules/
 .github/prompts/prompts.prompt.md
+.claude/settings.local.json
