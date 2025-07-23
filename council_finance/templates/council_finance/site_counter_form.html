@@ -1,47 +1,319 @@
 {% extends "base.html" %}
-{% block title %}Edit Site Counter - Council Finance Counters{% endblock %}
+{% block title %}{{ form.instance.pk|yesno:'Edit Site Counter,Add Site Counter' }} - Council Finance Counters{% endblock %}
 {% block content %}
-<h1 class="text-2xl font-bold mb-4">{{ form.instance.pk|yesno:'Edit Counter,Add Counter' }}</h1>
-{% include "council_finance/counter_tabs.html" with section='site' %}
-<form method="post" class="space-y-4">
-    {% csrf_token %}
-    {{ form.non_field_errors }}
-    <table class="min-w-full border border-gray-300">
-        <tbody>
-            {% for field in form %}
-            <tr class="odd:bg-gray-50">
-                <th class="text-left p-2 border">{{ field.label_tag }}</th>
-                <td class="p-2 border flex items-center">{{ field }} {{ field.errors }}</td>
-            </tr>
-            {% endfor %}
-        </tbody>
-    </table>
-    <div class="p-2 bg-gray-50 rounded" id="preview-card">
-        <p class="text-sm text-gray-600 mb-1">Preview</p>
-        <p class="text-lg font-bold" id="preview-value">0</p>
+<div class="min-h-screen bg-gray-50 py-6">
+  <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+    <!-- Page Header -->
+    <div class="mb-8">
+      <div class="flex items-center justify-between">
+        <div>
+          <h1 class="text-3xl font-bold text-gray-900">{{ form.instance.pk|yesno:'Edit Site Counter,Add Site Counter' }}</h1>
+          <p class="mt-2 text-gray-600">
+            {% if form.instance.pk %}
+              Modify settings for this site-wide counter
+            {% else %}
+              Create a new site-wide counter to aggregate data across all councils
+            {% endif %}
+          </p>
+        </div>
+        <div class="flex items-center space-x-4">
+          <a href="{% url 'site_counter_list' %}" 
+             class="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+            <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/>
+            </svg>
+            Back to Site Counters
+          </a>
+        </div>
+      </div>
     </div>
-    <div class="mt-4">
-        <button class="bg-blue-600 text-white px-4 py-1 rounded" type="submit">Save</button>
-        <a href="{% url 'site_counter_list' %}" class="ml-2 underline">Cancel</a>
+
+    <!-- Counter Tabs -->
+    {% include "council_finance/counter_tabs.html" with section='site' %}
+
+    <!-- Main Form -->
+    <div class="mt-6 bg-white shadow-lg rounded-lg overflow-hidden">
+      <form method="post" class="space-y-0">
+        {% csrf_token %}
+        
+        <!-- Display non-field errors -->
+        {% if form.non_field_errors %}
+        <div class="px-6 py-4 bg-red-50 border-l-4 border-red-400">
+          <div class="flex">
+            <div class="flex-shrink-0">
+              <svg class="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
+                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"/>
+              </svg>
+            </div>
+            <div class="ml-3">
+              <div class="text-sm text-red-600">{{ form.non_field_errors }}</div>
+            </div>
+          </div>
+        </div>
+        {% endif %}
+
+        <!-- Basic Information -->
+        <div class="px-6 py-6 border-b border-gray-200">
+          <h3 class="text-lg font-semibold text-gray-900 mb-4">Basic Information</h3>
+          
+          <div class="grid grid-cols-1 gap-6 sm:grid-cols-2">
+            <!-- Name Field -->
+            <div class="sm:col-span-2">
+              <label for="{{ form.name.id_for_label }}" class="block text-sm font-medium text-gray-700">
+                Counter Name *
+              </label>
+              <div class="mt-1">
+                {{ form.name }}
+              </div>
+              {% if form.name.errors %}
+                <div class="mt-1 text-sm text-red-600">{{ form.name.errors.0 }}</div>
+              {% endif %}
+              <p class="mt-1 text-xs text-gray-500">The display name for this counter</p>
+            </div>
+
+            <!-- Counter Selection -->
+            <div class="sm:col-span-2">
+              <label for="{{ form.counter.id_for_label }}" class="block text-sm font-medium text-gray-700">
+                Data Field *
+              </label>
+              <div class="mt-1">
+                {{ form.counter }}
+              </div>
+              {% if form.counter.errors %}
+                <div class="mt-1 text-sm text-red-600">{{ form.counter.errors.0 }}</div>
+              {% endif %}
+              <p class="mt-1 text-xs text-gray-500">The financial field to aggregate across all councils</p>
+            </div>
+
+            <!-- Year Selection -->
+            <div>
+              <label for="{{ form.year.id_for_label }}" class="block text-sm font-medium text-gray-700">
+                Financial Year
+              </label>
+              <div class="mt-1">
+                {{ form.year }}
+              </div>
+              {% if form.year.errors %}
+                <div class="mt-1 text-sm text-red-600">{{ form.year.errors.0 }}</div>
+              {% endif %}
+              <p class="mt-1 text-xs text-gray-500">Select a specific year or all available years</p>
+            </div>
+
+            <!-- Explanation -->
+            <div class="sm:col-span-2">
+              <label for="{{ form.explanation.id_for_label }}" class="block text-sm font-medium text-gray-700">
+                Description
+              </label>
+              <div class="mt-1">
+                {{ form.explanation }}
+              </div>
+              {% if form.explanation.errors %}
+                <div class="mt-1 text-sm text-red-600">{{ form.explanation.errors.0 }}</div>
+              {% endif %}
+              <p class="mt-1 text-xs text-gray-500">Help text explaining what this counter represents</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Display Settings -->
+        <div class="px-6 py-6 border-b border-gray-200">
+          <h3 class="text-lg font-semibold text-gray-900 mb-4">Display Settings</h3>
+          
+          <div class="grid grid-cols-1 gap-6 sm:grid-cols-2">
+            <!-- Columns -->
+            <div>
+              <label for="{{ form.columns.id_for_label }}" class="block text-sm font-medium text-gray-700">
+                Grid Columns
+              </label>
+              <div class="mt-1">
+                {{ form.columns }}
+              </div>
+              {% if form.columns.errors %}
+                <div class="mt-1 text-sm text-red-600">{{ form.columns.errors.0 }}</div>
+              {% endif %}
+              <p class="mt-1 text-xs text-gray-500">Number of columns this counter spans in the grid layout</p>
+            </div>
+
+            <!-- Duration -->
+            <div>
+              <label for="{{ form.duration.id_for_label }}" class="block text-sm font-medium text-gray-700">
+                Animation Duration (ms)
+              </label>
+              <div class="mt-1">
+                {{ form.duration }}
+              </div>
+              {% if form.duration.errors %}
+                <div class="mt-1 text-sm text-red-600">{{ form.duration.errors.0 }}</div>
+              {% endif %}
+              <p class="mt-1 text-xs text-gray-500">How long the counter animation takes</p>
+            </div>
+
+            <!-- Precision -->
+            <div>
+              <label for="{{ form.precision.id_for_label }}" class="block text-sm font-medium text-gray-700">
+                Decimal Precision
+              </label>
+              <div class="mt-1">
+                {{ form.precision }}
+              </div>
+              {% if form.precision.errors %}
+                <div class="mt-1 text-sm text-red-600">{{ form.precision.errors.0 }}</div>
+              {% endif %}
+              <p class="mt-1 text-xs text-gray-500">Number of decimal places to display</p>
+            </div>
+
+            <!-- Format Options -->
+            <div class="space-y-4">
+              <div class="flex items-center">
+                {{ form.show_currency }}
+                <label for="{{ form.show_currency.id_for_label }}" class="ml-2 block text-sm text-gray-700">
+                  Show Currency Symbol
+                </label>
+              </div>
+              {% if form.show_currency.errors %}
+                <div class="text-sm text-red-600">{{ form.show_currency.errors.0 }}</div>
+              {% endif %}
+
+              <div class="flex items-center">
+                {{ form.friendly_format }}
+                <label for="{{ form.friendly_format.id_for_label }}" class="ml-2 block text-sm text-gray-700">
+                  Friendly Format (e.g., 1.2M instead of 1,200,000)
+                </label>
+              </div>
+              {% if form.friendly_format.errors %}
+                <div class="text-sm text-red-600">{{ form.friendly_format.errors.0 }}</div>
+              {% endif %}
+
+              <div class="flex items-center">
+                {{ form.promote_homepage }}
+                <label for="{{ form.promote_homepage.id_for_label }}" class="ml-2 block text-sm text-gray-700">
+                  Show on Homepage
+                </label>
+              </div>
+              {% if form.promote_homepage.errors %}
+                <div class="text-sm text-red-600">{{ form.promote_homepage.errors.0 }}</div>
+              {% endif %}
+            </div>
+          </div>
+        </div>
+
+        <!-- Live Preview -->
+        <div class="px-6 py-6 border-b border-gray-200 bg-gray-50">
+          <h3 class="text-lg font-semibold text-gray-900 mb-4">Live Preview</h3>
+          <div class="bg-white rounded-lg border-2 border-dashed border-gray-300 p-6 text-center">
+            <div class="text-sm text-gray-500 mb-2">Counter Preview</div>
+            <div class="text-3xl font-bold text-gray-900" id="preview-value">Loading...</div>
+            <div class="text-xs text-gray-400 mt-1">Updates automatically as you change settings</div>
+          </div>
+        </div>
+
+        <!-- Action Buttons -->
+        <div class="px-6 py-4 bg-gray-50 text-right space-x-3">
+          <a href="{% url 'site_counter_list' %}" 
+             class="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+            Cancel
+          </a>
+          
+          {% if form.instance.pk %}
+          <button type="submit" name="save_and_continue" 
+                  class="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+            Save & Continue Editing
+          </button>
+          {% else %}
+          <button type="submit" name="save_and_add_another" 
+                  class="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+            Save & Add Another
+          </button>
+          {% endif %}
+          
+          <button type="submit" 
+                  class="inline-flex items-center px-4 py-2 bg-blue-600 border border-transparent rounded-md shadow-sm text-sm font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+            <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+            </svg>
+            {{ form.instance.pk|yesno:"Update Counter,Create Counter" }}
+          </button>
+        </div>
+      </form>
     </div>
-</form>
+
+    <!-- Help Section -->
+    <div class="mt-8 bg-blue-50 border border-blue-200 rounded-lg p-6">
+      <h3 class="text-lg font-semibold text-blue-900 mb-4">Site Counter Guidelines</h3>
+      
+      <div class="space-y-4 text-sm text-blue-800">
+        <div>
+          <h4 class="font-medium text-blue-900">Purpose</h4>
+          <p class="mt-1">Site counters aggregate financial data across all councils to show totals like "Total UK Local Government Debt" or "Combined Annual Expenditure".</p>
+        </div>
+        
+        <div>
+          <h4 class="font-medium text-blue-900">Display Options</h4>
+          <ul class="mt-1 list-disc list-inside space-y-1">
+            <li><strong>Grid Columns:</strong> How much horizontal space the counter takes (1-4 columns)</li>
+            <li><strong>Friendly Format:</strong> Shows large numbers in readable format (e.g., £1.2B instead of £1,200,000,000)</li>
+            <li><strong>Homepage Promotion:</strong> Makes the counter visible on the site's main page</li>
+          </ul>
+        </div>
+        
+        <div>
+          <h4 class="font-medium text-blue-900">Performance</h4>
+          <p class="mt-1">Counter values are cached for performance. If you need to refresh the cache manually, use the site management tools.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
 <script>
-async function updatePreview() {
-    const url = new URL('{% url "preview_aggregate_counter" %}', window.location.origin);
-    url.searchParams.append('counter', document.getElementById('id_counter').value);
-    const year = document.getElementById('id_year');
-    if (year) url.searchParams.append('year', year.value);
-    url.searchParams.append('precision', document.getElementById('id_precision').value);
-    url.searchParams.append('show_currency', document.getElementById('id_show_currency').checked);
-    url.searchParams.append('friendly_format', document.getElementById('id_friendly_format').checked);
-    const resp = await fetch(url, {headers: {'X-Requested-With': 'XMLHttpRequest'}});
-    const data = await resp.json();
-    document.getElementById('preview-value').textContent = data.formatted || data.error || '0';
-}
-['id_counter','id_year','id_precision','id_show_currency','id_friendly_format'].forEach(id => {
+document.addEventListener('DOMContentLoaded', function() {
+  // Apply Tailwind styling to form fields
+  const formFields = document.querySelectorAll('input, select, textarea');
+  formFields.forEach(field => {
+    if (field.type !== 'checkbox') {
+      field.classList.add('block', 'w-full', 'px-3', 'py-2', 'border', 'border-gray-300', 
+                          'rounded-md', 'shadow-sm', 'focus:ring-blue-500', 'focus:border-blue-500');
+    }
+  });
+
+  // Live preview functionality
+  async function updatePreview() {
+    try {
+      const url = new URL('{% url "preview_aggregate_counter" %}', window.location.origin);
+      
+      const counterField = document.getElementById('id_counter');
+      const yearField = document.getElementById('id_year');
+      const precisionField = document.getElementById('id_precision');
+      const showCurrencyField = document.getElementById('id_show_currency');
+      const friendlyFormatField = document.getElementById('id_friendly_format');
+      
+      if (!counterField || !counterField.value) {
+        document.getElementById('preview-value').textContent = 'Select a counter to preview';
+        return;
+      }
+      
+      url.searchParams.append('counter', counterField.value);
+      if (yearField && yearField.value) url.searchParams.append('year', yearField.value);
+      if (precisionField) url.searchParams.append('precision', precisionField.value);
+      if (showCurrencyField) url.searchParams.append('show_currency', showCurrencyField.checked);
+      if (friendlyFormatField) url.searchParams.append('friendly_format', friendlyFormatField.checked);
+      
+      const resp = await fetch(url, {headers: {'X-Requested-With': 'XMLHttpRequest'}});
+      const data = await resp.json();
+      document.getElementById('preview-value').textContent = data.formatted || data.error || '0';
+    } catch (error) {
+      console.error('Preview update failed:', error);
+      document.getElementById('preview-value').textContent = 'Preview unavailable';
+    }
+  }
+
+  // Attach event listeners for live preview updates
+  ['id_counter','id_year','id_precision','id_show_currency','id_friendly_format'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.addEventListener('change', updatePreview);
+  });
+
+  // Initial preview update
+  updatePreview();
 });
-document.addEventListener('DOMContentLoaded', updatePreview);
 </script>
 {% endblock %}
