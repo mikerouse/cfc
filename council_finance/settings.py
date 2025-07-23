@@ -11,17 +11,14 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = os.getenv('SECRET_KEY', "django-insecure-change-me")
 DEBUG = os.getenv('DEBUG', 'False').lower() == 'true'
 
-# Production-ready security configuration
+# Read ALLOWED_HOSTS from environment variable
+allowed_hosts_env = os.getenv('ALLOWED_HOSTS', 'localhost,127.0.0.1')
+ALLOWED_HOSTS = [host.strip() for host in allowed_hosts_env.split(',') if host.strip()]
+
+# Add additional hosts for development and testing
 if DEBUG:
-    ALLOWED_HOSTS = ['localhost', '127.0.0.1', '[::1]', 'testserver']
-else:
-    ALLOWED_HOSTS = [
-        'councilfinancecounters.onrender.com',
-        'localhost',
-        '127.0.0.1',
-        'testserver',
-        '[::1]'
-    ]
+    additional_hosts = ['[::1]', 'testserver']
+    ALLOWED_HOSTS.extend([host for host in additional_hosts if host not in ALLOWED_HOSTS])
 
 INSTALLED_APPS = [
     "django.contrib.admin",
