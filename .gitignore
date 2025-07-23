@@ -79,4 +79,8 @@ Thumbs.db
 # Node.js Modules
 node_modules/
 .github/prompts/prompts.prompt.md
+
+#Claude settings
 .claude/settings.local.json
+.claude/*
+.claude/
