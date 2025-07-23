@@ -97,6 +97,15 @@
         <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div class="flex items-center gap-4">
                 <div class="flex items-center">
+                    <label for="year-filter" class="text-sm font-medium text-gray-700 mr-2">Financial year:</label>
+                    <select id="year-filter" class="border border-gray-300 rounded-md px-3 py-2 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                        <option value="">All years</option>
+                        {% for year in available_years %}
+                        <option value="{{ year.label }}" {% if year.is_current %}selected{% endif %}>{{ year.label }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="flex items-center">
                     <label for="field-select" class="text-sm font-medium text-gray-700 mr-2">Add comparison field:</label>
                     <select id="field-select" class="border border-gray-300 rounded-md px-3 py-2 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
                         <option value="">-- Select a field --</option>
@@ -111,6 +120,9 @@
                     </select>
                 </div>
                 <div class="loading-spinner" id="loading-spinner"></div>
+                <div id="year-indicator" class="text-xs text-gray-500 hidden">
+                    <span id="year-indicator-text"></span>
+                </div>
             </div>
             <div class="flex items-center gap-2">
                 <span class="text-sm text-gray-500">{{ councils.count }} council{{ councils.count|pluralize }}</span>
@@ -236,8 +248,82 @@
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     const fieldSelect = document.getElementById('field-select');
+    const yearFilter = document.getElementById('year-filter');
     const loadingSpinner = document.getElementById('loading-spinner');
     const compareRows = document.getElementById('compare-rows');
+    
+    // Handle year filter changes - refresh all existing rows
+    if (yearFilter) {
+        yearFilter.addEventListener('change', function() {
+            updateYearIndicator();
+            const existingRows = document.querySelectorAll('[data-field]');
+            if (existingRows.length > 0) {
+                refreshAllRows();
+            }
+        });
+        
+        // Initial year indicator update
+        updateYearIndicator();
+    }
+    
+    // Update year indicator
+    function updateYearIndicator() {
+        const yearIndicator = document.getElementById('year-indicator');
+        const yearIndicatorText = document.getElementById('year-indicator-text');
+        const selectedYear = yearFilter.value;
+        
+        if (selectedYear && yearIndicator && yearIndicatorText) {
+            yearIndicatorText.textContent = `Showing data for ${selectedYear}`;
+            yearIndicator.classList.remove('hidden');
+        } else if (yearIndicator) {
+            yearIndicator.classList.add('hidden');
+        }
+    }
+    
+    // Function to refresh all existing rows with new year filter
+    function refreshAllRows() {
+        const existingRows = document.querySelectorAll('[data-field]');
+        const yearFilterValue = yearFilter ? yearFilter.value : '';
+        
+        existingRows.forEach(row => {
+            const fieldSlug = row.getAttribute('data-field');
+            
+            // Replace row content with loading indicator
+            const cells = row.querySelectorAll('td:not(.sticky-col)');
+            cells.forEach(cell => {
+                cell.innerHTML = '<div class="loading-spinner" style="display: inline-block;"></div>';
+            });
+            
+            // Fetch updated data
+            fetch(`/compare/row/?field=${fieldSlug}&year=${yearFilterValue}`, {
+                method: 'GET',
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                }
+            })
+            .then(response => response.text())
+            .then(htmlContent => {
+                if (htmlContent.trim().startsWith('<tr') && htmlContent.includes('</tr>')) {
+                    // Create temporary element to parse the HTML
+                    const tempDiv = document.createElement('div');
+                    tempDiv.innerHTML = htmlContent;
+                    const newRow = tempDiv.querySelector('tr');
+                    
+                    if (newRow) {
+                        // Replace the old row with the new one
+                        row.replaceWith(newRow);
+                    }
+                }
+            })
+            .catch(error => {
+                console.error('Error refreshing row:', error);
+                // Restore original error message
+                cells.forEach(cell => {
+                    cell.innerHTML = 'Error loading data';
+                });
+            });
+        });
+    }
     
     // Add field to comparison
     fieldSelect.addEventListener('change', function() {
@@ -259,6 +345,12 @@ document.addEventListener('DOMContentLoaded', function() {
             return;
         }
         
+        // Disable the selected option immediately to prevent double-clicks
+        const selectedOption = selectElement.querySelector(`option[value="${fieldSlug}"]`);
+        if (selectedOption) {
+            selectedOption.disabled = true;
+        }
+        
         // Show loading
         loadingSpinner.style.display = 'inline-block';
         selectElement.disabled = true;
@@ -277,7 +369,10 @@ document.addEventListener('DOMContentLoaded', function() {
         `;
         compareRows.appendChild(loadingRow);
         
-        fetch(`/compare/row/?field=${fieldSlug}`, {
+        // Get the current year filter value
+        const yearFilter = document.getElementById('year-filter')?.value || '';
+        
+        fetch(`/compare/row/?field=${fieldSlug}&year=${yearFilter}`, {
             method: 'GET',
             headers: {
                 'X-Requested-With': 'XMLHttpRequest',
@@ -333,6 +428,10 @@ document.addEventListener('DOMContentLoaded', function() {
                         } else {
                             console.error('Row was not found after insertion');
                             showMessage('Error adding field - row not found', 'error');
+                            // Re-enable the option if insertion failed
+                            if (selectedOption) {
+                                selectedOption.disabled = false;
+                            }
                         }
                     }
                 } else if (htmlContent.startsWith('ERROR:')) {
@@ -350,6 +449,12 @@ document.addEventListener('DOMContentLoaded', function() {
                 const loadingRowElement = document.querySelector('.loading-row');
                 if (loadingRowElement) {
                     loadingRowElement.remove();
+                }
+                
+                // Re-enable the option if there was an error
+                const selectedOption = selectElement.querySelector(`option[value="${fieldSlug}"]`);
+                if (selectedOption) {
+                    selectedOption.disabled = false;
                 }
                 
                 showMessage('Error adding field to comparison', 'error');

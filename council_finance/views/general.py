@@ -2472,6 +2472,7 @@ def compare_row(request):
     """Get comparison row data for a specific field or council list."""
     try:
         field_slug = request.GET.get('field')
+        year_filter = request.GET.get('year', '')  # Get year filter from request
         compare_basket = request.session.get('compare_basket', [])
         councils = Council.objects.filter(slug__in=compare_basket)
         
@@ -2499,13 +2500,23 @@ def compare_row(request):
                         value = characteristic.value
                         display_value = field.display_value(value)
                 else:
-                    # Get most recent financial data
-                    financial_figure = FinancialFigure.objects.filter(
+                    # Get financial data with optional year filtering
+                    financial_figures = FinancialFigure.objects.filter(
                         council=council, field=field
-                    ).order_by('-year__label').first()
+                    )
+                    
+                    # Apply year filter if specified
+                    if year_filter:
+                        financial_figures = financial_figures.filter(year__label=year_filter)
+                    
+                    financial_figure = financial_figures.order_by('-year__label').first()
+                    
                     if financial_figure and financial_figure.value is not None:
                         value = financial_figure.value
                         display_value = field.display_value(str(value))
+                        # Add year info to display if filtering by specific year
+                        if year_filter:
+                            display_value += f" ({financial_figure.year.label})"
                 
                 values.append(display_value)
                 
@@ -2549,7 +2560,8 @@ def compare_row(request):
             html = render_to_string('council_finance/compare_row.html', {
                 'field': field,
                 'values': values,
-                'summary': summary
+                'summary': summary,
+                'year_filter': year_filter
             }, request=request)
             
             response = HttpResponse(html)
@@ -2583,9 +2595,18 @@ def compare_basket(request):
     compare_basket = request.session.get('compare_basket', [])
     councils = Council.objects.filter(slug__in=compare_basket)
     
+    # Get all available fields for the dropdown
+    all_fields = DataField.objects.all().order_by('category', 'name')
+    
+    # Get available financial years
+    available_years = FinancialYear.objects.all().order_by('-label')
+    
     context = {
         'councils': councils,
-        'compare_basket': compare_basket
+        'compare_basket': compare_basket,
+        'field_choices': all_fields,
+        'available_years': available_years,
+        'rows': []
     }
     
     return render(request, 'council_finance/compare_basket.html', context)
@@ -2614,15 +2635,20 @@ def detailed_comparison(request):
                     'save_success': True,
                     'list_name': list_name,
                     'field_choices': DataField.objects.all().order_by('category', 'name'),
+                    'available_years': FinancialYear.objects.all().order_by('-label'),
                     'rows': []
                 })
     
     # Get all available fields for the dropdown in the correct format
     all_fields = DataField.objects.all().order_by('category', 'name')
     
+    # Get available financial years
+    available_years = FinancialYear.objects.all().order_by('-label')
+    
     context = {
         'councils': councils,
         'field_choices': all_fields,  # Template uses {% regroup field_choices by category %}
+        'available_years': available_years,
         'rows': [],  # Rows will be loaded dynamically via AJAX
         'save_success': False
     }
