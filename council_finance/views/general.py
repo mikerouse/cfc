@@ -685,7 +685,11 @@ def council_detail(request, slug):
         if not field:
             continue
         if slug == "population":
-            if council.latest_population is not None:
+            # Check for population in CouncilCharacteristic first
+            characteristic = CouncilCharacteristic.objects.filter(council=council, field=field).first()
+            if characteristic:
+                display = field.display_value(characteristic.value)
+            elif council.latest_population is not None:
                 display = field.display_value(str(council.latest_population))
             else:
                 display = "No data"
