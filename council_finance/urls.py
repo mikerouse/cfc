@@ -34,6 +34,7 @@ from .views.general import (
     remove_from_compare,
     compare_row,
     compare_basket,
+    detailed_comparison,
     clear_compare_basket,
     follow_council,
     unfollow_council,
@@ -149,6 +150,7 @@ urlpatterns = [
     path("compare/remove/<slug:slug>/", remove_from_compare, name="remove_from_compare"),
     path("compare/row/", compare_row, name="compare_row"),
     path("compare/clear/", clear_compare_basket, name="clear_compare_basket"),
+    path("compare/detailed/", detailed_comparison, name="detailed_comparison"),
     path("compare/", compare_basket, name="compare_basket"),
     path("following/", following, name="following"),
     # Enhanced Following System API Endpoints

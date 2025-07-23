@@ -2469,25 +2469,109 @@ def remove_from_compare(request, slug):
 
 
 def compare_row(request):
-    """Get comparison row data."""
+    """Get comparison row data for a specific field or council list."""
     try:
+        field_slug = request.GET.get('field')
         compare_basket = request.session.get('compare_basket', [])
         councils = Council.objects.filter(slug__in=compare_basket)
         
-        data = []
-        for council in councils:
-            data.append({
-                'slug': council.slug,
-                'name': council.name,
-                'type': council.council_type.name if council.council_type else '',
-                'nation': council.council_nation.name if council.council_nation else ''
-            })
+        if field_slug:
+            # Return field comparison data as HTML for the detailed comparison table
+            try:
+                field = DataField.objects.get(slug=field_slug)
+            except DataField.DoesNotExist:
+                return JsonResponse({"error": "Field not found"}, status=404)
+            
+            # Get data for each council for this field
+            values = []
+            summary_data = {'total': 0, 'count': 0, 'highest': None, 'lowest': None, 'highest_council': '', 'lowest_council': ''}
+            
+            for council in councils:
+                value = None
+                display_value = "N/A"
+                
+                if field.category == 'characteristic':
+                    # Get characteristic data
+                    characteristic = CouncilCharacteristic.objects.filter(
+                        council=council, field=field
+                    ).first()
+                    if characteristic:
+                        value = characteristic.value
+                        display_value = field.display_value(value)
+                else:
+                    # Get most recent financial data
+                    financial_figure = FinancialFigure.objects.filter(
+                        council=council, field=field
+                    ).order_by('-year__label').first()
+                    if financial_figure and financial_figure.value is not None:
+                        value = financial_figure.value
+                        display_value = field.display_value(str(value))
+                
+                values.append(display_value)
+                
+                # Update summary for numeric fields
+                if field.content_type in ['monetary', 'integer'] and value is not None:
+                    try:
+                        numeric_value = float(value)
+                        summary_data['total'] += numeric_value
+                        summary_data['count'] += 1
+                        
+                        if summary_data['highest'] is None or numeric_value > summary_data['highest']:
+                            summary_data['highest'] = numeric_value
+                            summary_data['highest_council'] = council.name
+                        
+                        if summary_data['lowest'] is None or numeric_value < summary_data['lowest']:
+                            summary_data['lowest'] = numeric_value
+                            summary_data['lowest_council'] = council.name
+                    except (ValueError, TypeError):
+                        pass
+            
+            # Format summary
+            summary = None
+            if summary_data['count'] > 0:
+                if field.content_type == 'monetary':
+                    summary = {
+                        'total': f"£{summary_data['total']:,.0f}",
+                        'average': f"£{summary_data['total']/summary_data['count']:,.0f}",
+                        'highest': summary_data['highest_council'],
+                        'lowest': summary_data['lowest_council']
+                    }
+                elif field.content_type == 'integer':
+                    summary = {
+                        'total': f"{summary_data['total']:,.0f}",
+                        'average': f"{summary_data['total']/summary_data['count']:,.0f}",
+                        'highest': summary_data['highest_council'],
+                        'lowest': summary_data['lowest_council']
+                    }
+            
+            # Render the row as HTML
+            from django.template.loader import render_to_string
+            html = render_to_string('council_finance/compare_row.html', {
+                'field': field,
+                'values': values,
+                'summary': summary
+            }, request=request)
+            
+            response = HttpResponse(html)
+            response['X-Field-Name'] = field.name
+            return response
         
-        return JsonResponse({
-            "status": "success",
-            "councils": data,
-            "count": len(compare_basket)
-        })
+        else:
+            # Return basic council data (legacy functionality)
+            data = []
+            for council in councils:
+                data.append({
+                    'slug': council.slug,
+                    'name': council.name,
+                    'type': council.council_type.name if council.council_type else '',
+                    'nation': council.council_nation.name if council.council_nation else ''
+                })
+            
+            return JsonResponse({
+                "status": "success",
+                "councils": data,
+                "count": len(compare_basket)
+            })
     
     except Exception as e:
         logger.error(f"Error getting compare row: {e}")
@@ -2505,6 +2589,45 @@ def compare_basket(request):
     }
     
     return render(request, 'council_finance/compare_basket.html', context)
+
+
+def detailed_comparison(request):
+    """Show detailed comparison table with field data for councils in basket."""
+    compare_basket = request.session.get('compare_basket', [])
+    councils = Council.objects.filter(slug__in=compare_basket)
+    
+    if not councils.exists():
+        return redirect('compare_basket')
+    
+    # Handle saving as list if submitted
+    if request.method == "POST" and request.POST.get('save_list'):
+        if request.user.is_authenticated:
+            list_name = request.POST.get('name', '').strip()
+            if list_name:
+                council_list = CouncilList.objects.create(
+                    user=request.user,
+                    name=list_name
+                )
+                council_list.councils.set(councils)
+                return render(request, 'council_finance/comparison_basket.html', {
+                    'councils': councils,
+                    'save_success': True,
+                    'list_name': list_name,
+                    'field_choices': DataField.objects.all().order_by('category', 'name'),
+                    'rows': []
+                })
+    
+    # Get all available fields for the dropdown in the correct format
+    all_fields = DataField.objects.all().order_by('category', 'name')
+    
+    context = {
+        'councils': councils,
+        'field_choices': all_fields,  # Template uses {% regroup field_choices by category %}
+        'rows': [],  # Rows will be loaded dynamically via AJAX
+        'save_success': False
+    }
+    
+    return render(request, 'council_finance/comparison_basket.html', context)
 
 
 def clear_compare_basket(request):
