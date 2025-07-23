@@ -1,13 +1,63 @@
 {% extends "base.html" %}
 {% block title %}Privacy & Cookies - Council Finance Counters{% endblock %}
 {% block content %}
-<h1 class="text-2xl font-bold mb-4">Privacy & Cookies</h1>
-<p>This site stores session cookies for login. No tracking cookies are used.</p>
-<ul class="list-disc pl-5">
-{% for c in request.COOKIES.keys %}
-    <li>{{ c }}</li>
-{% empty %}
-    <li>No cookies set.</li>
-{% endfor %}
-</ul>
+<div class="max-w-4xl mx-auto px-4 py-8">
+    <h1 class="text-3xl font-bold mb-6 text-gray-900">Privacy & Cookies</h1>
+    
+    <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-8">
+        <h2 class="text-xl font-semibold mb-4 text-gray-900">Cookies We Use</h2>
+        <p class="text-gray-600 mb-6">This site uses minimal cookies to provide essential functionality. We do not use tracking or advertising cookies.</p>
+        
+        <div class="space-y-6">
+            <div class="border-l-4 border-blue-500 pl-4">
+                <h3 class="font-semibold text-gray-900 mb-2">Essential Cookies</h3>
+                <div class="space-y-3">
+                    <div class="bg-gray-50 rounded p-3">
+                        <div class="font-medium text-sm text-gray-900">sessionid</div>
+                        <div class="text-sm text-gray-600">Required for user authentication and login sessions</div>
+                        <div class="text-xs text-gray-500 mt-1">Duration: Browser session</div>
+                    </div>
+                    <div class="bg-gray-50 rounded p-3">
+                        <div class="font-medium text-sm text-gray-900">csrftoken</div>
+                        <div class="text-sm text-gray-600">Security token to prevent cross-site request forgery attacks</div>
+                        <div class="text-xs text-gray-500 mt-1">Duration: 1 year</div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="border-l-4 border-green-500 pl-4">
+                <h3 class="font-semibold text-gray-900 mb-2">Preference Cookies</h3>
+                <div class="space-y-3">
+                    <div class="bg-gray-50 rounded p-3">
+                        <div class="font-medium text-sm text-gray-900">selected_financial_year</div>
+                        <div class="text-sm text-gray-600">Remembers your selected financial year preference across the site</div>
+                        <div class="text-xs text-gray-500 mt-1">Duration: 1 year</div>
+                    </div>
+                    <div class="bg-gray-50 rounded p-3">
+                        <div class="font-medium text-sm text-gray-900">counterSpans</div>
+                        <div class="text-sm text-gray-600">Stores your custom layout preferences for homepage counters</div>
+                        <div class="text-xs text-gray-500 mt-1">Duration: Stored in browser localStorage</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+        <h2 class="text-xl font-semibold mb-4 text-gray-900">Current Cookies</h2>
+        <p class="text-gray-600 mb-4">The following cookies are currently set in your browser:</p>
+        <div class="bg-gray-50 rounded p-4">
+            <ul class="space-y-2">
+            {% for c in request.COOKIES.keys %}
+                <li class="flex items-center justify-between py-1">
+                    <span class="font-mono text-sm text-gray-900">{{ c }}</span>
+                    <span class="text-xs text-gray-500">Active</span>
+                </li>
+            {% empty %}
+                <li class="text-gray-500 text-sm">No cookies currently set.</li>
+            {% endfor %}
+            </ul>
+        </div>
+    </div>
+</div>
 {% endblock %}

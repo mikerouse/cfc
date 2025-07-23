@@ -249,16 +249,8 @@ def list_field_options(request, field_slug=None, slug=None):
 
 
 def home(request):
-    """Enhanced landing page with search, counters, featured content and widgets."""
-    # Pull any search query from the request
-    query = request.GET.get("q", "")
-
-    # Look up councils matching the query when present
-    councils = []
-    if query:
-        councils = Council.objects.filter(
-            Q(name__icontains=query) | Q(slug__icontains=query)
-        )[:10]  # Limit to top 10 results    # Determine the latest financial year for which we have debt figures
+    """Enhanced landing page with counters, featured content and widgets."""
+    # Determine the latest financial year for which we have debt figures
     latest_year = FinancialYear.objects.order_by("-label").first()
     
     if latest_year:
@@ -276,19 +268,20 @@ def home(request):
     # Get total council count for hero section
     total_councils = Council.objects.count()
     
-    # Get total data points available
-    # Count total data points from both characteristics and financial figures
-    total_characteristics = CouncilCharacteristic.objects.count()
-    total_financial_figures = FinancialFigure.objects.count()
-    total_data_points = total_characteristics + total_financial_figures
+    # Calculate enhanced hero stats
+    total_debt_billions = total_debt / 1_000_000_000 if total_debt else 0
     
-    # Get council of the day (random featured council)
-    import random
-    from django.db import connection
+    # Calculate completion percentage
+    all_years = FinancialYear.objects.all()
+    expected_data_points = total_councils * DataField.objects.count() * all_years.count()
+    actual_data_points = CouncilCharacteristic.objects.count() + FinancialFigure.objects.count()
+    completion_percentage = (actual_data_points / expected_data_points * 100) if expected_data_points > 0 else 0
     
+    # Get featured councils (mix of council of the day + random selection)
+    featured_councils = []
     council_of_the_day = None
     if Council.objects.exists():
-        # Get a deterministic "random" council based on today's date
+        # Get a deterministic "random" council based on today's date for council of the day
         import hashlib
         from datetime import date
         
@@ -297,6 +290,10 @@ def home(request):
         if council_count > 0:
             council_index = int(today_seed[:8], 16) % council_count
             council_of_the_day = Council.objects.all()[council_index]
+            
+            # Get a few more featured councils (exclude council of the day)
+            featured_councils = list(Council.objects.exclude(id=council_of_the_day.id).order_by('?')[:5])
+            featured_councils.insert(0, council_of_the_day)  # Put council of the day first
 
     # Get recent activity for the homepage
     recent_contributions = Contribution.objects.filter(
@@ -366,8 +363,9 @@ def home(request):
     for gc in GroupCounter.objects.filter(promote_homepage=True):
         year_label = gc.year.label if gc.year else "all"
         key = f"counter_total:{gc.slug}:{year_label}"
-        val = cache.get(key)        # Group counters may be restricted to subsets of councils. We apply the
+        # Group counters may be restricted to subsets of councils. We apply the
         # same logic as above to ensure the totals reflect loaded data.
+        val = cache.get(key)
         if val is None:
             missing_cache = True
         elif val == 0 and (FinancialFigure.objects.exists() or CouncilCharacteristic.objects.exists()):
@@ -435,18 +433,19 @@ def home(request):
         })
 
     context = {
-        "query": query,
-        "councils": councils,
         "total_debt": total_debt,
+        "total_debt_billions": total_debt_billions,
         "total_councils": total_councils,
-        "total_data_points": total_data_points,
+        "completion_percentage": completion_percentage,
         "council_of_the_day": council_of_the_day,
+        "featured_councils": featured_councils,
         "recent_contributions": recent_contributions,
         "top_contributors": top_contributors,
         "missing_data_count": missing_data_count,
         "pending_contributions_count": pending_contributions_count,
         "promoted_counters": promoted,
         "latest_year": latest_year,
+        "current_year": latest_year.label if latest_year else "",
     }
 
     return render(request, "council_finance/home.html", context)
