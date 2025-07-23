@@ -824,6 +824,35 @@ def council_detail(request, slug):
         missing_characteristic_paginator = Paginator(missing_qs, 50)
         missing_characteristic_page = missing_characteristic_paginator.get_page(1)
 
+    # Get characteristic fields for dynamic rendering (needed for updated template)
+    characteristic_fields = []
+    if tab == "edit":
+        char_fields_qs = DataField.objects.filter(category='characteristic').order_by('name')
+        
+        # Get pending contribution slugs for this council  
+        pending_slugs_list = list(Contribution.objects.filter(
+            council=council, status="pending"
+        ).values_list("field__slug", flat=True))
+        
+        for field in char_fields_qs:
+            # Get current value if exists
+            current_value = None
+            try:
+                char = CouncilCharacteristic.objects.get(council=council, field=field)
+                current_value = char.value
+            except CouncilCharacteristic.DoesNotExist:
+                pass
+            
+            characteristic_fields.append({
+                'field': field,
+                'slug': field.slug,
+                'name': field.name,
+                'required': field.required,
+                'current_value': current_value,
+                'has_value': current_value is not None,
+                'is_pending': field.slug in pending_slugs_list
+            })
+
     context = {
         "council": council,
         "figures": figures,
@@ -839,6 +868,7 @@ def council_detail(request, slug):
         "edit_figures": edit_figures,
         "missing_characteristic_page": missing_characteristic_page,
         "missing_characteristic_paginator": missing_characteristic_paginator,
+        "characteristic_fields": characteristic_fields,
         # Set of field slugs with pending contributions so the template
         # can show a "pending confirmation" notice in place of the form.
         "pending_slugs": set(

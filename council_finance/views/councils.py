@@ -210,6 +210,7 @@ def council_detail(request, slug):
     
     # Get pending contributions for edit interface
     pending_slugs = []
+    characteristic_fields = []
     if tab == 'edit':
         from council_finance.models import Contribution
         pending_contributions = Contribution.objects.filter(
@@ -217,6 +218,28 @@ def council_detail(request, slug):
             status='pending'
         ).values_list('field__slug', flat=True)
         pending_slugs = list(pending_contributions)
+        
+        # Get all characteristic fields for dynamic rendering
+        from council_finance.models import DataField, CouncilCharacteristic
+        characteristic_fields = []
+        for field in DataField.objects.filter(category='characteristic').order_by('name'):
+            # Get current value if exists
+            current_value = None
+            try:
+                char = CouncilCharacteristic.objects.get(council=council, field=field)
+                current_value = char.value
+            except CouncilCharacteristic.DoesNotExist:
+                pass
+            
+            characteristic_fields.append({
+                'field': field,
+                'slug': field.slug,
+                'name': field.name,
+                'required': field.required,
+                'current_value': current_value,
+                'has_value': current_value is not None,
+                'is_pending': field.slug in pending_slugs
+            })
     
     # Get default counter slugs for JavaScript
     default_counter_slugs = [counter['counter'].slug for counter in counters]
@@ -238,6 +261,7 @@ def council_detail(request, slug):
         'edit_years': years,
         'edit_selected_year': selected_year,
         'pending_slugs': pending_slugs,
+        'characteristic_fields': characteristic_fields,
     }
     
     return render(request, 'council_finance/council_detail.html', context)
@@ -691,6 +715,14 @@ def contribute_api(request):
                     council.council_type = council_type
                     council.save()
                     points_awarded = 3
+                    
+                    # Remove any DataIssue for this field
+                    from council_finance.models import DataIssue
+                    DataIssue.objects.filter(
+                        council=council,
+                        field=field,
+                        issue_type='missing'
+                    ).delete()
                 except CouncilType.DoesNotExist:
                     return JsonResponse({'error': 'Invalid council type'}, status=400)
             elif field.slug == 'council_nation':
@@ -699,12 +731,28 @@ def contribute_api(request):
                     council.council_nation = council_nation
                     council.save()
                     points_awarded = 3
+                    
+                    # Remove any DataIssue for this field
+                    from council_finance.models import DataIssue
+                    DataIssue.objects.filter(
+                        council=council,
+                        field=field,
+                        issue_type='missing'
+                    ).delete()
                 except CouncilNation.DoesNotExist:
                     return JsonResponse({'error': 'Invalid council nation'}, status=400)
             elif field.slug == 'council_website':
                 council.website = value
                 council.save()
                 points_awarded = 3
+                
+                # Remove any DataIssue for this field
+                from council_finance.models import DataIssue
+                DataIssue.objects.filter(
+                    council=council,
+                    field=field,
+                    issue_type='missing'
+                ).delete()
             else:
                 # Other characteristics - create or update
                 characteristic, created = CouncilCharacteristic.objects.update_or_create(
@@ -713,6 +761,14 @@ def contribute_api(request):
                     defaults={'value': value}
                 )
                 points_awarded = 3
+                
+                # Remove any DataIssue for this characteristic field
+                from council_finance.models import DataIssue
+                DataIssue.objects.filter(
+                    council=council,
+                    field=field,
+                    issue_type='missing'
+                ).delete()
         else:
             # Financial data
             if not year:
@@ -725,6 +781,15 @@ def contribute_api(request):
                 defaults={'value': value, 'source_document': source}
             )
             points_awarded = 2
+            
+            # Remove any DataIssue for this financial field/year
+            from council_finance.models import DataIssue
+            DataIssue.objects.filter(
+                council=council,
+                field=field,
+                year=year,
+                issue_type='missing'
+            ).delete()
         
         # Award points to user
         try:

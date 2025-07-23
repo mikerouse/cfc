@@ -112,8 +112,10 @@
           </td>
         </tr>
         
-        <!-- Council Type -->
-        <tr class="hover:bg-gray-50 transition-colors editable-row" data-field="council_type" data-category="characteristics">
+        <!-- Dynamic Characteristic Fields -->
+        <!-- DEBUG: characteristic_fields count: {{ characteristic_fields|length }} -->
+        {% for char_field in characteristic_fields %}
+        <tr class="hover:bg-gray-50 transition-colors editable-row" data-field="{{ char_field.slug }}" data-category="characteristics">
           <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 sticky left-0 bg-white border-r border-gray-200">
             <div class="flex items-center space-x-3">
               <div class="flex-shrink-0">
@@ -124,29 +126,34 @@
                 </div>
               </div>
               <div>
-                <div class="text-sm font-medium text-gray-900">Council Type</div>
-                <div class="text-xs text-gray-500">Classification of council authority</div>
+                <div class="text-sm font-medium text-gray-900">
+                  {{ char_field.name }}
+                  {% if char_field.required %}
+                    <span class="text-red-500 ml-1">*</span>
+                  {% endif %}
+                </div>
+                <div class="text-xs text-gray-500">{{ char_field.field.help_text|default:"Council characteristic data" }}</div>
               </div>
             </div>
           </td>
           <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-            <div class="editable-cell cursor-pointer hover:bg-blue-50 rounded px-2 py-1 transition-colors" data-field="council_type">
-              {% if council.council_type %}
-                <span class="text-gray-900">{{ council.council_type.name }}</span>
+            <div class="editable-cell cursor-pointer hover:bg-blue-50 rounded px-2 py-1 transition-colors" data-field="{{ char_field.slug }}">
+              {% if char_field.has_value %}
+                <span class="text-gray-900">{{ char_field.current_value }}</span>
               {% else %}
                 <span class="text-gray-400 italic">Click to add...</span>
               {% endif %}
             </div>
           </td>
           <td class="px-6 py-4 whitespace-nowrap">
-            {% if council.council_type %}
+            {% if char_field.has_value %}
               <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
                 <svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
                 </svg>
                 Complete
               </span>
-            {% elif 'council_type' in pending_slugs %}
+            {% elif char_field.is_pending %}
               <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
                 <svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
@@ -154,26 +161,26 @@
                 Pending
               </span>
             {% else %}
-              <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
+              <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium {% if char_field.required %}bg-red-100 text-red-800{% else %}bg-gray-100 text-gray-800{% endif %}">
                 <svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
                 </svg>
-                Missing
+                {% if char_field.required %}Required{% else %}Missing{% endif %}
               </span>
             {% endif %}
           </td>
           <td class="px-6 py-4 whitespace-nowrap text-xs text-gray-500">
-            {% if council.council_type %}
-              {{ council.updated_at|date:"M j, Y" }}
+            {% if char_field.has_value %}
+              Recent
             {% else %}
               -
             {% endif %}
           </td>
           <td class="px-6 py-4 whitespace-nowrap text-center">
-            {% if council.council_type %}
+            {% if char_field.has_value %}
               <button type="button" 
                       class="delete-field-btn inline-flex items-center px-2 py-1 text-xs font-medium text-red-600 bg-red-50 border border-red-200 rounded hover:bg-red-100 transition-colors"
-                      data-field="council_type" 
+                      data-field="{{ char_field.slug }}" 
                       title="Clear this field">
                 <svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1-1H8a1 1 0 00-1 1v3M4 7h16"/>
@@ -190,9 +197,10 @@
             </span>
           </td>
         </tr>
+        {% endfor %}
 
-        <!-- Council Website -->
-        <tr class="hover:bg-gray-50 transition-colors editable-row" data-field="council_website" data-category="characteristics">
+        <!-- Financial Data Section -->
+        <tr class="bg-green-50 border-t-2 border-green-200">
           <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 sticky left-0 bg-white border-r border-gray-200">
             <div class="flex items-center space-x-3">
               <div class="flex-shrink-0">
