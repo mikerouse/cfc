@@ -24,7 +24,8 @@
       "Bash(del test_factoid_calculations.py)",
       "Bash(git checkout:*)",
       "Bash(tail:*)",
-      "Bash(taskkill:*)"
+      "Bash(taskkill:*)",
+      "Bash(pkill:*)"
     ],
     "deny": []
   }
