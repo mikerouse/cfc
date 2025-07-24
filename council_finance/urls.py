@@ -4,6 +4,7 @@ from django.urls import include, path
 from django.views.generic import RedirectView
 from django.conf import settings
 from django.conf.urls.static import static
+from django.http import HttpResponse
 from django.contrib import admin
 
 from .views import (
@@ -242,6 +243,9 @@ urlpatterns = [
     path("manage/fields/add/", admin_views.field_form, name="field_add"),
     path("manage/fields/<slug:slug>/", admin_views.field_form, name="field_edit"),
     path("manage/fields/<slug:slug>/delete/", admin_views.field_delete, name="field_delete"),
+    # TEST URL to confirm our Django instance is responding
+    path("manage/TEST-NUCLEAR-URL/", lambda request: HttpResponse('<h1 style="color:red;background:yellow;font-size:48px;">NUCLEAR URL TEST SUCCESS</h1>'), name="nuclear_test"),
+    
     # Enhanced factoid template management
     path("manage/factoid-templates/", admin_views.factoid_template_list, name="factoid_template_list"),
     path("manage/factoid-templates/add/", admin_views.factoid_template_form, name="factoid_template_add"),

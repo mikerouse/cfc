@@ -2,19 +2,36 @@
 {% load i18n %}
 
 {% block title %}
-    {% if template %}Edit Factoid Template{% else %}Add Factoid Template{% endif %} - Council Finance Counters
+    TEMPLATE FILE LOADED CORRECTLY - {% if template %}Edit Factoid Template{% else %}Add Factoid Template{% endif %} - Council Finance Counters
 {% endblock %}
 
 {% block content %}
 <div class="container mx-auto px-4 py-6 max-w-4xl">
     <div class="mb-6">
         <h1 class="text-3xl font-bold text-gray-900 mb-2">
-            {% if template %}Edit Factoid Template{% else %}Create New Factoid Template{% endif %}
+            🚨 CORRECT TEMPLATE FILE LOADED 🚨 {% if template %}Edit Factoid Template{% else %}Create New Factoid Template{% endif %}
         </h1>
         <p class="text-gray-600">
             Factoid templates generate dynamic insights that appear beneath counters with contextual data.
         </p>
         
+        <!-- COMPREHENSIVE DEBUG INFO -->
+        <div class="bg-red-50 border border-red-200 p-4 rounded mt-4">
+            <h3 class="font-bold text-red-700">DEBUG INFO</h3>
+            <div class="text-sm text-red-600 space-y-1">
+                <div>Debug info exists: {{ debug_info|yesno:"YES,NO" }}</div>
+                {% if debug_info %}
+                    <div>Quick variables count: {{ debug_info.quick_count }}</div>
+                    <div>All variables count: {{ debug_info.all_count }}</div>
+                    <div>Characteristic fields: {{ debug_info.char_count }}</div>
+                    <div>Calculated fields: {{ debug_info.calc_count }}</div>
+                    <div>Financial fields: {{ debug_info.fin_count }}</div>
+                {% endif %}
+                <div>Quick variables length: {{ quick_variables|length }}</div>
+                <div>All variables length: {{ all_template_variables|length }}</div>
+                <div>Quick variables type: {{ quick_variables|slugify }}</div>
+            </div>
+        </div>
     </div>
 
     <form method="post" class="space-y-8">
@@ -66,6 +83,7 @@
                     </div>
                     <!-- Quick variables (always visible) -->
                     <div id="quick-variables" class="flex flex-wrap gap-1 mb-2">
+                        <!-- DEBUG: Quick variables iteration -->
                         {% for var in quick_variables %}
                             <button type="button" 
                                     class="variable-button inline-flex items-center px-2 py-1 text-xs bg-emerald-100 text-emerald-800 rounded hover:bg-emerald-200 cursor-pointer"
@@ -74,12 +92,17 @@
                                 {{ var.display }}
                             </button>
                         {% empty %}
-                            <div class="text-gray-500 text-xs">No variables available</div>
+                            <div class="text-red-500 text-xs font-bold">NO QUICK VARIABLES FOUND IN TEMPLATE LOOP</div>
                         {% endfor %}
+                        
+                        <!-- Fallback debug if variables exist but aren't looping -->
+                        {% if quick_variables and not quick_variables|length %}
+                            <div class="text-orange-500 text-xs">Variables exist but length is 0</div>
+                        {% endif %}
                     </div>
                     
                     <!-- All variables (collapsible) -->
-                    <div id="all-variables" class="hidden border border-gray-200 rounded-lg p-3 max-h-60 overflow-y-auto bg-gray-50" style="display: none;">
+                    <div id="all-variables" class="hidden border border-gray-200 rounded-lg p-3 max-h-60 overflow-y-auto bg-gray-50">
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-2">
                             {% for var in all_template_variables %}
                                 {% if var.is_header %}
@@ -244,25 +267,48 @@
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
+    console.log('FACTOID DEBUG: DOM loaded, starting JavaScript debug...');
+    
     const templateTextArea = document.getElementById('template_text');
     const toggleButton = document.getElementById('toggle-variables');
     const allVariablesPanel = document.getElementById('all-variables');
     const quickVariablesPanel = document.getElementById('quick-variables');
     let allVariablesVisible = false;
     
-    // Debug variable count
+    // Debug DOM elements
+    console.log('FACTOID DEBUG: Template textarea found:', !!templateTextArea);
+    console.log('FACTOID DEBUG: Toggle button found:', !!toggleButton);
+    console.log('FACTOID DEBUG: All variables panel found:', !!allVariablesPanel);
+    console.log('FACTOID DEBUG: Quick variables panel found:', !!quickVariablesPanel);
+    
+    // Debug variable buttons
     const variableButtons = document.querySelectorAll('.variable-button');
-    console.log('Template variables loaded:', variableButtons.length, 'buttons');
+    console.log('FACTOID DEBUG: Variable buttons found:', variableButtons.length);
+    
+    if (quickVariablesPanel) {
+        console.log('FACTOID DEBUG: Quick variables panel innerHTML length:', quickVariablesPanel.innerHTML.length);
+        console.log('FACTOID DEBUG: Quick variables panel content preview:', quickVariablesPanel.innerHTML.substring(0, 200));
+    }
+    
+    // Debug context data injection
+    try {
+        const debugData = {
+            quickVariablesLength: {{ quick_variables|length|default:0 }},
+            allVariablesLength: {{ all_template_variables|length|default:0 }},
+            debugInfo: "{{ debug_info|default:'null' }}"
+        };
+        console.log('FACTOID DEBUG: Context data injected:', debugData);
+    } catch (e) {
+        console.error('FACTOID DEBUG: Error injecting context data:', e);
+    }
     
     // Toggle all variables panel
     toggleButton.addEventListener('click', function() {
         allVariablesVisible = !allVariablesVisible;
         if (allVariablesVisible) {
-            allVariablesPanel.style.display = 'block';
             allVariablesPanel.classList.remove('hidden');
             toggleButton.textContent = 'Hide Variables';
         } else {
-            allVariablesPanel.style.display = 'none';
             allVariablesPanel.classList.add('hidden');
             toggleButton.textContent = 'Show All Variables';
         }

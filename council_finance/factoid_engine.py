@@ -278,13 +278,30 @@ class FactoidEngine:
     def _generate_factoid_from_template(self, template: FactoidTemplate, counter_data: Dict, previous_data: Optional[Dict], council: Council) -> Optional[Dict[str, Any]]:
         """Generate a factoid from a template with dynamic data"""
         try:
-            # Prepare template context
-            context_data = counter_data.copy()
+            # Get enhanced context that includes calculated fields, characteristics, etc.
+            from .calculators import get_data_context_for_council
+            from .models import FinancialYear
+            from .factoids import render_factoid_template
+            
+            # Get year from counter_data
+            year_label = counter_data.get('year_label')
+            year = None
+            if year_label:
+                year = FinancialYear.objects.filter(label=year_label).first()
+            
+            # Get comprehensive context
+            context_data = get_data_context_for_council(council, year, counter_data.get('counter_slug'))
+            
+            # Add counter-specific data
+            context_data.update(counter_data)
+            
+            # Add previous year data if available
             if previous_data:
                 context_data['previous_value'] = previous_data.get('value')
                 context_data['previous_formatted'] = previous_data.get('formatted')
+                context_data['previous_raw'] = previous_data.get('value')  # For compatibility
             
-            # Add calculated fields
+            # Add calculated change data
             if previous_data and counter_data.get('value') and previous_data.get('value'):
                 try:
                     current = float(counter_data['value'])
@@ -301,9 +318,8 @@ class FactoidEngine:
             if not self._meets_template_conditions(template, counter_data):
                 return None
             
-            # Render template text
-            django_template = Template(template.template_text)
-            rendered_text = django_template.render(Context(context_data))
+            # Render template text using our enhanced renderer
+            rendered_text = render_factoid_template(template, context_data)
             
             return {
                 'type': template.factoid_type,

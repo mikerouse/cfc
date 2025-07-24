@@ -57,7 +57,7 @@ MANAGEMENT_TIER = 4
 logger = logging.getLogger(__name__)
 
 from council_finance.models import DataField
-from council_finance.factoids import get_factoids, previous_year_label
+from council_finance.factoids import get_factoids, get_factoids_for_template_system, previous_year_label
 from council_finance.models import (
     Council,
     FinancialYear,
@@ -659,9 +659,11 @@ def council_detail(request, slug):
                 "value": result.get("value"),
                 "formatted": result.get("formatted"),
                 "error": result.get("error"),
-                "factoids": get_factoids(
+                "factoids": get_factoids_for_template_system(
                     counter.slug,
-                    {
+                    council=council,
+                    year=selected_year,
+                    base_context={
                         "value": result.get("formatted"),
                         "raw": result.get("value"),
                         "previous_raw": prev.get("value"),

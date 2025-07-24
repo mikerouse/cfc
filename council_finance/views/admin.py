@@ -747,11 +747,24 @@ def factoid_template_list(request):
     return render(request, "council_finance/factoid_template_list.html", context)
 
 
+@login_required
 def factoid_template_form(request, slug=None):
     """Create or edit a factoid template."""
+    import logging
+    import traceback
+    
+    # NUCLEAR DEBUG: Write to a file that we can check
+    with open("F:/mikerouse/Temp/django_debug.txt", "a") as f:
+        import datetime
+        f.write(f"{datetime.datetime.now()}: FACTOID FUNCTION CALLED with slug={slug}\n")
+    
+    logger = logging.getLogger(__name__)
+    logger.error(f"FACTOID DEBUG: Function called with slug={slug}, method={request.method}")
+    
     template = None
     if slug:
         template = get_object_or_404(FactoidTemplate, slug=slug)
+        logger.error(f"FACTOID DEBUG: Template found: {template.name}")
     
     if request.method == 'POST':
         try:
@@ -817,13 +830,146 @@ def factoid_template_form(request, slug=None):
     from council_finance.models import CouncilType
     council_types = CouncilType.objects.all().order_by('name')
     
+    # Build comprehensive template variables list
+    from council_finance.models import DataField
+    
+    logger.error("FACTOID DEBUG: Starting context building...")
+    
+    # Get council characteristics (non-financial fields)
+    characteristic_fields = DataField.objects.filter(
+        category='characteristic'
+    ).order_by('name')
+    
+    # Get calculated fields
+    calculated_fields = DataField.objects.filter(
+        category='calculated'
+    ).order_by('name')
+    
+    # Get financial fields grouped by category
+    financial_fields = DataField.objects.exclude(
+        category__in=['characteristic', 'calculated']
+    ).order_by('category', 'name')
+    
+    logger.error(f"FACTOID DEBUG: Found {characteristic_fields.count()} characteristic fields")
+    logger.error(f"FACTOID DEBUG: Found {calculated_fields.count()} calculated fields")
+    logger.error(f"FACTOID DEBUG: Found {financial_fields.count()} financial fields")
+    
+    # Build dynamic variable list
+    template_variables = []
+    quick_variables = [
+        # Core counter variables (most commonly used)
+        {'name': 'value', 'display': '{{value}}', 'description': 'Raw counter value'},
+        {'name': 'formatted', 'display': '{{formatted}}', 'description': 'Formatted counter value with currency/units'},
+        {'name': 'council_name', 'display': '{{council_name}}', 'description': 'Council name'},
+        {'name': 'year_label', 'display': '{{year_label}}', 'description': 'Financial year label (e.g., 2024/25)'},
+        {'name': 'change', 'display': '{{change}}', 'description': 'Percentage change from previous year'},
+        {'name': 'change_direction', 'display': '{{change_direction}}', 'description': 'Direction of change (up/down)'},
+        {'name': 'previous_formatted', 'display': '{{previous_formatted}}', 'description': 'Previous year formatted value'},
+    ]
+    
+    # All variables for the comprehensive list
+    all_template_variables = [
+        # Core counter variables
+        {'name': 'value', 'display': '{{value}}', 'description': 'Raw counter value'},
+        {'name': 'formatted', 'display': '{{formatted}}', 'description': 'Formatted counter value with currency/units'},
+        {'name': 'counter_name', 'display': '{{counter_name}}', 'description': 'Name of the counter'},
+        {'name': 'council_name', 'display': '{{council_name}}', 'description': 'Council name'},
+        {'name': 'year_label', 'display': '{{year_label}}', 'description': 'Financial year label (e.g., 2024/25)'},
+        
+        # Change variables
+        {'name': 'change', 'display': '{{change}}', 'description': 'Percentage change from previous year'},
+        {'name': 'change_direction', 'display': '{{change_direction}}', 'description': 'Direction of change (up/down)'},
+        {'name': 'previous_value', 'display': '{{previous_value}}', 'description': 'Previous year raw value'},
+        {'name': 'previous_formatted', 'display': '{{previous_formatted}}', 'description': 'Previous year formatted value'},
+    ]
+    
+    # Add characteristic variables
+    if characteristic_fields.exists():
+        all_template_variables.append({'name': '_characteristic_header', 'display': '--- Council Characteristics ---', 'description': '', 'is_header': True})
+        for field in characteristic_fields:
+            var = {
+                'name': f'characteristic.{field.slug}',
+                'display': f'{{{{characteristic.{field.slug.replace("-", "_")}}}}}',
+                'description': f'{field.name} - {field.explanation[:50]}...' if field.explanation else field.name
+            }
+            all_template_variables.append(var)
+            # Add most common characteristics to quick variables
+            if field.slug in ['population', 'council_name']:
+                quick_variables.append(var)
+    
+    # Add calculated field variables
+    if calculated_fields.exists():
+        all_template_variables.append({'name': '_calculated_header', 'display': '--- Calculated Fields ---', 'description': '', 'is_header': True})
+        for field in calculated_fields:
+            var = {
+                'name': f'calculated.{field.slug}',
+                'display': f'{{{{calculated.{field.slug.replace("-", "_")}}}}}',
+                'description': f'{field.name} - {field.explanation[:50]}...' if field.explanation else field.name
+            }
+            all_template_variables.append(var)
+            # Add per capita calculations to quick variables
+            if 'per_capita' in field.slug or 'per-capita' in field.slug:
+                quick_variables.append(var)
+    
+    # Add financial field variables grouped by category
+    current_category = None
+    for field in financial_fields:
+        if field.category != current_category:
+            current_category = field.category
+            all_template_variables.append({
+                'name': f'_financial_{field.category}_header',
+                'display': f'--- {field.get_category_display()} Fields ---',
+                'description': '',
+                'is_header': True
+            })
+        all_template_variables.append({
+            'name': f'financial.{field.slug}',
+            'display': f'{{{{financial.{field.slug.replace("-", "_")}}}}}',
+            'description': f'{field.name} - {field.explanation[:50]}...' if field.explanation else field.name
+        })
+    
+    
+    logger.error(f"FACTOID DEBUG: Final variable counts - Quick: {len(quick_variables)}, All: {len(all_template_variables)}")
+    
+    # Sample a few variables for debugging
+    if quick_variables:
+        logger.error(f"FACTOID DEBUG: Sample quick variable: {quick_variables[0]}")
+    if all_template_variables:
+        logger.error(f"FACTOID DEBUG: Sample all variable: {all_template_variables[0]}")
+    
     context = {
         'template': template,
         'counters': counters,
         'council_types': council_types,
         'factoid_types': FactoidTemplate.FACTOID_TYPES,
         'color_schemes': FactoidTemplate.COLOR_SCHEMES,
+        'quick_variables': quick_variables,
+        'all_template_variables': all_template_variables,
+        'characteristic_fields': characteristic_fields,
+        'calculated_fields': calculated_fields,
+        'financial_fields': financial_fields,
+        # Add debug context that will be visible in template
+        'debug_info': {
+            'quick_count': len(quick_variables),
+            'all_count': len(all_template_variables),
+            'char_count': characteristic_fields.count(),
+            'calc_count': calculated_fields.count(),
+            'fin_count': financial_fields.count(),
+        }
     }
+    
+    logger.error(f"FACTOID DEBUG: Context created with {len(context)} keys")
+    logger.error(f"FACTOID DEBUG: Context keys: {list(context.keys())}")
+    logger.error(f"FACTOID DEBUG: About to render template: council_finance/factoid_template_form.html")
+    logger.error(f"FACTOID DEBUG: Template exists check...")
+    
+    try:
+        from django.template.loader import get_template
+        template_obj = get_template("council_finance/factoid_template_form.html")
+        logger.error(f"FACTOID DEBUG: Template found at: {template_obj.origin}")
+    except Exception as e:
+        logger.error(f"FACTOID DEBUG: Template error: {e}")
+    
     return render(request, "council_finance/factoid_template_form.html", context)
 
 
