@@ -5,6 +5,8 @@ module.exports = {
     "./council_finance/templates/**/*.html",
     "./council_finance/static/**/*.js",
     "./static/**/*.js",
+    "./frontend/**/*.html",
+    "./frontend/src/**/*.jsx",
   ],
   safelist: [
     'bg-emerald-600',
