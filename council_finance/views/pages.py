@@ -10,7 +10,7 @@ import random
 from django.db.models import Q
 
 from council_finance.models import Council, UserProfile, ActivityLog
-from council_finance.factoids import get_factoids
+from council_finance.factoid_renderer import get_factoids
 
 # Import utility functions we'll need
 from .general import log_activity, current_financial_year_label

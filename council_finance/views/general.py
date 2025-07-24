@@ -57,7 +57,8 @@ MANAGEMENT_TIER = 4
 logger = logging.getLogger(__name__)
 
 from council_finance.models import DataField
-from council_finance.factoids import get_factoids, get_factoids_for_template_system, previous_year_label
+from council_finance.factoid_renderer import get_factoids, get_factoids_for_template_system
+from council_finance.year_utils import previous_year_label
 from council_finance.models import (
     Council,
     FinancialYear,

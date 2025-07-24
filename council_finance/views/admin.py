@@ -38,7 +38,7 @@ from council_finance.forms import (
     GroupCounterForm,
     DataFieldForm,
 )
-from council_finance.factoids import previous_year_label
+from council_finance.year_utils import previous_year_label
 from ..activity_logging import log_activity
 
 logger = logging.getLogger(__name__)
@@ -555,65 +555,7 @@ def preview_aggregate_counter(request):
 
 @login_required
 @require_GET
-def preview_factoid(request):
-    """Return the rendered factoid text for a counter, council and year."""
-    from council_finance.agents.counter_agent import CounterAgent
-
-    counter_value = request.GET.get("counter")
-    council_slug = request.GET.get("council")
-    year_label = request.GET.get("year")
-    text = request.GET.get("text", "")
-    ftype = request.GET.get("type", "")
-
-    if not (counter_value and council_slug and year_label and text):
-        return JsonResponse({"error": "Missing data"}, status=400)
-
-    year = FinancialYear.objects.filter(label=year_label).first()
-    if not year:
-        return JsonResponse({"error": "Invalid year"}, status=400)
-
-    counter = CounterDefinition.objects.filter(slug=counter_value).first()
-    if not counter:
-        try:
-            counter = CounterDefinition.objects.filter(pk=int(counter_value)).first()
-        except (TypeError, ValueError):
-            counter = None
-    if not counter:
-        return JsonResponse({"error": "Invalid counter"}, status=400)    # Check if there's any financial data for this council and year
-    if not FinancialFigure.objects.filter(council__slug=council_slug, year=year).exists():
-        return JsonResponse({"error": "No data for the selected year"}, status=400)
-
-    agent = CounterAgent()
-    values = agent.run(council_slug=council_slug, year_label=year.label)
-    result = values.get(counter.slug)
-    if not result or result.get("value") in (None, ""):
-        return JsonResponse({"error": "No data for the selected year"}, status=400)
-
-    value_str = result.get("formatted")
-    if ftype == "percent_change":
-        prev_label = previous_year_label(year.label)
-        prev_value = None
-        if prev_label:
-            prev_year = FinancialYear.objects.filter(label=prev_label).first()
-            if prev_year:
-                prev_values = agent.run(council_slug=council_slug, year_label=prev_year.label)
-                prev = prev_values.get(counter.slug)
-                if prev:
-                    prev_value = prev.get("value")
-        if prev_value in (None, ""):
-            return JsonResponse({"error": "No previous data to compare"}, status=400)
-        try:
-            change = (float(result.get("value")) - float(prev_value)) / float(prev_value) * 100
-            value_str = f"{change:.1f}%"
-        except Exception:
-            return JsonResponse({"error": "No previous data to compare"}, status=400)
-
-    class SafeDict(dict):
-        def __missing__(self, key):
-            return "{" + key + "}"
-
-    rendered = text.format_map(SafeDict(value=value_str))
-    return JsonResponse({"text": rendered})
+# LEGACY FACTOID PREVIEW FUNCTION REMOVED - Use React-based factoid template system
 
 
 def field_list(request):
@@ -748,48 +690,32 @@ def factoid_template_list(request):
 
 
 @login_required
-def factoid_template_form(request, slug=None):
-    """Create or edit a factoid template."""
-    import logging
-    import traceback
+def factoid_template_builder(request, slug=None):
+    """
+    React-based visual factoid template builder.
     
-    # NUCLEAR DEBUG: Write to a file that we can check
-    with open("F:/mikerouse/Temp/django_debug.txt", "a") as f:
-        import datetime
-        f.write(f"{datetime.datetime.now()}: FACTOID FUNCTION CALLED with slug={slug}\n")
-    
-    logger = logging.getLogger(__name__)
-    logger.error(f"FACTOID DEBUG: Function called with slug={slug}, method={request.method}")
-    
+    This view provides a modern, user-friendly interface for creating
+    and editing factoid templates with drag-and-drop functionality.
+    """
+    logger.info(f"🎨 FACTOID BUILDER VIEW: User {request.user} accessing builder (slug={slug})")
+    log_activity(request.user, 'factoid_builder_access', 'FactoidTemplate', slug)
     template = None
     if slug:
         template = get_object_or_404(FactoidTemplate, slug=slug)
-        logger.error(f"FACTOID DEBUG: Template found: {template.name}")
     
+    # Handle form submission (from React)
     if request.method == 'POST':
         try:
             if template:
                 # Update existing template
                 template.name = request.POST['name']
-                template.factoid_type = request.POST['factoid_type']
                 template.template_text = request.POST['template_text']
+                template.factoid_type = request.POST['factoid_type']
                 template.emoji = request.POST.get('emoji', '')
                 template.color_scheme = request.POST['color_scheme']
-                template.animation_duration = int(request.POST.get('animation_duration', 5000))
-                template.flip_animation = request.POST.get('flip_animation') == 'on'
                 template.priority = int(request.POST.get('priority', 0))
-                template.min_value = request.POST.get('min_value') or None
-                template.max_value = request.POST.get('max_value') or None
-                template.requires_previous_year = request.POST.get('requires_previous_year') == 'on'
                 template.is_active = request.POST.get('is_active') == 'on'
                 template.save()
-                
-                # Handle many-to-many relationships
-                counters = request.POST.getlist('counters')
-                template.counters.set(CounterDefinition.objects.filter(id__in=counters))
-                
-                council_types = request.POST.getlist('council_types')
-                template.council_types.set(council_types)
                 
                 messages.success(request, f'Factoid template "{template.name}" updated successfully.')
                 log_activity(request.user, 'factoid_template_updated', 'FactoidTemplate', template.id)
@@ -797,25 +723,13 @@ def factoid_template_form(request, slug=None):
                 # Create new template
                 template = FactoidTemplate.objects.create(
                     name=request.POST['name'],
-                    factoid_type=request.POST['factoid_type'],
                     template_text=request.POST['template_text'],
+                    factoid_type=request.POST['factoid_type'],
                     emoji=request.POST.get('emoji', ''),
                     color_scheme=request.POST['color_scheme'],
-                    animation_duration=int(request.POST.get('animation_duration', 5000)),
-                    flip_animation=request.POST.get('flip_animation') == 'on',
                     priority=int(request.POST.get('priority', 0)),
-                    min_value=request.POST.get('min_value') or None,
-                    max_value=request.POST.get('max_value') or None,
-                    requires_previous_year=request.POST.get('requires_previous_year') == 'on',
                     is_active=request.POST.get('is_active', True) == 'on'
                 )
-                
-                # Handle many-to-many relationships
-                counters = request.POST.getlist('counters')
-                template.counters.set(CounterDefinition.objects.filter(id__in=counters))
-                
-                council_types = request.POST.getlist('council_types')
-                template.council_types.set(council_types)
                 
                 messages.success(request, f'Factoid template "{template.name}" created successfully.')
                 log_activity(request.user, 'factoid_template_created', 'FactoidTemplate', template.id)
@@ -825,154 +739,16 @@ def factoid_template_form(request, slug=None):
         except (ValueError, ValidationError) as e:
             messages.error(request, f'Error saving factoid template: {str(e)}')
     
-    # Get all available counters and council types for form
-    counters = CounterDefinition.objects.all().order_by('name')
-    from council_finance.models import CouncilType
-    council_types = CouncilType.objects.all().order_by('name')
-    
-    # Build comprehensive template variables list
-    from council_finance.models import DataField
-    
-    logger.error("FACTOID DEBUG: Starting context building...")
-    
-    # Get council characteristics (non-financial fields)
-    characteristic_fields = DataField.objects.filter(
-        category='characteristic'
-    ).order_by('name')
-    
-    # Get calculated fields
-    calculated_fields = DataField.objects.filter(
-        category='calculated'
-    ).order_by('name')
-    
-    # Get financial fields grouped by category
-    financial_fields = DataField.objects.exclude(
-        category__in=['characteristic', 'calculated']
-    ).order_by('category', 'name')
-    
-    logger.error(f"FACTOID DEBUG: Found {characteristic_fields.count()} characteristic fields")
-    logger.error(f"FACTOID DEBUG: Found {calculated_fields.count()} calculated fields")
-    logger.error(f"FACTOID DEBUG: Found {financial_fields.count()} financial fields")
-    
-    # Build dynamic variable list
-    template_variables = []
-    quick_variables = [
-        # Core counter variables (most commonly used)
-        {'name': 'value', 'display': '{{value}}', 'description': 'Raw counter value'},
-        {'name': 'formatted', 'display': '{{formatted}}', 'description': 'Formatted counter value with currency/units'},
-        {'name': 'council_name', 'display': '{{council_name}}', 'description': 'Council name'},
-        {'name': 'year_label', 'display': '{{year_label}}', 'description': 'Financial year label (e.g., 2024/25)'},
-        {'name': 'change', 'display': '{{change}}', 'description': 'Percentage change from previous year'},
-        {'name': 'change_direction', 'display': '{{change_direction}}', 'description': 'Direction of change (up/down)'},
-        {'name': 'previous_formatted', 'display': '{{previous_formatted}}', 'description': 'Previous year formatted value'},
-    ]
-    
-    # All variables for the comprehensive list
-    all_template_variables = [
-        # Core counter variables
-        {'name': 'value', 'display': '{{value}}', 'description': 'Raw counter value'},
-        {'name': 'formatted', 'display': '{{formatted}}', 'description': 'Formatted counter value with currency/units'},
-        {'name': 'counter_name', 'display': '{{counter_name}}', 'description': 'Name of the counter'},
-        {'name': 'council_name', 'display': '{{council_name}}', 'description': 'Council name'},
-        {'name': 'year_label', 'display': '{{year_label}}', 'description': 'Financial year label (e.g., 2024/25)'},
-        
-        # Change variables
-        {'name': 'change', 'display': '{{change}}', 'description': 'Percentage change from previous year'},
-        {'name': 'change_direction', 'display': '{{change_direction}}', 'description': 'Direction of change (up/down)'},
-        {'name': 'previous_value', 'display': '{{previous_value}}', 'description': 'Previous year raw value'},
-        {'name': 'previous_formatted', 'display': '{{previous_formatted}}', 'description': 'Previous year formatted value'},
-    ]
-    
-    # Add characteristic variables
-    if characteristic_fields.exists():
-        all_template_variables.append({'name': '_characteristic_header', 'display': '--- Council Characteristics ---', 'description': '', 'is_header': True})
-        for field in characteristic_fields:
-            var = {
-                'name': f'characteristic.{field.slug}',
-                'display': f'{{{{characteristic.{field.slug.replace("-", "_")}}}}}',
-                'description': f'{field.name} - {field.explanation[:50]}...' if field.explanation else field.name
-            }
-            all_template_variables.append(var)
-            # Add most common characteristics to quick variables
-            if field.slug in ['population', 'council_name']:
-                quick_variables.append(var)
-    
-    # Add calculated field variables
-    if calculated_fields.exists():
-        all_template_variables.append({'name': '_calculated_header', 'display': '--- Calculated Fields ---', 'description': '', 'is_header': True})
-        for field in calculated_fields:
-            var = {
-                'name': f'calculated.{field.slug}',
-                'display': f'{{{{calculated.{field.slug.replace("-", "_")}}}}}',
-                'description': f'{field.name} - {field.explanation[:50]}...' if field.explanation else field.name
-            }
-            all_template_variables.append(var)
-            # Add per capita calculations to quick variables
-            if 'per_capita' in field.slug or 'per-capita' in field.slug:
-                quick_variables.append(var)
-    
-    # Add financial field variables grouped by category
-    current_category = None
-    for field in financial_fields:
-        if field.category != current_category:
-            current_category = field.category
-            all_template_variables.append({
-                'name': f'_financial_{field.category}_header',
-                'display': f'--- {field.get_category_display()} Fields ---',
-                'description': '',
-                'is_header': True
-            })
-        all_template_variables.append({
-            'name': f'financial.{field.slug}',
-            'display': f'{{{{financial.{field.slug.replace("-", "_")}}}}}',
-            'description': f'{field.name} - {field.explanation[:50]}...' if field.explanation else field.name
-        })
-    
-    
-    logger.error(f"FACTOID DEBUG: Final variable counts - Quick: {len(quick_variables)}, All: {len(all_template_variables)}")
-    
-    # Sample a few variables for debugging
-    if quick_variables:
-        logger.error(f"FACTOID DEBUG: Sample quick variable: {quick_variables[0]}")
-    if all_template_variables:
-        logger.error(f"FACTOID DEBUG: Sample all variable: {all_template_variables[0]}")
-    
-    context = {
-        'template': template,
-        'counters': counters,
-        'council_types': council_types,
-        'factoid_types': FactoidTemplate.FACTOID_TYPES,
-        'color_schemes': FactoidTemplate.COLOR_SCHEMES,
-        'quick_variables': quick_variables,
-        'all_template_variables': all_template_variables,
-        'characteristic_fields': characteristic_fields,
-        'calculated_fields': calculated_fields,
-        'financial_fields': financial_fields,
-        # Add debug context that will be visible in template
-        'debug_info': {
-            'quick_count': len(quick_variables),
-            'all_count': len(all_template_variables),
-            'char_count': characteristic_fields.count(),
-            'calc_count': calculated_fields.count(),
-            'fin_count': financial_fields.count(),
-        }
-    }
-    
-    logger.error(f"FACTOID DEBUG: Context created with {len(context)} keys")
-    logger.error(f"FACTOID DEBUG: Context keys: {list(context.keys())}")
-    logger.error(f"FACTOID DEBUG: About to render template: council_finance/factoid_template_form.html")
-    logger.error(f"FACTOID DEBUG: Template exists check...")
-    
-    try:
-        from django.template.loader import get_template
-        template_obj = get_template("council_finance/factoid_template_form.html")
-        logger.error(f"FACTOID DEBUG: Template found at: {template_obj.origin}")
-    except Exception as e:
-        logger.error(f"FACTOID DEBUG: Template error: {e}")
-    
-    return render(request, "council_finance/factoid_template_form.html", context)
+    # Render React-based builder
+    return render(request, 'council_finance/factoid_template_builder.html', {
+        'template': template
+    })
 
 
+# LEGACY FUNCTION REMOVED - Use factoid_template_builder() for React-based interface
+
+
+@login_required
 def factoid_template_delete(request, slug):
     """Delete a factoid template."""
     template = get_object_or_404(FactoidTemplate, slug=slug)
@@ -1036,34 +812,7 @@ def factoid_playlist_regenerate(request, playlist_id):
 
 
 # Legacy factoid views for backward compatibility
-def factoid_list(request):
-    """List legacy factoids for management."""
-    factoids = Factoid.objects.all().order_by('name')
-    context = {'factoids': factoids}
-    return render(request, "council_finance/factoid_list.html", context)
-
-
-def factoid_form(request, slug=None):
-    """Create or edit a legacy factoid."""
-    factoid = None
-    if slug:
-        factoid = get_object_or_404(Factoid, slug=slug)
-    
-    context = {'factoid': factoid}
-    return render(request, "council_finance/factoid_form.html", context)
-
-
-def factoid_delete(request, slug):
-    """Delete a legacy factoid."""
-    factoid = get_object_or_404(Factoid, slug=slug)
-    if request.method == 'POST':
-        factoid_name = factoid.name
-        factoid.delete()
-        messages.success(request, f'Legacy factoid "{factoid_name}" deleted.')
-        return redirect('factoid_list')
-    
-    context = {'factoid': factoid}
-    return render(request, "council_finance/factoid_delete.html", context)
+# LEGACY FACTOID FUNCTIONS REMOVED - Use React-based factoid template system
 
 
 def god_mode(request):
@@ -1255,18 +1004,18 @@ __all__ = [
     'counter_definition_form',
     'preview_counter_value',
     'preview_aggregate_counter',
-    'preview_factoid',
+    # 'preview_factoid', - REMOVED: Legacy factoid function
     'field_list',
     'field_form',
     'field_delete',
     'factoid_template_list',
-    'factoid_template_form',
+    # 'factoid_template_form', - REMOVED: Use factoid_template_builder
     'factoid_template_delete',
     'factoid_playlist_list',
     'factoid_playlist_regenerate',
-    'factoid_list',
-    'factoid_form',
-    'factoid_delete',
+    # 'factoid_list', - REMOVED: Legacy factoid functions
+    # 'factoid_form', - REMOVED: Legacy factoid functions  
+    # 'factoid_delete', - REMOVED: Legacy factoid functions
     'god_mode',
     'activity_log_entries',
     'activity_log_json',

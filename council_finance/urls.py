@@ -19,6 +19,8 @@ from .views import (
     council_management as council_mgmt_views,
     email_status as email_status_views,
 )
+# Import API modules for React factoid builder
+from .api import factoid_builder as factoid_builder_api
 # Import following functions directly from general to avoid circular import issues
 from .views.general import (
     my_lists,
@@ -179,6 +181,17 @@ urlpatterns = [
     path("api/factoid-playlists/<int:playlist_id>/regenerate/", api_views.regenerate_factoid_playlist_api, name="regenerate_factoid_playlist_api"),
     path("api/factoid-templates/<slug:template_slug>/preview/", api_views.factoid_template_preview_api, name="factoid_template_preview_api"),
     
+    # ============================================================================
+    # REACT FACTOID BUILDER API ENDPOINTS
+    # ============================================================================
+    
+    # Field discovery for React factoid builder
+    path("api/factoid-builder/fields/", factoid_builder_api.available_fields_api, name="factoid_builder_fields"),
+    path("api/factoid-builder/fields/<slug:council_slug>/", factoid_builder_api.available_fields_api, name="factoid_builder_fields_council"),
+    
+    # Live preview for React factoid builder
+    path("api/factoid-builder/preview/", factoid_builder_api.preview_factoid_api, name="factoid_builder_preview"),
+    
     # AI Analysis API endpoints
     path("api/ai-analysis/<slug:council_slug>/<str:year_label>/", api_views.council_ai_analysis_api, name="council_ai_analysis_api"),
     path("api/ai-analysis/status/<int:analysis_id>/", api_views.ai_analysis_status_api, name="ai_analysis_status_api"),
@@ -246,26 +259,19 @@ urlpatterns = [
     # TEST URL to confirm our Django instance is responding
     path("manage/TEST-NUCLEAR-URL/", lambda request: HttpResponse('<h1 style="color:red;background:yellow;font-size:48px;">NUCLEAR URL TEST SUCCESS</h1>'), name="nuclear_test"),
     
-    # Enhanced factoid template management
+    # ============================================================================
+    # REACT VISUAL FACTOID TEMPLATE MANAGEMENT
+    # ============================================================================
     path("manage/factoid-templates/", admin_views.factoid_template_list, name="factoid_template_list"),
-    path("manage/factoid-templates/add/", admin_views.factoid_template_form, name="factoid_template_add"),
-    path("manage/factoid-templates/<slug:slug>/", admin_views.factoid_template_form, name="factoid_template_edit"),
+    path("manage/factoid-templates/add/", admin_views.factoid_template_builder, name="factoid_template_add"),
+    path("manage/factoid-templates/<slug:slug>/", admin_views.factoid_template_builder, name="factoid_template_edit"),
     path("manage/factoid-templates/<slug:slug>/delete/", admin_views.factoid_template_delete, name="factoid_template_delete"),
     
     # Factoid playlist management
     path("manage/factoid-playlists/", admin_views.factoid_playlist_list, name="factoid_playlist_list"),
     path("manage/factoid-playlists/<int:playlist_id>/regenerate/", admin_views.factoid_playlist_regenerate, name="factoid_playlist_regenerate"),
     
-    # Legacy factoid management (backward compatibility)
-    path("manage/factoids/", admin_views.factoid_list, name="factoid_list"),
-    path("manage/factoids/add/", admin_views.factoid_form, name="factoid_add"),
-    path("manage/factoids/preview/", admin_views.preview_factoid, name="preview_factoid"),
-    path("manage/factoids/<slug:slug>/", admin_views.factoid_form, name="factoid_edit"),
-    path(
-        "manage/factoids/<slug:slug>/delete/",
-        admin_views.factoid_delete,
-        name="factoid_delete",
-    ),
+    # Legacy factoid URLs removed - use React-based factoid template system
     
     path("god-mode/", admin_views.god_mode, name="god_mode"),
     path("god-mode/activity-log/", admin_views.activity_log_entries, name="activity_log_entries"),

@@ -1,5 +1,5 @@
 from django.test import SimpleTestCase
-from council_finance.factoids import previous_year_label
+from council_finance.year_utils import previous_year_label
 
 class PreviousYearLabelTests(SimpleTestCase):
     def test_slash_format(self):

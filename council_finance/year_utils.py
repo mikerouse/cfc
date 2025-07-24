@@ -2,8 +2,49 @@
 Utilities for working with financial years and data reliability.
 """
 
+from typing import Optional
 from django.core.cache import cache
 from .models import FinancialYear
+
+
+def previous_year_label(label: str) -> Optional[str]:
+    """
+    Return the previous financial year label if parsable.
+    
+    Args:
+        label: Financial year label like "2024/25" or "2024-25"
+        
+    Returns:
+        Previous year label like "2023/24" or None if not parsable
+        
+    Examples:
+        >>> previous_year_label("2024/25")
+        "2023/24"
+        >>> previous_year_label("2024-25") 
+        "2023/24"
+        >>> previous_year_label("invalid")
+        None
+    """
+    try:
+        # Accept formats like "2023/24" or "2023-24" by normalising the
+        # separator. Using "replace" allows us to handle mixed inputs without
+        # multiple branches.
+        clean = str(label).replace("-", "/")
+        parts = clean.split("/")
+        if len(parts) == 2:
+            # Keep the same width for the trailing year so "23/24" becomes
+            # "22/23" rather than "22/3". This mirrors the original
+            # formatting supplied by admins.
+            first = int(parts[0])
+            second_str = parts[1]
+            second = int(second_str)
+            prev_first = first - 1
+            prev_second = second - 1
+            second_fmt = f"{prev_second:0{len(second_str)}d}"
+            return f"{prev_first}/{second_fmt}"
+    except (ValueError, IndexError):
+        pass
+    return None
 
 
 def get_year_status_context():

@@ -26,7 +26,7 @@ from council_finance.models import (
     CouncilType, CouncilNation
 )
 from council_finance.agents.counter_agent import CounterAgent
-from council_finance.factoids import get_factoids
+from council_finance.factoid_renderer import get_factoids
 
 # Import utility functions we'll need
 from .general import log_activity, current_financial_year_label

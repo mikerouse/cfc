@@ -281,7 +281,7 @@ class FactoidEngine:
             # Get enhanced context that includes calculated fields, characteristics, etc.
             from .calculators import get_data_context_for_council
             from .models import FinancialYear
-            from .factoids import render_factoid_template
+            from .expression_renderer import ExpressionRenderer
             
             # Get year from counter_data
             year_label = counter_data.get('year_label')
@@ -319,7 +319,8 @@ class FactoidEngine:
                 return None
             
             # Render template text using our enhanced renderer
-            rendered_text = render_factoid_template(template, context_data)
+            renderer = ExpressionRenderer()
+            rendered_text = renderer.render_safe(template.template_text, context_data)
             
             return {
                 'type': template.factoid_type,

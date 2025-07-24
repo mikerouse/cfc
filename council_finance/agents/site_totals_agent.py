@@ -8,7 +8,7 @@ from council_finance.models import (
     SiteCounter,
     GroupCounter,
 )
-from council_finance.factoids import previous_year_label
+from council_finance.year_utils import previous_year_label
 from .counter_agent import CounterAgent
 
 class SiteTotalsAgent(AgentBase):

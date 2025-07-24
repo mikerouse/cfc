@@ -279,7 +279,7 @@ def get_factoids_for_template_system(counter_slug: str, council=None, year=None,
 
 def render_factoid_template(template, context: Dict[str, Any]) -> Optional[str]:
     """
-    Render a FactoidTemplate with the given context.
+    Render a FactoidTemplate using Django's template system for robust rendering.
     
     Args:
         template: FactoidTemplate instance
@@ -288,54 +288,176 @@ def render_factoid_template(template, context: Dict[str, Any]) -> Optional[str]:
     Returns:
         Rendered template text or None if rendering fails
     """
+    from django.template import Template, Context
+    from django.template.engine import Engine
+    from decimal import Decimal
+    import logging
+    
+    logger = logging.getLogger(__name__)
+    
     try:
-        class SafeDict(dict):
-            def __missing__(self, key):
-                return "{" + key + "}"
+        # Prepare context data with proper formatting and validation
+        safe_context = _build_safe_context(context, template)
         
-        safe_context = SafeDict(**context)
+        # Log debug info for troubleshooting
+        logger.info(f"Rendering template '{template.name}' with context keys: {list(safe_context.keys())}")
         
-        # Handle nested context (e.g., characteristic.population)
-        def resolve_nested_key(key):
-            if '.' in key:
-                parts = key.split('.')
-                value = safe_context
-                for part in parts:
-                    if isinstance(value, dict) and part in value:
-                        value = value[part]
-                    else:
-                        return "{" + key + "}"
-                return value
-            return safe_context[key]
+        # DEBUG: Log calculated data specifically
+        if 'calculated' in safe_context:
+            logger.info(f"Calculated data available: {safe_context['calculated']}")
+        else:
+            logger.info("No calculated data in context")
+            
+        # DEBUG: Log template text
+        logger.info(f"Template text: {template.template_text}")
         
-        # Custom format_map that handles nested keys
-        import re
-        template_text = template.template_text
+        # Create Django template from the template text
+        django_template = Template(template.template_text)
+        django_context = Context(safe_context)
         
-        # Find all template variables
-        pattern = r'\{\{([^}]+)\}\}'
-        matches = re.findall(pattern, template_text)
+        # Render with Django's robust template engine
+        rendered_text = django_template.render(django_context)
         
-        for match in matches:
-            var_name = match.strip()
-            try:
-                value = resolve_nested_key(var_name)
-                # Format the value if it's numeric
-                if isinstance(value, (int, float)):
-                    if template.factoid_type == 'per_capita' and 'per_capita' in var_name:
-                        # Format per capita values nicely
-                        value = f"£{value:,.0f}"
-                    elif isinstance(value, float):
-                        value = f"{value:,.1f}"
-                    else:
-                        value = f"{value:,}"
-                
-                template_text = template_text.replace('{{' + match + '}}', str(value))
-            except Exception as e:
-                logger.warning(f"Failed to resolve template variable {var_name}: {e}")
+        # Clean up any remaining empty spaces or formatting issues
+        rendered_text = _clean_rendered_text(rendered_text)
         
-        return template_text if template_text else None
+        logger.info(f"Successfully rendered template '{template.name}': {rendered_text[:100]}...")
+        return rendered_text if rendered_text.strip() else None
         
     except Exception as e:
-        logger.warning(f"Failed to render template {template.slug}: {e}")
+        logger.error(f"Failed to render template '{template.name}': {e}")
+        logger.error(f"Template text: {template.template_text}")
+        logger.error(f"Available context keys: {list(context.keys())}")
         return None
+
+
+def _build_safe_context(context: Dict[str, Any], template) -> Dict[str, Any]:
+    """
+    Build a safe context dictionary with proper data validation and formatting.
+    
+    Args:
+        context: Raw context data
+        template: FactoidTemplate instance for type-specific formatting
+        
+    Returns:
+        Safe context dictionary ready for Django template rendering
+    """
+    from decimal import Decimal
+    import logging
+    
+    logger = logging.getLogger(__name__)
+    safe_context = {}
+    
+    # Copy all values, preserving nested dictionaries
+    for key, value in context.items():
+        if value is not None:
+            safe_context[key] = value
+    
+    # Apply special formatting to calculated values
+    if 'calculated' in safe_context and isinstance(safe_context['calculated'], dict):
+        formatted_calculated = {}
+        for field_name, value in safe_context['calculated'].items():
+            formatted_calculated[field_name] = _format_calculated_value(value, field_name)
+        safe_context['calculated'] = formatted_calculated
+        
+    # Apply special formatting to financial values  
+    if 'financial' in safe_context and isinstance(safe_context['financial'], dict):
+        formatted_financial = {}
+        for field_name, value in safe_context['financial'].items():
+            formatted_financial[field_name] = _format_financial_value(value)
+        safe_context['financial'] = formatted_financial
+        
+    # Ensure core template variables are always available
+    safe_context.setdefault('council_name', 'Unknown Council')
+    safe_context.setdefault('year_label', 'Unknown Year')
+    safe_context.setdefault('value', 0)
+    safe_context.setdefault('formatted', '£0')
+    
+    logger.debug(f"Built safe context with keys: {list(safe_context.keys())}")
+    if 'characteristic' in safe_context:
+        logger.debug(f"Characteristic data: {safe_context['characteristic']}")
+    if 'calculated' in safe_context:
+        logger.debug(f"Calculated data: {safe_context['calculated']}")
+        
+    return safe_context
+
+
+def _format_calculated_value(value, field_name: str):
+    """Format calculated values based on their type and field name."""
+    from decimal import Decimal
+    
+    if value is None:
+        return 0
+        
+    try:
+        # Convert to numeric if possible
+        if isinstance(value, str):
+            # Remove currency symbols and commas
+            clean_value = value.replace('£', '').replace(',', '').strip()
+            if clean_value:
+                value = float(clean_value)
+            else:
+                return 0
+        
+        # Format per capita values specially
+        if 'per_capita' in field_name:
+            if isinstance(value, (int, float, Decimal)) and value > 0:
+                return f"£{float(value):,.0f}"
+            else:
+                return "£0"
+        
+        # Format other calculated values
+        if isinstance(value, (int, float, Decimal)):
+            if abs(value) >= 1000000:
+                return f"£{float(value):,.0f}"
+            elif abs(value) >= 1:
+                return f"£{float(value):,.2f}"
+            else:
+                return f"£{float(value):.2f}"
+                
+        return str(value)
+        
+    except (ValueError, TypeError):
+        return str(value) if value else "0"
+
+
+def _format_financial_value(value):
+    """Format financial values consistently."""
+    from decimal import Decimal
+    
+    if value is None:
+        return "£0"
+        
+    try:
+        if isinstance(value, str):
+            clean_value = value.replace('£', '').replace(',', '').strip()
+            if clean_value:
+                value = float(clean_value)
+            else:
+                return "£0"
+                
+        if isinstance(value, (int, float, Decimal)):
+            return f"£{float(value):,.0f}"
+            
+        return str(value)
+        
+    except (ValueError, TypeError):
+        return str(value) if value else "£0"
+
+
+def _clean_rendered_text(text: str) -> str:
+    """Clean up rendered text by removing extra whitespace and formatting issues."""
+    if not text:
+        return ""
+        
+    # Remove multiple consecutive spaces
+    import re
+    text = re.sub(r'\s+', ' ', text)
+    
+    # Remove leading/trailing whitespace
+    text = text.strip()
+    
+    # Remove any remaining placeholder brackets
+    text = re.sub(r'\{\s*\}', '', text)
+    
+    return text
