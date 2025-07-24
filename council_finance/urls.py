@@ -57,6 +57,7 @@ urlpatterns = [
     path("api/councils/search/", api_views.search_councils, name="search_councils"),
     path("admin/", admin.site.urls),
     path("plugins/", include("core.urls")),
+    path("factoid-builder/", include("react_frontend.urls")),
     # Authentication endpoints
     path(
         "accounts/login/",

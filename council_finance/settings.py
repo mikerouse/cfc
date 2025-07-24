@@ -32,6 +32,7 @@ INSTALLED_APPS = [
     "corsheaders",     # CORS headers for React frontend
     "core",
     "council_finance",
+    "react_frontend",
     "channels",
     "heroicons",
 ]
@@ -200,6 +201,8 @@ REST_FRAMEWORK = {
 
 # CORS settings for React frontend development
 CORS_ALLOWED_ORIGINS = [
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
     "http://localhost:3000",  # React development server
     "http://127.0.0.1:3000",
     "http://localhost:8000",  # Django development server
