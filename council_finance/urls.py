@@ -18,9 +18,8 @@ from .views import (
     pages as page_views,
     council_management as council_mgmt_views,
     email_status as email_status_views,
+    factoid_builder as factoid_builder_api,
 )
-# Import API modules for React factoid builder
-from .api import factoid_builder as factoid_builder_api
 # Import following functions directly from general to avoid circular import issues
 from .views.general import (
     my_lists,
@@ -175,12 +174,6 @@ urlpatterns = [
     path("api/council/<slug:council_slug>/recent-activity/", api_views.council_recent_activity_api, name="council_recent_activity_api"),
     path("api/council/<slug:council_slug>/recent-activity/<slug:field_slug>/", api_views.field_recent_activity_api, name="field_recent_activity_api"),
     
-    # Factoid API endpoints
-    path("api/factoids/<slug:counter_slug>/<slug:council_slug>/<str:year_label>/", api_views.factoid_data_api, name="factoid_data_api"),
-    path("api/factoid-playlists/<slug:counter_slug>/", api_views.factoid_playlist_api, name="factoid_playlist_api"),
-    path("api/factoid-playlists/<int:playlist_id>/regenerate/", api_views.regenerate_factoid_playlist_api, name="regenerate_factoid_playlist_api"),
-    path("api/factoid-templates/<slug:template_slug>/preview/", api_views.factoid_template_preview_api, name="factoid_template_preview_api"),
-    
     # ============================================================================
     # REACT FACTOID BUILDER API ENDPOINTS
     # ============================================================================
@@ -251,27 +244,8 @@ urlpatterns = [
         admin_views.counter_definition_form,
         name="counter_edit",
     ),
-    # Management views for fields
-    path("manage/fields/", admin_views.field_list, name="field_list"),
-    path("manage/fields/add/", admin_views.field_form, name="field_add"),
-    path("manage/fields/<slug:slug>/", admin_views.field_form, name="field_edit"),
-    path("manage/fields/<slug:slug>/delete/", admin_views.field_delete, name="field_delete"),
     # TEST URL to confirm our Django instance is responding
     path("manage/TEST-NUCLEAR-URL/", lambda request: HttpResponse('<h1 style="color:red;background:yellow;font-size:48px;">NUCLEAR URL TEST SUCCESS</h1>'), name="nuclear_test"),
-    
-    # ============================================================================
-    # REACT VISUAL FACTOID TEMPLATE MANAGEMENT
-    # ============================================================================
-    path("manage/factoid-templates/", admin_views.factoid_template_list, name="factoid_template_list"),
-    path("manage/factoid-templates/add/", admin_views.factoid_template_builder, name="factoid_template_add"),
-    path("manage/factoid-templates/<slug:slug>/", admin_views.factoid_template_builder, name="factoid_template_edit"),
-    path("manage/factoid-templates/<slug:slug>/delete/", admin_views.factoid_template_delete, name="factoid_template_delete"),
-    
-    # Factoid playlist management
-    path("manage/factoid-playlists/", admin_views.factoid_playlist_list, name="factoid_playlist_list"),
-    path("manage/factoid-playlists/<int:playlist_id>/regenerate/", admin_views.factoid_playlist_regenerate, name="factoid_playlist_regenerate"),
-    
-    # Legacy factoid URLs removed - use React-based factoid template system
     
     path("god-mode/", admin_views.god_mode, name="god_mode"),
     path("god-mode/activity-log/", admin_views.activity_log_entries, name="activity_log_entries"),

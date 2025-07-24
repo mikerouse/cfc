@@ -23,7 +23,6 @@ from .notification import Notification
 from .council_list import CouncilList
 from .counter import CounterDefinition, CouncilCounter
 from .site_counter import SiteCounter, GroupCounter
-from .factoid import Factoid, FactoidTemplate, FactoidPlaylist, PlaylistItem
 from .setting import SiteSetting
 from .council_follow import CouncilFollow
 from .council_update import (
@@ -93,10 +92,6 @@ __all__ = [
     'CouncilUpdate',
     'CouncilUpdateLike',
     'CouncilUpdateComment',
-    'Factoid',
-    'FactoidTemplate',
-    'FactoidPlaylist', 
-    'PlaylistItem',
     'DataIssue',
     'SiteSetting',
     'ActivityLog',

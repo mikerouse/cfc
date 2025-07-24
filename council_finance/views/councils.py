@@ -26,7 +26,6 @@ from council_finance.models import (
     CouncilType, CouncilNation
 )
 from council_finance.agents.counter_agent import CounterAgent
-from council_finance.factoid_renderer import get_factoids
 
 # Import utility functions we'll need
 from .general import log_activity, current_financial_year_label
@@ -128,9 +127,6 @@ def council_detail(request, slug):
     recent_submissions = list(recent_characteristic_changes) + list(recent_financial_changes)
     recent_submissions.sort(key=lambda x: getattr(x, 'changed_at', getattr(x, 'created', timezone.now())), reverse=True)
     recent_submissions = recent_submissions[:10]
-    
-    # Get factoids for this council
-    factoids = get_factoids(counter_slug="council", context={"council_name": council.name})
     
     # Get counters for this council
     counter_definitions = CounterDefinition.objects.filter(
@@ -251,7 +247,6 @@ def council_detail(request, slug):
         'years': years,
         'selected_year': selected_year,
         'recent_submissions': recent_submissions,
-        'factoids': factoids,
         'counters': counters,
         'meta_values': meta_values,
         'is_following': is_following,

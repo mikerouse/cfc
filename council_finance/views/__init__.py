@@ -7,3 +7,4 @@ from .auth import *
 from .moderation import *
 from .councils import *
 from .pages import *
+from .factoid_builder import *

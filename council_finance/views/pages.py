@@ -10,7 +10,6 @@ import random
 from django.db.models import Q
 
 from council_finance.models import Council, UserProfile, ActivityLog
-from council_finance.factoid_renderer import get_factoids
 
 # Import utility functions we'll need
 from .general import log_activity, current_financial_year_label
@@ -24,12 +23,6 @@ def home(request):
     featured_councils = Council.objects.filter(
         Q(financial_figures__year__label=current_year) | Q(characteristics__isnull=False)
     ).distinct()[:10]
-    
-    # Get random factoids for the homepage
-    # Using a generic counter slug to get general factoids
-    factoids = get_factoids(counter_slug="general")
-    if factoids and len(factoids) > 5:
-        factoids = random.sample(factoids, 5)
     
     # Get total statistics
     total_councils = Council.objects.count()
@@ -57,7 +50,6 @@ def home(request):
     
     context = {
         'featured_councils': featured_councils,
-        'factoids': factoids,
         'current_year': current_year,
         'total_councils': total_councils,
         'total_users': total_users,
@@ -132,10 +124,6 @@ def dashboard(request):
         user=request.user
     ).select_related('council')[:5]
     
-    # Get personalized factoids
-    factoids = get_factoids(counter_slug="user")
-    if factoids and len(factoids) > 3:
-        factoids = random.sample(factoids, 3)
       # Get user stats
     stats = {
         'total_contributions': Contribution.objects.filter(user=request.user).count(),
@@ -149,7 +137,6 @@ def dashboard(request):
         'recent_activity': recent_activity,
         'recent_contributions': recent_contributions,
         'following_councils': following_councils,
-        'factoids': factoids,
         'stats': stats,
     }
     
