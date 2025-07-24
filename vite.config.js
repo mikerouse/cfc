@@ -1,18 +1,21 @@
 import { defineConfig } from 'vite';
-import react from '@vitejs/plugin-react';
 
-export default defineConfig({
-  plugins: [react()],
+export default defineConfig(({ command }) => ({
+  plugins: [],
+  esbuild: {
+    jsx: 'automatic',
+    jsxImportSource: 'react'
+  },
   root: 'frontend',
-  base: '/static/frontend/',
+  base: command === 'serve' ? '/' : '/static/frontend/',
   build: {
     outDir: '../static/frontend',
     assetsDir: '',
     manifest: true,
     rollupOptions: {
       input: {
-        main: 'frontend/src/main.jsx',
+        main: 'src/main.jsx',
       },
     },
   },
-});
+}));
