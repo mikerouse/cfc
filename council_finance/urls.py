@@ -57,7 +57,8 @@ urlpatterns = [
     path("api/councils/search/", api_views.search_councils, name="search_councils"),
     path("admin/", admin.site.urls),
     path("plugins/", include("core.urls")),
-    path("factoid-builder/", include("react_frontend.urls")),
+    # Removed the react_frontend factoid-builder route that was conflicting
+    # path("factoid-builder/", include("react_frontend.urls")),
     # Authentication endpoints
     path(
         "accounts/login/",
@@ -185,6 +186,12 @@ urlpatterns = [
     
     # Live preview for React factoid builder
     path("api/factoid-builder/preview/", factoid_builder_api.preview_factoid_api, name="factoid_builder_preview"),
+    
+    # Enhanced Factoid API (new real-time system)
+    path("api/factoid/", include("council_finance.api.factoid_urls")),
+    
+    # React Factoid Builder Interface
+    path("factoid-builder/", general_views.factoid_builder_react, name="factoid_builder_react"),
     
     # AI Analysis API endpoints
     path("api/ai-analysis/<slug:council_slug>/<str:year_label>/", api_views.council_ai_analysis_api, name="council_ai_analysis_api"),

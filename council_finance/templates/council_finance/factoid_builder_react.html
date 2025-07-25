@@ -1,0 +1,174 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}{{ page_title }}{% endblock %}
+
+{% block extra_head %}
+<meta name="description" content="{{ page_description }}">
+<style>
+    /* Enhanced Factoid Builder Integration Styles */
+    .factoid-builder-container {
+        min-height: calc(100vh - 200px);
+        background: #f8fafc;
+    }
+    
+    /* Loading state */
+    .factoid-builder-loading {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 400px;
+        background: #f9fafb;
+    }
+    
+    .loading-spinner {
+        border: 4px solid #f3f4f6;
+        border-top: 4px solid #8b5cf6;
+        border-radius: 50%;
+        width: 40px;
+        height: 40px;
+        animation: spin 1s linear infinite;
+    }
+    
+    @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+    }
+    
+    /* Integrate with main app styling */
+    .factoid-builder-header {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 2rem 0;
+        margin-bottom: 2rem;
+    }
+    
+    /* Ensure React components blend with main app */
+    #factoid-builder-root {
+        font-family: inherit;
+    }
+    
+    /* Override any conflicting styles */
+    #factoid-builder-root * {
+        box-sizing: border-box;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="factoid-builder-container">
+    <!-- Page Header -->
+    <div class="factoid-builder-header">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="text-center">
+                <h1 class="text-3xl font-bold text-white">{{ page_title }}</h1>
+                <p class="mt-2 text-purple-100">{{ page_description }}</p>
+                <div class="mt-4">
+                    <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-purple-100 text-purple-800">
+                        <svg class="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M2.166 4.999A11.954 11.954 0 0010 1.944 11.954 11.954 0 0017.834 5c.11.65.166 1.32.166 2.001 0 5.225-3.34 9.67-8 11.317C5.34 16.67 2 12.225 2 7c0-.682.057-1.35.166-2.001zm11.541 3.708a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+                        </svg>
+                        God Mode Feature
+                    </span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- React App Container -->
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-8">
+        <div id="factoid-builder-root" class="factoid-builder-loading">
+            <div class="text-center">
+                <div class="loading-spinner mx-auto"></div>
+                <p class="mt-4 text-gray-600">Loading Enhanced Factoid Builder...</p>
+                <p class="mt-2 text-sm text-gray-500">Initializing real-time field discovery...</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Configuration for React app
+    window.FACTOID_BUILDER_CONFIG = {
+        apiBaseUrl: '{{ api_base_url }}',
+        user: {
+            id: {{ user.id|default:"null" }},
+            username: '{{ user.username|default:"" }}',
+            isStaff: {{ user.is_staff|yesno:"true,false" }},
+            isAuthenticated: {{ user.is_authenticated|yesno:"true,false" }}
+        },
+        csrfToken: '{{ csrf_token }}',
+        debug: {% if debug %}true{% else %}false{% endif %},
+        isIntegratedMode: true  // Flag to indicate we're in integrated mode
+    };
+</script>
+
+<!-- Vite Development Server Scripts (for development) -->
+{% if debug %}
+<script type="module" src="http://localhost:5175/@vite/client"></script>
+<script type="module" src="http://localhost:5175/src/main.jsx"></script>
+{% else %}
+<!-- Production Build Scripts -->
+<script type="module" crossorigin src="{% static 'frontend/dist/assets/index.js' %}"></script>
+<link rel="stylesheet" href="{% static 'frontend/dist/assets/index.css' %}">
+{% endif %}
+
+<script>
+    // Initialize React app when DOM is ready
+    document.addEventListener('DOMContentLoaded', function() {
+        console.log('🎯 Factoid Builder template loaded in integrated mode');
+        console.log('📊 Config:', window.FACTOID_BUILDER_CONFIG);
+        
+        // Update the root element for React - remove loading state and create proper structure
+        const rootContainer = document.getElementById('factoid-builder-root');
+        if (rootContainer) {
+            // Clear loading state and set up for React
+            rootContainer.className = 'bg-white rounded-lg shadow-sm border border-gray-200 min-h-96';
+            rootContainer.innerHTML = '<div id="root" class="p-6"></div>';
+            
+            console.log('✅ React mount point ready:', document.getElementById('root'));
+        }
+        
+        // Add a timeout to check if React mounted successfully
+        setTimeout(() => {
+            const reactRoot = document.getElementById('root');
+            if (reactRoot && reactRoot.children.length === 0) {
+                console.warn('⚠️ React app did not mount - showing fallback');
+                reactRoot.innerHTML = `
+                    <div class="text-center py-8">
+                        <div class="text-red-600 mb-4">
+                            <svg class="w-12 h-12 mx-auto" fill="currentColor" viewBox="0 0 20 20">
+                                <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/>
+                            </svg>
+                        </div>
+                        <h3 class="text-lg font-medium text-gray-900 mb-2">React App Loading Issue</h3>
+                        <p class="text-gray-600 mb-4">The enhanced factoid builder is having trouble loading.</p>
+                        <div class="text-sm text-gray-500">
+                            <p>This might be due to:</p>
+                            <ul class="list-disc list-inside mt-2 space-y-1">
+                                <li>Vite development server not running on port 5175</li>
+                                <li>Network connectivity issues</li>
+                                <li>JavaScript/module loading problems</li>
+                                <li>React component mounting errors</li>
+                            </ul>
+                            <p class="mt-4">Check the browser console for more details.</p>
+                        </div>
+                    </div>
+                `;
+            }
+        }, 3000);
+    });
+</script>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Additional integration JavaScript
+    console.log('✅ Enhanced Factoid Builder loaded in God Mode integration');
+    
+    // Add any specific integrations with the main app here
+    window.addEventListener('factoidBuilderReady', function(e) {
+        console.log('🚀 Factoid Builder is ready and integrated');
+    });
+</script>
+{% endblock %}

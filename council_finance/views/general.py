@@ -2831,3 +2831,17 @@ def comment_update(request, update_id):
         return JsonResponse({"error": "Internal server error"}, status=500)
 
 
+# @login_required  # Temporarily disabled for UI testing
+def factoid_builder_react(request):
+    """
+    Serve the React-based Enhanced Factoid Builder interface
+    """
+    context = {
+        'page_title': 'Enhanced Factoid Builder',
+        'page_description': 'Build dynamic factoids with real-time field integration',
+        'api_base_url': '/api/factoid',
+        'user': request.user,
+    }
+    
+    return render(request, 'council_finance/factoid_builder_react.html', context)
+

@@ -8,3 +8,9 @@ class CouncilFinanceConfig(AppConfig):
     def ready(self):
         # Ensure model signals are registered when the app loads.
         from . import signals  # noqa: F401
+        
+        # Import factoid signals for real-time updates
+        try:
+            from .signals import factoid_signals  # noqa: F401
+        except ImportError:
+            pass

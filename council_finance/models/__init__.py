@@ -51,6 +51,11 @@ from .flagging_system import (
     UserModerationRecord,
     FlagComment,
 )
+from .factoid import (
+    FactoidTemplate,
+    FactoidInstance,
+    FactoidFieldDependency,
+)
 from .council_data import (
     CouncilData,
     DataApprovalLog,
@@ -109,6 +114,9 @@ __all__ = [
     'FlaggedContent',
     'UserModerationRecord',
     'FlagComment',
+    'FactoidTemplate',
+    'FactoidInstance',
+    'FactoidFieldDependency',
     'CouncilData',
     'DataApprovalLog',
     'AIProvider',
