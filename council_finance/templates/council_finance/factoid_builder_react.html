@@ -105,8 +105,28 @@
 
 <!-- Vite Development Server Scripts (for development) -->
 {% if debug %}
-<script type="module" src="http://localhost:5175/@vite/client"></script>
-<script type="module" src="http://localhost:5175/src/main.jsx"></script>
+<script>
+    console.log('🔧 About to load Vite client...');
+</script>
+<script type="module" src="http://localhost:5173/@vite/client"></script>
+<script>
+    console.log('✅ Vite client loaded, injecting React refresh preamble...');
+</script>
+<script type="module">
+import RefreshRuntime from "http://localhost:5173/@react-refresh"
+RefreshRuntime.injectIntoGlobalHook(window)
+window.$RefreshReg$ = () => {}
+window.$RefreshSig$ = () => (type) => type
+window.__vite_plugin_react_preamble_installed__ = true
+console.log('🔄 React refresh preamble installed');
+</script>
+<script>
+    console.log('✅ Loading main.jsx...');
+</script>
+<script type="module" src="http://localhost:5173/src/main.jsx"></script>
+<script>
+    console.log('📦 Main.jsx script tag added');
+</script>
 {% else %}
 <!-- Production Build Scripts -->
 <script type="module" crossorigin src="{% static 'frontend/dist/assets/index.js' %}"></script>
@@ -146,7 +166,7 @@
                         <div class="text-sm text-gray-500">
                             <p>This might be due to:</p>
                             <ul class="list-disc list-inside mt-2 space-y-1">
-                                <li>Vite development server not running on port 5175</li>
+                                <li>Vite development server not running on port 5173</li>
                                 <li>Network connectivity issues</li>
                                 <li>JavaScript/module loading problems</li>
                                 <li>React component mounting errors</li>
