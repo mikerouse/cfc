@@ -480,7 +480,6 @@ class FactoidAPIViewSet(viewsets.ModelViewSet):
 
 
 @csrf_exempt
-@method_decorator(csrf_exempt)
 def realtime_field_search(request):
     """
     Real-time field search for autocomplete

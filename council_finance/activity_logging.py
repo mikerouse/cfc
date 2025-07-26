@@ -89,7 +89,7 @@ def log_activity(*args, **kwargs):
     modern_activity_type = activity_type_mapping.get(log_type, "system")
 
     # Store using modern ActivityLog system
-    ActivityLog.log_activity(
+    log_entry = ActivityLog.log_activity(
         activity_type=modern_activity_type,
         description=f"{activity}: {action}" if action else activity,
         user=request.user if getattr(request, "user", None) and request.user.is_authenticated else None,
@@ -97,3 +97,11 @@ def log_activity(*args, **kwargs):
         status='completed',
         details={'legacy_data': extra_data, 'calling_function': calling_function}
     )
+    
+    # Also populate legacy fields for backward compatibility
+    log_entry.activity = activity
+    log_entry.action = action
+    log_entry.log_type = log_type
+    if extra_data:
+        log_entry.extra = json.dumps(extra_data)
+    log_entry.save()
