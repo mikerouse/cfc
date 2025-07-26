@@ -2836,12 +2836,64 @@ def factoid_builder_react(request):
     """
     Serve the React-based Enhanced Factoid Builder interface
     """
-    context = {
-        'page_title': 'Enhanced Factoid Builder',
-        'page_description': 'Build dynamic factoids with real-time field integration',
-        'api_base_url': '/api/factoid',
-        'user': request.user,
-    }
+    from council_finance.activity_logging import log_activity
     
-    return render(request, 'council_finance/factoid_builder_react.html', context)
+    # Enhanced logging for factoid builder access
+    try:
+        log_activity(
+            request, 
+            activity="factoid_builder_access",
+            log_type="user",
+            action="page_load",
+            extra={
+                'session_id': request.session.session_key,
+                'user_authenticated': request.user.is_authenticated,
+                'user_id': request.user.id if request.user.is_authenticated else None,
+                'user_agent': request.META.get('HTTP_USER_AGENT', ''),
+                'referer': request.META.get('HTTP_REFERER', ''),
+                'request_method': request.method,
+                'request_path': request.path,
+                'get_params': dict(request.GET),
+                'timestamp': timezone.now().isoformat(),
+            }
+        )
+        
+        context = {
+            'page_title': 'Enhanced Factoid Builder',
+            'page_description': 'Build dynamic factoids with real-time field integration',
+            'api_base_url': '/api/factoid',
+            'user': request.user,
+        }
+        
+        logger.info(f"Factoid builder accessed by user {request.user.username if request.user.is_authenticated else 'anonymous'} from IP {request.META.get('REMOTE_ADDR', 'unknown')}")
+        
+        return render(request, 'council_finance/factoid_builder_react.html', context)
+        
+    except Exception as e:
+        logger.error(f"Error in factoid_builder_react view: {str(e)}", exc_info=True)
+        
+        # Log the error for debugging
+        log_activity(
+            request,
+            activity="factoid_builder_error", 
+            log_type="system",
+            action="view_error",
+            extra={
+                'error_type': type(e).__name__,
+                'error_message': str(e),
+                'user_id': request.user.id if request.user.is_authenticated else None,
+                'session_id': request.session.session_key,
+                'request_path': request.path,
+                'timestamp': timezone.now().isoformat(),
+            }
+        )
+        
+        # Still try to render the page
+        context = {
+            'page_title': 'Enhanced Factoid Builder',
+            'page_description': 'Build dynamic factoids with real-time field integration',
+            'api_base_url': '/api/factoid',
+            'user': request.user,
+        }
+        return render(request, 'council_finance/factoid_builder_react.html', context)
 

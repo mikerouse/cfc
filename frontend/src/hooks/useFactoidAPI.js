@@ -20,9 +20,50 @@ export const useFactoidAPI = () => {
   const debounceTimers = useRef({});
   const cache = useRef({});
 
+  // Client-side logging helper
+  const logClientActivity = useCallback((action, data = {}, error = null) => {
+    const logEntry = {
+      timestamp: new Date().toISOString(),
+      action,
+      session_id: window.FACTOID_BUILDER_CONFIG?.sessionId || 'unknown',
+      user_agent: navigator.userAgent,
+      url: window.location.href,
+      error: error ? {
+        name: error.name,
+        message: error.message,
+        stack: error.stack
+      } : null,
+      ...data
+    };
+    
+    // Log to console with structured format
+    if (error) {
+      console.error(`🔴 Factoid API Error [${action}]:`, logEntry);
+    } else {
+      console.log(`🟢 Factoid API Activity [${action}]:`, logEntry);
+    }
+    
+    // Store in session storage for debugging
+    try {
+      const existingLogs = JSON.parse(sessionStorage.getItem('factoid_api_logs') || '[]');
+      existingLogs.push(logEntry);
+      
+      // Keep only last 100 log entries
+      if (existingLogs.length > 100) {
+        existingLogs.splice(0, existingLogs.length - 100);
+      }
+      
+      sessionStorage.setItem('factoid_api_logs', JSON.stringify(existingLogs));
+    } catch (storageError) {
+      console.warn('Failed to store client log:', storageError);
+    }
+  }, []);
+
   // API helper function
   const apiCall = useCallback(async (endpoint, options = {}) => {
     const url = `${API_BASE_URL}${endpoint}`;
+    const startTime = performance.now();
+    
     const defaultOptions = {
       headers: {
         'Content-Type': 'application/json',
@@ -32,19 +73,59 @@ export const useFactoidAPI = () => {
     };
 
     try {
+      logClientActivity('api_call_start', {
+        endpoint,
+        method: options.method || 'GET',
+        has_body: !!options.body,
+        body_length: options.body ? options.body.length : 0,
+      });
+      
       const response = await fetch(url, { ...defaultOptions, ...options });
+      const endTime = performance.now();
+      const duration = endTime - startTime;
       
       if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        const error = new Error(`HTTP ${response.status}: ${response.statusText}`);
+        
+        logClientActivity('api_call_failed', {
+          endpoint,
+          method: options.method || 'GET',
+          status: response.status,
+          status_text: response.statusText,
+          duration_ms: duration,
+        }, error);
+        
+        throw error;
       }
       
       const data = await response.json();
+      
+      logClientActivity('api_call_success', {
+        endpoint,
+        method: options.method || 'GET',
+        status: response.status,
+        duration_ms: duration,
+        response_size: JSON.stringify(data).length,
+        success: data.success,
+      });
+      
       return data;
     } catch (error) {
+      const endTime = performance.now();
+      const duration = endTime - startTime;
+      
+      logClientActivity('api_call_error', {
+        endpoint,
+        method: options.method || 'GET',
+        duration_ms: duration,
+        error_type: error.name,
+        error_message: error.message,
+      }, error);
+      
       console.error(`API call failed for ${url}:`, error);
       throw error;
     }
-  }, []);
+  }, [logClientActivity]);
 
   // Field discovery
   const discoverFields = useCallback(async () => {
@@ -56,11 +137,24 @@ export const useFactoidAPI = () => {
       const cached = cache.current[cacheKey];
       setFields(cached.fields);
       setFieldGroups(cached.fieldGroups);
+      
+      logClientActivity('field_discovery_cache_hit', {
+        cache_age_ms: Date.now() - cached.timestamp,
+        total_fields: Object.values(cached.fieldGroups).reduce((sum, group) => sum + group.length, 0),
+        categories_count: Object.keys(cached.fieldGroups).length,
+      });
+      
       return cached;
     }
 
     setIsLoading(true);
+    
     try {
+      logClientActivity('field_discovery_start', {
+        cache_miss: true,
+        cache_expired: !!cache.current[cacheKey],
+      });
+      
       console.log('🔍 Discovering fields from API...');
       const response = await apiCall('/templates/discover_fields/');
       
@@ -75,19 +169,36 @@ export const useFactoidAPI = () => {
           timestamp: Date.now(),
         };
         
+        logClientActivity('field_discovery_success', {
+          total_fields: response.total_fields,
+          categories_count: Object.keys(response.field_groups).length,
+          field_categories: Object.keys(response.field_groups),
+          cached: true,
+        });
+        
         console.log(`✅ Discovered ${response.total_fields} fields in ${Object.keys(response.field_groups).length} categories`);
         return response;
       } else {
-        throw new Error(response.error || 'Failed to discover fields');
+        const error = new Error(response.error || 'Failed to discover fields');
+        logClientActivity('field_discovery_failed', {
+          api_success: false,
+          api_error: response.error,
+        }, error);
+        throw error;
       }
     } catch (error) {
+      logClientActivity('field_discovery_error', {
+        error_type: error.name,
+        error_message: error.message,
+      }, error);
+      
       console.error('Field discovery failed:', error);
       setValidationErrors(prev => [...prev, `Field discovery failed: ${error.message}`]);
       return { success: false, error: error.message };
     } finally {
       setIsLoading(false);
     }
-  }, [apiCall]);
+  }, [apiCall, logClientActivity]);
 
   // Template validation with debouncing
   const validateTemplate = useCallback((templateText) => {
@@ -96,14 +207,28 @@ export const useFactoidAPI = () => {
       clearTimeout(debounceTimers.current.validation);
     }
 
+    logClientActivity('validation_debounce_start', {
+      template_length: templateText ? templateText.length : 0,
+      has_existing_timer: !!debounceTimers.current.validation,
+    });
+
     // Debounce validation calls
     debounceTimers.current.validation = setTimeout(async () => {
       if (!templateText || !templateText.trim()) {
         setValidationErrors([]);
+        logClientActivity('validation_skipped_empty', {
+          template_length: templateText ? templateText.length : 0,
+          template_trimmed_length: templateText ? templateText.trim().length : 0,
+        });
         return;
       }
 
       try {
+        logClientActivity('validation_start', {
+          template_length: templateText.length,
+          template_preview: templateText.substring(0, 100),
+        });
+
         const response = await apiCall('/templates/1/validate_template/', {
           method: 'POST',
           body: JSON.stringify({ template_text: templateText }),
@@ -116,16 +241,39 @@ export const useFactoidAPI = () => {
 
         if (response.success) {
           setValidationErrors(response.validation_errors || []);
+          
+          logClientActivity('validation_success', {
+            is_valid: response.is_valid,
+            validation_errors_count: response.validation_errors ? response.validation_errors.length : 0,
+            validation_errors: response.validation_errors,
+            referenced_fields_count: response.referenced_fields ? response.referenced_fields.length : 0,
+            referenced_fields: response.referenced_fields,
+            template_length: templateText.length,
+          });
+          
           console.log(`✅ Template validation: ${response.is_valid ? 'Valid' : 'Invalid'}`);
         } else {
-          setValidationErrors([response.error || 'Validation failed']);
+          const errorMessage = response.error || 'Validation failed';
+          setValidationErrors([errorMessage]);
+          
+          logClientActivity('validation_failed', {
+            api_success: false,
+            api_error: response.error,
+            template_length: templateText.length,
+          });
         }
       } catch (error) {
+        logClientActivity('validation_error', {
+          error_type: error.name,
+          error_message: error.message,
+          template_length: templateText.length,
+        }, error);
+        
         console.error('Template validation failed:', error);
         setValidationErrors([`Validation error: ${error.message}`]);
       }
     }, 500); // 500ms debounce
-  }, [apiCall]);
+  }, [apiCall, logClientActivity]);
 
   // Live preview generation with debouncing
   const generatePreview = useCallback((templateText, options = {}) => {
@@ -252,6 +400,45 @@ export const useFactoidAPI = () => {
     }
   }, [apiCall]);
 
+  // Get client-side logs for debugging
+  const getClientLogs = useCallback(() => {
+    try {
+      return JSON.parse(sessionStorage.getItem('factoid_api_logs') || '[]');
+    } catch (error) {
+      console.warn('Failed to retrieve client logs:', error);
+      return [];
+    }
+  }, []);
+
+  // Clear client-side logs
+  const clearClientLogs = useCallback(() => {
+    try {
+      sessionStorage.removeItem('factoid_api_logs');
+      console.log('🗑️ Factoid API client logs cleared');
+    } catch (error) {
+      console.warn('Failed to clear client logs:', error);
+    }
+  }, []);
+
+  // Export logs for debugging
+  const exportLogs = useCallback(() => {
+    const logs = getClientLogs();
+    const dataStr = JSON.stringify(logs, null, 2);
+    const dataUri = 'data:application/json;charset=utf-8,'+ encodeURIComponent(dataStr);
+    
+    const exportFileDefaultName = `factoid-api-logs-${new Date().toISOString().split('T')[0]}.json`;
+    
+    const linkElement = document.createElement('a');
+    linkElement.setAttribute('href', dataUri);
+    linkElement.setAttribute('download', exportFileDefaultName);
+    linkElement.click();
+    
+    logClientActivity('logs_exported', {
+      logs_count: logs.length,
+      export_filename: exportFileDefaultName,
+    });
+  }, [getClientLogs, logClientActivity]);
+
   // Cleanup function
   const cleanup = useCallback(() => {
     // Clear all debounce timers
@@ -259,7 +446,11 @@ export const useFactoidAPI = () => {
       if (timer) clearTimeout(timer);
     });
     debounceTimers.current = {};
-  }, []);
+    
+    logClientActivity('hook_cleanup', {
+      timers_cleared: Object.keys(debounceTimers.current).length,
+    });
+  }, [logClientActivity]);
 
   return {
     // State
@@ -277,6 +468,11 @@ export const useFactoidAPI = () => {
     searchFields,
     getSampleCouncils,
     cleanup,
+    
+    // Debugging utilities
+    getClientLogs,
+    clearClientLogs,
+    exportLogs,
     
     // Direct API access
     apiCall,
