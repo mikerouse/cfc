@@ -8,6 +8,8 @@
  * - Seamless Django API integration
  */
 import { useState, useEffect, useCallback, useRef } from 'react';
+// Logger utility for capturing client-side issues
+import { logActivity } from '../utils/logger';
 import FieldDiscovery from './FieldDiscovery';
 import TemplateEditor from './TemplateEditor';
 import LivePreview from './LivePreview';
@@ -71,36 +73,46 @@ const FactoidBuilder = () => {
       [field]: value
     }));
     setIsDirty(true);
-    
+
     // Auto-validate on template text changes
     if (field === 'template_text') {
-      validateTemplate(value, templateId);
-      generatePreview(value, { templateId });
+      try {
+        validateTemplate(value, templateId);
+        generatePreview(value, { templateId });
+      } catch (err) {
+        console.error('Template change processing failed:', err);
+        logActivity('template_change_error', { field }, err);
+      }
     }
   }, [validateTemplate, generatePreview]);
 
   // Field drop handler for drag and drop
   const handleFieldDrop = useCallback((fieldVariable, formatType = 'default') => {
-    const cursorPosition = templateEditorRef.current?.getCursorPosition() || 0;
-    const currentText = template.template_text;
-    
-    // Build field placeholder with formatting
-    const formatSuffix = formatType !== 'default' ? `:${formatType}` : '';
-    const fieldPlaceholder = `{${fieldVariable}${formatSuffix}}`;
-    
-    // Insert at cursor position
-    const newText = 
-      currentText.substring(0, cursorPosition) + 
-      fieldPlaceholder + 
-      currentText.substring(cursorPosition);
-    
-    handleTemplateChange('template_text', newText);
-    
-    // Focus back to editor
-    setTimeout(() => {
-      templateEditorRef.current?.focus();
-      templateEditorRef.current?.setCursorPosition(cursorPosition + fieldPlaceholder.length);
-    }, 50);
+    try {
+      const cursorPosition = templateEditorRef.current?.getCursorPosition() || 0;
+      const currentText = template.template_text;
+
+      // Build field placeholder with formatting
+      const formatSuffix = formatType !== 'default' ? `:${formatType}` : '';
+      const fieldPlaceholder = `{${fieldVariable}${formatSuffix}}`;
+
+      // Insert at cursor position
+      const newText =
+        currentText.substring(0, cursorPosition) +
+        fieldPlaceholder +
+        currentText.substring(cursorPosition);
+
+      handleTemplateChange('template_text', newText);
+
+      // Focus back to editor
+      setTimeout(() => {
+        templateEditorRef.current?.focus();
+        templateEditorRef.current?.setCursorPosition(cursorPosition + fieldPlaceholder.length);
+      }, 50);
+    } catch (err) {
+      console.error('Field drop failed:', err);
+      logActivity('field_drop_error', { fieldVariable }, err);
+    }
   }, [template.template_text, handleTemplateChange]);
 
   // Save handler
@@ -121,12 +133,15 @@ const FactoidBuilder = () => {
       if (result.success) {
         setTemplateId(result.data.id);
         setIsDirty(false);
+        logActivity('template_saved', { id: result.data.id });
         alert('Template saved successfully!');
       } else {
+        logActivity('template_save_failed', { error: result.error });
         alert(`Save failed: ${result.error}`);
       }
     } catch (error) {
       console.error('Save error:', error);
+      logActivity('template_save_error', {}, error);
       alert(`Save failed: ${error.message}`);
     } finally {
       setSaving(false);

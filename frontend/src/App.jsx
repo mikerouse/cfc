@@ -1,5 +1,8 @@
 import { useState, useEffect } from 'react';
 import FactoidBuilder from './components/FactoidBuilder';
+// New error boundary and logger utilities
+import ErrorBoundary from './components/ErrorBoundary';
+import { logActivity } from './utils/logger';
 import './App.css';
 
 function App() {
@@ -65,18 +68,46 @@ function App() {
     };
     
     console.log('🛠️ Debug utilities available at window.factoidBuilderDebug');
-    
+
+    // Global error listeners capture unexpected issues and log them
+    const handleGlobalError = (event) => {
+      const error = event.error || new Error(event.message);
+      logActivity('global_error', {
+        message: event.message,
+        source: event.filename,
+        lineno: event.lineno,
+        colno: event.colno,
+      }, error);
+    };
+
+    const handleUnhandledRejection = (event) => {
+      const reason = event.reason instanceof Error ? event.reason : new Error(String(event.reason));
+      logActivity('unhandled_rejection', { reason: reason.message }, reason);
+    };
+
+    window.addEventListener('error', handleGlobalError);
+    window.addEventListener('unhandledrejection', handleUnhandledRejection);
+
     // Dispatch event to let parent know we're ready
     window.dispatchEvent(new CustomEvent('factoidBuilderReady', {
       detail: { isIntegratedMode, config: window.FACTOID_BUILDER_CONFIG }
     }));
+
+    // Cleanup listeners on unmount
+    return () => {
+      window.removeEventListener('error', handleGlobalError);
+      window.removeEventListener('unhandledrejection', handleUnhandledRejection);
+    };
   }, [isIntegratedMode]);
 
   // For integrated mode, only show the component without extra wrapper styling
   if (isIntegratedMode) {
     return (
       <div className="factoid-builder-integrated">
-        <FactoidBuilder />
+        {/* Wrap the builder with an error boundary for resilience */}
+        <ErrorBoundary>
+          <FactoidBuilder />
+        </ErrorBoundary>
       </div>
     );
   }
@@ -90,7 +121,10 @@ function App() {
         </h1>
         
         <div className="bg-white rounded-lg shadow-lg overflow-hidden">
-          <FactoidBuilder />
+          {/* Error boundary also used in standalone mode */}
+          <ErrorBoundary>
+            <FactoidBuilder />
+          </ErrorBoundary>
         </div>
       </div>
     </div>
