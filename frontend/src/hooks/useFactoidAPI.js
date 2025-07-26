@@ -201,7 +201,7 @@ export const useFactoidAPI = () => {
   }, [apiCall, logClientActivity]);
 
   // Template validation with debouncing
-  const validateTemplate = useCallback((templateText) => {
+  const validateTemplate = useCallback((templateText, templateId = null) => {
     // Clear existing timer
     if (debounceTimers.current.validation) {
       clearTimeout(debounceTimers.current.validation);
@@ -229,7 +229,10 @@ export const useFactoidAPI = () => {
           template_preview: templateText.substring(0, 100),
         });
 
-        const response = await apiCall('/templates/1/validate_template/', {
+        const endpoint = templateId
+          ? `/templates/${templateId}/validate_template/`
+          : '/quick-validate/';
+        const response = await apiCall(endpoint, {
           method: 'POST',
           body: JSON.stringify({ template_text: templateText }),
           headers: {
@@ -255,6 +258,7 @@ export const useFactoidAPI = () => {
         } else {
           const errorMessage = response.error || 'Validation failed';
           setValidationErrors([errorMessage]);
+          alert(errorMessage);
           
           logClientActivity('validation_failed', {
             api_success: false,
@@ -268,9 +272,10 @@ export const useFactoidAPI = () => {
           error_message: error.message,
           template_length: templateText.length,
         }, error);
-        
+
         console.error('Template validation failed:', error);
         setValidationErrors([`Validation error: ${error.message}`]);
+        alert(`Validation error: ${error.message}`);
       }
     }, 500); // 500ms debounce
   }, [apiCall, logClientActivity]);
@@ -290,14 +295,25 @@ export const useFactoidAPI = () => {
       }
 
       try {
+        const {
+          templateId = null,
+          councilSlug,
+          yearSlug = '2023-24',
+          counterSlug,
+        } = options;
+
         const payload = {
           template_text: templateText,
-          council_slug: options.councilSlug || null,
-          year_slug: options.yearSlug || '2023-24',
-          counter_slug: options.counterSlug || null,
+          council_slug: councilSlug || null,
+          year_slug: yearSlug,
+          counter_slug: counterSlug || null,
         };
 
-        const response = await apiCall('/templates/1/preview/', {
+        const endpoint = templateId
+          ? `/templates/${templateId}/preview/`
+          : '/quick-preview/';
+
+        const response = await apiCall(endpoint, {
           method: 'POST',
           body: JSON.stringify(payload),
           headers: {
@@ -312,6 +328,7 @@ export const useFactoidAPI = () => {
           console.log('✅ Generated live preview');
         } else {
           console.warn('Preview generation failed:', response.error);
+          alert(response.error || 'Preview generation failed');
           setPreviewData({
             rendered_text: 'Preview error',
             validation_errors: [response.error],
@@ -319,6 +336,7 @@ export const useFactoidAPI = () => {
         }
       } catch (error) {
         console.error('Preview generation failed:', error);
+        alert(`Preview error: ${error.message}`);
         setPreviewData({
           rendered_text: 'Preview unavailable',
           validation_errors: [`Preview error: ${error.message}`],

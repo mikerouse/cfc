@@ -156,7 +156,7 @@ class FactoidTemplate(models.Model):
         from .field import DataField
         for field_name in self.referenced_fields:
             try:
-                DataField.objects.get(variable_name=field_name)
+                DataField.from_variable_name(field_name)
             except DataField.DoesNotExist:
                 errors.append(f"Referenced field '{field_name}' does not exist")
         
