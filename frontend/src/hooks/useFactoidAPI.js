@@ -104,9 +104,14 @@ export const useFactoidAPI = () => {
       }
 
       try {
-        const response = await apiCall('/templates/validate/', {
+        const response = await apiCall('/templates/1/validate_template/', {
           method: 'POST',
           body: JSON.stringify({ template_text: templateText }),
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Requested-With': 'XMLHttpRequest',
+            'X-CSRFToken': window.FACTOID_BUILDER_CONFIG?.csrfToken || '',
+          },
         });
 
         if (response.success) {
@@ -147,6 +152,11 @@ export const useFactoidAPI = () => {
         const response = await apiCall('/templates/1/preview/', {
           method: 'POST',
           body: JSON.stringify(payload),
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Requested-With': 'XMLHttpRequest',
+            'X-CSRFToken': window.FACTOID_BUILDER_CONFIG?.csrfToken || '',
+          },
         });
 
         if (response.success) {
@@ -177,6 +187,11 @@ export const useFactoidAPI = () => {
       const response = await apiCall('/templates/', {
         method: 'POST',
         body: JSON.stringify(templateData),
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Requested-With': 'XMLHttpRequest',
+          'X-CSRFToken': window.FACTOID_BUILDER_CONFIG?.csrfToken || '',
+        },
       });
 
       if (response.id) {

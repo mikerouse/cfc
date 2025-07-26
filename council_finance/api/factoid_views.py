@@ -384,3 +384,106 @@ def quick_template_validation(request):
             'success': False,
             'error': str(e)
         }, status=500)
+
+
+@csrf_exempt
+def quick_template_preview(request):
+    """
+    Quick template preview for real-time feedback without requiring existing template
+    """
+    if request.method != 'POST':
+        return JsonResponse({'error': 'Method not allowed'}, status=405)
+    
+    try:
+        data = json.loads(request.body)
+        template_text = data.get('template_text', '')
+        
+        if not template_text:
+            return JsonResponse({
+                'success': False,
+                'error': 'Template text is required'
+            })
+        
+        # Get sample council and year for preview
+        council_slug = data.get('council_slug')
+        year_slug = data.get('year_slug', '2023-24')
+        counter_slug = data.get('counter_slug')
+        
+        # Use provided council or default to first available
+        if council_slug:
+            council = Council.objects.filter(slug=council_slug).first()
+        else:
+            council = Council.objects.filter(is_live=True).first()
+        
+        if not council:
+            return JsonResponse({
+                'success': False,
+                'error': 'No council available for preview'
+            }, status=400)
+        
+        # Get or create year
+        year_parts = year_slug.split('-')
+        if len(year_parts) == 2:
+            start_year = int(year_parts[0])
+        else:
+            start_year = int(year_slug)
+        
+        year, _ = FinancialYear.objects.get_or_create(
+            year=start_year,
+            defaults={'year': start_year}
+        )
+        
+        # Get counter if specified
+        counter = None
+        if counter_slug:
+            counter = CounterDefinition.objects.filter(slug=counter_slug).first()
+        
+        # Generate preview using factoid engine
+        engine = FactoidEngine()
+        context_data = engine.build_context_data(council, year, counter)
+        
+        # Create temporary template for preview
+        preview_template = FactoidTemplate(
+            template_text=template_text,
+            factoid_type='context',
+            emoji='📊',
+            color_scheme='blue',
+        )
+        preview_template.extract_referenced_fields()
+        
+        # Render preview
+        rendered_text = engine.render_template(preview_template, context_data)
+        
+        # Validate references
+        validation_errors = []
+        for field_name in preview_template.referenced_fields:
+            if field_name not in context_data:
+                validation_errors.append(f"Field '{field_name}' not found in context")
+        
+        return JsonResponse({
+            'success': True,
+            'preview': {
+                'rendered_text': rendered_text,
+                'context_data': context_data,
+                'referenced_fields': preview_template.referenced_fields,
+                'validation_errors': validation_errors,
+                'council_name': council.name,
+                'year_label': str(year.year),
+            }
+        })
+        
+    except json.JSONDecodeError:
+        return JsonResponse({
+            'success': False,
+            'error': 'Invalid JSON'
+        }, status=400)
+    except Exception as e:
+        logger.error(f"Error in quick preview: {e}")
+        return JsonResponse({
+            'success': False,
+            'error': str(e),
+            'preview': {
+                'rendered_text': 'Preview error',
+                'validation_errors': [str(e)],
+            }
+        }, status=500)
