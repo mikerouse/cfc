@@ -41,7 +41,7 @@ class FactoidEngine:
         """
         try:
             # Try to get the field definition
-            data_field = DataField.objects.get(variable_name=field_name)
+            data_field = DataField.from_variable_name(field_name)
             
             # Handle different field categories
             if data_field.category == 'characteristic':
@@ -64,9 +64,10 @@ class FactoidEngine:
     def _get_characteristic_value(self, field_name: str, council: Council, year: FinancialYear) -> Any:
         """Get value from council characteristics"""
         try:
+            slug = DataField.from_variable_name(field_name).slug
             characteristic = CouncilCharacteristic.objects.filter(
                 council=council,
-                field__variable_name=field_name,
+                field__slug=slug,
                 year=year
             ).first()
             
@@ -85,9 +86,10 @@ class FactoidEngine:
     def _get_financial_value(self, field_name: str, council: Council, year: FinancialYear) -> Any:
         """Get value from financial figures"""
         try:
+            slug = DataField.from_variable_name(field_name).slug
             figure = FinancialFigure.objects.filter(
                 council=council,
-                field__variable_name=field_name,
+                field__slug=slug,
                 year=year
             ).first()
             
@@ -129,9 +131,10 @@ class FactoidEngine:
     def _get_population(self, council: Council, year: FinancialYear) -> Optional[int]:
         """Get council population for per capita calculations"""
         try:
+            slug = DataField.from_variable_name('population').slug
             pop_characteristic = CouncilCharacteristic.objects.filter(
                 council=council,
-                field__variable_name='population',
+                field__slug=slug,
                 year=year
             ).first()
             
@@ -345,7 +348,7 @@ class FactoidEngine:
             # Create new dependencies
             for field_name in template.referenced_fields:
                 try:
-                    field = DataField.objects.get(variable_name=field_name)
+                    field = DataField.from_variable_name(field_name)
                     FactoidFieldDependency.objects.create(
                         template=template,
                         field=field,

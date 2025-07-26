@@ -83,6 +83,23 @@ class DataField(models.Model):
     required = models.BooleanField(default=False)
 
     @property
+    def variable_name(self) -> str:
+        """Return the slug formatted for template variables."""
+        return self.slug.replace('-', '_')
+
+    @classmethod
+    def from_variable_name(cls, name: str):
+        """Look up a field using the template variable name.
+
+        The helper reverses :meth:`variable_name` by converting
+        underscores back to hyphens so we can perform a lookup
+        by ``slug``.
+        """
+        base = name.split('.')[-1]
+        slug = base.replace('_', '-')
+        return cls.objects.get(slug=slug)
+
+    @property
     def is_protected(self) -> bool:
         """Return True if this field's slug is immutable."""
         return self.slug in PROTECTED_SLUGS

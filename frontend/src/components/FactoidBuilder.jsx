@@ -29,6 +29,7 @@ const FactoidBuilder = () => {
     priority: 50,
     is_active: true,
   });
+  const [templateId, setTemplateId] = useState(null);
 
   const [isDirty, setIsDirty] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -73,8 +74,8 @@ const FactoidBuilder = () => {
     
     // Auto-validate on template text changes
     if (field === 'template_text') {
-      validateTemplate(value);
-      generatePreview(value);
+      validateTemplate(value, templateId);
+      generatePreview(value, { templateId });
     }
   }, [validateTemplate, generatePreview]);
 
@@ -118,6 +119,7 @@ const FactoidBuilder = () => {
     try {
       const result = await saveTemplate(template);
       if (result.success) {
+        setTemplateId(result.data.id);
         setIsDirty(false);
         alert('Template saved successfully!');
       } else {
