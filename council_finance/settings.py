@@ -86,9 +86,12 @@ TEMPLATES = [
 
 WSGI_APPLICATION = "council_finance.wsgi.application"
 
+# Allow Codex to override the database with SQLite
+manual_db_url = os.getenv("CODEX_DATABASE_URL")
+
 DATABASES = {
     "default": dj_database_url.parse(
-        os.getenv('DATABASE_URL', 'postgresql://localhost/councilfinancecounters'),
+        manual_db_url or os.getenv('DATABASE_URL', 'postgresql://localhost/councilfinancecounters'),
         conn_max_age=600,
         conn_health_checks=True,
     )
