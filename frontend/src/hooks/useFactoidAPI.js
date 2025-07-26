@@ -229,6 +229,9 @@ export const useFactoidAPI = () => {
           template_preview: templateText.substring(0, 100),
         });
 
+        // Use new quick-validate endpoint when the template
+        // has not yet been persisted. Otherwise fall back to
+        // the standard template-specific validation URL.
         const endpoint = templateId
           ? `/templates/${templateId}/validate_template/`
           : '/quick-validate/';
@@ -309,6 +312,9 @@ export const useFactoidAPI = () => {
           counter_slug: counterSlug || null,
         };
 
+        // When no template has been saved yet send preview
+        // requests to the quick-preview endpoint. Saved templates
+        // still use their instance specific preview URL.
         const endpoint = templateId
           ? `/templates/${templateId}/preview/`
           : '/quick-preview/';
