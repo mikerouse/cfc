@@ -86,16 +86,18 @@ TEMPLATES = [
 
 WSGI_APPLICATION = "council_finance.wsgi.application"
 
-# Allow Codex to override the database with SQLite
-manual_db_url = os.getenv("CODEX_DATABASE_URL")
+# Prefer CODEX_DATABASE_URL if defined
+codex_db = os.getenv('CODEX_DATABASE_URL')
+default_db = os.getenv('DATABASE_URL', 'postgresql://localhost/councilfinancecounters')
 
 DATABASES = {
     "default": dj_database_url.parse(
-        manual_db_url or os.getenv('DATABASE_URL', 'postgresql://localhost/councilfinancecounters'),
+        codex_db if codex_db else default_db,
         conn_max_age=600,
         conn_health_checks=True,
     )
 }
+
 
 # AI Service Configuration
 OPENAI_API_KEY = os.getenv('OPENAI_API_KEY')
