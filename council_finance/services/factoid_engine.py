@@ -105,7 +105,7 @@ class FactoidEngine:
             if field_name == 'council_name':
                 return council.name
             elif field_name == 'year_label':
-                return str(year.year)
+                return str(year.label)
             elif field_name.endswith('_per_capita'):
                 # Calculate per capita values
                 base_field = field_name.replace('_per_capita', '')
@@ -155,9 +155,11 @@ class FactoidEngine:
             current_value = self.get_field_value(base_field, council, year)
             
             # Get previous year
-            previous_year = FinancialYear.objects.filter(
-                year__lt=year.year
-            ).order_by('-year').first()
+            from ..year_utils import previous_year_label
+            previous_year_str = previous_year_label(year.label)
+            previous_year = None
+            if previous_year_str:
+                previous_year = FinancialYear.objects.filter(label=previous_year_str).first()
             
             if not previous_year:
                 return None
@@ -219,12 +221,12 @@ class FactoidEngine:
         context = {
             'council_name': council.name,
             'council_slug': council.slug,
-            'year_label': str(year.year),
+            'year_label': str(year.label),
             'council_type': council.council_type.name if council.council_type else 'Unknown',
         }
         
         # Add all available fields
-        for field in DataField.objects.filter(is_active=True):
+        for field in DataField.objects.all():
             value = self.get_field_value(field.variable_name, council, year, counter)
             if value is not None:
                 context[field.variable_name] = value

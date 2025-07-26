@@ -234,7 +234,7 @@ class FactoidAPIViewSet(viewsets.ModelViewSet):
             if council_slug:
                 council = Council.objects.filter(slug=council_slug).first()
             else:
-                council = Council.objects.filter(is_live=True).first()
+                council = Council.objects.filter(status='active').first()
             
             if not council:
                 _log_api_activity(
@@ -253,15 +253,9 @@ class FactoidAPIViewSet(viewsets.ModelViewSet):
                 }, status=status.HTTP_400_BAD_REQUEST)
             
             # Get or create year
-            year_parts = year_slug.split('-')
-            if len(year_parts) == 2:
-                start_year = int(year_parts[0])
-            else:
-                start_year = int(year_slug)
-            
             year, _ = FinancialYear.objects.get_or_create(
-                year=start_year,
-                defaults={'year': start_year}
+                label=year_slug,
+                defaults={'label': year_slug}
             )
             
             # Get counter if specified
@@ -322,7 +316,7 @@ class FactoidAPIViewSet(viewsets.ModelViewSet):
                     'referenced_fields': preview_template.referenced_fields,
                     'validation_errors': validation_errors,
                     'council_name': council.name,
-                    'year_label': str(year.year),
+                    'year_label': str(year.label),
                 }
             })
             
@@ -430,7 +424,7 @@ class FactoidAPIViewSet(viewsets.ModelViewSet):
         start_time = timezone.now()
         
         try:
-            councils = Council.objects.filter(is_live=True)[:10]
+            councils = Council.objects.filter(status='active')[:10]
             
             council_data = []
             for council in councils:
@@ -728,7 +722,7 @@ def quick_template_preview(request):
         if council_slug:
             council = Council.objects.filter(slug=council_slug).first()
         else:
-            council = Council.objects.filter(is_live=True).first()
+            council = Council.objects.filter(status='active').first()
         
         if not council:
             execution_time = (timezone.now() - start_time).total_seconds()
@@ -748,15 +742,9 @@ def quick_template_preview(request):
             }, status=400)
         
         # Get or create year
-        year_parts = year_slug.split('-')
-        if len(year_parts) == 2:
-            start_year = int(year_parts[0])
-        else:
-            start_year = int(year_slug)
-        
         year, _ = FinancialYear.objects.get_or_create(
-            year=start_year,
-            defaults={'year': start_year}
+            label=year_slug,
+            defaults={'label': year_slug}
         )
         
         # Get counter if specified
@@ -816,7 +804,7 @@ def quick_template_preview(request):
                 'referenced_fields': preview_template.referenced_fields,
                 'validation_errors': validation_errors,
                 'council_name': council.name,
-                'year_label': str(year.year),
+                'year_label': str(year.label),
             }
         })
         
