@@ -83,6 +83,43 @@ class DataField(models.Model):
     required = models.BooleanField(default=False)
 
     @property
+    def variable_name(self) -> str:
+        """Return the slug formatted for template variables."""
+        return self.slug.replace('-', '_')
+
+    @classmethod
+    def from_variable_name(cls, name: str):
+        """Look up a field using the template variable name.
+
+        The helper reverses :meth:`variable_name` by converting
+        underscores back to hyphens so we can perform a lookup
+        by ``slug``.
+        
+        Args:
+            name (str): The template variable name. This can include a prefix
+                (e.g., 'financial.total_debt'), in which case only the last
+                part after the final '.' is used. Underscores in the name are
+                replaced with hyphens to derive the slug.
+        
+        Returns:
+            DataField: The DataField instance corresponding to the derived slug.
+        
+        Raises:
+            DataField.DoesNotExist: If no DataField with the derived slug exists.
+                The error message includes the original variable name for easier debugging.
+            DataField.MultipleObjectsReturned: If multiple DataFields with the
+                derived slug exist.
+        """
+        base = name.split('.')[-1]
+        slug = base.replace('_', '-')
+        try:
+            return cls.objects.get(slug=slug)
+        except cls.DoesNotExist:
+            raise cls.DoesNotExist(
+                f"DataField with variable name '{name}' (slug='{slug}') does not exist"
+            )
+
+    @property
     def is_protected(self) -> bool:
         """Return True if this field's slug is immutable."""
         return self.slug in PROTECTED_SLUGS
