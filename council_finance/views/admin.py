@@ -388,6 +388,41 @@ def counter_definition_form(request, slug=None):
 
 
 @login_required
+def counter_factoid_assignment(request, slug):
+    """Manage factoid template assignments for a counter."""
+    counter = get_object_or_404(CounterDefinition, slug=slug)
+    
+    from ..forms import CounterFactoidAssignmentForm
+    
+    if request.method == "POST":
+        form = CounterFactoidAssignmentForm(counter, request.POST)
+        if form.is_valid():
+            form.save()
+            messages.success(request, f"Factoid templates updated for {counter.name}")
+            log_activity(
+                request,
+                activity="counter_factoid_assignment",
+                log_type="user",
+                action="updated",
+                response="saved",
+                extra={"counter_slug": slug}
+            )
+            return redirect("counter_definitions")
+    else:
+        form = CounterFactoidAssignmentForm(counter)
+    
+    context = {
+        "counter": counter,
+        "form": form,
+    }
+    return render(
+        request,
+        "council_finance/counter_factoid_assignment.html",
+        context,
+    )
+
+
+@login_required
 @require_GET
 def preview_counter_value(request):
     from council_finance.agents.counter_agent import CounterAgent

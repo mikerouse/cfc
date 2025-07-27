@@ -1,0 +1,181 @@
+{% extends "base.html" %}
+{% load i18n %}
+
+{% block title %}
+    Assign Factoids to {{ counter.name }} - Council Finance Counters
+{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-6 max-w-4xl">
+    <!-- Header Section -->
+    <div class="mb-8">
+        <div class="flex items-center justify-between">
+            <div>
+                <h1 class="text-3xl font-bold text-gray-900 mb-2">
+                    <span class="text-purple-600">🔗</span> Assign Factoids
+                </h1>
+                <p class="text-gray-600">
+                    Link factoid templates to <strong>{{ counter.name }}</strong> to generate automatic insights.
+                </p>
+                <div class="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                    <div class="flex items-start">
+                        <div class="flex-shrink-0">
+                            <svg class="h-5 w-5 text-blue-400 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                                <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"/>
+                            </svg>
+                        </div>
+                        <div class="ml-3">
+                            <h3 class="text-sm font-medium text-blue-800">About Factoid Templates</h3>
+                            <div class="mt-1 text-sm text-blue-700">
+                                Factoid templates automatically generate contextual insights when this counter is displayed. 
+                                They can show comparisons, trends, or explanatory text to help users understand the data.
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="text-right">
+                <a href="{% url 'counter_definitions' %}" 
+                   class="inline-flex items-center px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                    <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/>
+                    </svg>
+                    Back to Counters
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Counter Info -->
+    <div class="mb-6 p-4 bg-gray-50 border border-gray-200 rounded-lg">
+        <h2 class="text-lg font-semibold text-gray-900 mb-2">Counter Details</h2>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+            <div>
+                <span class="font-medium text-gray-700">Name:</span> {{ counter.name }}
+            </div>
+            <div>
+                <span class="font-medium text-gray-700">Formula:</span> <code class="text-blue-600">{{ counter.formula }}</code>
+            </div>
+            <div>
+                <span class="font-medium text-gray-700">Show by Default:</span> 
+                {% if counter.show_by_default %}
+                    <span class="text-green-600">✅ Yes</span>
+                {% else %}
+                    <span class="text-red-600">❌ No</span>
+                {% endif %}
+            </div>
+            <div>
+                <span class="font-medium text-gray-700">Headline Counter:</span> 
+                {% if counter.headline %}
+                    <span class="text-green-600">⭐ Yes</span>
+                {% else %}
+                    <span class="text-gray-600">📄 No</span>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Assignment Form -->
+    <form method="post" class="space-y-6">
+        {% csrf_token %}
+        
+        {% if form.non_field_errors %}
+        <div class="bg-red-50 border border-red-200 rounded-lg p-4">
+            <div class="flex">
+                <div class="flex-shrink-0">
+                    <svg class="h-5 w-5 text-red-400" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"/>
+                    </svg>
+                </div>
+                <div class="ml-3">
+                    <h3 class="text-sm font-medium text-red-800">Please fix the following errors:</h3>
+                    <div class="mt-2 text-sm text-red-700">
+                        {{ form.non_field_errors }}
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Factoid Templates Selection -->
+        <div class="bg-white border border-gray-200 rounded-lg p-6">
+            <div class="mb-4">
+                <label class="text-lg font-semibold text-gray-900">
+                    {{ form.factoid_templates.label }}
+                </label>
+                {% if form.factoid_templates.help_text %}
+                <p class="mt-1 text-sm text-gray-600">{{ form.factoid_templates.help_text }}</p>
+                {% endif %}
+                {% if form.factoid_templates.errors %}
+                <div class="mt-2 text-sm text-red-600">
+                    {{ form.factoid_templates.errors }}
+                </div>
+                {% endif %}
+            </div>
+            
+            <div class="space-y-3">
+                {% for choice in form.factoid_templates %}
+                <div class="flex items-start">
+                    <div class="flex items-center h-5">
+                        {{ choice.tag }}
+                    </div>
+                    <div class="ml-3 text-sm">
+                        <label for="{{ choice.id_for_label }}" class="font-medium text-gray-900 cursor-pointer">
+                            {{ choice.choice_label }}
+                        </label>
+                        {% if choice.choice_value.instance.template_text %}
+                        <p class="text-gray-600 mt-1">
+                            <code class="text-xs bg-gray-100 px-2 py-1 rounded">{{ choice.choice_value.instance.template_text|truncatechars:80 }}</code>
+                        </p>
+                        {% endif %}
+                        <div class="flex items-center space-x-4 mt-1 text-xs text-gray-500">
+                            <span>{{ choice.choice_value.instance.get_factoid_type_display }}</span>
+                            {% if choice.choice_value.instance.emoji %}
+                            <span>{{ choice.choice_value.instance.emoji }}</span>
+                            {% endif %}
+                            <span class="px-2 py-1 bg-{{ choice.choice_value.instance.color_scheme }}-100 text-{{ choice.choice_value.instance.color_scheme }}-800 rounded">
+                                {{ choice.choice_value.instance.get_color_scheme_display }}
+                            </span>
+                        </div>
+                    </div>
+                </div>
+                {% empty %}
+                <div class="text-center py-8 text-gray-500">
+                    <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                    </svg>
+                    <h3 class="mt-2 text-sm font-medium text-gray-900">No factoid templates available</h3>
+                    <p class="mt-1 text-sm text-gray-500">Create some factoid templates first to assign them to counters.</p>
+                    <div class="mt-6">
+                        <a href="{% url 'factoid_builder_react' %}" 
+                           class="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                            <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+                            </svg>
+                            Create Factoid Template
+                        </a>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <!-- Submit Button -->
+        {% if form.factoid_templates.field.queryset %}
+        <div class="flex justify-end space-x-3">
+            <a href="{% url 'counter_definitions' %}" 
+               class="inline-flex items-center px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                Cancel
+            </a>
+            <button type="submit" 
+                    class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+                </svg>
+                Save Assignments
+            </button>
+        </div>
+        {% endif %}
+    </form>
+</div>
+{% endblock %}

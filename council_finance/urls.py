@@ -252,6 +252,11 @@ urlpatterns = [
         admin_views.counter_definition_form,
         name="counter_edit",
     ),
+    path(
+        "manage/counters/<slug:slug>/factoids/",
+        admin_views.counter_factoid_assignment,
+        name="counter_factoid_assignment",
+    ),
     # TEST URL to confirm our Django instance is responding
     path("manage/TEST-NUCLEAR-URL/", lambda request: HttpResponse('<h1 style="color:red;background:yellow;font-size:48px;">NUCLEAR URL TEST SUCCESS</h1>'), name="nuclear_test"),
     

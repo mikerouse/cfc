@@ -83,6 +83,14 @@ class FactoidTemplate(models.Model):
         help_text="Limit to specific council types"
     )
     
+    # Associated counters - factoids can be linked to specific counters
+    counters = models.ManyToManyField(
+        'CounterDefinition',
+        blank=True,
+        related_name='factoid_templates',
+        help_text="Counters this factoid can provide insights for"
+    )
+    
     # Targeting specific counters/data
     target_content_type = models.ForeignKey(
         ContentType, 
