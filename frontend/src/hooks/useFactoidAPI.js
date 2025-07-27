@@ -776,6 +776,36 @@ export const useFactoidAPI = () => {
     }
   }, [apiCall, logClientActivity]);
 
+  // Check data availability for a factoid template
+  const checkDataAvailability = useCallback(async (templateId) => {
+    try {
+      logClientActivity('data_availability_check_start', { template_id: templateId });
+      const response = await apiCall(`/templates/${templateId}/check_data_availability/`);
+      
+      if (response.success) {
+        logClientActivity('data_availability_check_success', {
+          template_id: templateId,
+          available_combinations: response.available_data?.length || 0,
+          councils_with_data: response.summary?.councils_with_data || 0,
+          years_with_data: response.summary?.years_with_data || 0,
+        });
+        
+        return response;
+      } else {
+        throw new Error(response.error || 'Failed to check data availability');
+      }
+    } catch (error) {
+      logClientActivity('data_availability_check_error', {
+        template_id: templateId,
+        error_type: error.name,
+        error_message: error.message,
+      }, error);
+      
+      console.error(`Failed to check data availability for template ${templateId}:`, error);
+      return { success: false, error: error.message };
+    }
+  }, [apiCall, logClientActivity]);
+
   // Clear client-side logs
   const clearClientLogs = useCallback(() => {
     try {
@@ -844,6 +874,7 @@ export const useFactoidAPI = () => {
     getFactoidTemplate,
     updateFactoidTemplate,
     deleteFactoidTemplate,
+    checkDataAvailability,
     
     // Debugging utilities
     getClientLogs,

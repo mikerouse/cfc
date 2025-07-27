@@ -48,6 +48,11 @@ const ImprovedFactoidBuilder = () => {
   const [loadingFactoids, setLoadingFactoids] = useState(false);
   const [editingTemplateId, setEditingTemplateId] = useState(null);
   
+  // Data availability management
+  const [dataAvailability, setDataAvailability] = useState({});
+  const [loadingAvailability, setLoadingAvailability] = useState({});
+  const [showDataAvailability, setShowDataAvailability] = useState({});
+  
   // API hook for real-time features
   const {
     fields,
@@ -68,6 +73,7 @@ const ImprovedFactoidBuilder = () => {
     getFactoidTemplate,
     updateFactoidTemplate,
     deleteFactoidTemplate,
+    checkDataAvailability,
   } = useFactoidAPI();
 
   // Preview-specific state
@@ -404,6 +410,37 @@ const ImprovedFactoidBuilder = () => {
     setPreviewData(null);
   }, [setPreviewData]);
 
+  // Check data availability for a factoid
+  const handleCheckDataAvailability = useCallback(async (templateId) => {
+    setLoadingAvailability(prev => ({ ...prev, [templateId]: true }));
+    
+    try {
+      const result = await checkDataAvailability(templateId);
+      if (result.success) {
+        setDataAvailability(prev => ({ ...prev, [templateId]: result }));
+        setShowDataAvailability(prev => ({ ...prev, [templateId]: true }));
+        logActivity('data_availability_checked', { template_id: templateId, combinations: result.available_data?.length || 0 });
+      } else {
+        console.error('Failed to check data availability:', result.error);
+        alert(`Failed to check data availability: ${result.error}`);
+      }
+    } catch (error) {
+      console.error('Error checking data availability:', error);
+      logActivity('data_availability_check_error', { template_id: templateId }, error);
+      alert(`Error checking data availability: ${error.message}`);
+    } finally {
+      setLoadingAvailability(prev => ({ ...prev, [templateId]: false }));
+    }
+  }, [checkDataAvailability]);
+
+  // Toggle data availability display
+  const toggleDataAvailability = useCallback((templateId) => {
+    setShowDataAvailability(prev => ({
+      ...prev,
+      [templateId]: !prev[templateId]
+    }));
+  }, []);
+
   // Navigation handlers
   const goToNextStep = () => {
     if (currentStep < steps.length) {
@@ -548,6 +585,13 @@ const ImprovedFactoidBuilder = () => {
                 </div>
                 <div className="flex items-center space-x-2 ml-4">
                   <button
+                    onClick={() => handleCheckDataAvailability(factoid.id)}
+                    disabled={loadingAvailability[factoid.id]}
+                    className="px-3 py-1 text-sm bg-green-600 text-white rounded hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {loadingAvailability[factoid.id] ? 'Checking...' : 'Check Data'}
+                  </button>
+                  <button
                     onClick={() => loadFactoidForEditing(factoid.id)}
                     className="px-3 py-1 text-sm bg-blue-600 text-white rounded hover:bg-blue-700"
                   >
@@ -561,6 +605,92 @@ const ImprovedFactoidBuilder = () => {
                   </button>
                 </div>
               </div>
+              
+              {/* Data Availability Display */}
+              {dataAvailability[factoid.id] && (
+                <div className="mt-4 border-t border-gray-200 pt-4">
+                  <div className="flex items-center justify-between mb-3">
+                    <h4 className="text-sm font-medium text-gray-700">
+                      Data Availability 
+                      {dataAvailability[factoid.id].summary && (
+                        <span className="ml-2 text-xs text-gray-500">
+                          ({dataAvailability[factoid.id].summary.total_combinations} council/year combinations)
+                        </span>
+                      )}
+                    </h4>
+                    <button
+                      onClick={() => toggleDataAvailability(factoid.id)}
+                      className="px-2 py-1 text-xs bg-gray-100 text-gray-600 rounded hover:bg-gray-200"
+                    >
+                      {showDataAvailability[factoid.id] ? 'Hide' : 'Show'} Details
+                    </button>
+                  </div>
+                  
+                  {dataAvailability[factoid.id].available_data?.length === 0 ? (
+                    <div className="text-sm text-orange-600 bg-orange-50 p-3 rounded">
+                      <div className="flex items-center">
+                        <svg className="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd"/>
+                        </svg>
+                        <strong>No data available</strong>
+                      </div>
+                      <p className="mt-1">
+                        This factoid cannot be displayed for any councils/years as the required data fields are missing.
+                        {dataAvailability[factoid.id].referenced_fields?.length > 0 && (
+                          <span className="block mt-1 text-xs">
+                            Required fields: {dataAvailability[factoid.id].referenced_fields.join(', ')}
+                          </span>
+                        )}
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="text-sm text-green-600 bg-green-50 p-3 rounded">
+                      <div className="flex items-center">
+                        <svg className="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd"/>
+                        </svg>
+                        <strong>Data available</strong>
+                      </div>
+                      <p className="mt-1">
+                        This factoid can be displayed for {dataAvailability[factoid.id].summary?.total_combinations || 0} council/year combinations
+                        ({dataAvailability[factoid.id].summary?.councils_with_data || 0} councils across {dataAvailability[factoid.id].summary?.years_with_data || 0} years).
+                      </p>
+                    </div>
+                  )}
+                  
+                  {/* Detailed table */}
+                  {showDataAvailability[factoid.id] && dataAvailability[factoid.id].available_data?.length > 0 && (
+                    <div className="mt-4">
+                      <div className="max-h-64 overflow-y-auto border border-gray-200 rounded-lg">
+                        <table className="min-w-full divide-y divide-gray-200 text-xs">
+                          <thead className="bg-gray-50 sticky top-0">
+                            <tr>
+                              <th className="px-3 py-2 text-left font-medium text-gray-700 uppercase tracking-wider">Council</th>
+                              <th className="px-3 py-2 text-left font-medium text-gray-700 uppercase tracking-wider">Type</th>
+                              <th className="px-3 py-2 text-left font-medium text-gray-700 uppercase tracking-wider">Year</th>
+                            </tr>
+                          </thead>
+                          <tbody className="bg-white divide-y divide-gray-200">
+                            {dataAvailability[factoid.id].available_data.map((item, index) => (
+                              <tr key={`${item.council_slug}-${item.year_id}`} className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
+                                <td className="px-3 py-2 text-gray-900">{item.council_name}</td>
+                                <td className="px-3 py-2 text-gray-600">{item.council_type}</td>
+                                <td className="px-3 py-2 text-gray-600">{item.year_label}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                      
+                      {dataAvailability[factoid.id].referenced_fields?.length > 0 && (
+                        <div className="mt-2 text-xs text-gray-500">
+                          <strong>Required fields:</strong> {dataAvailability[factoid.id].referenced_fields.join(', ')}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           ))}
           

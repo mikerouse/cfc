@@ -24,6 +24,7 @@ from ..models.factoid import (
 from ..models.field import DataField
 from ..models.council import Council, FinancialYear
 from ..models.counter import CounterDefinition
+from ..models.new_data_model import CouncilCharacteristic, FinancialFigure
 from ..services.factoid_engine import FactoidEngine
 from ..serializers.factoid_serializers import (
     FactoidTemplateSerializer,
@@ -467,6 +468,155 @@ class FactoidAPIViewSet(viewsets.ModelViewSet):
             )
             
             logger.error(f"Error getting sample councils: {e}", exc_info=True)
+            return Response({
+                'success': False,
+                'error': str(e)
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    
+    @action(detail=True, methods=['get'])
+    def check_data_availability(self, request, pk=None):
+        """
+        Check which councils and years have complete data for this factoid template
+        """
+        start_time = timezone.now()
+        
+        try:
+            template = self.get_object()
+            
+            # Extract field references from template
+            template.extract_referenced_fields()
+            referenced_field_slugs = template.referenced_fields
+            
+            if not referenced_field_slugs:
+                return Response({
+                    'success': True,
+                    'available_data': [],
+                    'message': 'No fields referenced in template'
+                })
+            
+            # Get DataField objects for referenced fields
+            referenced_fields = DataField.objects.filter(slug__in=referenced_field_slugs)
+            field_categories = list(set(field.category for field in referenced_fields))
+            
+            # Get all active councils
+            councils = Council.objects.filter(status='active').order_by('name')
+            
+            # Get recent financial years
+            current_year = timezone.now().year
+            years_to_check = []
+            for i in range(5):  # Check last 5 years
+                start_year = current_year - i - 1
+                end_year = start_year + 1
+                year_label_formats = [
+                    f"{start_year}-{str(end_year)[-2:]}",  # 2023-24
+                    f"{start_year}/{str(end_year)[-2:]}",  # 2023/24
+                ]
+                
+                for year_label in year_label_formats:
+                    try:
+                        year_obj = FinancialYear.objects.get(label=year_label)
+                        if year_obj not in years_to_check:  # Avoid duplicates
+                            years_to_check.append(year_obj)
+                        break  # Found one format, no need to try others
+                    except FinancialYear.DoesNotExist:
+                        continue
+            
+            available_data = []
+            
+            for council in councils:
+                for year in years_to_check:
+                    has_all_data = True
+                    missing_fields = []
+                    
+                    for field in referenced_fields:
+                        has_data = False
+                        
+                        if field.category == 'characteristic':
+                            # Check CouncilCharacteristic
+                            try:
+                                char = CouncilCharacteristic.objects.get(
+                                    council=council,
+                                    field=field
+                                )
+                                if char.value and str(char.value).strip():
+                                    has_data = True
+                            except CouncilCharacteristic.DoesNotExist:
+                                pass
+                        else:
+                            # Check FinancialFigure
+                            try:
+                                figure = FinancialFigure.objects.get(
+                                    council=council,
+                                    field=field,
+                                    year=year
+                                )
+                                if figure.value is not None:
+                                    has_data = True
+                            except FinancialFigure.DoesNotExist:
+                                pass
+                        
+                        if not has_data:
+                            has_all_data = False
+                            missing_fields.append(field.slug)
+                    
+                    if has_all_data:
+                        available_data.append({
+                            'council_slug': council.slug,
+                            'council_name': council.name,
+                            'council_type': council.council_type.name if council.council_type else 'Unknown',
+                            'year_id': year.id,
+                            'year_label': year.label,
+                        })
+            
+            execution_time = (timezone.now() - start_time).total_seconds()
+            
+            # Log successful data availability check
+            _log_api_activity(
+                request, 
+                'check_data_availability', 
+                'availability_checked',
+                extra_data={
+                    'template_id': pk,
+                    'template_name': template.name,
+                    'referenced_fields_count': len(referenced_field_slugs),
+                    'referenced_fields': referenced_field_slugs,
+                    'councils_checked': len(councils),
+                    'years_checked': len(years_to_check),
+                    'available_combinations': len(available_data),
+                    'execution_time_seconds': execution_time,
+                }
+            )
+            
+            return Response({
+                'success': True,
+                'template_name': template.name,
+                'referenced_fields': referenced_field_slugs,
+                'total_councils_checked': len(councils),
+                'total_years_checked': len(years_to_check),
+                'available_data': available_data,
+                'summary': {
+                    'total_combinations': len(available_data),
+                    'councils_with_data': len(set(item['council_slug'] for item in available_data)),
+                    'years_with_data': len(set(item['year_id'] for item in available_data)),
+                }
+            })
+            
+        except Exception as e:
+            execution_time = (timezone.now() - start_time).total_seconds()
+            
+            # Log data availability check error
+            _log_api_activity(
+                request, 
+                'check_data_availability', 
+                'availability_check_failed',
+                error=e,
+                extra_data={
+                    'template_id': pk,
+                    'execution_time_seconds': execution_time,
+                }
+            )
+            
+            logger.error(f"Error checking data availability: {e}", exc_info=True)
             return Response({
                 'success': False,
                 'error': str(e)
