@@ -1038,46 +1038,107 @@ def validate_calculated_field_formula(formula, current_field_id=None):
         errors.append("Calculated fields must have a formula")
         return errors
     
-    # Extract field references from formula
-    # Look for patterns like field_name or namespace.field_name
-    field_references = re.findall(r'\b(?:[a-zA-Z_]\w*\.)?([a-zA-Z_]\w+)\b', formula)
+    # Get all existing field names (both variable_name and slug format)
+    all_fields = DataField.objects.all()
+    existing_field_names = []
     
-    # Filter out mathematical operators and common words
-    operators = {'and', 'or', 'not', 'if', 'then', 'else', 'true', 'false'}
-    math_functions = {'sum', 'avg', 'max', 'min', 'count', 'abs', 'round'}
-    exclude_patterns = operators | math_functions
+    for field in all_fields:
+        existing_field_names.append(field.variable_name)
+        existing_field_names.append(field.slug)
     
-    # Remove numeric values and operators from references
-    field_references = [ref for ref in field_references 
-                       if ref.lower() not in exclude_patterns 
-                       and not ref.isdigit() 
-                       and not re.match(r'^\d+\.?\d*$', ref)]
+    # Sort by length descending to match longer field names first
+    existing_field_names.sort(key=len, reverse=True)
+    
+    # Extract field references by searching for known field names in the formula
+    # Use a smarter approach that looks for field names directly in the formula
+    field_references = []
+    formula_remaining = formula
+    
+    for field_name in existing_field_names:
+        # Check if this field name appears in the formula
+        # For hyphenated field names, we need a more careful approach
+        import re
+        
+        # First try exact word boundary match (works for most cases)
+        pattern = r'\b' + re.escape(field_name) + r'\b'
+        if re.search(pattern, formula_remaining):
+            field_references.append(field_name)
+            # Remove this field name from consideration to avoid overlaps
+            formula_remaining = re.sub(pattern, '', formula_remaining)
+        else:
+            # For hyphenated names, try matching surrounded by operators or spaces
+            # This handles cases where word boundaries don't work properly with hyphens
+            operator_pattern = r'(?:^|[\s\+\-\*/\(\)])'+ re.escape(field_name) + r'(?=[\s\+\-\*/\(\)]|$)'
+            if re.search(operator_pattern, formula_remaining):
+                field_references.append(field_name)
+                # Remove this field name from consideration to avoid overlaps
+                formula_remaining = re.sub(operator_pattern, '', formula_remaining)
+    
+    # Remove duplicates while preserving order
+    seen = set()
+    unique_field_references = []
+    for ref in field_references:
+        if ref not in seen:
+            seen.add(ref)
+            unique_field_references.append(ref)
+    
+    field_references = unique_field_references
     
     if not field_references:
         errors.append("Formula does not reference any fields")
         return errors
     
-    # Check if referenced fields exist
+    # Check if referenced fields exist and validate them
     missing_fields = []
     for field_ref in set(field_references):  # Remove duplicates
-        # Convert to slug format (underscore to hyphen)
-        field_slug = field_ref.replace('_', '-')
+        field_found = False
+        referenced_field = None
         
+        # Try to find the field by multiple methods
+        # 1. Direct slug match
         try:
-            field = DataField.objects.get(slug=field_slug)
-            
+            referenced_field = DataField.objects.get(slug=field_ref)
+            field_found = True
+        except DataField.DoesNotExist:
+            pass
+        
+        # 2. Direct variable_name match
+        if not field_found:
+            try:
+                referenced_field = DataField.objects.get(slug=field_ref.replace('_', '-'))
+                field_found = True
+            except DataField.DoesNotExist:
+                pass
+        
+        # 3. Convert underscores to hyphens and try slug
+        if not field_found:
+            slug_version = field_ref.replace('_', '-')
+            try:
+                referenced_field = DataField.objects.get(slug=slug_version)
+                field_found = True
+            except DataField.DoesNotExist:
+                pass
+        
+        # 4. Convert hyphens to underscores and try to find by variable_name
+        if not field_found:
+            var_version = field_ref.replace('-', '_')
+            for field in DataField.objects.all():
+                if field.variable_name == var_version:
+                    referenced_field = field
+                    field_found = True
+                    break
+        
+        if field_found and referenced_field:
             # Prevent self-reference
-            if current_field_id and field.id == current_field_id:
+            if current_field_id and referenced_field.id == current_field_id:
                 errors.append(f"Field cannot reference itself: {field_ref}")
                 continue
                 
             # Prevent circular references for calculated fields
-            if field.category == 'calculated' and field.formula:
-                # Simple circular reference check - more sophisticated checks could be added
-                if _check_circular_reference(field, current_field_id):
+            if referenced_field.category == 'calculated' and referenced_field.formula:
+                if _check_circular_reference(referenced_field, current_field_id):
                     errors.append(f"Circular reference detected through field: {field_ref}")
-                    
-        except DataField.DoesNotExist:
+        else:
             missing_fields.append(field_ref)
     
     if missing_fields:
@@ -1116,17 +1177,72 @@ def _check_circular_reference(field, current_field_id, visited=None):
     
     visited.add(field.id)
     
-    # Extract field references from this field's formula
-    field_references = re.findall(r'\b(?:[a-zA-Z_]\w*\.)?([a-zA-Z_]\w+)\b', field.formula)
+    # Extract field references from this field's formula using improved logic
+    all_fields = DataField.objects.all()
+    existing_field_names = []
     
-    for field_ref in field_references:
-        field_slug = field_ref.replace('_', '-')
+    for db_field in all_fields:
+        existing_field_names.append(db_field.variable_name)
+        existing_field_names.append(db_field.slug)
+    
+    # Sort by length descending to match longer field names first
+    existing_field_names.sort(key=len, reverse=True)
+    
+    field_references = []
+    formula_remaining = field.formula
+    
+    for field_name in existing_field_names:
+        # First try exact word boundary match (works for most cases)
+        pattern = r'\b' + re.escape(field_name) + r'\b'
+        if re.search(pattern, formula_remaining):
+            field_references.append(field_name)
+            # Remove this field name from consideration to avoid overlaps
+            formula_remaining = re.sub(pattern, '', formula_remaining)
+        else:
+            # For hyphenated names, try matching surrounded by operators or spaces
+            operator_pattern = r'(?:^|[\s\+\-\*/\(\)])'+ re.escape(field_name) + r'(?=[\s\+\-\*/\(\)]|$)'
+            if re.search(operator_pattern, formula_remaining):
+                field_references.append(field_name)
+                # Remove this field name from consideration to avoid overlaps
+                formula_remaining = re.sub(operator_pattern, '', formula_remaining)
+    
+    # Remove duplicates while preserving order
+    seen = set()
+    unique_field_references = []
+    for ref in field_references:
+        if ref not in seen:
+            seen.add(ref)
+            unique_field_references.append(ref)
+    
+    for field_ref in unique_field_references:
+        # Try to find the referenced field
+        referenced_field = None
+        
+        # Try direct slug match
         try:
-            referenced_field = DataField.objects.get(slug=field_slug)
+            referenced_field = DataField.objects.get(slug=field_ref)
+        except DataField.DoesNotExist:
+            pass
+        
+        # Try variable_name conversion
+        if not referenced_field:
+            slug_version = field_ref.replace('_', '-')
+            try:
+                referenced_field = DataField.objects.get(slug=slug_version)
+            except DataField.DoesNotExist:
+                pass
+        
+        # Try reverse conversion
+        if not referenced_field:
+            var_version = field_ref.replace('-', '_')
+            for f in DataField.objects.all():
+                if f.variable_name == var_version:
+                    referenced_field = f
+                    break
+        
+        if referenced_field:
             if _check_circular_reference(referenced_field, current_field_id, visited.copy()):
                 return True
-        except DataField.DoesNotExist:
-            continue
     
     return False
 
@@ -1277,11 +1393,27 @@ def field_form(request, field_id=None):
     else:
         form = DataFieldForm(instance=field)
     
+    # Get councils and years for formula testing - convert to JSON-serializable data
+    councils_queryset = Council.objects.all().order_by("name")
+    councils_data = [{'slug': c.slug, 'name': c.name} for c in councils_queryset]
+    
+    years_queryset = list(FinancialYear.objects.order_by("-label"))
+    years_data = []
+    for y in years_queryset:
+        display_label = "Year to Date" if y.label.lower() == "general" else y.label
+        years_data.append({'label': y.label, 'display_label': display_label})
+    
+    import json
+    councils_json = json.dumps(councils_data)
+    years_json = json.dumps(years_data)
+    
     context = {
         'form': form,
         'field': field,
         'is_editing': is_editing,
         'page_title': f"{'Edit' if is_editing else 'Add'} Field",
+        'councils_json': councils_json,
+        'years_json': years_json,
     }
     
     return render(request, 'council_finance/admin/field_form.html', context)
@@ -1472,25 +1604,69 @@ def _test_formula_evaluation(formula, council_slug=None, year=None):
         dict: Test result with success status and result/error
     """
     try:
-        # Extract field references from formula
-        field_references = re.findall(r'\b(?:[a-zA-Z_]\w*\.)?([a-zA-Z_]\w+)\b', formula)
+        # Extract field references from formula using improved field detection
+        # Get all existing field names (both variable_name and slug format)
+        all_fields = DataField.objects.all()
+        existing_field_names = []
+        
+        for field in all_fields:
+            existing_field_names.append(field.variable_name)
+            existing_field_names.append(field.slug)
+        
+        # Sort by length descending to match longer field names first
+        existing_field_names.sort(key=len, reverse=True)
+        
+        field_references = []
+        formula_remaining = formula
+        
+        for field_name in existing_field_names:
+            # First try exact word boundary match (works for most cases)
+            pattern = r'\b' + re.escape(field_name) + r'\b'
+            if re.search(pattern, formula_remaining):
+                field_references.append(field_name)
+                # Remove this field name from consideration to avoid overlaps
+                formula_remaining = re.sub(pattern, '', formula_remaining)
+            else:
+                # For hyphenated names, try matching surrounded by operators or spaces
+                operator_pattern = r'(?:^|[\s\+\-\*/\(\)])'+ re.escape(field_name) + r'(?=[\s\+\-\*/\(\)]|$)'
+                if re.search(operator_pattern, formula_remaining):
+                    field_references.append(field_name)
+                    # Remove this field name from consideration to avoid overlaps
+                    formula_remaining = re.sub(operator_pattern, '', formula_remaining)
+        
+        # Remove duplicates while preserving order
+        seen = set()
+        unique_field_references = []
+        for ref in field_references:
+            if ref not in seen:
+                seen.add(ref)
+                unique_field_references.append(ref)
+        
+        field_references = unique_field_references
         
         # Get sample values for each referenced field
         field_values = {}
         
-        for field_ref in set(field_references):
-            field_slug = field_ref.replace('_', '-')
+        for field_ref in field_references:
+            field = None
             
+            # Find the field using the same logic as validation
             try:
-                field = DataField.objects.get(slug=field_slug)
-                
+                field = DataField.objects.get(slug=field_ref)
+            except DataField.DoesNotExist:
+                try:
+                    field = DataField.objects.get(slug=field_ref.replace('_', '-'))
+                except DataField.DoesNotExist:
+                    var_version = field_ref.replace('-', '_')
+                    for f in DataField.objects.all():
+                        if f.variable_name == var_version:
+                            field = f
+                            break
+            
+            if field:
                 # Get sample value
                 sample_value = _get_field_sample_value(field, council_slug, year)
                 field_values[field_ref] = sample_value
-                
-            except DataField.DoesNotExist:
-                # This should have been caught in validation
-                continue
         
         # Create a safe evaluation context
         # Note: In production, you'd want to use a proper expression evaluator

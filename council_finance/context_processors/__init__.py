@@ -109,3 +109,31 @@ def tutorial_context(request: HttpRequest) -> Dict[str, Dict]:
     except ImportError:
         # Fallback if tutorial_engine doesn't exist yet
         return {"tutorial_config": {}}
+
+
+def dev_cache_buster(request: HttpRequest) -> Dict[str, Any]:
+    """
+    Add cache busting for development.
+    
+    In development, this adds a timestamp to help with cache busting.
+    In production, this should be replaced with actual versioning.
+    
+    Args:
+        request: Django HttpRequest object
+        
+    Returns:
+        dict: Contains cache_version and debug_mode
+    """
+    import time
+    
+    if settings.DEBUG:
+        # Use current timestamp for cache busting in development
+        cache_version = str(int(time.time()))
+    else:
+        # In production, use a static version or git commit hash
+        cache_version = getattr(settings, 'STATIC_VERSION', '1.0.0')
+    
+    return {
+        'cache_version': cache_version,
+        'debug_mode': settings.DEBUG,
+    }

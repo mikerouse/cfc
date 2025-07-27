@@ -47,6 +47,12 @@ python manage.py reconcile_population_cache
 
 # Set up financial fields for new installations
 python manage.py setup_financial_fields
+
+# Validate JavaScript syntax in Django templates
+python manage.py validate_template_javascript
+
+# Comprehensive syntax validation and error logging
+python manage.py reload --validate --no-checks
 ```
 
 ## Architecture Overview
@@ -110,6 +116,62 @@ The platform includes sophisticated data validation:
 - **Smart Assessment**: Automated data quality checks
 - **Trust Tiers**: User contribution reliability system
 - **Flagging System**: Community-driven content moderation
+
+## Syntax Validation System
+
+The project includes a comprehensive syntax validation system designed to catch errors before they cause runtime issues. This system is integrated into the reload command and provides AI-friendly error logging.
+
+### Running Validation
+```bash
+# Run comprehensive validation with reload
+python manage.py reload --validate
+
+# Run comprehensive validation without starting server  
+python manage.py reload --validate --no-checks
+
+# Run only JavaScript template validation
+python manage.py validate_template_javascript
+```
+
+### Validation Checks Performed
+The system validates:
+1. **JavaScript in Django Templates**: Ensures template variables render valid JavaScript
+2. **Python Syntax**: Validates all .py files using AST parsing
+3. **Django Template Syntax**: Checks template syntax and tag usage
+4. **CSS/SCSS Syntax**: Basic validation for unbalanced braces
+5. **JSON Configuration Files**: Validates JSON syntax in config files
+
+### Error Logging
+When validation errors are found, they're logged to `syntax_errors.log` in the project root with:
+- **AI-Friendly Format**: Structured for easy copy-paste to AI tools
+- **File-by-File Breakdown**: Errors grouped by file for targeted fixes
+- **Detailed Instructions**: Specific guidance for AI tools on how to fix each error
+- **Summary Statistics**: Overview of error types and counts
+
+### Example Error Log Format
+```
+FILE: demo_syntax_error.py
+ERROR COUNT: 1
+────────────────────────────────────────────────────────────
+
+ERROR #1:
+Type: python_syntax_error
+Severity: error
+Line: 3
+Message: Line 3: unterminated string literal (detected at line 3)
+
+AI INSTRUCTIONS:
+Please fix the python_syntax_error in file 'demo_syntax_error.py'.
+The error is on line 3.
+Error details: Line 3: unterminated string literal (detected at line 3)
+Please provide the corrected code.
+```
+
+### Integration with Development Workflow
+- Use `--validate` flag during development to catch issues early
+- Errors are logged to `syntax_errors.log` for AI-assisted fixing
+- Re-run validation after fixes to verify corrections
+- The log file is overwritten each time validation runs
 
 ## Development Patterns
 

@@ -79,6 +79,7 @@ TEMPLATES = [
                 "council_finance.context_processors.compare_count",
                 "council_finance.context_processors.debug_flag",
                 "council_finance.context_processors.tutorial_context",
+                "council_finance.context_processors.dev_cache_buster",
             ],
         },
     },
