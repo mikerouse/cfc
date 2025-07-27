@@ -2,6 +2,11 @@
 
 {% block title %}{{ page_title }} - Council Finance Counters{% endblock %}
 
+{% block extra_head %}
+<!-- Cache busting for development -->
+<meta name="cache-version" content="{{ cache_version }}">
+{% endblock %}
+
 {% block content %}
 <div class="max-w-4xl mx-auto px-4 py-6">
     <!-- Header Section -->
@@ -168,7 +173,7 @@
                                 <button type="button" class="operator-btn px-3 py-1 text-sm bg-blue-100 text-blue-800 rounded hover:bg-blue-200" data-operator="+">+ Add</button>
                                 <button type="button" class="operator-btn px-3 py-1 text-sm bg-blue-100 text-blue-800 rounded hover:bg-blue-200" data-operator="-">- Subtract</button>
                                 <button type="button" class="operator-btn px-3 py-1 text-sm bg-blue-100 text-blue-800 rounded hover:bg-blue-200" data-operator="*">× Multiply</button>
-                                <button type="button" class="operator-btn px-3 py-1 text-sm bg-blue-100 text-blue-800 rounded hover:bg-blue-200" data-operator="/"">÷ Divide</button>
+                                <button type="button" class="operator-btn px-3 py-1 text-sm bg-blue-100 text-blue-800 rounded hover:bg-blue-200" data-operator="/">÷ Divide</button>
                                 <button type="button" class="operator-btn px-3 py-1 text-sm bg-green-100 text-green-800 rounded hover:bg-green-200" data-operator="(">(</button>
                                 <button type="button" class="operator-btn px-3 py-1 text-sm bg-green-100 text-green-800 rounded hover:bg-green-200" data-operator=")">)</button>
                                 <button type="button" class="clear-formula px-3 py-1 text-sm bg-red-100 text-red-800 rounded hover:bg-red-200">Clear</button>
@@ -193,6 +198,20 @@
                         
                         <!-- Formula Testing -->
                         <div class="mt-4">
+                            <div class="flex items-center space-x-3 mb-3">
+                                <div>
+                                    <label for="test-council-select" class="block text-sm font-medium text-gray-700 mb-1">Test Council</label>
+                                    <select id="test-council-select" class="px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500">
+                                        <option value="">Use sample data</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label for="test-year-select" class="block text-sm font-medium text-gray-700 mb-1">Test Year</label>
+                                    <select id="test-year-select" class="px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500">
+                                        <option value="">Latest year</option>
+                                    </select>
+                                </div>
+                            </div>
                             <button type="button" id="test-formula-btn" class="px-4 py-2 text-sm bg-purple-600 text-white rounded hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed" disabled>
                                 Test Formula
                             </button>
@@ -289,6 +308,7 @@ class SmartFieldForm {
         this.setupSlugGenerator();
         this.loadAvailableFields();
         this.setupFormulaBuilder();
+        this.setupTestDropdowns();
         this.setupTestButton();
         this.setupFormValidation();
     }
@@ -358,7 +378,8 @@ class SmartFieldForm {
         if (nameInput && slugInput) {
             nameInput.addEventListener('input', (e) => {
                 // Only auto-generate if slug is empty or this is a new field
-                if (!slugInput.value || !{{ is_editing|yesno:"true,false" }}) {
+                const isEditing = {% if is_editing %}true{% else %}false{% endif %};
+                if (!slugInput.value || !isEditing) {
                     const slug = e.target.value
                         .toLowerCase()
                         .replace(/[^a-z0-9\s-]/g, '')
@@ -376,7 +397,9 @@ class SmartFieldForm {
             const response = await fetch('/api/factoid/templates/discover_fields/');
             const data = await response.json();
             
-            if (data.success) {
+            console.log('API response:', data);
+            
+            if (data.success && data.field_groups) {
                 this.availableFields = [];
                 Object.keys(data.field_groups).forEach(category => {
                     data.field_groups[category].forEach(field => {
@@ -387,7 +410,11 @@ class SmartFieldForm {
                     });
                 });
                 
+                console.log('Loaded fields:', this.availableFields.length);
                 this.renderAvailableFields();
+            } else {
+                console.error('Invalid API response structure:', data);
+                this.showFieldLoadError();
             }
         } catch (error) {
             console.error('Failed to load available fields:', error);
@@ -397,7 +424,12 @@ class SmartFieldForm {
     
     renderAvailableFields() {
         const container = document.getElementById('available-fields-list');
-        if (!container) return;
+        if (!container) {
+            console.error('available-fields-list container not found');
+            return;
+        }
+        
+        console.log('Rendering', this.availableFields.length, 'available fields');
         
         // Group fields by category
         const groupedFields = {};
@@ -493,8 +525,10 @@ class SmartFieldForm {
             const fieldName = e.dataTransfer.getData('text/field-name');
             const fieldDisplay = e.dataTransfer.getData('text/field-display');
             
-            if (fieldName) {
+            if (fieldName && fieldDisplay) {
                 this.addFormulaComponent('field', fieldName, fieldDisplay);
+            } else {
+                console.warn('Missing field data in drop event:', { fieldName, fieldDisplay });
             }
         });
         
@@ -502,7 +536,11 @@ class SmartFieldForm {
         document.querySelectorAll('.operator-btn').forEach(btn => {
             btn.addEventListener('click', (e) => {
                 const operator = e.target.dataset.operator;
-                this.addFormulaComponent('operator', operator, operator);
+                if (operator) {
+                    this.addFormulaComponent('operator', operator, operator);
+                } else {
+                    console.error('Missing operator data attribute:', e.target);
+                }
             });
         });
         
@@ -516,11 +554,24 @@ class SmartFieldForm {
     }
     
     setupFieldDragHandlers() {
-        document.querySelectorAll('.field-item').forEach(item => {
+        const fieldItems = document.querySelectorAll('.field-item');
+        console.log('Setting up drag handlers for', fieldItems.length, 'field items');
+        
+        fieldItems.forEach(item => {
             item.addEventListener('dragstart', (e) => {
-                e.dataTransfer.setData('text/field-name', item.dataset.fieldName);
-                e.dataTransfer.setData('text/field-display', item.dataset.fieldDisplay);
-                item.classList.add('opacity-50');
+                const fieldName = item.dataset.fieldName;
+                const fieldDisplay = item.dataset.fieldDisplay;
+                
+                console.log('Drag start:', { fieldName, fieldDisplay });
+                
+                if (fieldName && fieldDisplay) {
+                    e.dataTransfer.setData('text/field-name', fieldName);
+                    e.dataTransfer.setData('text/field-display', fieldDisplay);
+                    item.classList.add('opacity-50');
+                } else {
+                    console.error('Missing field data attributes:', item);
+                    e.preventDefault();
+                }
             });
             
             item.addEventListener('dragend', (e) => {
@@ -550,16 +601,13 @@ class SmartFieldForm {
     
     renderFormula() {
         const container = document.getElementById('formula-components');
-        const placeholder = document.getElementById('formula-placeholder');
+        if (!container) return;
         
         if (this.formulaComponents.length === 0) {
-            placeholder.style.display = 'block';
             container.innerHTML = '<div class="text-sm text-gray-500 text-center py-8" id="formula-placeholder">Drag fields and operators here to build your formula</div>';
             this.updateFormulaPreview('');
             return;
         }
-        
-        placeholder.style.display = 'none';
         
         let html = '<div class="flex flex-wrap items-center gap-2">';
         this.formulaComponents.forEach(component => {
@@ -610,7 +658,7 @@ class SmartFieldForm {
         try {
             // Get CSRF token
             const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
-            const fieldId = {% if field %}{{ field.id }}{% else %}null{% endif %};
+            const fieldId = {% if field and field.id %}{{ field.id|escapejs }}{% else %}null{% endif %};
             
             // Call server-side validation API
             const response = await fetch('{% url "validate_formula_api" %}', {
@@ -698,11 +746,13 @@ class SmartFieldForm {
             
             if (isValid) {
                 messageDiv.className = 'flex items-center p-3 rounded-md bg-green-50 border border-green-200';
-                icon.className = 'w-4 h-4 mr-2 text-green-600';
+                // Use setAttribute for SVG elements
+                icon.setAttribute('class', 'w-4 h-4 mr-2 text-green-600');
                 icon.innerHTML = '<path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>';
             } else {
                 messageDiv.className = 'flex items-center p-3 rounded-md bg-red-50 border border-red-200';
-                icon.className = 'w-4 h-4 mr-2 text-red-600';
+                // Use setAttribute for SVG elements
+                icon.setAttribute('class', 'w-4 h-4 mr-2 text-red-600');
                 icon.innerHTML = '<path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"/>';
             }
         }
@@ -729,6 +779,48 @@ class SmartFieldForm {
         }
     }
     
+    async setupTestDropdowns() {
+        // Populate council dropdown
+        try {
+            const councilSelect = document.getElementById('test-council-select');
+            const yearSelect = document.getElementById('test-year-select');
+            
+            if (!councilSelect || !yearSelect) return;
+            
+            // Load councils from the existing context or make an API call
+            // For now, we'll use a simple approach by extracting from template context
+            const councils = {{ councils_json|default:"[]"|safe }};
+            const years = {{ years_json|default:"[]"|safe }};
+            
+            // Clear existing options (except default)
+            councilSelect.innerHTML = '<option value="">Use sample data</option>';
+            yearSelect.innerHTML = '<option value="">Latest year</option>';
+            
+            // Populate councils
+            if (Array.isArray(councils)) {
+                councils.forEach(council => {
+                    const option = document.createElement('option');
+                    option.value = council.slug;
+                    option.textContent = council.name;
+                    councilSelect.appendChild(option);
+                });
+            }
+            
+            // Populate years  
+            if (Array.isArray(years)) {
+                years.forEach(year => {
+                    const option = document.createElement('option');
+                    option.value = year.label;
+                    option.textContent = year.display_label || year.label;
+                    yearSelect.appendChild(option);
+                });
+            }
+            
+        } catch (error) {
+            console.error('Error setting up test dropdowns:', error);
+        }
+    }
+    
     setupTestButton() {
         const testBtn = document.getElementById('test-formula-btn');
         if (testBtn) {
@@ -742,6 +834,8 @@ class SmartFieldForm {
         const formula = this.formulaComponents.map(c => c.value).join(' ');
         const resultsDiv = document.getElementById('formula-test-results');
         const contentDiv = document.getElementById('test-results-content');
+        const councilSelect = document.getElementById('test-council-select');
+        const yearSelect = document.getElementById('test-year-select');
         
         if (!formula.trim()) {
             return;
@@ -751,7 +845,20 @@ class SmartFieldForm {
             resultsDiv.style.display = 'block';
             contentDiv.innerHTML = '<div class="text-sm text-gray-500">Testing formula...</div>';
             
-            const response = await fetch(`{% url "test_formula_api" %}?formula=${encodeURIComponent(formula)}`);
+            // Build query parameters
+            const params = new URLSearchParams({
+                formula: formula
+            });
+            
+            if (councilSelect && councilSelect.value) {
+                params.append('council_slug', councilSelect.value);
+            }
+            
+            if (yearSelect && yearSelect.value) {
+                params.append('year', yearSelect.value);
+            }
+            
+            const response = await fetch(`{% url "test_formula_api" %}?${params.toString()}`);
             const data = await response.json();
             
             if (data.success) {
@@ -834,7 +941,13 @@ class SmartFieldForm {
 // Initialize the smart form
 let smartForm;
 document.addEventListener('DOMContentLoaded', function() {
-    smartForm = new SmartFieldForm();
+    console.log('Initializing SmartFieldForm');
+    try {
+        smartForm = new SmartFieldForm();
+        console.log('SmartFieldForm initialized successfully');
+    } catch (error) {
+        console.error('Error initializing SmartFieldForm:', error);
+    }
 });
 </script>
 {% endblock %}
