@@ -3,7 +3,7 @@ import re
 from django.shortcuts import render, get_object_or_404, redirect
 from django.http import JsonResponse
 from django.core.paginator import Paginator
-from django.views.decorators.http import require_GET
+from django.views.decorators.http import require_GET, require_POST
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.db.models import Q
@@ -1021,6 +1021,161 @@ def field_list(request):
     return render(request, 'council_finance/admin/field_list.html', context)
 
 
+def validate_calculated_field_formula(formula, current_field_id=None):
+    """
+    Validate a formula for a calculated field.
+    
+    Args:
+        formula (str): The formula to validate
+        current_field_id (int, optional): ID of the field being edited (to avoid self-references)
+    
+    Returns:
+        list: List of validation error messages, empty if valid
+    """
+    errors = []
+    
+    if not formula or not formula.strip():
+        errors.append("Calculated fields must have a formula")
+        return errors
+    
+    # Extract field references from formula
+    # Look for patterns like field_name or namespace.field_name
+    field_references = re.findall(r'\b(?:[a-zA-Z_]\w*\.)?([a-zA-Z_]\w+)\b', formula)
+    
+    # Filter out mathematical operators and common words
+    operators = {'and', 'or', 'not', 'if', 'then', 'else', 'true', 'false'}
+    math_functions = {'sum', 'avg', 'max', 'min', 'count', 'abs', 'round'}
+    exclude_patterns = operators | math_functions
+    
+    # Remove numeric values and operators from references
+    field_references = [ref for ref in field_references 
+                       if ref.lower() not in exclude_patterns 
+                       and not ref.isdigit() 
+                       and not re.match(r'^\d+\.?\d*$', ref)]
+    
+    if not field_references:
+        errors.append("Formula does not reference any fields")
+        return errors
+    
+    # Check if referenced fields exist
+    missing_fields = []
+    for field_ref in set(field_references):  # Remove duplicates
+        # Convert to slug format (underscore to hyphen)
+        field_slug = field_ref.replace('_', '-')
+        
+        try:
+            field = DataField.objects.get(slug=field_slug)
+            
+            # Prevent self-reference
+            if current_field_id and field.id == current_field_id:
+                errors.append(f"Field cannot reference itself: {field_ref}")
+                continue
+                
+            # Prevent circular references for calculated fields
+            if field.category == 'calculated' and field.formula:
+                # Simple circular reference check - more sophisticated checks could be added
+                if _check_circular_reference(field, current_field_id):
+                    errors.append(f"Circular reference detected through field: {field_ref}")
+                    
+        except DataField.DoesNotExist:
+            missing_fields.append(field_ref)
+    
+    if missing_fields:
+        errors.append(f"Referenced fields do not exist: {', '.join(missing_fields)}")
+    
+    # Basic syntax validation
+    syntax_errors = _validate_formula_syntax(formula)
+    errors.extend(syntax_errors)
+    
+    return errors
+
+
+def _check_circular_reference(field, current_field_id, visited=None):
+    """
+    Check for circular references in calculated field formulas.
+    
+    Args:
+        field (DataField): The field to check
+        current_field_id (int): ID of the field being created/edited
+        visited (set): Set of visited field IDs to detect cycles
+    
+    Returns:
+        bool: True if circular reference detected
+    """
+    if visited is None:
+        visited = set()
+    
+    if field.id in visited:
+        return True
+    
+    if field.id == current_field_id:
+        return True
+    
+    if field.category != 'calculated' or not field.formula:
+        return False
+    
+    visited.add(field.id)
+    
+    # Extract field references from this field's formula
+    field_references = re.findall(r'\b(?:[a-zA-Z_]\w*\.)?([a-zA-Z_]\w+)\b', field.formula)
+    
+    for field_ref in field_references:
+        field_slug = field_ref.replace('_', '-')
+        try:
+            referenced_field = DataField.objects.get(slug=field_slug)
+            if _check_circular_reference(referenced_field, current_field_id, visited.copy()):
+                return True
+        except DataField.DoesNotExist:
+            continue
+    
+    return False
+
+
+def _validate_formula_syntax(formula):
+    """
+    Perform basic syntax validation on a formula.
+    
+    Args:
+        formula (str): The formula to validate
+    
+    Returns:
+        list: List of syntax error messages
+    """
+    errors = []
+    
+    # Check balanced parentheses
+    open_count = 0
+    for char in formula:
+        if char == '(':
+            open_count += 1
+        elif char == ')':
+            open_count -= 1
+            if open_count < 0:
+                errors.append("Unmatched closing parenthesis")
+                break
+    
+    if open_count > 0:
+        errors.append("Unmatched opening parenthesis")
+    
+    # Check for common syntax issues
+    if '//' in formula:
+        errors.append("Use single '/' for division")
+    
+    if '**' in formula and '^' in formula:
+        errors.append("Use either '**' or '^' for exponentiation, not both")
+    
+    # Check for empty parentheses
+    if '()' in formula:
+        errors.append("Empty parentheses found")
+    
+    # Check for double operators
+    double_operators = re.findall(r'[+\-*/]{2,}', formula)
+    if double_operators:
+        errors.append(f"Double operators found: {', '.join(set(double_operators))}")
+    
+    return errors
+
+
 @login_required
 def field_form(request, field_id=None):
     """Create or edit a data field"""
@@ -1183,3 +1338,257 @@ def field_delete(request, field_id):
     }
     
     return render(request, 'council_finance/admin/field_delete.html', context)
+
+
+@login_required
+@require_POST
+def validate_formula_api(request):
+    """
+    API endpoint for real-time formula validation.
+    
+    Accepts:
+        - formula: The formula to validate
+        - field_id: Optional ID of field being edited (to avoid self-references)
+    
+    Returns:
+        JSON response with validation results
+    """
+    try:
+        formula = request.POST.get('formula', '').strip()
+        field_id = request.POST.get('field_id')
+        
+        if field_id:
+            try:
+                field_id = int(field_id)
+            except (ValueError, TypeError):
+                field_id = None
+        
+        # Validate the formula
+        errors = validate_calculated_field_formula(formula, field_id)
+        
+        response_data = {
+            'success': True,
+            'valid': len(errors) == 0,
+            'errors': errors,
+            'formula': formula
+        }
+        
+        # Log validation attempt
+        log_activity(
+            request,
+            activity="formula_validation",
+            log_type="admin",
+            action="validate_formula",
+            extra={
+                'formula': formula,
+                'field_id': field_id,
+                'validation_result': 'valid' if len(errors) == 0 else 'invalid',
+                'error_count': len(errors),
+                'errors': errors
+            }
+        )
+        
+        return JsonResponse(response_data)
+        
+    except Exception as e:
+        logger.error(f"Error in formula validation API: {e}", exc_info=True)
+        return JsonResponse({
+            'success': False,
+            'error': 'Internal server error during validation'
+        }, status=500)
+
+
+@login_required
+def test_formula_api(request):
+    """
+    API endpoint for testing formula with sample data.
+    
+    Accepts:
+        - formula: The formula to test
+        - council_slug: Optional council to test against
+        - year: Optional year for financial data
+    
+    Returns:
+        JSON response with test results
+    """
+    try:
+        formula = request.GET.get('formula', '').strip()
+        council_slug = request.GET.get('council_slug')
+        year = request.GET.get('year')
+        
+        if not formula:
+            return JsonResponse({
+                'success': False,
+                'error': 'No formula provided'
+            })
+        
+        # First validate the formula
+        validation_errors = validate_calculated_field_formula(formula)
+        if validation_errors:
+            return JsonResponse({
+                'success': False,
+                'error': 'Formula validation failed',
+                'validation_errors': validation_errors
+            })
+        
+        # Try to evaluate the formula with sample data
+        test_result = _test_formula_evaluation(formula, council_slug, year)
+        
+        # Log test attempt
+        log_activity(
+            request,
+            activity="formula_test",
+            log_type="admin",
+            action="test_formula",
+            extra={
+                'formula': formula,
+                'council_slug': council_slug,
+                'year': year,
+                'test_successful': test_result.get('success', False),
+                'test_result': test_result.get('result')
+            }
+        )
+        
+        return JsonResponse(test_result)
+        
+    except Exception as e:
+        logger.error(f"Error in formula testing API: {e}", exc_info=True)
+        return JsonResponse({
+            'success': False,
+            'error': 'Internal server error during formula testing'
+        }, status=500)
+
+
+def _test_formula_evaluation(formula, council_slug=None, year=None):
+    """
+    Test formula evaluation with real or sample data.
+    
+    Args:
+        formula (str): The formula to test
+        council_slug (str, optional): Council to test against
+        year (str, optional): Year for financial data
+    
+    Returns:
+        dict: Test result with success status and result/error
+    """
+    try:
+        # Extract field references from formula
+        field_references = re.findall(r'\b(?:[a-zA-Z_]\w*\.)?([a-zA-Z_]\w+)\b', formula)
+        
+        # Get sample values for each referenced field
+        field_values = {}
+        
+        for field_ref in set(field_references):
+            field_slug = field_ref.replace('_', '-')
+            
+            try:
+                field = DataField.objects.get(slug=field_slug)
+                
+                # Get sample value
+                sample_value = _get_field_sample_value(field, council_slug, year)
+                field_values[field_ref] = sample_value
+                
+            except DataField.DoesNotExist:
+                # This should have been caught in validation
+                continue
+        
+        # Create a safe evaluation context
+        # Note: In production, you'd want to use a proper expression evaluator
+        # This is a simplified version for demonstration
+        eval_formula = formula
+        for field_ref, value in field_values.items():
+            eval_formula = eval_formula.replace(field_ref, str(value))
+        
+        # Basic mathematical expression evaluation
+        # WARNING: Using eval() is dangerous in production - use a proper math parser
+        try:
+            # Only allow safe mathematical operations
+            allowed_chars = set('0123456789+-*/().,')
+            if all(c in allowed_chars or c.isspace() for c in eval_formula):
+                result = eval(eval_formula)
+                return {
+                    'success': True,
+                    'result': result,
+                    'field_values': field_values,
+                    'evaluated_formula': eval_formula
+                }
+            else:
+                return {
+                    'success': False,
+                    'error': 'Formula contains unsafe characters',
+                    'field_values': field_values
+                }
+        except Exception as e:
+            return {
+                'success': False,
+                'error': f'Formula evaluation error: {str(e)}',
+                'field_values': field_values,
+                'evaluated_formula': eval_formula
+            }
+            
+    except Exception as e:
+        return {
+            'success': False,
+            'error': f'Test evaluation error: {str(e)}'
+        }
+
+
+def _get_field_sample_value(field, council_slug=None, year=None):
+    """
+    Get a sample value for a field, either from real data or generate one.
+    
+    Args:
+        field (DataField): The field to get a sample value for
+        council_slug (str, optional): Council to get data from
+        year (str, optional): Year for financial data
+    
+    Returns:
+        float: Sample numeric value
+    """
+    try:
+        if council_slug:
+            council = Council.objects.get(slug=council_slug)
+            
+            if field.category == 'characteristic':
+                # Get from CouncilCharacteristic
+                try:
+                    characteristic = CouncilCharacteristic.objects.get(
+                        council=council, 
+                        field=field
+                    )
+                    value = characteristic.value
+                except CouncilCharacteristic.DoesNotExist:
+                    value = None
+            else:
+                # Get from FinancialFigure
+                if year:
+                    try:
+                        financial_year = FinancialYear.objects.get(label=year)
+                        figure = FinancialFigure.objects.get(
+                            council=council,
+                            field=field,
+                            year=financial_year
+                        )
+                        value = figure.value
+                    except (FinancialYear.DoesNotExist, FinancialFigure.DoesNotExist):
+                        value = None
+                else:
+                    value = None
+            
+            # Convert to numeric if possible
+            if value is not None:
+                try:
+                    return float(value)
+                except (ValueError, TypeError):
+                    pass
+        
+        # Generate sample values based on field type
+        if field.content_type == 'monetary':
+            return 1000000.0  # £1M sample
+        elif field.content_type == 'integer':
+            return 100.0
+        else:
+            return 1.0  # Default numeric value
+            
+    except Exception:
+        return 1.0  # Safe fallback

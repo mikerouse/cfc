@@ -190,6 +190,19 @@
                                 <span id="validation-text"></span>
                             </div>
                         </div>
+                        
+                        <!-- Formula Testing -->
+                        <div class="mt-4">
+                            <button type="button" id="test-formula-btn" class="px-4 py-2 text-sm bg-purple-600 text-white rounded hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed" disabled>
+                                Test Formula
+                            </button>
+                            <div id="formula-test-results" class="mt-3" style="display: none;">
+                                <div class="p-3 bg-gray-50 border border-gray-200 rounded">
+                                    <h6 class="text-sm font-medium text-gray-900 mb-2">Test Results</h6>
+                                    <div id="test-results-content"></div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
                 
@@ -276,6 +289,7 @@ class SmartFieldForm {
         this.setupSlugGenerator();
         this.loadAvailableFields();
         this.setupFormulaBuilder();
+        this.setupTestButton();
         this.setupFormValidation();
     }
     
@@ -592,6 +606,48 @@ class SmartFieldForm {
         }
         
         const formula = this.formulaComponents.map(c => c.value).join(' ');
+        
+        try {
+            // Get CSRF token
+            const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+            const fieldId = {% if field %}{{ field.id }}{% else %}null{% endif %};
+            
+            // Call server-side validation API
+            const response = await fetch('{% url "validate_formula_api" %}', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                    'X-CSRFToken': csrfToken
+                },
+                body: new URLSearchParams({
+                    formula: formula,
+                    field_id: fieldId || ''
+                })
+            });
+            
+            const data = await response.json();
+            
+            if (data.success) {
+                if (data.valid) {
+                    this.showValidation(true, 'Formula is valid');
+                    this.enableTestButton();
+                } else {
+                    this.showValidation(false, data.errors.join(', '));
+                    this.disableTestButton();
+                }
+            } else {
+                this.showValidation(false, 'Validation error: ' + (data.error || 'Unknown error'));
+                this.disableTestButton();
+            }
+            
+        } catch (error) {
+            console.error('Formula validation error:', error);
+            // Fallback to client-side validation
+            this.clientSideValidation(formula);
+        }
+    }
+    
+    clientSideValidation(formula) {
         const referencedFields = this.formulaComponents
             .filter(c => c.type === 'field')
             .map(c => c.value);
@@ -612,7 +668,7 @@ class SmartFieldForm {
             return;
         }
         
-        this.showValidation(true, 'Formula is valid');
+        this.showValidation(true, 'Formula appears valid (client-side check)');
     }
     
     isValidFormulaSyntax(formula) {
@@ -656,6 +712,100 @@ class SmartFieldForm {
         const validation = document.getElementById('formula-validation');
         if (validation) {
             validation.style.display = 'none';
+        }
+    }
+    
+    enableTestButton() {
+        const testBtn = document.getElementById('test-formula-btn');
+        if (testBtn) {
+            testBtn.disabled = false;
+        }
+    }
+    
+    disableTestButton() {
+        const testBtn = document.getElementById('test-formula-btn');
+        if (testBtn) {
+            testBtn.disabled = true;
+        }
+    }
+    
+    setupTestButton() {
+        const testBtn = document.getElementById('test-formula-btn');
+        if (testBtn) {
+            testBtn.addEventListener('click', () => {
+                this.testFormula();
+            });
+        }
+    }
+    
+    async testFormula() {
+        const formula = this.formulaComponents.map(c => c.value).join(' ');
+        const resultsDiv = document.getElementById('formula-test-results');
+        const contentDiv = document.getElementById('test-results-content');
+        
+        if (!formula.trim()) {
+            return;
+        }
+        
+        try {
+            resultsDiv.style.display = 'block';
+            contentDiv.innerHTML = '<div class="text-sm text-gray-500">Testing formula...</div>';
+            
+            const response = await fetch(`{% url "test_formula_api" %}?formula=${encodeURIComponent(formula)}`);
+            const data = await response.json();
+            
+            if (data.success) {
+                contentDiv.innerHTML = `
+                    <div class="space-y-2">
+                        <div class="text-sm">
+                            <span class="font-medium text-green-600">✓ Test Successful</span>
+                        </div>
+                        <div class="text-sm">
+                            <strong>Result:</strong> ${data.result}
+                        </div>
+                        <div class="text-sm">
+                            <strong>Field Values Used:</strong>
+                            <ul class="ml-4 mt-1">
+                                ${Object.entries(data.field_values || {}).map(([field, value]) => 
+                                    `<li>${field}: ${value}</li>`
+                                ).join('')}
+                            </ul>
+                        </div>
+                        <div class="text-xs text-gray-500">
+                            Evaluated: ${data.evaluated_formula || formula}
+                        </div>
+                    </div>
+                `;
+            } else {
+                contentDiv.innerHTML = `
+                    <div class="space-y-2">
+                        <div class="text-sm">
+                            <span class="font-medium text-red-600">✗ Test Failed</span>
+                        </div>
+                        <div class="text-sm text-red-600">
+                            ${data.error || 'Unknown error'}
+                        </div>
+                        ${data.field_values ? `
+                            <div class="text-sm">
+                                <strong>Field Values:</strong>
+                                <ul class="ml-4 mt-1">
+                                    ${Object.entries(data.field_values).map(([field, value]) => 
+                                        `<li>${field}: ${value}</li>`
+                                    ).join('')}
+                                </ul>
+                            </div>
+                        ` : ''}
+                    </div>
+                `;
+            }
+            
+        } catch (error) {
+            console.error('Formula test error:', error);
+            contentDiv.innerHTML = `
+                <div class="text-sm text-red-600">
+                    Error testing formula: ${error.message}
+                </div>
+            `;
         }
     }
     

@@ -283,6 +283,10 @@ urlpatterns = [
     path("manage/fields/add/", admin_views.field_form, name="field_add"),
     path("manage/fields/<int:field_id>/edit/", admin_views.field_form, name="field_edit"),
     path("manage/fields/<int:field_id>/delete/", admin_views.field_delete, name="field_delete"),
+    
+    # Formula Validation and Testing APIs
+    path("api/fields/validate-formula/", admin_views.validate_formula_api, name="validate_formula_api"),
+    path("api/fields/test-formula/", admin_views.test_formula_api, name="test_formula_api"),
     path("contribute/issue/<int:issue_id>/mark-invalid/", contrib_views.mark_issue_invalid, name="mark_issue_invalid"),
     
     # Include new data architecture URLs (commented out - file doesn't exist)
