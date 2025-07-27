@@ -10,8 +10,8 @@ function App() {
   // Check if we're in integrated mode (embedded in Django template)
   const isIntegratedMode = window?.FACTOID_BUILDER_CONFIG?.isIntegratedMode || false;
   
-  // Toggle between old and new UI - for now default to new UI
-  const [useImprovedUI, setUseImprovedUI] = useState(true);
+  // Always use the improved UI now
+  const useImprovedUI = true;
   
   useEffect(() => {
     console.log('🎯 Enhanced Factoid Builder App initialized');
@@ -104,44 +104,13 @@ function App() {
     };
   }, [isIntegratedMode]);
 
-  // Choose which component to render
-  const FactoidComponent = useImprovedUI ? ImprovedFactoidBuilder : FactoidBuilder;
+  // Always use the improved component
+  const FactoidComponent = ImprovedFactoidBuilder;
 
   // For integrated mode, only show the component without extra wrapper styling
   if (isIntegratedMode) {
     return (
       <div className="factoid-builder-integrated">
-        {/* UI Toggle for testing */}
-        <div className="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
-          <div className="flex items-center justify-between">
-            <span className="text-sm text-yellow-800">
-              <strong>Testing Mode:</strong> Choose interface
-            </span>
-            <div className="flex items-center space-x-2">
-              <label className="flex items-center">
-                <input
-                  type="radio"
-                  name="ui-version"
-                  checked={!useImprovedUI}
-                  onChange={() => setUseImprovedUI(false)}
-                  className="mr-1"
-                />
-                <span className="text-sm">Original UI</span>
-              </label>
-              <label className="flex items-center">
-                <input
-                  type="radio"
-                  name="ui-version"
-                  checked={useImprovedUI}
-                  onChange={() => setUseImprovedUI(true)}
-                  className="mr-1"
-                />
-                <span className="text-sm">GOV.UK-inspired UI</span>
-              </label>
-            </div>
-          </div>
-        </div>
-        
         {/* Wrap the builder with an error boundary for resilience */}
         <ErrorBoundary>
           <FactoidComponent />
@@ -154,35 +123,10 @@ function App() {
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="container mx-auto py-8">
-        <div className="flex items-center justify-between mb-8">
+        <div className="mb-8">
           <h1 className="text-3xl font-bold text-gray-900">
             🎯 Enhanced Factoid Builder
           </h1>
-          
-          {/* UI Toggle for testing */}
-          <div className="flex items-center space-x-4 p-3 bg-white border border-gray-200 rounded-lg">
-            <span className="text-sm text-gray-700">Interface:</span>
-            <label className="flex items-center">
-              <input
-                type="radio"
-                name="ui-version"
-                checked={!useImprovedUI}
-                onChange={() => setUseImprovedUI(false)}
-                className="mr-1"
-              />
-              <span className="text-sm">Original</span>
-            </label>
-            <label className="flex items-center">
-              <input
-                type="radio"
-                name="ui-version"
-                checked={useImprovedUI}
-                onChange={() => setUseImprovedUI(true)}
-                className="mr-1"
-              />
-              <span className="text-sm">GOV.UK-inspired</span>
-            </label>
-          </div>
         </div>
         
         <div className="bg-white rounded-lg shadow-lg overflow-hidden">

@@ -538,6 +538,244 @@ export const useFactoidAPI = () => {
     }
   }, []);
 
+  // Get existing factoid templates
+  const getFactoidTemplates = useCallback(async () => {
+    const cacheKey = 'factoid_templates';
+    
+    // Check cache (5 minute TTL)
+    if (cache.current[cacheKey] && 
+        Date.now() - cache.current[cacheKey].timestamp < 300000) {
+      logClientActivity('factoid_templates_cache_hit', {
+        cache_age_ms: Date.now() - cache.current[cacheKey].timestamp,
+        templates_count: cache.current[cacheKey].data.templates?.length || 0,
+      });
+      return cache.current[cacheKey].data;
+    }
+
+    try {
+      logClientActivity('factoid_templates_fetch_start');
+      const response = await apiCall('/templates/');
+      
+      // Debug: Log the actual response structure
+      console.log('🔍 Raw API response for /templates/:', response);
+      console.log('🔍 Response type:', typeof response);
+      console.log('🔍 Is array:', Array.isArray(response));
+      console.log('🔍 Response keys:', response ? Object.keys(response) : 'null/undefined');
+      
+      // Try to stringify for better debugging
+      try {
+        console.log('🔍 Response JSON:', JSON.stringify(response, null, 2));
+      } catch (e) {
+        console.log('🔍 Cannot stringify response:', e.message);
+      }
+      
+      // DRF ViewSet returns an array directly for list action
+      if (Array.isArray(response)) {
+        const result = { success: true, templates: response };
+        
+        cache.current[cacheKey] = {
+          data: result,
+          timestamp: Date.now(),
+        };
+        
+        logClientActivity('factoid_templates_fetch_success', {
+          templates_count: response.length,
+          cached: true,
+        });
+        
+        return result;
+      } else if (response && response.success) {
+        // Handle other response formats
+        cache.current[cacheKey] = {
+          data: response,
+          timestamp: Date.now(),
+        };
+        
+        logClientActivity('factoid_templates_fetch_success', {
+          templates_count: response.templates?.length || 0,
+          cached: true,
+        });
+        
+        return response;
+      } else if (response && typeof response === 'object') {
+        // Handle case where we get an object that might contain templates
+        console.log('🔍 Handling object response, creating success wrapper');
+        const result = { 
+          success: true, 
+          templates: response.results || response.templates || (response.data && Array.isArray(response.data) ? response.data : [])
+        };
+        
+        cache.current[cacheKey] = {
+          data: result,
+          timestamp: Date.now(),
+        };
+        
+        logClientActivity('factoid_templates_fetch_success', {
+          templates_count: result.templates.length,
+          cached: true,
+        });
+        
+        return result;
+      } else {
+        console.log('🔍 Unhandled response format, attempting fallback');
+        console.log('🔍 Response value:', response);
+        
+        // Last resort fallback - treat any truthy response as empty array
+        if (response !== null && response !== undefined) {
+          console.log('🔍 Using fallback: empty templates array');
+          const result = { success: true, templates: [] };
+          
+          cache.current[cacheKey] = {
+            data: result,
+            timestamp: Date.now(),
+          };
+          
+          logClientActivity('factoid_templates_fetch_success', {
+            templates_count: 0,
+            cached: true,
+            fallback_used: true,
+          });
+          
+          return result;
+        }
+        
+        console.log('🔍 Complete failure, throwing error');
+        throw new Error(response?.error || 'Failed to fetch factoid templates - unexpected response format');
+      }
+    } catch (error) {
+      logClientActivity('factoid_templates_fetch_error', {
+        error_type: error.name,
+        error_message: error.message,
+      }, error);
+      
+      console.error('Failed to fetch factoid templates:', error);
+      return { success: false, error: error.message };
+    }
+  }, [apiCall, logClientActivity]);
+
+  // Get specific factoid template by ID
+  const getFactoidTemplate = useCallback(async (templateId) => {
+    try {
+      logClientActivity('factoid_template_fetch_start', { template_id: templateId });
+      const response = await apiCall(`/templates/${templateId}/`);
+      
+      // DRF ViewSet returns the object directly for detail action
+      if (response.id) {
+        logClientActivity('factoid_template_fetch_success', {
+          template_id: templateId,
+          template_name: response.name,
+        });
+        
+        return { success: true, template: response };
+      } else if (response.success) {
+        // Handle other response formats
+        logClientActivity('factoid_template_fetch_success', {
+          template_id: templateId,
+          template_name: response.template?.name || response.name,
+        });
+        
+        return response;
+      } else {
+        throw new Error(response.error || 'Failed to fetch factoid template');
+      }
+    } catch (error) {
+      logClientActivity('factoid_template_fetch_error', {
+        template_id: templateId,
+        error_type: error.name,
+        error_message: error.message,
+      }, error);
+      
+      console.error(`Failed to fetch factoid template ${templateId}:`, error);
+      return { success: false, error: error.message };
+    }
+  }, [apiCall, logClientActivity]);
+
+  // Update existing factoid template
+  const updateFactoidTemplate = useCallback(async (templateId, templateData) => {
+    try {
+      logClientActivity('factoid_template_update_start', {
+        template_id: templateId,
+        template_name: templateData.name,
+      });
+      
+      const response = await apiCall(`/templates/${templateId}/`, {
+        method: 'PUT',
+        body: JSON.stringify(templateData),
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Requested-With': 'XMLHttpRequest',
+          'X-CSRFToken': window.FACTOID_BUILDER_CONFIG?.csrfToken || '',
+        },
+      });
+
+      // DRF ViewSet returns the updated object directly
+      if (response.id) {
+        logClientActivity('factoid_template_update_success', {
+          template_id: templateId,
+          template_name: response.name || templateData.name,
+        });
+        
+        // Clear cache to force refresh
+        cache.current = {};
+        
+        return { success: true, data: response };
+      } else if (response.success) {
+        // Handle other response formats
+        logClientActivity('factoid_template_update_success', {
+          template_id: templateId,
+          template_name: response.data?.name || response.name || templateData.name,
+        });
+        
+        // Clear cache to force refresh
+        cache.current = {};
+        
+        return response;
+      } else {
+        throw new Error(response.error || 'Update failed');
+      }
+    } catch (error) {
+      logClientActivity('factoid_template_update_error', {
+        template_id: templateId,
+        error_type: error.name,
+        error_message: error.message,
+      }, error);
+      
+      console.error(`Template update failed for ID ${templateId}:`, error);
+      return { success: false, error: error.message };
+    }
+  }, [apiCall, logClientActivity]);
+
+  // Delete factoid template
+  const deleteFactoidTemplate = useCallback(async (templateId) => {
+    try {
+      logClientActivity('factoid_template_delete_start', { template_id: templateId });
+      
+      const response = await apiCall(`/templates/${templateId}/`, {
+        method: 'DELETE',
+        headers: {
+          'X-Requested-With': 'XMLHttpRequest',
+          'X-CSRFToken': window.FACTOID_BUILDER_CONFIG?.csrfToken || '',
+        },
+      });
+
+      logClientActivity('factoid_template_delete_success', { template_id: templateId });
+      
+      // Clear cache to force refresh
+      cache.current = {};
+      
+      return { success: true };
+    } catch (error) {
+      logClientActivity('factoid_template_delete_error', {
+        template_id: templateId,
+        error_type: error.name,
+        error_message: error.message,
+      }, error);
+      
+      console.error(`Template delete failed for ID ${templateId}:`, error);
+      return { success: false, error: error.message };
+    }
+  }, [apiCall, logClientActivity]);
+
   // Clear client-side logs
   const clearClientLogs = useCallback(() => {
     try {
@@ -600,6 +838,12 @@ export const useFactoidAPI = () => {
     getSampleCouncils,
     getAvailableYears,
     cleanup,
+    
+    // Template management
+    getFactoidTemplates,
+    getFactoidTemplate,
+    updateFactoidTemplate,
+    deleteFactoidTemplate,
     
     // Debugging utilities
     getClientLogs,

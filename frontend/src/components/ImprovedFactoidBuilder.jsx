@@ -18,6 +18,9 @@ const ImprovedFactoidBuilder = () => {
   // Check if we're in integrated mode
   const isIntegratedMode = window?.FACTOID_BUILDER_CONFIG?.isIntegratedMode || false;
 
+  // Mode selection: 'mode-selection', 'create', 'list', 'edit'
+  const [mode, setMode] = useState('mode-selection');
+  
   // Current step in the process
   const [currentStep, setCurrentStep] = useState(1);
   
@@ -40,6 +43,11 @@ const ImprovedFactoidBuilder = () => {
   const [selectedField, setSelectedField] = useState(null);
   const [previewCouncil, setPreviewCouncil] = useState(null);
   
+  // Existing factoids management
+  const [existingFactoids, setExistingFactoids] = useState([]);
+  const [loadingFactoids, setLoadingFactoids] = useState(false);
+  const [editingTemplateId, setEditingTemplateId] = useState(null);
+  
   // API hook for real-time features
   const {
     fields,
@@ -56,6 +64,10 @@ const ImprovedFactoidBuilder = () => {
     saveTemplate,
     getSampleCouncils,
     getAvailableYears,
+    getFactoidTemplates,
+    getFactoidTemplate,
+    updateFactoidTemplate,
+    deleteFactoidTemplate,
   } = useFactoidAPI();
 
   // Preview-specific state
@@ -162,25 +174,39 @@ const ImprovedFactoidBuilder = () => {
     }
   }, [template.template_text, handleTemplateChange, generatePreview, templateId]);
 
-  // Save handler
+  // Save handler - works for both create and update
   const handleSave = async () => {
     setSaving(true);
     try {
-      const result = await saveTemplate(template);
+      let result;
+      if (editingTemplateId) {
+        // Update existing template
+        result = await updateFactoidTemplate(editingTemplateId, template);
+        if (result.success) {
+          logActivity('template_updated', { id: editingTemplateId });
+        }
+      } else {
+        // Create new template
+        result = await saveTemplate(template);
+        if (result.success) {
+          setTemplateId(result.data.id);
+          setEditingTemplateId(result.data.id);
+          logActivity('template_saved', { id: result.data.id });
+        }
+      }
+      
       if (result.success) {
-        setTemplateId(result.data.id);
         setIsDirty(false);
-        logActivity('template_saved', { id: result.data.id });
         // Move to success step
         setCurrentStep(6);
       } else {
         logActivity('template_save_failed', { error: result.error });
-        alert(`Save failed: ${result.error}`);
+        alert(`${editingTemplateId ? 'Update' : 'Save'} failed: ${result.error}`);
       }
     } catch (error) {
-      console.error('Save error:', error);
+      console.error('Save/Update error:', error);
       logActivity('template_save_error', {}, error);
-      alert(`Save failed: ${error.message}`);
+      alert(`${editingTemplateId ? 'Update' : 'Save'} failed: ${error.message}`);
     } finally {
       setSaving(false);
     }
@@ -259,6 +285,125 @@ const ImprovedFactoidBuilder = () => {
     }
   }, [template.template_text, selectedCouncil, selectedYear, generatePreview, generateMockPreview, setPreviewData]);
 
+  // Load existing factoids
+  const loadExistingFactoids = useCallback(async () => {
+    setLoadingFactoids(true);
+    try {
+      const result = await getFactoidTemplates();
+      if (result.success) {
+        setExistingFactoids(result.templates || []);
+        logActivity('existing_factoids_loaded', { count: result.templates?.length || 0 });
+      } else {
+        console.error('Failed to load existing factoids:', result.error);
+        alert(`Failed to load existing factoids: ${result.error}`);
+      }
+    } catch (error) {
+      console.error('Error loading existing factoids:', error);
+      logActivity('existing_factoids_load_error', {}, error);
+      alert(`Error loading existing factoids: ${error.message}`);
+    } finally {
+      setLoadingFactoids(false);
+    }
+  }, [getFactoidTemplates]);
+
+  // Load existing factoid for editing
+  const loadFactoidForEditing = useCallback(async (templateId) => {
+    try {
+      const result = await getFactoidTemplate(templateId);
+      if (result.success && result.template) {
+        const loadedTemplate = result.template;
+        setTemplate({
+          name: loadedTemplate.name || '',
+          template_text: loadedTemplate.template_text || '',
+          factoid_type: loadedTemplate.factoid_type || 'context',
+          emoji: loadedTemplate.emoji || '📊',
+          color_scheme: loadedTemplate.color_scheme || 'blue',
+          priority: loadedTemplate.priority || 50,
+          is_active: loadedTemplate.is_active !== false,
+        });
+        setEditingTemplateId(templateId);
+        setMode('edit');
+        setCurrentStep(1);
+        setIsDirty(false);
+        logActivity('factoid_loaded_for_editing', { template_id: templateId, name: loadedTemplate.name });
+      } else {
+        console.error('Failed to load factoid for editing:', result.error);
+        alert(`Failed to load factoid: ${result.error}`);
+      }
+    } catch (error) {
+      console.error('Error loading factoid for editing:', error);
+      logActivity('factoid_load_for_editing_error', { template_id: templateId }, error);
+      alert(`Error loading factoid: ${error.message}`);
+    }
+  }, [getFactoidTemplate]);
+
+  // Update existing factoid
+  const handleUpdate = async () => {
+    if (!editingTemplateId) return;
+    
+    setSaving(true);
+    try {
+      const result = await updateFactoidTemplate(editingTemplateId, template);
+      if (result.success) {
+        setIsDirty(false);
+        logActivity('template_updated', { id: editingTemplateId });
+        // Move to success step
+        setCurrentStep(6);
+      } else {
+        logActivity('template_update_failed', { error: result.error });
+        alert(`Update failed: ${result.error}`);
+      }
+    } catch (error) {
+      console.error('Update error:', error);
+      logActivity('template_update_error', {}, error);
+      alert(`Update failed: ${error.message}`);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // Delete factoid
+  const handleDelete = async (templateId, templateName) => {
+    if (!confirm(`Are you sure you want to delete "${templateName}"? This action cannot be undone.`)) {
+      return;
+    }
+
+    try {
+      const result = await deleteFactoidTemplate(templateId);
+      if (result.success) {
+        // Refresh the list
+        await loadExistingFactoids();
+        logActivity('template_deleted', { id: templateId, name: templateName });
+        alert('Factoid deleted successfully');
+      } else {
+        console.error('Failed to delete factoid:', result.error);
+        alert(`Failed to delete factoid: ${result.error}`);
+      }
+    } catch (error) {
+      console.error('Error deleting factoid:', error);
+      logActivity('template_delete_error', { id: templateId }, error);
+      alert(`Error deleting factoid: ${error.message}`);
+    }
+  };
+
+  // Reset to create new factoid
+  const startCreateNew = useCallback(() => {
+    setMode('create');
+    setCurrentStep(1);
+    setTemplate({
+      name: '',
+      template_text: '',
+      factoid_type: 'context',
+      emoji: '📊',
+      color_scheme: 'blue',
+      priority: 50,
+      is_active: true,
+    });
+    setEditingTemplateId(null);
+    setIsDirty(false);
+    setPreviewData(null);
+  }, [setPreviewData]);
+
   // Navigation handlers
   const goToNextStep = () => {
     if (currentStep < steps.length) {
@@ -297,6 +442,140 @@ const ImprovedFactoidBuilder = () => {
         return false;
     }
   };
+
+  // Render mode selection
+  const renderModeSelection = () => (
+    <div className="space-y-6">
+      <div className="text-center">
+        <h2 className="text-2xl font-bold text-gray-900 mb-4">Factoid Builder</h2>
+        <p className="text-gray-600 mb-8">
+          Create new factoids or manage existing ones
+        </p>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <button
+          onClick={() => {
+            setMode('create');
+            setCurrentStep(1);
+          }}
+          className="p-6 border-2 border-gray-200 rounded-lg hover:border-blue-300 hover:bg-blue-50 transition-colors text-left"
+        >
+          <div className="text-4xl mb-3">➕</div>
+          <h3 className="text-lg font-medium text-gray-900 mb-2">Create New Factoid</h3>
+          <p className="text-sm text-gray-600">
+            Build a new factoid from scratch using the step-by-step wizard
+          </p>
+        </button>
+
+        <button
+          onClick={() => {
+            setMode('list');
+            loadExistingFactoids();
+          }}
+          className="p-6 border-2 border-gray-200 rounded-lg hover:border-blue-300 hover:bg-blue-50 transition-colors text-left"
+        >
+          <div className="text-4xl mb-3">📋</div>
+          <h3 className="text-lg font-medium text-gray-900 mb-2">View & Edit Existing</h3>
+          <p className="text-sm text-gray-600">
+            Browse, edit, or delete your existing factoid templates
+          </p>
+        </button>
+      </div>
+    </div>
+  );
+
+  // Render existing factoids list
+  const renderExistingFactoids = () => (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-xl font-bold text-gray-900">Existing Factoids</h2>
+          <p className="text-gray-600">Manage your factoid templates</p>
+        </div>
+        <button
+          onClick={() => setMode('mode-selection')}
+          className="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
+        >
+          Back to Menu
+        </button>
+      </div>
+
+      {loadingFactoids ? (
+        <div className="text-center py-8">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-2"></div>
+          <p className="text-gray-500">Loading factoids...</p>
+        </div>
+      ) : existingFactoids.length === 0 ? (
+        <div className="text-center py-8">
+          <div className="text-4xl mb-4">📄</div>
+          <h3 className="text-lg font-medium text-gray-900 mb-2">No factoids yet</h3>
+          <p className="text-gray-600 mb-4">You haven't created any factoids yet.</p>
+          <button
+            onClick={startCreateNew}
+            className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+          >
+            Create your first factoid
+          </button>
+        </div>
+      ) : (
+        <div className="space-y-4">
+          {existingFactoids.map((factoid) => (
+            <div key={factoid.id} className="bg-white border border-gray-200 rounded-lg p-4">
+              <div className="flex items-start justify-between">
+                <div className="flex-1">
+                  <div className="flex items-center space-x-2 mb-2">
+                    <span className="text-lg">{factoid.emoji || '📊'}</span>
+                    <h3 className="text-lg font-medium text-gray-900">{factoid.name}</h3>
+                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800 capitalize">
+                      {factoid.factoid_type}
+                    </span>
+                    {!factoid.is_active && (
+                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                        Inactive
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-sm text-gray-600 mb-2 font-mono bg-gray-50 p-2 rounded">
+                    {factoid.template_text}
+                  </p>
+                  <div className="text-xs text-gray-500">
+                    Created: {new Date(factoid.created_at).toLocaleDateString()}
+                    {factoid.updated_at && factoid.updated_at !== factoid.created_at && (
+                      <span> • Updated: {new Date(factoid.updated_at).toLocaleDateString()}</span>
+                    )}
+                  </div>
+                </div>
+                <div className="flex items-center space-x-2 ml-4">
+                  <button
+                    onClick={() => loadFactoidForEditing(factoid.id)}
+                    className="px-3 py-1 text-sm bg-blue-600 text-white rounded hover:bg-blue-700"
+                  >
+                    Edit
+                  </button>
+                  <button
+                    onClick={() => handleDelete(factoid.id, factoid.name)}
+                    className="px-3 py-1 text-sm bg-red-600 text-white rounded hover:bg-red-700"
+                  >
+                    Delete
+                  </button>
+                </div>
+              </div>
+            </div>
+          ))}
+          
+          <div className="text-center pt-4">
+            <button
+              onClick={startCreateNew}
+              className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700"
+            >
+              Create New Factoid
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
 
   // Render step 1: Choose factoid type
   const renderStep1 = () => (
@@ -779,31 +1058,38 @@ const ImprovedFactoidBuilder = () => {
     <div className="space-y-6">
       <div className="bg-green-50 border border-green-200 rounded-lg p-6 text-center">
         <div className="text-4xl mb-4">✅</div>
-        <h3 className="text-lg font-medium text-green-900 mb-2">Factoid saved successfully!</h3>
+        <h3 className="text-lg font-medium text-green-900 mb-2">
+          Factoid {editingTemplateId ? 'updated' : 'saved'} successfully!
+        </h3>
         <p className="text-green-700">
-          Your factoid "{template.name}" has been saved and is now available for use.
+          Your factoid "{template.name}" has been {editingTemplateId ? 'updated' : 'saved'} and is now available for use.
         </p>
       </div>
       
       <div className="flex justify-center space-x-4">
         <button
-          onClick={() => {
-            setCurrentStep(1);
-            setTemplate({
-              name: '',
-              template_text: '',
-              factoid_type: 'context',
-              emoji: '📊',
-              color_scheme: 'blue',
-              priority: 50,
-              is_active: true,
-            });
-            setIsDirty(false);
-          }}
+          onClick={() => setMode('mode-selection')}
           className="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+        >
+          Back to Menu
+        </button>
+        <button
+          onClick={startCreateNew}
+          className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
         >
           Create another factoid
         </button>
+        {editingTemplateId && (
+          <button
+            onClick={() => {
+              setMode('list');
+              loadExistingFactoids();
+            }}
+            className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
+          >
+            View all factoids
+          </button>
+        )}
       </div>
     </div>
   );
@@ -828,8 +1114,9 @@ const ImprovedFactoidBuilder = () => {
     }
   };
 
-  return (
-    <div className={`improved-factoid-builder ${isIntegratedMode ? 'integrated-mode' : 'standalone-mode'} ${isIntegratedMode ? 'p-6' : 'h-full'} max-w-4xl mx-auto`}>
+  // Render the wizard (used for both create and edit modes)
+  const renderWizard = () => (
+    <>
       {/* Progress indicator */}
       {currentStep <= 5 && (
         <div className="mb-8">
@@ -863,16 +1150,35 @@ const ImprovedFactoidBuilder = () => {
         </div>
       )}
 
-      {/* Main content */}
+      {/* Step content */}
       <div className="bg-white rounded-lg border border-gray-200 p-6 mb-6">
         {currentStep <= 5 && (
           <div className="mb-6">
-            <h2 className="text-xl font-bold text-gray-900 mb-2">
-              {steps[currentStep - 1]?.title}
-            </h2>
-            <p className="text-gray-600">
-              {steps[currentStep - 1]?.description}
-            </p>
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <h2 className="text-xl font-bold text-gray-900 mb-2">
+                  {steps[currentStep - 1]?.title}
+                </h2>
+                <p className="text-gray-600">
+                  {steps[currentStep - 1]?.description}
+                </p>
+              </div>
+              {currentStep > 1 && (
+                <button
+                  onClick={() => setMode('mode-selection')}
+                  className="px-3 py-1 text-sm border border-gray-300 rounded text-gray-600 hover:bg-gray-50"
+                >
+                  Cancel
+                </button>
+              )}
+            </div>
+            {editingTemplateId && (
+              <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                <p className="text-sm text-blue-700">
+                  <strong>Editing:</strong> {template.name}
+                </p>
+              </div>
+            )}
           </div>
         )}
 
@@ -899,6 +1205,25 @@ const ImprovedFactoidBuilder = () => {
           </button>
         </div>
       )}
+    </>
+  );
+
+  // Main content renderer based on mode
+  const renderMainContent = () => {
+    if (mode === 'mode-selection') {
+      return renderModeSelection();
+    } else if (mode === 'list') {
+      return renderExistingFactoids();
+    } else if (mode === 'create' || mode === 'edit') {
+      return renderWizard();
+    }
+    
+    return renderModeSelection(); // Default fallback
+  };
+
+  return (
+    <div className={`improved-factoid-builder ${isIntegratedMode ? 'integrated-mode' : 'standalone-mode'} ${isIntegratedMode ? 'p-6' : 'h-full'} max-w-4xl mx-auto`}>
+      {renderMainContent()}
     </div>
   );
 };
