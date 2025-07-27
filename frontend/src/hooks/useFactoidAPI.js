@@ -424,6 +424,110 @@ export const useFactoidAPI = () => {
     }
   }, [apiCall]);
 
+  // Get available financial years for preview
+  const getAvailableYears = useCallback(async () => {
+    const cacheKey = 'available_years';
+    
+    // Check cache (10 minute TTL)
+    if (cache.current[cacheKey] && 
+        Date.now() - cache.current[cacheKey].timestamp < 600000) {
+      return cache.current[cacheKey].data;
+    }
+
+    try {
+      // For now, return common years - could be enhanced with API call
+      const currentYear = new Date().getFullYear();
+      const years = [];
+      for (let i = 0; i < 5; i++) {
+        const startYear = currentYear - i;
+        const endYear = startYear + 1;
+        years.push({
+          label: `${startYear}-${String(endYear).slice(-2)}`,
+          value: `${startYear}-${String(endYear).slice(-2)}`,
+        });
+      }
+      
+      const response = { success: true, years };
+      
+      cache.current[cacheKey] = {
+        data: response,
+        timestamp: Date.now(),
+      };
+      
+      return response;
+    } catch (error) {
+      console.error('Failed to get available years:', error);
+      return { success: false, error: error.message };
+    }
+  }, []);
+
+  // Generate preview with fallback mock data
+  const generatePreviewWithFallback = useCallback(async (templateText, options = {}) => {
+    try {
+      // First try with real data
+      const result = await new Promise((resolve) => {
+        generatePreview(templateText, options);
+        
+        // Wait a bit for the preview to be generated
+        setTimeout(() => {
+          resolve(previewData);
+        }, 1000);
+      });
+      
+      return result;
+    } catch (error) {
+      console.warn('Real data preview failed, generating mock preview:', error);
+      
+      // Generate mock preview
+      return generateMockPreview(templateText, options);
+    }
+  }, [generatePreview, previewData]);
+
+  // Generate mock preview when real data isn't available
+  const generateMockPreview = useCallback((templateText, options = {}) => {
+    try {
+      const mockData = {
+        council_name: 'Sample County Council',
+        year_label: options.yearSlug || '2023-24',
+        population: '592,000',
+        total_expenditure: '£1,250,000,000',
+        total_revenue: '£1,180,000,000',
+        debt_per_resident: '£1,450',
+        council_type: 'County Council',
+        website: 'https://sample-council.gov.uk',
+        total_debt: '£856,000,000',
+        reserves: '£89,000,000',
+        precept: '£687',
+      };
+      
+      // Simple template replacement
+      let rendered = templateText;
+      Object.entries(mockData).forEach(([key, value]) => {
+        const regex = new RegExp(`\\{${key}[^}]*\\}`, 'g');
+        rendered = rendered.replace(regex, value);
+      });
+      
+      const mockPreview = {
+        rendered_text: rendered,
+        context_data: mockData,
+        referenced_fields: templateText.match(/\{([^}]+)\}/g) || [],
+        validation_errors: [],
+        council_name: mockData.council_name,
+        year_label: mockData.year_label,
+        is_mock_data: true,
+      };
+      
+      return { success: true, preview: mockPreview };
+    } catch (error) {
+      console.error('Mock preview generation failed:', error);
+      return {
+        rendered_text: 'Preview unavailable',
+        validation_errors: [`Preview error: ${error.message}`],
+        is_mock_data: true,
+      };
+    }
+  }, []);
+
   // Get client-side logs for debugging
   const getClientLogs = useCallback(() => {
     try {
@@ -481,6 +585,7 @@ export const useFactoidAPI = () => {
     fields,
     fieldGroups,
     previewData,
+    setPreviewData,
     validationErrors,
     isLoading,
     
@@ -488,9 +593,12 @@ export const useFactoidAPI = () => {
     discoverFields,
     validateTemplate,
     generatePreview,
+    generatePreviewWithFallback,
+    generateMockPreview,
     saveTemplate,
     searchFields,
     getSampleCouncils,
+    getAvailableYears,
     cleanup,
     
     // Debugging utilities

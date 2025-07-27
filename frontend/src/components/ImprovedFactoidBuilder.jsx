@@ -45,13 +45,26 @@ const ImprovedFactoidBuilder = () => {
     fields,
     fieldGroups,
     previewData,
+    setPreviewData,
     validationErrors,
     isLoading,
     discoverFields,
     validateTemplate,
     generatePreview,
+    generatePreviewWithFallback,
+    generateMockPreview,
     saveTemplate,
+    getSampleCouncils,
+    getAvailableYears,
   } = useFactoidAPI();
+
+  // Preview-specific state
+  const [availableCouncils, setAvailableCouncils] = useState([]);
+  const [availableYears, setAvailableYears] = useState([]);
+  const [selectedCouncil, setSelectedCouncil] = useState('');
+  const [selectedYear, setSelectedYear] = useState('2024-25');
+  const [previewLoading, setPreviewLoading] = useState(false);
+  const [previewError, setPreviewError] = useState(null);
 
   // Steps configuration
   const steps = [
@@ -103,7 +116,7 @@ const ImprovedFactoidBuilder = () => {
       });
       window.dispatchEvent(readyEvent);
     }
-  }, [discoverFields, isIntegratedMode]);
+  }, []); // Remove dependencies to prevent re-mounting
 
   // Template change handler
   const handleTemplateChange = useCallback((field, value) => {
@@ -173,10 +186,90 @@ const ImprovedFactoidBuilder = () => {
     }
   };
 
+  // Load preview data when needed
+  const loadPreviewData = useCallback(async () => {
+    try {
+      const [councilsResult, yearsResult] = await Promise.all([
+        getSampleCouncils(),
+        getAvailableYears()
+      ]);
+
+      if (councilsResult.success && councilsResult.councils) {
+        setAvailableCouncils(councilsResult.councils);
+        if (councilsResult.councils.length > 0 && !selectedCouncil) {
+          setSelectedCouncil(councilsResult.councils[0].slug);
+        }
+      }
+
+      if (yearsResult.success && yearsResult.years) {
+        setAvailableYears(yearsResult.years);
+      }
+    } catch (error) {
+      console.error('Failed to load preview data:', error);
+      setPreviewError('Failed to load preview options');
+    }
+  }, [getSampleCouncils, getAvailableYears, selectedCouncil]);
+
+  // Generate preview with user selections
+  const generateUserPreview = useCallback(async () => {
+    if (!template.template_text.trim()) return;
+
+    setPreviewLoading(true);
+    setPreviewError(null);
+
+    try {
+      console.log('🔄 Generating preview with selections:', { selectedCouncil, selectedYear });
+      
+      // First try with real data using user selections
+      const previewResult = await generatePreview(template.template_text, {
+        councilSlug: selectedCouncil,
+        yearSlug: selectedYear,
+      });
+
+      // If preview was successful, we're done
+      if (previewResult && previewResult.success) {
+        setPreviewLoading(false);
+        return;
+      }
+
+      // If no preview data or preview failed, generate mock preview
+      console.log('🔄 Real data preview failed, generating mock preview...');
+      const mockResult = generateMockPreview(template.template_text, {
+        yearSlug: selectedYear,
+      });
+      
+      if (mockResult && mockResult.preview) {
+        setPreviewData(mockResult.preview);
+      }
+      setPreviewLoading(false);
+
+    } catch (error) {
+      console.error('Preview generation failed:', error);
+      setPreviewError(error.message);
+      
+      // Generate mock preview as fallback
+      const mockResult = generateMockPreview(template.template_text, {
+        yearSlug: selectedYear,
+      });
+      
+      if (mockResult && mockResult.preview) {
+        setPreviewData(mockResult.preview);
+      }
+      setPreviewLoading(false);
+    }
+  }, [template.template_text, selectedCouncil, selectedYear, generatePreview, generateMockPreview, setPreviewData]);
+
   // Navigation handlers
   const goToNextStep = () => {
     if (currentStep < steps.length) {
-      setCurrentStep(currentStep + 1);
+      const nextStep = currentStep + 1;
+      setCurrentStep(nextStep);
+      
+      // Load preview data when entering step 4
+      if (nextStep === 4) {
+        loadPreviewData();
+        generateUserPreview();
+      }
     }
   };
 
@@ -196,7 +289,8 @@ const ImprovedFactoidBuilder = () => {
       case 3:
         return template.template_text.trim().length > 0;
       case 4:
-        return validationErrors.length === 0;
+        // Allow proceeding if we have some preview data (even with mock data)
+        return previewData !== null;
       case 5:
         return true;
       default:
@@ -463,45 +557,155 @@ const ImprovedFactoidBuilder = () => {
           <div className="ml-3">
             <p className="text-sm text-purple-700">
               <strong>Check it works</strong><br />
-              See how your factoid looks with real council data. 
-              If something doesn't look right, go back and adjust it.
+              See how your factoid looks with council data. 
+              Choose a council and year below, or use sample data if real data isn't available.
             </p>
           </div>
         </div>
       </div>
 
-      {previewData?.preview && (
-        <div className="bg-white border border-gray-200 rounded-lg p-6">
-          <h3 className="text-lg font-medium text-gray-900 mb-4">
-            {template.emoji} Preview
-          </h3>
-          <div className="text-lg text-gray-700 leading-relaxed">
-            {previewData.preview.rendered_text}
-          </div>
-          {previewData.preview.council_name && (
-            <p className="text-sm text-gray-500 mt-3">
-              Preview using data from {previewData.preview.council_name} 
-              ({previewData.preview.year_label})
+      {/* Preview Controls */}
+      <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+        <h3 className="text-sm font-medium text-gray-700 mb-3">Preview settings</h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label htmlFor="council-select" className="block text-sm font-medium text-gray-700 mb-1">
+              Council
+            </label>
+            <select
+              id="council-select"
+              value={selectedCouncil}
+              onChange={(e) => {
+                setSelectedCouncil(e.target.value);
+                generateUserPreview();
+              }}
+              className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-sm"
+            >
+              <option value="">Use sample data</option>
+              {availableCouncils.map((council) => (
+                <option key={council.slug} value={council.slug}>
+                  {council.name}
+                </option>
+              ))}
+            </select>
+            <p className="text-xs text-gray-500 mt-1">
+              Choose a council to use real data, or leave as "sample data" for demo values
             </p>
-          )}
-        </div>
-      )}
+          </div>
 
-      {previewData?.preview?.validation_errors?.length > 0 && (
-        <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-          <h3 className="text-sm font-medium text-red-800 mb-2">Issues found:</h3>
-          <ul className="text-sm text-red-700 list-disc list-inside">
-            {previewData.preview.validation_errors.map((error, index) => (
-              <li key={index}>{error}</li>
-            ))}
-          </ul>
+          <div>
+            <label htmlFor="year-select" className="block text-sm font-medium text-gray-700 mb-1">
+              Financial year
+            </label>
+            <select
+              id="year-select"
+              value={selectedYear}
+              onChange={(e) => {
+                setSelectedYear(e.target.value);
+                generateUserPreview();
+              }}
+              className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-sm"
+            >
+              {availableYears.map((year) => (
+                <option key={year.value} value={year.value}>
+                  {year.label}
+                </option>
+              ))}
+            </select>
+            <p className="text-xs text-gray-500 mt-1">
+              Financial year for the data
+            </p>
+          </div>
         </div>
-      )}
 
-      {!previewData?.preview && (
+        <div className="mt-3">
+          <button
+            onClick={generateUserPreview}
+            disabled={previewLoading}
+            className="px-3 py-1 text-sm bg-blue-600 text-white rounded hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
+          >
+            {previewLoading ? 'Updating...' : 'Update preview'}
+          </button>
+        </div>
+      </div>
+
+      {/* Preview Display */}
+      {previewLoading ? (
         <div className="text-center py-8 text-gray-500">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-2"></div>
           Generating preview...
+        </div>
+      ) : previewError ? (
+        <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+          <h3 className="text-sm font-medium text-red-800 mb-2">Preview Error</h3>
+          <p className="text-sm text-red-700">{previewError}</p>
+          <button
+            onClick={generateUserPreview}
+            className="mt-2 px-3 py-1 text-sm bg-red-600 text-white rounded hover:bg-red-700"
+          >
+            Try again
+          </button>
+        </div>
+      ) : previewData ? (
+        <div className="bg-white border border-gray-200 rounded-lg p-6">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-medium text-gray-900">
+              {template.emoji} Preview
+            </h3>
+            {previewData.is_mock_data && (
+              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+                Sample data
+              </span>
+            )}
+          </div>
+          
+          <div className="text-lg text-gray-700 leading-relaxed mb-4">
+            {previewData.rendered_text}
+          </div>
+          
+          <div className="text-sm text-gray-500 border-t pt-3">
+            {previewData.is_mock_data ? (
+              <div>
+                <p>
+                  <strong>Using sample data</strong> - This preview shows how your factoid will look. 
+                  {selectedCouncil ? ' Real data not available for this council/year.' : ' Choose a council above to try with real data.'}
+                </p>
+                <p className="mt-1">
+                  You can save this factoid and add real data later.
+                </p>
+              </div>
+            ) : (
+              <p>
+                Preview using real data from <strong>{previewData.council_name}</strong> ({previewData.year_label})
+              </p>
+            )}
+          </div>
+        </div>
+      ) : (
+        <div className="text-center py-8 text-gray-500">
+          <p>No preview available</p>
+          <button
+            onClick={generateUserPreview}
+            className="mt-2 px-3 py-1 text-sm bg-blue-600 text-white rounded hover:bg-blue-700"
+          >
+            Generate preview
+          </button>
+        </div>
+      )}
+
+      {/* Validation Errors */}
+      {previewData?.validation_errors?.length > 0 && (
+        <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+          <h3 className="text-sm font-medium text-red-800 mb-2">Issues found:</h3>
+          <ul className="text-sm text-red-700 list-disc list-inside">
+            {previewData.validation_errors.map((error, index) => (
+              <li key={index}>{error}</li>
+            ))}
+          </ul>
+          <p className="text-xs text-gray-600 mt-2">
+            These issues may prevent the factoid from working correctly. 
+            Go back to step 3 to fix them or save anyway using sample data.
+          </p>
         </div>
       )}
     </div>
@@ -542,7 +746,7 @@ const ImprovedFactoidBuilder = () => {
           <div>
             <dt className="text-sm font-medium text-gray-500">Preview</dt>
             <dd className="text-sm text-gray-900">
-              {previewData?.preview?.rendered_text || 'No preview available'}
+              {previewData?.rendered_text || 'No preview available'}
             </dd>
           </div>
         </dl>
