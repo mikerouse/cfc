@@ -1,4 +1,5 @@
 import logging
+import re
 from django.shortcuts import render, get_object_or_404, redirect
 from django.http import JsonResponse
 from django.core.paginator import Paginator
@@ -968,3 +969,217 @@ def ai_analysis_detail(request, analysis_id):
     }
     
     return render(request, 'council_finance/ai_management/analysis_detail.html', context)
+
+
+@login_required
+def field_list(request):
+    """Display and manage data fields and characteristics"""
+    
+    # Get all fields grouped by category
+    fields = DataField.objects.all().order_by('category', 'name')
+    
+    search_query = request.GET.get('search', '')
+    if search_query:
+        fields = fields.filter(
+            Q(name__icontains=search_query) | 
+            Q(slug__icontains=search_query) |
+            Q(explanation__icontains=search_query)
+        )
+    
+    category_filter = request.GET.get('category', '')
+    if category_filter:
+        fields = fields.filter(category=category_filter)
+    
+    # Paginate results
+    paginator = Paginator(fields, 25)
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
+    
+    # Get category choices for filter dropdown
+    categories = DataField.FIELD_CATEGORIES
+    
+    context = {
+        'page_obj': page_obj,
+        'search_query': search_query,
+        'category_filter': category_filter,
+        'categories': categories,
+        'total_fields': fields.count(),
+    }
+    
+    log_activity(
+        request,
+        activity="field_management_access",
+        log_type="admin",
+        action="view_field_list",
+        extra={
+            'total_fields': fields.count(),
+            'search_query': search_query,
+            'category_filter': category_filter,
+        }
+    )
+    
+    return render(request, 'council_finance/admin/field_list.html', context)
+
+
+@login_required
+def field_form(request, field_id=None):
+    """Create or edit a data field"""
+    
+    if field_id:
+        field = get_object_or_404(DataField, id=field_id)
+        is_editing = True
+    else:
+        field = None
+        is_editing = False
+    
+    if request.method == 'POST':
+        form = DataFieldForm(request.POST, instance=field)
+        if form.is_valid():
+            try:
+                # Enhanced validation for calculated fields
+                if form.cleaned_data.get('category') == 'calculated':
+                    formula_errors = validate_calculated_field_formula(
+                        form.cleaned_data.get('formula', ''),
+                        current_field_id=field_id
+                    )
+                    if formula_errors:
+                        for error in formula_errors:
+                            form.add_error('formula', error)
+                        # Log validation failure
+                        log_activity(
+                            request,
+                            activity="field_validation_failed",
+                            log_type="admin",
+                            action="validation_error",
+                            extra={
+                                'field_name': form.cleaned_data.get('name'),
+                                'category': 'calculated',
+                                'validation_errors': formula_errors,
+                                'formula': form.cleaned_data.get('formula', ''),
+                                'is_editing': is_editing,
+                            }
+                        )
+                        # Re-render form with errors
+                        context = {
+                            'form': form,
+                            'field': field,
+                            'is_editing': is_editing,
+                            'page_title': f"{'Edit' if is_editing else 'Add'} Field",
+                        }
+                        return render(request, 'council_finance/admin/field_form.html', context)
+                
+                saved_field = form.save()
+                
+                action = "edit" if is_editing else "create"
+                log_activity(
+                    request,
+                    activity=f"field_{action}",
+                    log_type="admin",
+                    action=f"field_{action}d",
+                    extra={
+                        'field_id': saved_field.id,
+                        'field_name': saved_field.name,
+                        'field_slug': saved_field.slug,
+                        'field_category': saved_field.category,
+                        'formula': saved_field.formula,
+                        'is_editing': is_editing,
+                    }
+                )
+                
+                messages.success(
+                    request, 
+                    f"Field '{saved_field.name}' {'updated' if is_editing else 'created'} successfully."
+                )
+                return redirect('field_list')
+                
+            except ValidationError as e:
+                messages.error(request, f"Validation error: {e}")
+                log_activity(
+                    request,
+                    activity="field_save_error",
+                    log_type="admin",
+                    action="save_error",
+                    extra={
+                        'error': str(e),
+                        'field_name': form.cleaned_data.get('name', 'Unknown'),
+                        'is_editing': is_editing,
+                    }
+                )
+            except Exception as e:
+                messages.error(request, f"Error saving field: {e}")
+                logger.error(f"Error saving field: {e}", exc_info=True)
+                log_activity(
+                    request,
+                    activity="field_save_error",
+                    log_type="admin",
+                    action="save_error",
+                    extra={
+                        'error': str(e),
+                        'field_name': form.cleaned_data.get('name', 'Unknown') if hasattr(form, 'cleaned_data') else 'Unknown',
+                        'is_editing': is_editing,
+                    }
+                )
+    else:
+        form = DataFieldForm(instance=field)
+    
+    context = {
+        'form': form,
+        'field': field,
+        'is_editing': is_editing,
+        'page_title': f"{'Edit' if is_editing else 'Add'} Field",
+    }
+    
+    return render(request, 'council_finance/admin/field_form.html', context)
+
+
+@login_required
+def field_delete(request, field_id):
+    """Delete a data field with confirmation"""
+    
+    field = get_object_or_404(DataField, id=field_id)
+    
+    if request.method == 'POST':
+        try:
+            field_name = field.name
+            field_slug = field.slug
+            field_id_copy = field.id
+            
+            # Log the deletion before actually deleting
+            log_activity(
+                request,
+                activity="field_delete",
+                log_type="admin", 
+                action="field_deleted",
+                extra={
+                    'field_id': field_id_copy,
+                    'field_name': field_name,
+                    'field_slug': field_slug,
+                    'field_category': field.category,
+                }
+            )
+            
+            field.delete()
+            messages.success(request, f"Field '{field_name}' deleted successfully.")
+            return redirect('field_list')
+            
+        except Exception as e:
+            messages.error(request, f"Error deleting field: {e}")
+            logger.error(f"Error deleting field {field.id}: {e}", exc_info=True)
+            return redirect('field_list')
+    
+    # Check if field is in use (has associated data)
+    from ..models import FinancialFigure, CouncilCharacteristic
+    
+    financial_usage_count = FinancialFigure.objects.filter(field=field).count()
+    characteristic_usage_count = CouncilCharacteristic.objects.filter(field=field).count()
+    total_usage = financial_usage_count + characteristic_usage_count
+    
+    context = {
+        'field': field,
+        'financial_usage_count': financial_usage_count,
+        'characteristic_usage_count': characteristic_usage_count,
+        'total_usage': total_usage,
+        'has_data': total_usage > 0,
+    }
+    
+    return render(request, 'council_finance/admin/field_delete.html', context)

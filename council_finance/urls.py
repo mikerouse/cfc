@@ -277,6 +277,12 @@ urlpatterns = [
     path("god-mode/ai/configurations/add/", admin_views.ai_configuration_form, name="ai_configuration_add"),
     path("god-mode/ai/configurations/<int:config_id>/", admin_views.ai_configuration_form, name="ai_configuration_edit"),
     path("god-mode/ai/analysis/<int:analysis_id>/", admin_views.ai_analysis_detail, name="ai_analysis_detail"),
+    
+    # Field Management
+    path("manage/fields/", admin_views.field_list, name="field_list"),
+    path("manage/fields/add/", admin_views.field_form, name="field_add"),
+    path("manage/fields/<int:field_id>/edit/", admin_views.field_form, name="field_edit"),
+    path("manage/fields/<int:field_id>/delete/", admin_views.field_delete, name="field_delete"),
     path("contribute/issue/<int:issue_id>/mark-invalid/", contrib_views.mark_issue_invalid, name="mark_issue_invalid"),
     
     # Include new data architecture URLs (commented out - file doesn't exist)
