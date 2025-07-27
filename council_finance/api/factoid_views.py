@@ -253,11 +253,28 @@ class FactoidAPIViewSet(viewsets.ModelViewSet):
                     'error': 'No council available for preview'
                 }, status=status.HTTP_400_BAD_REQUEST)
             
-            # Get or create year
-            year, _ = FinancialYear.objects.get_or_create(
-                label=year_slug,
-                defaults={'label': year_slug}
-            )
+            # Get year with flexible format matching
+            year = None
+            # Try multiple common year formats, prioritizing slash format where data typically exists
+            year_formats_to_try = [
+                year_slug.replace('-', '/'),  # Convert 2023-24 to 2023/24 (try this first - where data usually is)
+                year_slug.replace('/', '-'),  # Convert 2023/24 to 2023-24 
+                year_slug,  # Use exact format last
+            ]
+            
+            for year_format in year_formats_to_try:
+                try:
+                    year = FinancialYear.objects.get(label=year_format)
+                    break
+                except FinancialYear.DoesNotExist:
+                    continue
+            
+            # If no existing year found, create one with the requested format
+            if not year:
+                year, _ = FinancialYear.objects.get_or_create(
+                    label=year_slug,
+                    defaults={'label': year_slug}
+                )
             
             # Get counter if specified
             counter = None
@@ -891,11 +908,28 @@ def quick_template_preview(request):
                 'error': 'No council available for preview'
             }, status=400)
         
-        # Get or create year
-        year, _ = FinancialYear.objects.get_or_create(
-            label=year_slug,
-            defaults={'label': year_slug}
-        )
+        # Get year with flexible format matching
+        year = None
+        # Try multiple common year formats, prioritizing slash format where data typically exists
+        year_formats_to_try = [
+            year_slug.replace('-', '/'),  # Convert 2023-24 to 2023/24 (try this first - where data usually is)
+            year_slug.replace('/', '-'),  # Convert 2023/24 to 2023-24 
+            year_slug,  # Use exact format last
+        ]
+        
+        for year_format in year_formats_to_try:
+            try:
+                year = FinancialYear.objects.get(label=year_format)
+                break
+            except FinancialYear.DoesNotExist:
+                continue
+        
+        # If no existing year found, create one with the requested format
+        if not year:
+            year, _ = FinancialYear.objects.get_or_create(
+                label=year_slug,
+                defaults={'label': year_slug}
+            )
         
         # Get counter if specified
         counter = None

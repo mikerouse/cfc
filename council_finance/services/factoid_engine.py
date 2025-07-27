@@ -46,7 +46,8 @@ class FactoidEngine:
             # Handle different field categories
             if data_field.category == 'characteristic':
                 return self._get_characteristic_value(field_name, council, year)
-            elif data_field.category == 'financial':
+            elif data_field.category in ['financial', 'income', 'balance_sheet']:
+                # All these categories are stored in FinancialFigure model
                 return self._get_financial_value(field_name, council, year)
             elif data_field.category == 'calculated':
                 return self._get_calculated_value(field_name, council, year, counter)
@@ -67,8 +68,7 @@ class FactoidEngine:
             slug = DataField.from_variable_name(field_name).slug
             characteristic = CouncilCharacteristic.objects.filter(
                 council=council,
-                field__slug=slug,
-                year=year
+                field__slug=slug
             ).first()
             
             if characteristic:
