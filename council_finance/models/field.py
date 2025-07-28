@@ -49,6 +49,13 @@ class DataField(models.Model):
         ("integer", "Integer"),
         ("text", "Text"),
         ("url", "URL"),
+        ("postcode", "Post Code"),
+        ("phone", "Phone Number"),
+        ("latlong", "Latitude/Longitude"),
+        ("date", "Date"),
+        ("time", "Time"),
+        ("datetime", "Date & Time"),
+        ("boolean", "True/False"),
         # New list type references another dataset for selectable options
         ("list", "List"),
     ]

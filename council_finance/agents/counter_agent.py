@@ -84,10 +84,27 @@ class CounterAgent(AgentBase):
             for field_name, value in characteristics.items():
                 if value is not None:
                     try:
-                        # Only add numeric characteristics
-                        figure_map[field_name] = float(value)
+                        # Only add characteristics that are numeric types
+                        # First try to get the field to check its content_type
+                        from council_finance.models import DataField
+                        
+                        # Convert field_name back to slug format to find the field
+                        field_slug = field_name.replace('_', '-')
+                        try:
+                            field = DataField.objects.get(slug=field_slug)
+                            # Only include numeric content types in formula calculations
+                            if field.content_type in ('monetary', 'integer'):
+                                figure_map[field_name] = float(value)
+                        except DataField.DoesNotExist:
+                            # If we can't find the field, try to convert anyway as a fallback
+                            # but silently skip if it fails
+                            try:
+                                figure_map[field_name] = float(value)
+                            except (TypeError, ValueError):
+                                # Silently skip non-numeric characteristics
+                                pass
                     except (TypeError, ValueError):
-                        # Non-numeric characteristics can't be used in formulas
+                        # Non-numeric characteristics can't be used in formulas - skip silently
                         pass
                         
         except Exception as e:
@@ -129,16 +146,23 @@ class CounterAgent(AgentBase):
             safe_vars = {}
             safe_formula = formula
             
-            # Replace field slugs containing hyphens with safe variable names
+            # First, create a comprehensive mapping of all possible field name variations
+            # This handles both regular fields and calculated fields that use underscores
             for field_slug, value in figure_map.items():
+                # Add the field with its current name
+                safe_vars[field_slug] = value
+                
+                # If the field has underscores, also map the hyphenated version
+                if '_' in field_slug:
+                    hyphenated_name = field_slug.replace('_', '-')
+                    # Replace any hyphenated version in the formula with the underscore version
+                    safe_formula = safe_formula.replace(hyphenated_name, field_slug)
+                
+                # If the field has hyphens, create underscore version
                 if '-' in field_slug:
-                    # Create a safe variable name by replacing hyphens with underscores
-                    safe_var_name = field_slug.replace('-', '_')
-                    safe_vars[safe_var_name] = value
-                    # Replace the field slug in the formula
-                    safe_formula = safe_formula.replace(field_slug, safe_var_name)
-                else:
-                    safe_vars[field_slug] = value
+                    underscore_name = field_slug.replace('-', '_')
+                    safe_vars[underscore_name] = value
+                    safe_formula = safe_formula.replace(field_slug, underscore_name)
             
 
             allowed_ops = {

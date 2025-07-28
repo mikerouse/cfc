@@ -312,59 +312,6 @@ def get_data_context_for_council(council, year=None, counter_slug=None):
     else:
         context['financial'] = {}
     
-    # 3. Add ALL counter values as potential variables for calculated fields
-    try:
-        from council_finance.agents.counter_agent import CounterAgent
-        from council_finance.models import FinancialYear
-        
-        agent = CounterAgent()
-        
-        # Get year label - use provided year, or find a default
-        year_label = None
-        if year:
-            year_label = year.label
-        else:
-            # Try to find a year with actual data (prefer 2024/25, 2023/24, etc.)
-            for test_year in ['2024/25', '2023/24', '2022/23']:
-                if FinancialYear.objects.filter(label=test_year).exists():
-                    year_label = test_year
-                    break
-            
-            # Fallback to any year if none of the preferred ones exist
-            if not year_label:
-                default_year = FinancialYear.objects.first()
-                if default_year:
-                    year_label = default_year.label
-        
-        counter_results = {}
-        if year_label:
-            counter_results = agent.run(
-                council_slug=council.slug,
-                year_label=year_label
-            )
-        
-        # Add all counter results to variables for formula evaluation
-        for slug, result in counter_results.items():
-            if isinstance(result, dict):
-                # Try 'raw' first, then 'value'
-                if 'raw' in result and result['raw'] is not None:
-                    variables[slug.replace('-', '_')] = result['raw']
-                elif 'value' in result and result['value'] is not None:
-                    variables[slug.replace('-', '_')] = result['value']
-            elif isinstance(result, (int, float)):
-                variables[slug.replace('-', '_')] = result
-        
-        # If a specific counter_slug was requested, add its formatted output to context
-        if counter_slug and counter_slug in counter_results:
-            result = counter_results[counter_slug]
-            if isinstance(result, dict):
-                context.update(result)  # Add value, formatted, etc.
-            else:
-                context['value'] = result
-                
-    except Exception as e:
-        logger.warning(f"Failed to get counter values: {e}")
-    
     # 4. Calculate and add all calculated fields with dependency resolution
     calculated_fields = DataField.objects.filter(category='calculated')
     context['calculated'] = {}
