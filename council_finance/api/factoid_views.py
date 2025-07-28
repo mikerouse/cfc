@@ -1217,3 +1217,108 @@ def factoid_instance_api(request, template_slug, council_slug, year_slug):
         return JsonResponse({
             'error': 'An unexpected error occurred'
         }, status=500)
+
+
+@csrf_exempt
+def get_factoids_for_counter(request, council_slug, counter_slug, year_slug=None):
+    """
+    API endpoint to get all factoids for a specific counter on a council page
+    """
+    start_time = timezone.now()
+    
+    try:
+        if request.method != 'GET':
+            return JsonResponse({'error': 'Only GET method allowed'}, status=405)
+        
+        # Get council
+        try:
+            council = Council.objects.get(slug=council_slug)
+        except Council.DoesNotExist:
+            return JsonResponse({'error': 'Council not found'}, status=404)
+        
+        # Get counter
+        try:
+            counter = CounterDefinition.objects.get(slug=counter_slug)
+        except CounterDefinition.DoesNotExist:
+            return JsonResponse({'error': 'Counter not found'}, status=404)
+        
+        # Get year (use current if not specified)
+        if year_slug:
+            try:
+                year = FinancialYear.objects.get(label=year_slug)
+            except FinancialYear.DoesNotExist:
+                return JsonResponse({'error': 'Financial year not found'}, status=404)
+        else:
+            # Use current year or most recent if current not found
+            year = FinancialYear.objects.filter(is_current=True).first()
+            if not year:
+                year = FinancialYear.objects.order_by('-label').first()
+            if not year:
+                return JsonResponse({'error': 'No financial year available'}, status=404)
+        
+        # Get factoids using the engine
+        engine = FactoidEngine()
+        factoid_instances = engine.get_factoids_for_counter(counter, council, year)
+        
+        # Serialize the results
+        factoids_data = []
+        for instance in factoid_instances:
+            factoids_data.append({
+                'id': instance.id,
+                'template_name': instance.template.name,
+                'template_slug': instance.template.slug,
+                'rendered_text': instance.rendered_text,
+                'factoid_type': instance.template.factoid_type,
+                'emoji': instance.template.emoji,
+                'color_scheme': instance.template.color_scheme,
+                'is_significant': instance.is_significant,
+                'relevance_score': instance.relevance_score,
+                'computed_at': instance.computed_at.isoformat(),
+                'expires_at': instance.expires_at.isoformat() if instance.expires_at else None,
+            })
+        
+        execution_time = (timezone.now() - start_time).total_seconds()
+        
+        # Log successful API call
+        _log_api_activity(
+            request,
+            'get_factoids_for_counter',
+            'success',
+            extra_data={
+                'council_slug': council_slug,
+                'counter_slug': counter_slug,
+                'year_slug': year_slug or year.label,
+                'factoid_count': len(factoids_data),
+                'execution_time_seconds': execution_time,
+            }
+        )
+        
+        return JsonResponse({
+            'factoids': factoids_data,
+            'council': council.name,
+            'counter': counter.name,
+            'year': year.label,
+            'count': len(factoids_data)
+        })
+        
+    except Exception as e:
+        execution_time = (timezone.now() - start_time).total_seconds()
+        
+        # Log error
+        _log_api_activity(
+            request,
+            'get_factoids_for_counter',
+            'error',
+            error=e,
+            extra_data={
+                'council_slug': council_slug,
+                'counter_slug': counter_slug,
+                'year_slug': year_slug,
+                'execution_time_seconds': execution_time,
+            }
+        )
+        
+        logger.error(f"Error getting factoids for counter: {e}", exc_info=True)
+        return JsonResponse({
+            'error': 'Failed to retrieve factoids'
+        }, status=500)

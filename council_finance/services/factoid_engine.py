@@ -385,10 +385,12 @@ class FactoidEngine:
         Get all relevant factoids for a specific counter context
         """
         try:
-            # Get applicable templates
+            # Get applicable templates - include both generic and counter-specific templates
             templates = FactoidTemplate.objects.filter(
                 is_active=True,
-                target_content_type=None  # Generic templates
+            ).filter(
+                Q(target_content_type=None) |  # Generic templates
+                Q(counters=counter)  # Templates specifically assigned to this counter
             ).order_by('-priority')
             
             # Filter by council type if specified
@@ -397,6 +399,9 @@ class FactoidEngine:
                     Q(council_types__isnull=True) | 
                     Q(council_types=council.council_type)
                 )
+            
+            # Ensure unique templates (in case a template matches both generic and counter-specific criteria)
+            templates = templates.distinct()
             
             instances = []
             for template in templates:
@@ -413,7 +418,7 @@ class FactoidEngine:
                         # Compute new instance
                         instance = self.compute_factoid_instance(template, council, year, counter)
                     
-                    if instance.is_significant:
+                    if instance and instance.is_significant:
                         instances.append(instance)
                         
                 except Exception as e:
