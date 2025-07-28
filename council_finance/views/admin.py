@@ -429,6 +429,7 @@ def preview_counter_value(request):
     import logging
     from council_finance.calculators import get_data_context_for_council
     from council_finance.models import CounterDefinition
+    from council_finance.utils.data_context_validator import DataContextValidator, log_data_context_usage
     
     logger = logging.getLogger(__name__)
     
@@ -442,7 +443,7 @@ def preview_counter_value(request):
         year = FinancialYear.objects.filter(label=year_label).first()
     if not year:
         year = FinancialYear.objects.order_by("-label").first()
-    
+
     if not (council_slug and formula and year):
         return JsonResponse({"error": "Missing required parameters (council, formula, year)"}, status=400)
 
@@ -452,7 +453,13 @@ def preview_counter_value(request):
         # Get unified data context including both financial figures and characteristics
         data_context = get_data_context_for_council(council, year=year)
         
-        # Create a comprehensive figure map from all data sources
+        # Validate data context structure
+        validation_errors = DataContextValidator.validate_data_context(data_context, "preview_counter_value")
+        if validation_errors:
+            logger.warning(f"Data context validation issues: {validation_errors}")
+            
+        # Log data context usage for monitoring
+        log_data_context_usage("preview_counter_value", data_context, [formula])        # Create a comprehensive figure map from all data sources
         figure_map = {}
         missing = set()
         
@@ -469,7 +476,7 @@ def preview_counter_value(request):
                 missing.add(field_slug)
         
         # 2. Add council characteristics
-        characteristics = data_context.get('characteristics', {})
+        characteristics = data_context.get('characteristic', {})  # Note: key is 'characteristic' not 'characteristics'
         for field_slug, value in characteristics.items():
             if value is not None:
                 try:
@@ -498,90 +505,63 @@ def preview_counter_value(request):
             else:
                 missing.add(field_slug)
         
-        # Enhanced AST evaluator with better error handling
-        import ast, operator
+        # Check if the formula is actually a calculated field name
+        # If so, use its formula instead
+        normalized_formula = formula.strip()
+        calculated_field = None
         
-        allowed_ops = {
-            ast.Add: operator.add,
-            ast.Sub: operator.sub,
-            ast.Mult: operator.mul,
-            ast.Div: operator.truediv,
-            ast.Pow: operator.pow,
-            ast.Mod: operator.mod,
-        }
-
-        def _eval(node):
-            """Enhanced evaluator with better error handling and operator support."""
-            if isinstance(node, ast.Expression):
-                return _eval(node.body)
-            elif isinstance(node, ast.Num):  # Python < 3.8
-                return node.n
-            elif isinstance(node, ast.Constant):  # Python >= 3.8
-                return node.value
-            elif isinstance(node, ast.BinOp):
-                left_val = _eval(node.left)
-                right_val = _eval(node.right)
-                
-                # Handle division by zero
-                if isinstance(node.op, ast.Div) and right_val == 0:
-                    raise ValueError(f"Division by zero in formula")
-                
-                try:
-                    return allowed_ops[type(node.op)](left_val, right_val)
-                except KeyError:
-                    raise ValueError(f"Unsupported operator: {type(node.op).__name__}")
-                except (OverflowError, ZeroDivisionError) as e:
-                    raise ValueError(f"Mathematical error: {str(e)}")
-                    
-            elif isinstance(node, ast.UnaryOp):
-                if isinstance(node.op, ast.USub):
-                    return -_eval(node.operand)
-                elif isinstance(node.op, ast.UAdd):
-                    return _eval(node.operand)
-                else:
-                    raise ValueError(f"Unsupported unary operator: {type(node.op).__name__}")
-                    
-            elif isinstance(node, ast.Name):
-                var_name = node.id
-                
-                # Check for missing data with helpful error message
-                if var_name in missing:
-                    # Try to determine if this is a characteristic or financial field
-                    field_type = "data"
-                    try:
-                        from council_finance.models import DataField
-                        field = DataField.objects.get(slug=var_name.replace('_', '-'))
-                        field_type = field.get_category_display() if hasattr(field, 'get_category_display') else field.category
-                    except DataField.DoesNotExist:
-                        pass
-                    
-                    raise ValueError(
-                        f"Missing {field_type} for '{var_name.replace('_', ' ')}' in {council.name} "
-                        f"for {year.label}. Please populate this field and try again."
-                    )
-                
-                # Return the value or default to 0 for backward compatibility
-                if var_name in figure_map:
-                    return figure_map[var_name]
-                else:
-                    # Variable not found in any data source
-                    logger.warning(f"Variable {var_name} not found in any data source for {council.name} {year.label}")
-                    raise ValueError(f"Unknown field '{var_name.replace('_', ' ')}' - please check the formula")
-                    
-            else:
-                raise ValueError(f"Unsupported expression element: {type(node).__name__}")
-
-        # Parse and evaluate the formula
+        # Try to find a calculated field that matches this formula
         try:
-            tree = ast.parse(formula, mode="eval")
-            value = float(_eval(tree))
-        except SyntaxError as e:
-            return JsonResponse({"error": f"Formula syntax error: {str(e)}"}, status=400)
-        except (ValueError, TypeError) as e:
-            return JsonResponse({"error": str(e)}, status=400)
+            # Try direct slug match
+            calculated_field = DataField.objects.get(
+                slug=normalized_formula.replace('_', '-'),
+                category='calculated'
+            )
+        except DataField.DoesNotExist:
+            try:
+                # Try by looking for a field whose variable_name property matches
+                # Since variable_name is a property, we need to check all calculated fields
+                for field in DataField.objects.filter(category='calculated'):
+                    if field.variable_name == normalized_formula:
+                        calculated_field = field
+                        break
+            except Exception:
+                pass
+        
+        # If this is a calculated field, use its actual formula
+        if calculated_field and calculated_field.formula:
+            actual_formula = calculated_field.formula
+            logger.debug(f"Using calculated field formula: {actual_formula}")
+        else:
+            actual_formula = formula
+
+        # Parse and evaluate the formula using FormulaEvaluator (handles hyphens properly)
+        try:
+            from council_finance.calculators import FormulaEvaluator
+            
+            # Create evaluator and set variables
+            evaluator = FormulaEvaluator()
+            evaluator.set_variables(figure_map)
+            
+            # Evaluate the formula
+            result = evaluator.evaluate(actual_formula)
+            
+            if result is None:
+                raise ValueError("Formula evaluation returned None - check for missing variables or invalid operations")
+                
+            value = float(result)
+            
         except Exception as e:
-            logger.error(f"Unexpected error evaluating formula '{formula}' for {council.name} {year.label}: {e}")
-            return JsonResponse({"error": f"Formula evaluation failed: {str(e)}"}, status=400)
+            error_msg = str(e)
+            if "Unknown field reference" in error_msg:
+                # Extract field name from error for better error message
+                field_name = error_msg.split("Unknown field reference: ")[-1].strip()
+                return JsonResponse({
+                    "error": f"Field '{field_name.replace('_', ' ')}' not found for {council.name} in {year.label}. Please ensure this data is available."
+                }, status=400)
+            else:
+                logger.error(f"Unexpected error evaluating formula '{actual_formula}' for {council.name} {year.label}: {e}")
+                return JsonResponse({"error": f"Formula evaluation failed: {error_msg}"}, status=400)
         
         # Format the result
         precision = int(request.GET.get("precision", 0))

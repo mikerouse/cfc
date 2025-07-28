@@ -278,6 +278,7 @@ def get_data_context_for_council(council, year=None, counter_slug=None):
     from council_finance.models import (
         DataField, CouncilCharacteristic, FinancialFigure
     )
+    from council_finance.utils.data_context_validator import validate_data_context_decorator
     
     context = {
         'council_name': council.name,
@@ -290,7 +291,7 @@ def get_data_context_for_council(council, year=None, counter_slug=None):
     
     # 1. Add characteristics
     characteristics = CouncilCharacteristic.objects.filter(council=council)
-    context['characteristic'] = {}
+    context['characteristic'] = {}  # Note: singular form for consistency
     
     for char in characteristics:
         field_name = char.field.slug.replace('-', '_')
