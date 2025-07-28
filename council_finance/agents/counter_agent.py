@@ -61,6 +61,41 @@ class CounterAgent(AgentBase):
             except (TypeError, ValueError):
                 missing.add(slug)
         
+        # Also include calculated fields by getting the unified data context
+        try:
+            from council_finance.calculators import get_data_context_for_council
+            
+            # Get the comprehensive data context that includes calculated fields
+            data_context = get_data_context_for_council(council, year)
+            
+            # Add calculated fields to figure_map using underscore variable names
+            calculated_fields = data_context.get('calculated', {})
+            for field_name, value in calculated_fields.items():
+                if value is not None:
+                    try:
+                        figure_map[field_name] = float(value)
+                    except (TypeError, ValueError):
+                        missing.add(field_name)
+                else:
+                    missing.add(field_name)
+                    
+            # Also add characteristics that can be used in formulas
+            characteristics = data_context.get('characteristic', {})
+            for field_name, value in characteristics.items():
+                if value is not None:
+                    try:
+                        # Only add numeric characteristics
+                        figure_map[field_name] = float(value)
+                    except (TypeError, ValueError):
+                        # Non-numeric characteristics can't be used in formulas
+                        pass
+                        
+        except Exception as e:
+            # If data context fails, log but continue with just financial figures
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.warning(f"Failed to load calculated fields for {council.slug} {year.label}: {e}")
+        
         # Fallback to legacy model (FigureSubmission) if no data found in new model
         if not figure_map:
             legacy_figures = FigureSubmission.objects.filter(council=council, year=year)
