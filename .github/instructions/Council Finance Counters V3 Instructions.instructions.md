@@ -46,11 +46,17 @@ When factoids show "N/A":
 3. **Check for stale instances**: Look for cached FactoidInstance objects that might be outdated
 4. **Verify counter-specific vs generic instances**: Counter-specific instances override generic ones
 
+When factoids appear on wrong counters:
+1. **Check counter assignments**: Use `FactoidTemplate.objects.filter(counters=counter)` 
+2. **Verify no generic logic**: Ensure `FactoidEngine.get_factoids_for_counter()` only returns assigned factoids
+3. **Test counter isolation**: Each counter should only show its assigned factoids
+
 Common issues:
 - Field category not supported in FactoidEngine
 - Template uses slug format but context has variable format
 - Stale cached instances with outdated data
 - Missing field mappings for calculated fields
+- Generic factoid logic causing factoids to appear on all counters
 
 ### 4. API INTEGRATION RULES
 - **Check existing API endpoints** before creating new ones
@@ -95,6 +101,31 @@ Remember: **Simple fixes are usually better than complex re-engineering.**
 **CRITICAL**: Document data formats and API contracts to prevent integration mismatches. Add new formats to this section as the system evolves.
 
 ## Factoid System Data Formats
+
+### Counter Assignment Logic
+**CRITICAL**: Factoids only appear on counters they are specifically assigned to via the `FactoidTemplate.counters` ManyToMany relationship.
+
+```python
+# CORRECT: Only counter-specific factoids
+templates = FactoidTemplate.objects.filter(
+    is_active=True,
+    counters=counter  # Only templates assigned to this specific counter
+)
+
+# WRONG: Shows factoids on all counters
+templates = FactoidTemplate.objects.filter(
+    Q(target_content_type=None) |  # Generic templates (shows everywhere)
+    Q(counters=counter)  # Counter-specific (correct)
+)
+```
+
+### Counter-Factoid Assignments
+- **Interest Payments Counter**: Shows interest per capita and compares cost of interest payments to costs of running services 
+- **Total Debt Counter**: Shows current liabilities, long-term liabilities, finance leases as the core components that make up the headline debt for a council. Factoids should therefore be related to these component parts or comparing debt levels to other councils, or showing per capita breakdowns.
+- **Current Liabilities Counter**: Shows current liabilities specific data or short-term position information and insights
+- **Long-term Liabilities Counter**: Shows data relating to the long-term position of the council
+
+**Rule**: If a counter has no factoid assignments, it shows no factoids. No "generic" factoids exist. The space should remain blank and unfilled. 
 
 ### API Response Format (from backend)
 ```json
@@ -179,9 +210,11 @@ value = context_data.get(field_variable_name)  # Will find the value
 
 1. **Factoid "No data available"**: Check if frontend expects `text` but API returns `rendered_text`
 2. **Factoid shows "N/A"**: Check for stale `FactoidInstance` cache objects
-3. **API 404 errors**: Verify slug formats match between frontend/backend 
-4. **Year format mismatches**: Frontend uses `2024-25`, backend expects `2024/25`
-5. **Field not found**: Check if using slug format (`interest-payments`) vs variable format (`interest_payments`)
+3. **Factoids appear on wrong counters**: Factoids only show on assigned counters - check `FactoidTemplate.counters` assignments
+4. **API 404 errors**: Verify slug formats match between frontend/backend 
+5. **Year format mismatches**: Frontend uses `2024-25`, backend expects `2024/25`
+6. **Field not found**: Check if using slug format (`interest-payments`) vs variable format (`interest_payments`)
+7. **All factoids showing everywhere**: Ensure no "generic" factoid logic - only counter-specific assignments
 
 ## Adding New Data Formats
 

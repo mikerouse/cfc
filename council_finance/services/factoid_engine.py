@@ -401,14 +401,14 @@ class FactoidEngine:
     def get_factoids_for_counter(self, counter: CounterDefinition, council: Council, year: FinancialYear) -> List[FactoidInstance]:
         """
         Get all relevant factoids for a specific counter context
+        Only returns factoids specifically assigned to this counter.
         """
         try:
-            # Get applicable templates - include both generic and counter-specific templates
+            # Get templates specifically assigned to this counter only
+            # NO generic templates - factoids should only show on their assigned counters
             templates = FactoidTemplate.objects.filter(
                 is_active=True,
-            ).filter(
-                Q(target_content_type=None) |  # Generic templates
-                Q(counters=counter)  # Templates specifically assigned to this counter
+                counters=counter  # Only templates specifically assigned to this counter
             ).order_by('-priority')
             
             # Filter by council type if specified
