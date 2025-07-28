@@ -108,11 +108,17 @@ class FactoidPlaylist {
             if (!data.success) {
                 throw new Error(data.error || 'API returned unsuccessful response');
             }
-            
-            this.factoids = data.factoids || [];
-            this.retryCount = 0;
-            
-        } catch (error) {
+
+            // Transform API response to expected format
+            this.factoids = (data.factoids || []).map(factoid => ({
+                text: factoid.rendered_text,
+                emoji: factoid.emoji || '📊',
+                color: factoid.color || 'blue',
+                id: factoid.id,
+                template_name: factoid.template_name,
+                relevance_score: factoid.relevance_score
+            }));
+            this.retryCount = 0;        } catch (error) {
             console.error('Failed to load factoids:', error);
             
             if (this.retryCount < this.options.maxRetries) {
