@@ -96,7 +96,7 @@ class FactoidPlaylist {
         // Add force_refresh parameter if this is a refresh (not initial load)
         const forceRefresh = this.container.dataset.forceRefresh === 'true';
         const refreshParam = forceRefresh ? '?force_refresh=true' : '';
-        const url = `${this.options.apiBaseUrl}/factoids/${counterSlug}/${councilSlug}/${urlSafeYear}/${refreshParam}`;
+        const url = `${this.options.apiBaseUrl}/factoids/counter/${counterSlug}/${councilSlug}/${urlSafeYear}/${refreshParam}`;
         
         try {
             const response = await fetch(url);

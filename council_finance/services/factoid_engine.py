@@ -39,14 +39,21 @@ class FactoidEngine:
         """
         Get the actual value for a field name from the data models
         """
+        # Define virtual/computed fields that don't exist in DataField
+        virtual_fields = ['council_name', 'year_label', 'council_slug', 'council_type']
+        
         try:
-            # Try to get the field definition
+            # Handle virtual fields first to avoid database lookup
+            if field_name in virtual_fields:
+                return self._get_calculated_value(field_name, council, year, counter)
+            
+            # Try to get the field definition for database fields
             data_field = DataField.from_variable_name(field_name)
             
             # Handle different field categories
             if data_field.category == 'characteristic':
                 return self._get_characteristic_value(field_name, council, year)
-            elif data_field.category in ['financial', 'income', 'balance_sheet']:
+            elif data_field.category in ['financial', 'income', 'balance_sheet', 'spending']:
                 # All these categories are stored in FinancialFigure model
                 return self._get_financial_value(field_name, council, year)
             elif data_field.category == 'calculated':
@@ -56,8 +63,8 @@ class FactoidEngine:
                 return None
                 
         except DataField.DoesNotExist:
-            logger.error(f"Field {field_name} does not exist")
-            return None
+            # If field doesn't exist in database, try calculated values
+            return self._get_calculated_value(field_name, council, year, counter)
         except Exception as e:
             logger.error(f"Error getting field value for {field_name}: {e}")
             return None
@@ -106,10 +113,23 @@ class FactoidEngine:
                 return council.name
             elif field_name == 'year_label':
                 return str(year.label)
+            elif field_name == 'council_slug':
+                return council.slug
+            elif field_name == 'council_type':
+                return council.council_type.name if council.council_type else 'Unknown'
             elif field_name.endswith('_per_capita'):
-                # Calculate per capita values
+                # Calculate per capita values - need to map field names correctly
                 base_field = field_name.replace('_per_capita', '')
-                base_value = self.get_field_value(base_field, council, year, counter)
+                
+                # Handle special mappings
+                field_mappings = {
+                    'interest_payments': 'interest_paid',
+                    'government_grants': 'government_grants_non_strings',
+                    # Add more mappings as needed
+                }
+                
+                mapped_field = field_mappings.get(base_field, base_field)
+                base_value = self.get_field_value(mapped_field, council, year, counter)
                 population = self._get_population(council, year)
                 
                 if base_value and population:
@@ -134,17 +154,12 @@ class FactoidEngine:
             slug = DataField.from_variable_name('population').slug
             pop_characteristic = CouncilCharacteristic.objects.filter(
                 council=council,
-                field__slug=slug,
-                year=year
+                field__slug=slug
             ).first()
             
-            if pop_characteristic:
+            if pop_characteristic and pop_characteristic.value:
                 return int(pop_characteristic.value)
             
-            # Fallback to council population field if it exists
-            if hasattr(council, 'population') and council.population:
-                return council.population
-                
             return None
         except (ValueError, TypeError):
             return None
@@ -254,8 +269,11 @@ class FactoidEngine:
                 field_name = field_spec
                 format_type = 'default'
             
+            # Convert slug format to variable name format for context lookup
+            field_variable_name = field_name.replace('-', '_')
+            
             # Get value from context
-            value = context_data.get(field_name)
+            value = context_data.get(field_variable_name)
             
             # Format and return
             return self.format_value(value, format_type)

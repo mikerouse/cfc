@@ -49,7 +49,7 @@ from .views.general import (
 )
 
 # Import factoid instance API function
-from .api.factoid_views import factoid_instance_api
+from .api.factoid_views import factoid_instance_api, get_factoids_for_counter_frontend
 
 urlpatterns = [
     # Favicon redirect to avoid 404 errors
@@ -192,6 +192,10 @@ urlpatterns = [
     
     # Enhanced Factoid API (new real-time system)
     path("api/factoid/", include("council_finance.api.factoid_urls")),
+    # Factoids for counter API (frontend expects this pattern) - MUST come before template pattern
+    path("api/factoids/counter/<slug:counter_slug>/<slug:council_slug>/<str:year_slug>/", 
+         get_factoids_for_counter_frontend, 
+         name="factoids_for_counter_frontend"),
     # Factoid instance API (different namespace for individual factoid instances)
     path("api/factoids/<slug:template_slug>/<slug:council_slug>/<str:year_slug>/", 
          factoid_instance_api, 

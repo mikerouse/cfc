@@ -1322,3 +1322,80 @@ def get_factoids_for_counter(request, council_slug, counter_slug, year_slug=None
         return JsonResponse({
             'error': 'Failed to retrieve factoids'
         }, status=500)
+
+
+def get_factoids_for_counter_frontend(request, counter_slug, council_slug, year_slug):
+    """
+    API endpoint that matches frontend expectations for factoids
+    URL pattern: /api/factoids/{counter-slug}/{council-slug}/{year}/
+    
+    This endpoint is designed to match the frontend JavaScript expectations
+    and converts dash-separated years back to slash format.
+    """
+    if request.method != 'GET':
+        return JsonResponse({'error': 'Method not allowed'}, status=405)
+    
+    try:
+        # Convert dash-separated year back to slash format
+        year_label = year_slug.replace('-', '/')
+        
+        # Get the counter
+        try:
+            counter = CounterDefinition.objects.get(slug=counter_slug)
+        except CounterDefinition.DoesNotExist:
+            return JsonResponse({
+                'success': False,
+                'error': f'Counter "{counter_slug}" not found'
+            }, status=404)
+        
+        # Get the council
+        try:
+            council = Council.objects.get(slug=council_slug)
+        except Council.DoesNotExist:
+            return JsonResponse({
+                'success': False,
+                'error': f'Council "{council_slug}" not found'
+            }, status=404)
+        
+        # Get the financial year
+        try:
+            year = FinancialYear.objects.get(label=year_label)
+        except FinancialYear.DoesNotExist:
+            return JsonResponse({
+                'success': False,
+                'error': f'Financial year "{year_label}" not found'
+            }, status=404)
+        
+        # Get factoids using the engine
+        engine = FactoidEngine()
+        factoids = engine.get_factoids_for_counter(counter, council, year)
+        
+        # Format response to match frontend expectations
+        factoid_data = []
+        for factoid in factoids:
+            factoid_data.append({
+                'id': factoid.id,
+                'template_name': factoid.template.name,
+                'template_slug': factoid.template.slug,
+                'rendered_text': factoid.rendered_text,
+                'relevance_score': float(factoid.relevance_score) if factoid.relevance_score else 0.5,
+                'is_significant': factoid.is_significant,
+                'computed_at': factoid.computed_at.isoformat() if factoid.computed_at else None,
+                'expires_at': factoid.expires_at.isoformat() if factoid.expires_at else None,
+            })
+        
+        return JsonResponse({
+            'success': True,
+            'count': len(factoid_data),
+            'council': council.name,
+            'counter': counter.name,
+            'year': year_label,
+            'factoids': factoid_data
+        })
+        
+    except Exception as e:
+        logger.error(f"Error getting factoids for counter frontend: {e}", exc_info=True)
+        return JsonResponse({
+            'success': False,
+            'error': 'Failed to retrieve factoids'
+        }, status=500)
