@@ -65,6 +65,7 @@ When things don't work:
 2. **Check for multiple instances**: Look for competing cached data
 3. **Verify integration points**: Template → Engine → API → Frontend  
 4. **Clear caches when needed**: Delete stale instances to force recomputation
+5. **Check data format mismatches**: Refer to "SYSTEM DATA FORMATS & INTEGRATION POINTS" section for known format differences
 
 ### 6. SYSTEM INTEGRITY
 - Use the integrity checker script to validate the entire pipeline
@@ -88,6 +89,117 @@ python test_frontend_api.py
 ```
 
 Remember: **Simple fixes are usually better than complex re-engineering.**
+
+# SYSTEM DATA FORMATS & INTEGRATION POINTS
+
+**CRITICAL**: Document data formats and API contracts to prevent integration mismatches. Add new formats to this section as the system evolves.
+
+## Factoid System Data Formats
+
+### API Response Format (from backend)
+```json
+{
+  "success": true,
+  "count": 8,
+  "factoids": [
+    {
+      "id": 87,
+      "template_name": "Interest payments per capita",
+      "template_slug": "interest-payments-per-capita", 
+      "rendered_text": "Equivalent to 150.19 per head.",  // ← Backend uses "rendered_text"
+      "relevance_score": 0.65,
+      "is_significant": true,
+      "computed_at": "2025-07-28T20:58:11.501402+00:00",
+      "expires_at": "2025-07-29T20:58:11.238419+00:00"
+    }
+  ]
+}
+```
+
+### JavaScript Expected Format (factoid-playlist.js)
+```javascript
+{
+  text: "Equivalent to 150.19 per head.",     // ← Frontend expects "text"
+  emoji: "📊",                               // ← Default if not provided
+  color: "blue",                             // ← Default if not provided  
+  id: 87,
+  template_name: "Interest payments per capita",
+  relevance_score: 0.65
+}
+```
+
+### Data Transformation Required
+The `factoid-playlist.js` must transform API response:
+```javascript
+this.factoids = (data.factoids || []).map(factoid => ({
+    text: factoid.rendered_text,  // ← KEY: Convert rendered_text → text
+    emoji: factoid.emoji || '📊',
+    color: factoid.color || 'blue',
+    // ... other fields
+}));
+```
+
+## HTML Data Attributes (Frontend → Backend)
+
+### Counter Factoid Elements
+```html
+<div class="counter-factoid" 
+     data-counter="interest-payments"     // ← Slug format with dashes
+     data-council="worcestershire"        // ← Council slug  
+     data-year="2024/25">                 // ← Year with forward slash
+```
+
+### JavaScript URL Construction  
+```javascript
+// Frontend converts year format for URLs
+const urlSafeYear = year.replace(/\//g, '-');  // 2024/25 → 2024-25
+const url = `/api/factoids/counter/${counterSlug}/${councilSlug}/${urlSafeYear}/`;
+```
+
+## Field Naming Conventions
+
+### URL/Template Format (Slugs)
+- `interest-payments-per-capita` 
+- `total-debt`
+- `current-liabilities`
+
+### Code/Context Format (Variables)
+- `interest_payments_per_capita`
+- `total_debt` 
+- `current_liabilities`
+
+### Conversion Required
+```python
+# Template rendering - ALWAYS convert slug to variable format
+field_variable_name = field_name.replace('-', '_')
+value = context_data.get(field_variable_name)  # Will find the value
+```
+
+## Common Integration Gotchas
+
+1. **Factoid "No data available"**: Check if frontend expects `text` but API returns `rendered_text`
+2. **Factoid shows "N/A"**: Check for stale `FactoidInstance` cache objects
+3. **API 404 errors**: Verify slug formats match between frontend/backend 
+4. **Year format mismatches**: Frontend uses `2024-25`, backend expects `2024/25`
+5. **Field not found**: Check if using slug format (`interest-payments`) vs variable format (`interest_payments`)
+
+## Adding New Data Formats
+
+**INSTRUCTION**: When creating new API endpoints or data structures, document the format here immediately. Include:
+
+1. **API Response Schema**: Exact JSON structure with field names
+2. **Frontend Expected Format**: What JavaScript/HTML expects
+3. **Transformation Code**: How to convert between formats
+4. **Common Pitfalls**: Known issues to watch for
+
+Example template:
+```markdown
+### [New System Name] Data Format
+API Response: { "field_name": "value" }
+Frontend Expects: { "different_field": "value" }  
+Transformation: frontend.field = api.field_name
+Common Issues: [List potential problems]
+```
 
 # Backend
 
