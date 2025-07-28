@@ -425,84 +425,199 @@ def counter_factoid_assignment(request, slug):
 @login_required
 @require_GET
 def preview_counter_value(request):
-    from council_finance.agents.counter_agent import CounterAgent
+    """Enhanced counter preview with unified data context and calculated field support."""
+    import logging
+    from council_finance.calculators import get_data_context_for_council
+    from council_finance.models import CounterDefinition
+    
+    logger = logging.getLogger(__name__)
+    
     council_slug = request.GET.get("council")
     formula = request.GET.get("formula")
     year_label = request.GET.get("year")
+    
+    # Get the year or fall back to most recent
     year = None
     if year_label:
         year = FinancialYear.objects.filter(label=year_label).first()
     if not year:
         year = FinancialYear.objects.order_by("-label").first()
+    
     if not (council_slug and formula and year):
-        return JsonResponse({"error": "Missing data"}, status=400)
-    agent = CounterAgent()
-    from council_finance.models import CounterDefinition
+        return JsonResponse({"error": "Missing required parameters (council, formula, year)"}, status=400)
 
     try:
         council = Council.objects.get(slug=council_slug)
+        
+        # Get unified data context including both financial figures and characteristics
+        data_context = get_data_context_for_council(council, year=year)
+        
+        # Create a comprehensive figure map from all data sources
         figure_map = {}
-        missing = set()        # Get financial figures for this council and year
-        for f in FinancialFigure.objects.filter(council=council, year=year):
-            slug = f.field.slug
-            if f.value is None:
-                missing.add(slug)
-                continue
-            try:
-                figure_map[slug] = float(f.value)
-            except (TypeError, ValueError):
-                missing.add(slug)
+        missing = set()
+        
+        # 1. Add financial figures from the data context
+        financial_data = data_context.get('financial', {})
+        for field_slug, value in financial_data.items():
+            if value is not None:
+                try:
+                    figure_map[field_slug] = float(value)
+                except (TypeError, ValueError) as e:
+                    logger.warning(f"Could not convert financial field {field_slug} value {value} to float: {e}")
+                    missing.add(field_slug)
+            else:
+                missing.add(field_slug)
+        
+        # 2. Add council characteristics
+        characteristics = data_context.get('characteristics', {})
+        for field_slug, value in characteristics.items():
+            if value is not None:
+                try:
+                    # Only try to convert numeric characteristics to float
+                    if isinstance(value, (int, float)) or (isinstance(value, str) and value.replace('.', '').replace('-', '').isdigit()):
+                        figure_map[field_slug] = float(value)
+                    else:
+                        # For non-numeric characteristics, store as string but flag as non-numeric
+                        figure_map[field_slug] = value
+                except (TypeError, ValueError):
+                    # Non-numeric characteristics can't be used in formulas
+                    logger.debug(f"Characteristic {field_slug} is non-numeric, excluding from formula evaluation")
+                    missing.add(field_slug)
+            else:
+                missing.add(field_slug)
+        
+        # 3. Add calculated fields
+        calculated = data_context.get('calculated', {})
+        for field_slug, value in calculated.items():
+            if value is not None:
+                try:
+                    figure_map[field_slug] = float(value)
+                except (TypeError, ValueError) as e:
+                    logger.warning(f"Could not convert calculated field {field_slug} value {value} to float: {e}")
+                    missing.add(field_slug)
+            else:
+                missing.add(field_slug)
+        
+        # Enhanced AST evaluator with better error handling
         import ast, operator
-
+        
         allowed_ops = {
             ast.Add: operator.add,
             ast.Sub: operator.sub,
             ast.Mult: operator.mul,
             ast.Div: operator.truediv,
+            ast.Pow: operator.pow,
+            ast.Mod: operator.mod,
         }
 
         def _eval(node):
+            """Enhanced evaluator with better error handling and operator support."""
             if isinstance(node, ast.Expression):
                 return _eval(node.body)
-            if isinstance(node, ast.Num):
+            elif isinstance(node, ast.Num):  # Python < 3.8
                 return node.n
-            if isinstance(node, ast.BinOp):
-                return allowed_ops[type(node.op)](_eval(node.left), _eval(node.right))
-            if isinstance(node, ast.UnaryOp) and isinstance(node.op, ast.USub):
-                return -_eval(node.operand)
-            if isinstance(node, ast.Name):
-                if node.id in missing:
+            elif isinstance(node, ast.Constant):  # Python >= 3.8
+                return node.value
+            elif isinstance(node, ast.BinOp):
+                left_val = _eval(node.left)
+                right_val = _eval(node.right)
+                
+                # Handle division by zero
+                if isinstance(node.op, ast.Div) and right_val == 0:
+                    raise ValueError(f"Division by zero in formula")
+                
+                try:
+                    return allowed_ops[type(node.op)](left_val, right_val)
+                except KeyError:
+                    raise ValueError(f"Unsupported operator: {type(node.op).__name__}")
+                except (OverflowError, ZeroDivisionError) as e:
+                    raise ValueError(f"Mathematical error: {str(e)}")
+                    
+            elif isinstance(node, ast.UnaryOp):
+                if isinstance(node.op, ast.USub):
+                    return -_eval(node.operand)
+                elif isinstance(node.op, ast.UAdd):
+                    return _eval(node.operand)
+                else:
+                    raise ValueError(f"Unsupported unary operator: {type(node.op).__name__}")
+                    
+            elif isinstance(node, ast.Name):
+                var_name = node.id
+                
+                # Check for missing data with helpful error message
+                if var_name in missing:
+                    # Try to determine if this is a characteristic or financial field
+                    field_type = "data"
+                    try:
+                        from council_finance.models import DataField
+                        field = DataField.objects.get(slug=var_name.replace('_', '-'))
+                        field_type = field.get_category_display() if hasattr(field, 'get_category_display') else field.category
+                    except DataField.DoesNotExist:
+                        pass
+                    
                     raise ValueError(
-                        (
-                            "Counter failed - no %s figure is held for %s in %s. "
-                            "Please populate the figure from the council's official sources and try again."
-                        )
-                        % (node.id.replace("_", " "), council.name, year.label)
+                        f"Missing {field_type} for '{var_name.replace('_', ' ')}' in {council.name} "
+                        f"for {year.label}. Please populate this field and try again."
                     )
-                return figure_map.get(node.id, 0)
-            raise ValueError("Unsupported expression element")
+                
+                # Return the value or default to 0 for backward compatibility
+                if var_name in figure_map:
+                    return figure_map[var_name]
+                else:
+                    # Variable not found in any data source
+                    logger.warning(f"Variable {var_name} not found in any data source for {council.name} {year.label}")
+                    raise ValueError(f"Unknown field '{var_name.replace('_', ' ')}' - please check the formula")
+                    
+            else:
+                raise ValueError(f"Unsupported expression element: {type(node).__name__}")
 
-        tree = ast.parse(formula, mode="eval")
-        value = float(_eval(tree))
+        # Parse and evaluate the formula
+        try:
+            tree = ast.parse(formula, mode="eval")
+            value = float(_eval(tree))
+        except SyntaxError as e:
+            return JsonResponse({"error": f"Formula syntax error: {str(e)}"}, status=400)
+        except (ValueError, TypeError) as e:
+            return JsonResponse({"error": str(e)}, status=400)
+        except Exception as e:
+            logger.error(f"Unexpected error evaluating formula '{formula}' for {council.name} {year.label}: {e}")
+            return JsonResponse({"error": f"Formula evaluation failed: {str(e)}"}, status=400)
+        
+        # Format the result
         precision = int(request.GET.get("precision", 0))
         show_currency = request.GET.get("show_currency", "true") == "true"
         friendly_format = request.GET.get("friendly_format", "false") == "true"
 
-        class Dummy:
-            pass
+        # Create dummy object for formatting
+        class FormattingConfig:
+            def __init__(self, precision, show_currency, friendly_format):
+                self.precision = precision
+                self.show_currency = show_currency
+                self.friendly_format = friendly_format
 
-        dummy = Dummy()
-        dummy.precision = precision
-        dummy.show_currency = show_currency
-        dummy.friendly_format = friendly_format
-        from council_finance.models.counter import CounterDefinition as CD
-
-        formatted = CD.format_value(dummy, value)
-        return JsonResponse({"value": value, "formatted": formatted})
-    except ValueError as e:
-        return JsonResponse({"error": str(e)}, status=400)
-    except Exception:
-        return JsonResponse({"error": "calculation failed"}, status=400)
+        config = FormattingConfig(precision, show_currency, friendly_format)
+        formatted = CounterDefinition.format_value(config, value)
+        
+        # Return both raw value and formatted result
+        return JsonResponse({
+            "value": value, 
+            "formatted": formatted,
+            "debug_info": {
+                "available_fields": list(figure_map.keys()),
+                "missing_fields": list(missing),
+                "data_sources": {
+                    "financial": len(financial_data),
+                    "characteristics": len(characteristics), 
+                    "calculated": len(calculated)
+                }
+            } if request.GET.get("debug") == "true" else None
+        })
+        
+    except Council.DoesNotExist:
+        return JsonResponse({"error": f"Council '{council_slug}' not found"}, status=404)
+    except Exception as e:
+        logger.error(f"Unexpected error in preview_counter_value: {e}")
+        return JsonResponse({"error": "An unexpected error occurred during calculation"}, status=500)
 
 
 @login_required

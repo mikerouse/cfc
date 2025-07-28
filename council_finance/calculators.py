@@ -131,6 +131,137 @@ class FormulaEvaluator:
         # e.g., preventing overly complex expressions, recursion limits, etc.
 
 
+def _resolve_calculated_field_dependencies(calculated_fields, evaluator, variables):
+    """
+    Resolve calculated field dependencies using topological sorting.
+    
+    This ensures that fields are calculated in the correct order,
+    with dependencies calculated before fields that depend on them.
+    
+    Args:
+        calculated_fields: QuerySet of calculated DataField objects
+        evaluator: FormulaEvaluator instance
+        variables: Dict of existing variables
+    
+    Returns:
+        Dict mapping field objects to their calculated results
+    """
+    from collections import defaultdict, deque
+    import re
+    
+    # Create dependency graph
+    dependencies = defaultdict(set)
+    dependents = defaultdict(set)
+    field_by_name = {}
+    
+    # Index fields by their variable names (both slug and underscore versions)
+    for field in calculated_fields:
+        field_by_name[field.slug] = field
+        field_by_name[field.slug.replace('-', '_')] = field
+        field_by_name[field.variable_name] = field
+    
+    # Build dependency graph
+    for field in calculated_fields:
+        if not field.formula:
+            continue
+            
+        # Extract field references from formula
+        field_refs = _extract_field_references(field.formula)
+        
+        for ref in field_refs:
+            # Check if this reference is to another calculated field
+            ref_field = field_by_name.get(ref) or field_by_name.get(ref.replace('_', '-')) or field_by_name.get(ref.replace('-', '_'))
+            
+            if ref_field and ref_field in calculated_fields:
+                # This field depends on ref_field
+                dependencies[field].add(ref_field)
+                dependents[ref_field].add(field)
+    
+    # Topological sort using Kahn's algorithm
+    resolved_fields = {}
+    queue = deque()
+    in_degree = defaultdict(int)
+    
+    # Calculate in-degrees
+    for field in calculated_fields:
+        in_degree[field] = len(dependencies[field])
+        if in_degree[field] == 0:
+            queue.append(field)
+    
+    # Process fields in dependency order
+    while queue:
+        current_field = queue.popleft()
+        
+        # Calculate this field
+        if current_field.formula:
+            try:
+                result = evaluator.evaluate(current_field.formula)
+                resolved_fields[current_field] = result
+                
+                if result is not None:
+                    # Add result to variables for subsequent calculations
+                    field_name = current_field.slug.replace('-', '_')
+                    variables[field_name] = result
+                    evaluator.set_variables(variables)
+                    
+                    logger.debug(f"Calculated {current_field.slug} = {result}")
+                    
+            except Exception as e:
+                logger.warning(f"Failed to calculate {current_field.slug}: {e}")
+                resolved_fields[current_field] = None
+        
+        # Update in-degrees for dependent fields
+        for dependent in dependents[current_field]:
+            in_degree[dependent] -= 1
+            if in_degree[dependent] == 0:
+                queue.append(dependent)
+    
+    # Check for circular dependencies
+    unresolved = [field for field in calculated_fields if field not in resolved_fields]
+    if unresolved:
+        logger.warning(f"Circular dependencies detected in calculated fields: {[f.slug for f in unresolved]}")
+        
+        # Try to calculate unresolved fields anyway (they might not actually be circular)
+        for field in unresolved:
+            if field.formula:
+                try:
+                    result = evaluator.evaluate(field.formula)
+                    resolved_fields[field] = result
+                    
+                    if result is not None:
+                        field_name = field.slug.replace('-', '_')
+                        variables[field_name] = result
+                        evaluator.set_variables(variables)
+                        
+                except Exception as e:
+                    logger.warning(f"Failed to calculate potentially circular field {field.slug}: {e}")
+                    resolved_fields[field] = None
+    
+    return resolved_fields
+
+
+def _extract_field_references(formula):
+    """
+    Extract field references from a formula string.
+    
+    Returns list of field names referenced in the formula.
+    """
+    # Pattern to match field names (letters, numbers, hyphens, underscores)
+    pattern = r'\b([a-zA-Z][a-zA-Z0-9_-]*)\b'
+    
+    # Find all potential field references
+    matches = re.findall(pattern, formula)
+    
+    # Filter out numeric values and operators
+    field_refs = []
+    for match in matches:
+        # Skip if it's a number or common operator keyword
+        if not match.replace('.', '').replace('-', '').isdigit() and match not in ['and', 'or', 'not', 'in', 'is']:
+            field_refs.append(match)
+    
+    return field_refs
+
+
 def get_data_context_for_council(council, year=None, counter_slug=None):
     """
     Build comprehensive data context for a council including characteristics,
@@ -233,28 +364,20 @@ def get_data_context_for_council(council, year=None, counter_slug=None):
     except Exception as e:
         logger.warning(f"Failed to get counter values: {e}")
     
-    # 4. Calculate and add all calculated fields
+    # 4. Calculate and add all calculated fields with dependency resolution
     calculated_fields = DataField.objects.filter(category='calculated')
     context['calculated'] = {}
     
     evaluator = FormulaEvaluator()
     evaluator.set_variables(variables)
     
-    for field in calculated_fields:
-        if field.formula:
-            try:
-                result = evaluator.evaluate(field.formula)
-                
-                if result is not None:
-                    field_name = field.slug.replace('-', '_')
-                    context['calculated'][field_name] = result
-                    
-                    # Add calculated value back to variables for other calculations
-                    variables[field_name] = result
-                    evaluator.set_variables(variables)
-                    
-            except Exception as e:
-                logger.warning(f"Failed to calculate {field.slug} for {council.name}: {e}")
+    # Resolve calculated fields in dependency order
+    resolved_fields = _resolve_calculated_field_dependencies(calculated_fields, evaluator, variables)
+    
+    for field, result in resolved_fields.items():
+        if result is not None:
+            field_name = field.slug.replace('-', '_')
+            context['calculated'][field_name] = result
     
     return context
 
