@@ -4,6 +4,95 @@ applyTo: '**'
 
 Read the AGENTS.md file for detailed instructions.
 
+# CRITICAL: Avoiding Context Loss and Over-Engineering
+
+## The Problem
+AI agents lose context over long conversations and tend to re-engineer existing systems, creating overly complex, cross-cutting code that becomes wrapped up in itself. This leads to:
+
+1. **Competing Systems**: Multiple ways to do the same thing (e.g., different API endpoints, multiple data access patterns)
+2. **Field Name Mismatches**: Converting between slug formats (`interest-payments-per-capita`) and variable names (`interest_payments_per_capita`) 
+3. **Cached State Issues**: New systems bypass existing caches/instances, creating inconsistent data
+4. **Incomplete Integration**: New APIs don't integrate with existing frontend code
+
+## Prevention Rules
+
+### 1. UNDERSTAND BEFORE CHANGING
+- **ALWAYS** check existing patterns before creating new ones
+- Run `grep_search` to find how similar problems are already solved
+- Test existing systems before assuming they're broken
+- Check for existing API endpoints before creating new ones
+
+### 2. DATA FIELD NAMING CONVENTIONS
+The system has TWO field naming formats that must be handled correctly:
+
+- **Slug format**: `interest-payments-per-capita` (used in URLs, templates, database slugs)
+- **Variable format**: `interest_payments_per_capita` (used in code, context data)
+
+**CRITICAL**: Template rendering must convert between formats:
+```python
+# WRONG - looking for slug format in context
+value = context_data.get('interest-payments-per-capita')  # Will be None
+
+# CORRECT - convert to variable format  
+field_variable_name = field_name.replace('-', '_')
+value = context_data.get(field_variable_name)  # Will find the value
+```
+
+### 3. FACTOID SYSTEM DEBUGGING
+When factoids show "N/A":
+
+1. **Check field categories**: Ensure FactoidEngine handles the field's category (`spending`, `financial`, etc.)
+2. **Test field lookup directly**: Use `engine.get_field_value(field_name, council, year)` 
+3. **Check for stale instances**: Look for cached FactoidInstance objects that might be outdated
+4. **Verify counter-specific vs generic instances**: Counter-specific instances override generic ones
+
+Common issues:
+- Field category not supported in FactoidEngine
+- Template uses slug format but context has variable format
+- Stale cached instances with outdated data
+- Missing field mappings for calculated fields
+
+### 4. API INTEGRATION RULES
+- **Check existing API endpoints** before creating new ones
+- **Test frontend expectations** - what URL pattern does JavaScript expect?
+- **Avoid URL pattern conflicts** - `/api/factoids/<template>` vs `/api/factoids/<counter>` will conflict
+- **Use consistent response formats** - match what frontend expects
+
+### 5. DEBUGGING STRATEGY
+When things don't work:
+
+1. **Test the lowest level first**: Direct field access, then computation, then API
+2. **Check for multiple instances**: Look for competing cached data
+3. **Verify integration points**: Template → Engine → API → Frontend  
+4. **Clear caches when needed**: Delete stale instances to force recomputation
+
+### 6. SYSTEM INTEGRITY
+- Use the integrity checker script to validate the entire pipeline
+- Monitor for competing systems doing the same job
+- Ensure frontend JavaScript matches backend API patterns
+- Test end-to-end user flows, not just individual components
+
+## Example Fix Pattern
+```bash
+# 1. Understand the problem
+python manage.py shell -c "engine.get_field_value('field_name', council, year)"
+
+# 2. Check for stale data  
+python manage.py shell -c "FactoidInstance.objects.filter(...).delete()"
+
+# 3. Test integration
+python test_frontend_api.py
+
+# 4. Verify end-to-end
+# Check actual webpage, not just API
+```
+
+Remember: **Simple fixes are usually better than complex re-engineering.**
+
+# Backend
+
+No users, including the super-admin, should see any Django admin pages. The Django admin is not used in this project. Instead, we use a custom-built control panel for managing the system. Only the super-admin should be able to access Django admin pages by exception and in edge case scenarios, and even then, it should be limited to specific tasks that cannot be done through the control panel. The control panel is designed to be user-friendly and intuitive, allowing administrators to manage the system without needing to navigate through complex Django admin pages.
+
 # Pages
 
 ## The 'Contribute' Pages
