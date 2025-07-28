@@ -279,6 +279,9 @@ class FactoidEngine:
             # Calculate relevance score (simple implementation)
             relevance_score = self._calculate_relevance_score(template, context_data)
             
+            # Convert context_data to JSON-serializable format
+            json_safe_context = self._make_json_safe(context_data)
+            
             # Create or update instance
             instance, created = FactoidInstance.objects.update_or_create(
                 template=template,
@@ -287,7 +290,7 @@ class FactoidEngine:
                 counter=counter,
                 defaults={
                     'rendered_text': rendered_text,
-                    'computed_data': context_data,
+                    'computed_data': json_safe_context,
                     'relevance_score': relevance_score,
                     'is_significant': relevance_score > 0.5,
                     'expires_at': timezone.now() + timezone.timedelta(hours=24),
@@ -299,6 +302,19 @@ class FactoidEngine:
         except Exception as e:
             logger.error(f"Error computing factoid instance: {e}")
             raise
+    
+    def _make_json_safe(self, data: Any) -> Any:
+        """
+        Convert data to JSON-serializable format by converting Decimals to floats
+        """
+        if isinstance(data, dict):
+            return {key: self._make_json_safe(value) for key, value in data.items()}
+        elif isinstance(data, list):
+            return [self._make_json_safe(item) for item in data]
+        elif isinstance(data, Decimal):
+            return float(data)
+        else:
+            return data
     
     def _calculate_relevance_score(self, template: FactoidTemplate, context_data: Dict[str, Any]) -> float:
         """

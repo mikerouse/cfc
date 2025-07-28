@@ -48,6 +48,9 @@ from .views.general import (
     get_feed_updates_api,
 )
 
+# Import factoid instance API function
+from .api.factoid_views import factoid_instance_api
+
 urlpatterns = [
     # Favicon redirect to avoid 404 errors
     path('favicon.ico', RedirectView.as_view(url=settings.STATIC_URL + 'favicon.ico', permanent=True)),
@@ -189,6 +192,10 @@ urlpatterns = [
     
     # Enhanced Factoid API (new real-time system)
     path("api/factoid/", include("council_finance.api.factoid_urls")),
+    # Factoid instance API (different namespace for individual factoid instances)
+    path("api/factoids/<slug:template_slug>/<slug:council_slug>/<str:year_slug>/", 
+         factoid_instance_api, 
+         name="factoid_instance_api"),
     
     # React Factoid Builder Interface
     path("factoid-builder/", general_views.factoid_builder_react, name="factoid_builder_react"),

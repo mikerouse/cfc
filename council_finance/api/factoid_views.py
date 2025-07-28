@@ -13,6 +13,7 @@ from django.views.decorators.csrf import csrf_exempt
 from django.utils.decorators import method_decorator
 from django.db.models import Q
 from django.utils import timezone
+from django.shortcuts import get_object_or_404
 import json
 import logging
 
@@ -1033,4 +1034,186 @@ def quick_template_preview(request):
                 'rendered_text': 'Preview error',
                 'validation_errors': [str(e)],
             }
+        }, status=500)
+
+
+@csrf_exempt
+def factoid_instance_api(request, template_slug, council_slug, year_slug):
+    """
+    API endpoint for getting or computing a specific factoid instance
+    URL pattern: /api/factoids/{template-slug}/{council-slug}/{year}/
+    """
+    start_time = timezone.now()
+    
+    if request.method != 'GET':
+        return JsonResponse({'error': 'Method not allowed'}, status=405)
+    
+    try:
+        # Get the factoid template
+        try:
+            template = FactoidTemplate.objects.get(slug=template_slug, is_active=True)
+        except FactoidTemplate.DoesNotExist:
+            _log_api_activity(
+                request,
+                'factoid_instance_api',
+                'template_not_found',
+                extra_data={
+                    'template_slug': template_slug,
+                    'council_slug': council_slug,
+                    'year_slug': year_slug,
+                }
+            )
+            return JsonResponse({
+                'error': f'Factoid template "{template_slug}" not found'
+            }, status=404)
+        
+        # Get the council
+        try:
+            council = Council.objects.get(slug=council_slug)
+        except Council.DoesNotExist:
+            _log_api_activity(
+                request,
+                'factoid_instance_api',
+                'council_not_found',
+                extra_data={
+                    'template_slug': template_slug,
+                    'council_slug': council_slug,
+                    'year_slug': year_slug,
+                }
+            )
+            return JsonResponse({
+                'error': f'Council "{council_slug}" not found'
+            }, status=404)
+        
+        # Get year with flexible format matching (same logic as preview API)
+        year = None
+        year_formats_to_try = [
+            year_slug.replace('-', '/'),  # Convert 2023-24 to 2023/24 (try this first - where data usually is)
+            year_slug.replace('/', '-'),  # Convert 2023/24 to 2023-24 
+            year_slug,  # Use exact format last
+        ]
+        
+        for year_format in year_formats_to_try:
+            try:
+                year = FinancialYear.objects.get(label=year_format)
+                break
+            except FinancialYear.DoesNotExist:
+                continue
+        
+        if not year:
+            _log_api_activity(
+                request,
+                'factoid_instance_api',
+                'year_not_found',
+                extra_data={
+                    'template_slug': template_slug,
+                    'council_slug': council_slug,
+                    'year_slug': year_slug,
+                    'year_formats_tried': year_formats_to_try,
+                }
+            )
+            return JsonResponse({
+                'error': f'Financial year "{year_slug}" not found'
+            }, status=404)
+        
+        # Try to get existing factoid instance first
+        try:
+            instance = FactoidInstance.objects.get(
+                template=template,
+                council=council,
+                financial_year=year
+            )
+            
+            # Check if it's expired and needs recomputing
+            if instance.is_expired():
+                logger.info(f"Factoid instance {instance.id} is expired, recomputing...")
+                instance = instance.refresh_if_needed()
+            
+        except FactoidInstance.DoesNotExist:
+            # Create new instance using the factoid engine
+            logger.info(f"Creating new factoid instance for {template.name} - {council.name} - {year.label}")
+            
+            try:
+                engine = FactoidEngine()
+                instance = engine.compute_factoid_instance(template, council, year)
+            except Exception as compute_error:
+                _log_api_activity(
+                    request,
+                    'factoid_instance_api',
+                    'computation_failed',
+                    error=compute_error,
+                    extra_data={
+                        'template_slug': template_slug,
+                        'council_slug': council_slug,
+                        'year_slug': year_slug,
+                    }
+                )
+                
+                logger.error(f"Failed to compute factoid instance: {compute_error}")
+                return JsonResponse({
+                    'error': 'Failed to compute factoid - check if required data is available'
+                }, status=500)
+        
+        execution_time = (timezone.now() - start_time).total_seconds()
+        
+        # Log successful factoid instance retrieval
+        _log_api_activity(
+            request,
+            'factoid_instance_api',
+            'instance_retrieved',
+            extra_data={
+                'template_slug': template_slug,
+                'template_name': template.name,
+                'council_slug': council_slug,
+                'council_name': council.name,
+                'year_slug': year_slug,
+                'year_label': year.label,
+                'instance_id': instance.id,
+                'rendered_text_length': len(instance.rendered_text),
+                'relevance_score': instance.relevance_score,
+                'is_cached': not instance.is_expired(),
+                'execution_time_seconds': execution_time,
+            }
+        )
+        
+        # Return the factoid instance data
+        return JsonResponse({
+            'success': True,
+            'factoid': {
+                'id': instance.id,
+                'template_slug': template.slug,
+                'template_name': template.name,
+                'template_emoji': template.emoji,
+                'template_color': template.color_scheme,
+                'council_slug': council.slug,
+                'council_name': council.name,
+                'year_label': year.label,
+                'rendered_text': instance.rendered_text,
+                'relevance_score': instance.relevance_score,
+                'is_significant': instance.is_significant,
+                'computed_at': instance.computed_at.isoformat(),
+                'expires_at': instance.expires_at.isoformat() if instance.expires_at else None,
+            }
+        })
+        
+    except Exception as e:
+        execution_time = (timezone.now() - start_time).total_seconds()
+        
+        # Log factoid instance error
+        _log_api_activity(
+            request,
+            'factoid_instance_api',
+            'unexpected_error',
+            error=e,
+            extra_data={
+                'template_slug': template_slug,
+                'council_slug': council_slug,
+                'year_slug': year_slug,
+                'execution_time_seconds': execution_time,
+            }
+        )
+        
+        logger.error(f"Unexpected error in factoid instance API: {e}", exc_info=True)
+        return JsonResponse({
+            'error': 'An unexpected error occurred'
         }, status=500)

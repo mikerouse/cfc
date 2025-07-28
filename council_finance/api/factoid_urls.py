@@ -10,6 +10,7 @@ from .factoid_views import (
     realtime_field_search,
     quick_template_validation,
     quick_template_preview,
+    factoid_instance_api,
 )
 
 # Create router for viewsets
