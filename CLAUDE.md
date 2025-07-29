@@ -4,6 +4,115 @@ applyTo: '**'
 
 Read the AGENTS.md file for detailed instructions.
 
+# Mobile-First Design Principles
+
+## Philosophy
+The Council Finance Counters platform prioritises mobile users, recognising that many citizens access council information on their phones. We design for mobile first, then enhance for larger screens.
+
+## Core Principles
+
+### 1. Touch-First Interaction
+- **Minimum touch target size**: 44px (iOS) / 48dp (Android) 
+- **Generous spacing**: Minimum 8px between interactive elements
+- **Thumb-friendly zones**: Critical actions placed within easy thumb reach
+- **Swipe gestures**: Support horizontal swipes for navigation where appropriate
+
+### 2. Progressive Disclosure
+- **Essential information first**: Show most important council data immediately
+- **Expandable sections**: Use collapsible cards for detailed information
+- **Layered navigation**: Deep content accessible through clear hierarchical paths
+- **Context-aware hiding**: Hide less critical information on smaller screens
+
+### 3. Mobile Layout Patterns
+- **Single column layout**: Default to stacked layout on mobile
+- **Responsive grid**: `sm:grid-cols-2 lg:grid-cols-4` progression
+- **Flexible containers**: Use percentage-based widths with max-width constraints
+- **Safe areas**: Respect device safe areas and notches
+
+### 4. Typography and Readability
+- **Minimum font size**: 16px for body text (prevents iOS zoom)
+- **Sufficient contrast**: WCAG AA compliance (4.5:1 minimum)
+- **Line height**: 1.5-1.6 for optimal mobile reading
+- **Truncation**: Smart truncation with expand options for long text
+
+### 5. Navigation Patterns
+- **Bottom navigation**: Primary navigation at bottom for thumb access
+- **Horizontal scrolling tabs**: For secondary navigation with indicators
+- **Breadcrumbs**: Clear path indicators for deep navigation
+- **Back button**: Always provide clear way to return to previous screen
+
+### 6. Performance on Mobile
+- **Fast loading**: Optimise for slower mobile connections
+- **Progressive loading**: Load critical content first, enhance progressively
+- **Offline graceful degradation**: Show cached content when connection fails
+- **Image optimisation**: Use responsive images with appropriate formats
+
+### 7. Council-Specific Mobile Patterns
+
+#### Council Detail Pages
+- **Hero section**: Logo, name, and key stats in compact mobile header
+- **Tabbed content**: Financial data, edit, and logs in swipeable tabs
+- **Counter cards**: Financial counters in mobile-optimised card layout
+- **Quick actions**: Follow, compare, and share as prominent mobile buttons
+
+#### Data Tables
+- **Horizontal scroll**: Allow tables to scroll horizontally on mobile
+- **Column priority**: Hide less important columns on small screens
+- **Row expansion**: Allow tap-to-expand for detailed row information
+- **Sort and filter**: Mobile-friendly sort/filter controls
+
+#### Forms and Input
+- **Single column forms**: Stack form fields vertically on mobile
+- **Contextual keyboards**: Use appropriate input types (numeric, email, etc.)
+- **Validation feedback**: Clear, immediate validation messages
+- **Autocomplete**: Support for browser and app autocomplete
+
+### 8. Accessibility on Mobile
+- **Screen reader support**: Proper ARIA labels and semantic HTML
+- **Voice control**: Ensure voice navigation works correctly
+- **Motor accessibility**: Support for switch control and assistive devices
+- **Cognitive accessibility**: Clear, simple interface with consistent patterns
+
+## Implementation Guidelines
+
+### Tailwind CSS Mobile-First Approach
+```css
+/* Mobile first - no prefix */
+.council-header { padding: 1rem; }
+
+/* Small screens and up */
+@screen sm {
+  .council-header { padding: 1.5rem; }
+}
+
+/* Large screens and up */  
+@screen lg {
+  .council-header { padding: 2rem; }
+}
+```
+
+### Responsive Breakpoint Strategy
+- **xs (default)**: 0px - 639px (Mobile phones)
+- **sm**: 640px - 767px (Large phones, small tablets)
+- **md**: 768px - 1023px (Tablets, small laptops)
+- **lg**: 1024px - 1279px (Laptops, desktops)
+- **xl**: 1280px+ (Large desktops)
+
+### Mobile Testing Requirements
+- **Device testing**: Test on real devices, not just browser dev tools
+- **Network testing**: Test on slow 3G connections
+- **OS testing**: Test on both iOS and Android
+- **Browser testing**: Test on mobile Safari, Chrome, and Samsung Internet
+- **Accessibility testing**: Test with screen readers and voice control
+
+## Common Mobile Anti-Patterns to Avoid
+- **Hover-dependent interactions**: Don't rely on hover states
+- **Tiny touch targets**: Avoid buttons smaller than 44px
+- **Horizontal scrolling**: Avoid accidental horizontal scroll
+- **Modal overuse**: Minimize modal dialogs on mobile
+- **Fixed positioning**: Be careful with fixed elements that block content
+- **Auto-zoom prevention**: Don't disable zoom unless absolutely necessary
+
 # CRITICAL: Avoiding Context Loss and Over-Engineering
 
 ## The Problem
