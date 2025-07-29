@@ -4,6 +4,7 @@
 {% block title %}{{ council.name }} - Council Finance Counters{% endblock %}
 
 {% block content %}
+<!-- CACHE CLEAR: 2025-07-29 17:45 - Header Fixed Version -->
 <div class="mx-auto px-3 sm:px-4 xl:px-6 py-4 xl:py-8 max-w-none xl:max-w-desktop">
   <!-- Council Header -->
   <div class="bg-white border border-gray-200 rounded-lg sm:rounded-xl shadow-sm mb-6 xl:mb-8">
@@ -36,37 +37,37 @@
                 {% endif %}
               </span>
             </div>
-                
-                <div class="flex items-center space-x-2">
-                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
-                  </svg>
-                  <span>
-                    {% if council.council_nation %}
-                      {{ council.council_nation.name }}
-                    {% elif 'council_nation' in pending_slugs %}
-                      <span class="text-orange-600"><i class="fas fa-clock mr-1"></i>Council nation pending confirmation</span>
-                    {% else %}
-                      <a href="{% url 'council_detail' council.slug %}?tab=edit&focus=council_nation" class="text-blue-600 hover:text-blue-800 underline">Contribute council nation</a>
-                    {% endif %}
-                  </span>
-                </div>
+            
+            <div class="flex items-center gap-2">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+              </svg>
+              <span>
+                {% if council.council_nation %}
+                  {{ council.council_nation.name }}
+                {% elif 'council_nation' in pending_slugs %}
+                  <span class="text-orange-600"><i class="fas fa-clock mr-1"></i>Council nation pending confirmation</span>
+                {% else %}
+                  <a href="{% url 'council_detail' council.slug %}?tab=edit&focus=council_nation" class="text-blue-600 hover:text-blue-800 underline">Contribute council nation</a>
+                {% endif %}
+              </span>
+            </div>
 
-                <div class="flex items-center space-x-2">
-                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9v-9m0-9v9"/>
-                  </svg>
-                  <span>
-                    {% if council.website %}
-                      <a href="{{ council.website }}" target="_blank" class="text-blue-600 hover:text-blue-800 underline">{{ council.website|truncatechars:30 }}</a>
-                    {% elif 'council_website' in pending_slugs %}
-                      <span class="text-orange-600"><i class="fas fa-clock mr-1"></i>Website pending confirmation</span>
-                    {% else %}
-                      <a href="{% url 'council_detail' council.slug %}?tab=edit&focus=council_website" class="text-blue-600 hover:text-blue-800 underline">Contribute website address</a>
-                    {% endif %}
-                  </span>
-                </div>
-              </div>
+            <div class="flex items-center gap-2">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9v-9m0-9v9"/>
+              </svg>
+              <span>
+                {% if council.website %}
+                  <a href="{{ council.website }}" target="_blank" class="text-blue-600 hover:text-blue-800 underline">{{ council.website|truncatechars:30 }}</a>
+                {% elif 'council_website' in pending_slugs %}
+                  <span class="text-orange-600"><i class="fas fa-clock mr-1"></i>Website pending confirmation</span>
+                {% else %}
+                  <a href="{% url 'council_detail' council.slug %}?tab=edit&focus=council_website" class="text-blue-600 hover:text-blue-800 underline">Contribute website address</a>
+                {% endif %}
+              </span>
+            </div>
+          </div>
             </div>
           </div>
         </div>
@@ -1143,27 +1144,7 @@ function handleAIAnalysisResize() {
   }
 }
 
-// Template Version Check
-console.log('📜 TEMPLATE VERSION CHECK:');
-const templateContainer = document.querySelector('[data-template-version]');
-if (templateContainer) {
-  console.log('✅ Template Version:', templateContainer.dataset.templateVersion);
-  if (templateContainer.dataset.templateVersion === '2.0') {
-    console.log('✅ CORRECT: Using latest mobile-first template');
-  } else {
-    console.warn('⚠️ OUTDATED: Template version mismatch');
-  }
-} else {
-  console.error('❌ CRITICAL: Template version not found - using old template!');
-}
-
-// Window size debugging
-console.log('🖥️ Window dimensions:', {
-  width: window.innerWidth,
-  height: window.innerHeight,
-  isDesktop: window.innerWidth >= 1280,
-  breakpoint: window.innerWidth >= 1280 ? 'xl (desktop)' : window.innerWidth >= 1024 ? 'lg (tablet)' : 'mobile'
-});
+// Template cleaned - debug code removed
 
 // Handle resize events
 window.addEventListener('resize', handleAIAnalysisResize);
@@ -1242,3 +1223,4 @@ handleAIAnalysisResize(); // Call on page load
 
 {% endblock %}
 <!-- Force reload: Tue, Jul 29, 2025  3:35:12 PM -->
+/* Template version: 1753806658 */
