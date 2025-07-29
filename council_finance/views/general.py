@@ -611,40 +611,7 @@ def council_detail(request, slug):
                 default_slugs.append(counter.slug)
         counters = head_list + other_list
 
-    # Pull a few non-financial stats to display in a meta zone. These use
-    # existing DataField values so we don't need a separate model.
-    meta_fields = ["population", "elected_members", "waste_report_count"]
-    meta_values = []
-    for slug in meta_fields:
-        field = DataField.objects.filter(slug=slug).first()
-        if not field:
-            continue
-        if slug == "population":
-            # Check for population in CouncilCharacteristic first
-            characteristic = CouncilCharacteristic.objects.filter(council=council, field=field).first()
-            if characteristic:
-                display = field.display_value(characteristic.value)
-            elif council.latest_population is not None:
-                display = field.display_value(str(council.latest_population))
-            else:
-                display = "No data"
-            meta_values.append({"field": field, "value": display})
-            continue        # First check if it's a council characteristic
-        characteristic = CouncilCharacteristic.objects.filter(council=council, field=field).first()
-        if characteristic:
-            display = field.display_value(characteristic.value)
-        else:
-            # Then check financial figures (get the most recent)
-            financial_figure = (
-                FinancialFigure.objects.filter(council=council, field=field)
-                .order_by("-year__label")
-                .first()
-            )
-            if financial_figure:
-                display = field.display_value(str(financial_figure.value))
-            else:
-                display = "No data"
-        meta_values.append({"field": field, "value": display})
+    # Old meta fields logic removed - now using dynamic meta fields system below
 
     is_following = False
     if request.user.is_authenticated:
@@ -792,7 +759,7 @@ def council_detail(request, slug):
                 'is_pending': field.slug in pending_slugs_list
             })
 
-    # Get meta fields for council detail header display
+    # Get meta fields for council detail header display (optimized with single query)
     meta_fields = []
     population_in_meta = False
     
@@ -802,42 +769,60 @@ def council_detail(request, slug):
         category='characteristic'
     ).order_by('display_order', 'name')
     
+    # Create a lookup map of characteristics for this council
+    characteristics_map = {}
+    characteristics_qs = CouncilCharacteristic.objects.filter(
+        council=council,
+        field__show_in_meta=True,
+        field__category='characteristic'
+    ).select_related('field')
+    
+    for characteristic in characteristics_qs:
+        characteristics_map[characteristic.field.id] = characteristic
+    
+    # Process meta fields with the preloaded data
     for field in meta_data_fields:
-        try:
-            # Get the characteristic value for this council and field
-            characteristic = CouncilCharacteristic.objects.get(
-                council=council,
-                field=field
-            )
-            
-            if characteristic.value:
-                # Format the value using the field's display format
-                if field.meta_display_format and '{value}' in field.meta_display_format:
-                    if field.content_type == 'integer' and characteristic.value.isdigit():
-                        # Format numbers with commas
-                        formatted_value = field.meta_display_format.format(
-                            value=f"{int(characteristic.value):,}"
-                        )
-                    else:
-                        formatted_value = field.meta_display_format.format(
-                            value=characteristic.value
-                        )
+        characteristic = characteristics_map.get(field.id)
+        
+        if characteristic and characteristic.value:
+            # Format the value using the field's display format
+            if field.meta_display_format and '{value}' in field.meta_display_format:
+                if field.content_type == 'integer' and characteristic.value.isdigit():
+                    # Format numbers with commas
+                    formatted_value = field.meta_display_format.format(
+                        value=f"{int(characteristic.value):,}"
+                    )
                 else:
-                    formatted_value = characteristic.value
+                    formatted_value = field.meta_display_format.format(
+                        value=characteristic.value
+                    )
+            else:
+                formatted_value = characteristic.value
+            
+            meta_fields.append({
+                'field': field,
+                'value': characteristic.value,
+                'formatted_value': formatted_value
+            })
+            
+            # Track if population is in meta fields
+            if field.slug == 'population':
+                population_in_meta = True
+        elif field.slug == 'population' and council.latest_population is not None:
+            # Fallback to council.latest_population if no characteristic exists
+            if field.meta_display_format and '{value}' in field.meta_display_format:
+                formatted_value = field.meta_display_format.format(
+                    value=f"{council.latest_population:,}"
+                )
+            else:
+                formatted_value = f"{council.latest_population:,}"
                 
-                meta_fields.append({
-                    'field': field,
-                    'value': characteristic.value,
-                    'formatted_value': formatted_value
-                })
-                
-                # Track if population is in meta fields
-                if field.slug == 'population':
-                    population_in_meta = True
-                    
-        except CouncilCharacteristic.DoesNotExist:
-            # Field is configured for meta but no value exists for this council
-            continue
+            meta_fields.append({
+                'field': field,
+                'value': str(council.latest_population),
+                'formatted_value': formatted_value
+            })
+            population_in_meta = True
     
     context = {
         "council": council,
@@ -848,7 +833,6 @@ def council_detail(request, slug):
         "default_counter_slugs": default_slugs,
         "tab": tab,
         "focus": focus,
-        "meta_values": meta_values,
         "edit_years": edit_years,
         "edit_selected_year": edit_selected_year,
         "edit_figures": edit_figures,

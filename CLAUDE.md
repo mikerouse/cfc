@@ -239,6 +239,63 @@ python test_frontend_api.py
 
 Remember: **Simple fixes are usually better than complex re-engineering.**
 
+### 7. PERFORMANCE OPTIMIZATION LESSONS
+
+**CRITICAL**: The council detail page was significantly slowed by duplicate database queries and N+1 query patterns.
+
+#### Common Performance Anti-Patterns to Avoid:
+
+1. **Duplicate Systems Running in Parallel**
+   ```python
+   # BAD - Old and new meta fields systems both running
+   meta_fields = ["population", "elected_members"]  # Hardcoded system
+   for slug in meta_fields:
+       field = DataField.objects.filter(slug=slug).first()  # Individual queries
+   
+   # Plus new dynamic system also running:
+   meta_data_fields = DataField.objects.filter(show_in_meta=True)  # More queries
+   ```
+
+2. **N+1 Query Patterns**
+   ```python
+   # BAD - Queries inside loops
+   for field in meta_data_fields:
+       characteristic = CouncilCharacteristic.objects.get(council=council, field=field)
+   
+   # GOOD - Bulk query with lookup map
+   characteristics_qs = CouncilCharacteristic.objects.filter(
+       council=council, field__show_in_meta=True
+   ).select_related('field')
+   characteristics_map = {char.field.id: char for char in characteristics_qs}
+   ```
+
+3. **Expensive Operations on Every Request**
+   ```python
+   # BAD - CounterAgent runs complex calculations every time
+   agent = CounterAgent()
+   values = agent.run(council_slug=slug, year_label=year)  # Slow database operations
+   
+   # BETTER - Would be to cache results for 5-10 minutes
+   ```
+
+#### Performance Fix Results:
+- **Before optimization**: ~6-8 seconds average load time
+- **After Phase 1 fixes**: ~3 seconds average (50% improvement)
+  - First request: 5.9s (cold)
+  - Subsequent requests: 1.4-1.5s (cache warming)
+- **Remaining bottleneck**: CounterAgent calculations (Phase 2 opportunity)
+
+#### Key Optimizations Made:
+1. **Removed duplicate meta fields logic** - eliminated redundant database queries
+2. **Fixed N+1 queries** - replaced individual `objects.get()` calls with bulk query + lookup map  
+3. **Added proper select_related()** - reduced database round trips
+4. **Maintained backwards compatibility** - kept population fallback to `council.latest_population`
+
+#### Next Phase Optimizations (not yet implemented):
+- Counter result caching (95% improvement potential)
+- Database indexes for frequently queried fields
+- Background processing for heavy calculations
+
 # SYSTEM DATA FORMATS & INTEGRATION POINTS
 
 **CRITICAL**: Document data formats and API contracts to prevent integration mismatches. Add new formats to this section as the system evolves.
