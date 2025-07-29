@@ -14,10 +14,28 @@ module.exports = {
     'hover:bg-emerald-700',
     'hover:bg-blue-700',
     'hover:bg-gray-300',
-    'text-white'
+    'text-white',
+    'order-1',
+    'order-2',
+    'xl:order-1',
+    'xl:order-2',
+    'xl:col-span-1',
+    'xl:col-span-3',
+    'xl:grid-cols-4',
+    'grid-cols-1',
+    'gap-6',
+    'xl:gap-8',
+    'xl:hidden',
+    'xl:block'
   ],
   theme: {
     extend: {
+      screens: {
+        'desktop': '1280px',
+      },
+      maxWidth: {
+        'desktop': '1280px',
+      },
       colors: {
         primary: {
           50: '#eff6ff',

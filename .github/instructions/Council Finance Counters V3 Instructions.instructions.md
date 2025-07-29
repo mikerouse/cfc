@@ -4,6 +4,149 @@ applyTo: '**'
 
 Read the AGENTS.md file for detailed instructions.
 
+# Mobile-First Design Principles
+
+## Philosophy
+The Council Finance Counters platform prioritises mobile users, recognising that many citizens access council information on their phones. We design for mobile first, then enhance for larger screens.
+
+## Core Principles
+
+### 1. Touch-First Interaction
+- **Minimum touch target size**: 44px (iOS) / 48dp (Android) 
+- **Generous spacing**: Minimum 8px between interactive elements
+- **Thumb-friendly zones**: Critical actions placed within easy thumb reach
+- **Swipe gestures**: Support horizontal swipes for navigation where appropriate
+
+### 2. Progressive Disclosure
+- **Essential information first**: Show most important council data immediately
+- **Expandable sections**: Use collapsible cards for detailed information
+- **Layered navigation**: Deep content accessible through clear hierarchical paths
+- **Context-aware hiding**: Hide less critical information on smaller screens
+
+### 3. Mobile Layout Patterns
+- **Single column layout**: Default to stacked layout on mobile
+- **Responsive grid**: `sm:grid-cols-2 lg:grid-cols-4` progression
+- **Flexible containers**: Use percentage-based widths with max-width constraints
+- **Safe areas**: Respect device safe areas and notches
+
+### 4. Typography and Readability
+- **Minimum font size**: 16px for body text (prevents iOS zoom)
+- **Sufficient contrast**: WCAG AA compliance (4.5:1 minimum)
+- **Line height**: 1.5-1.6 for optimal mobile reading
+- **Truncation**: Smart truncation with expand options for long text
+
+### 5. Navigation Patterns
+- **Bottom navigation**: Primary navigation at bottom for thumb access
+- **Horizontal scrolling tabs**: For secondary navigation with indicators
+- **Breadcrumbs**: Clear path indicators for deep navigation
+- **Back button**: Always provide clear way to return to previous screen
+
+### 6. Performance on Mobile
+- **Fast loading**: Optimise for slower mobile connections
+- **Progressive loading**: Load critical content first, enhance progressively
+- **Offline graceful degradation**: Show cached content when connection fails
+- **Image optimisation**: Use responsive images with appropriate formats
+
+### 7. Grid System Implementation
+
+The platform uses a consistent CSS Grid system to ensure uniform alignment across components:
+
+#### Desktop Layout (1280px fixed width)
+- **Main container**: `max-w-none xl:max-w-desktop` (1280px)
+- **Grid structure**: `grid grid-cols-1 xl:grid-cols-4 gap-6 xl:gap-8`
+- **Content distribution**: Main content (3 cols) + Sidebar (1 col)
+
+#### Mobile-First Ordering
+- **AI Analysis**: `order-1 xl:order-2` (appears first on mobile, right on desktop)
+- **Main Content**: `order-2 xl:order-1` (appears second on mobile, left on desktop)
+
+#### Responsive Breakpoints
+- **Mobile**: Single column layout, stacked content
+- **Tablet**: 2-column grids where appropriate
+- **Desktop**: 4-column grid with fixed 1280px width
+
+#### Alignment Rules
+- **Consistent margins**: All cards and panels align to the same grid lines
+- **Uniform spacing**: `gap-6 xl:gap-8` for consistent visual rhythm
+- **Breathing room**: Minimum `mt-6` spacing for interactive elements
+
+#### Implementation Pattern
+```html
+<div class="grid grid-cols-1 xl:grid-cols-4 gap-6 xl:gap-8">
+  <!-- Sidebar: Mobile first, desktop right -->
+  <div class="order-1 xl:order-2 xl:col-span-1">...</div>
+  
+  <!-- Main content: Mobile second, desktop left -->  
+  <div class="order-2 xl:order-1 xl:col-span-3">...</div>
+</div>
+```
+
+### 8. Council-Specific Mobile Patterns
+
+#### Council Detail Pages
+- **Hero section**: Logo, name, and key stats in compact mobile header
+- **Tabbed content**: Financial data, edit, and logs in swipeable tabs
+- **Counter cards**: Financial counters in mobile-optimised card layout
+- **Quick actions**: Follow, compare, and share as prominent mobile buttons
+
+#### Data Tables
+- **Horizontal scroll**: Allow tables to scroll horizontally on mobile
+- **Column priority**: Hide less important columns on small screens
+- **Row expansion**: Allow tap-to-expand for detailed row information
+- **Sort and filter**: Mobile-friendly sort/filter controls
+
+#### Forms and Input
+- **Single column forms**: Stack form fields vertically on mobile
+- **Contextual keyboards**: Use appropriate input types (numeric, email, etc.)
+- **Validation feedback**: Clear, immediate validation messages
+- **Autocomplete**: Support for browser and app autocomplete
+
+### 8. Accessibility on Mobile
+- **Screen reader support**: Proper ARIA labels and semantic HTML
+- **Voice control**: Ensure voice navigation works correctly
+- **Motor accessibility**: Support for switch control and assistive devices
+- **Cognitive accessibility**: Clear, simple interface with consistent patterns
+
+## Implementation Guidelines
+
+### Tailwind CSS Mobile-First Approach
+```css
+/* Mobile first - no prefix */
+.council-header { padding: 1rem; }
+
+/* Small screens and up */
+@screen sm {
+  .council-header { padding: 1.5rem; }
+}
+
+/* Large screens and up */  
+@screen lg {
+  .council-header { padding: 2rem; }
+}
+```
+
+### Responsive Breakpoint Strategy
+- **xs (default)**: 0px - 639px (Mobile phones)
+- **sm**: 640px - 767px (Large phones, small tablets)
+- **md**: 768px - 1023px (Tablets, small laptops)
+- **lg**: 1024px - 1279px (Laptops, desktops)
+- **xl**: 1280px+ (Large desktops)
+
+### Mobile Testing Requirements
+- **Device testing**: Test on real devices, not just browser dev tools
+- **Network testing**: Test on slow 3G connections
+- **OS testing**: Test on both iOS and Android
+- **Browser testing**: Test on mobile Safari, Chrome, and Samsung Internet
+- **Accessibility testing**: Test with screen readers and voice control
+
+## Common Mobile Anti-Patterns to Avoid
+- **Hover-dependent interactions**: Don't rely on hover states
+- **Tiny touch targets**: Avoid buttons smaller than 44px
+- **Horizontal scrolling**: Avoid accidental horizontal scroll
+- **Modal overuse**: Minimize modal dialogs on mobile
+- **Fixed positioning**: Be careful with fixed elements that block content
+- **Auto-zoom prevention**: Don't disable zoom unless absolutely necessary
+
 # CRITICAL: Avoiding Context Loss and Over-Engineering
 
 ## The Problem
@@ -379,3 +522,55 @@ Use cron or Django-Q/Celery for periodic agents (e.g. daily imports):
 ```cron
 0 3 * * * /path/to/venv/bin/python manage.py runagent ImporterAgent
 ```
+
+---
+
+## Mobile-First Design Principles
+
+The application follows a mobile-first approach with progressive enhancement for larger screens. Key principles include:
+
+### Touch Interaction Guidelines
+- **Minimum Touch Targets**: All interactive elements should be at least 44px in height and width on mobile
+- **Proper Spacing**: Touch targets should have adequate spacing (8px minimum) to prevent accidental taps
+- **Thumb-Friendly Zones**: Primary actions should be easily reachable with thumb navigation
+
+### Grid System and Alignment
+
+A consistent grid system ensures proper alignment and visual hierarchy across all screen sizes:
+
+#### Layout Structure
+- **Mobile**: Single-column layout with consistent padding (`px-3`)
+- **Tablet**: Enhanced spacing (`sm:px-4`) with some multi-column sections
+- **Desktop**: Fixed 1280px container (`xl:max-w-desktop`) with generous padding (`xl:px-6`)
+
+#### Grid Implementation
+```html
+<!-- Outer container with consistent padding -->
+<div class="mx-auto px-3 sm:px-4 xl:px-6 py-4 xl:py-8 max-w-none xl:max-w-desktop">
+  <!-- Grid system for layout -->
+  <div class="grid grid-cols-1 xl:grid-cols-4 gap-4 sm:gap-6">
+    <!-- Content areas use col-span for proper alignment -->
+    <div class="xl:col-span-4">Header content</div>
+    <div class="xl:col-span-3 order-2 xl:order-1">Main content</div>
+    <div class="xl:col-span-1 order-1 xl:order-2">Sidebar</div>
+  </div>
+</div>
+```
+
+#### Alignment Rules
+- **Consistent Containers**: All major sections use the same padding system
+- **Grid Alignment**: Content panels align with grid boundaries, not arbitrary positioning
+- **Breathing Room**: Buttons and interactive elements have proper margin/padding (never flush against containers)
+- **Visual Rhythm**: Consistent spacing using Tailwind's spacing scale (4px increments)
+
+### Responsive Breakpoints
+- **Base styles**: Mobile-first (320px+)
+- **sm**: Small tablets and large phones (640px+)
+- **lg**: Tablets and small laptops (1024px+) 
+- **xl**: Desktop and large screens (1280px+)
+- **Custom breakpoints**: `desktop: '1280px'` for precise desktop targeting
+
+### Progressive Disclosure
+- **Mobile**: Show essential information first, with secondary details accessible via taps or expansion
+- **Tablet**: Introduce more information density while maintaining touch-friendly interactions
+- **Desktop**: Full information hierarchy with hover states and advanced interactions

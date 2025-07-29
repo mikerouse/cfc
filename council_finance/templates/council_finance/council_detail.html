@@ -4,34 +4,38 @@
 {% block title %}{{ council.name }} - Council Finance Counters{% endblock %}
 
 {% block content %}
-<div class="max-w-7xl mx-auto px-4 py-6">
+<div class="mx-auto px-3 sm:px-4 xl:px-6 py-4 xl:py-8 max-w-none xl:max-w-desktop">
   <!-- Council Header -->
-  <div class="bg-white border border-gray-200 rounded-xl shadow-sm mb-6">
-    <div class="px-8 py-6">
+  <div class="bg-white border border-gray-200 rounded-lg sm:rounded-xl shadow-sm mb-6 xl:mb-8">
+    <div class="px-4 py-6 sm:px-6 xl:px-8 sm:py-8 xl:py-10">
       <!-- Council Title and Meta -->
-      <div class="flex items-start justify-between mb-6">
-        <div class="flex-1">
-          <div class="flex items-center space-x-4 mb-4">
-            <div class="w-16 h-16 rounded-xl shadow-lg overflow-hidden bg-gray-100 flex items-center justify-center">
-              {% council_logo_img council size=64 css_classes="w-full h-full object-cover" %}
+      <div class="space-y-6 sm:space-y-0 sm:flex sm:items-start sm:justify-between mb-8 xl:mb-10">
+        <div class="flex-1 min-w-0">
+          <div class="flex items-center gap-4 sm:gap-6 xl:gap-8 mb-6">
+            <div class="w-16 h-16 sm:w-18 sm:h-18 xl:w-24 xl:h-24 rounded-xl shadow-lg overflow-hidden bg-gray-100 flex items-center justify-center flex-shrink-0">
+              {% council_logo_img council size=80 css_classes="w-full h-full object-cover" %}
             </div>
-            <div>
-              <h1 class="text-3xl font-bold text-gray-900">{{ council.name }}</h1>
-              <div class="flex items-center space-x-6 text-sm text-gray-600 mt-2">
-                <div class="flex items-center space-x-2">
-                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/>
-                  </svg>
-                  <span>
-                    {% if council.council_type %}
-                      {{ council.council_type.name }}
-                    {% elif 'council_type' in pending_slugs %}
-                      <span class="text-orange-600"><i class="fas fa-clock mr-1"></i>Council type pending confirmation</span>
-                    {% else %}
-                      <a href="{% url 'council_detail' council.slug %}?tab=edit&focus=council_type" class="text-blue-600 hover:text-blue-800 underline">Contribute council type</a>
-                    {% endif %}
-                  </span>
-                </div>
+            <div class="min-w-0 flex-1">
+              <h1 class="text-2xl sm:text-3xl xl:text-4xl font-bold text-gray-900 leading-tight mb-3">{{ council.name }}</h1>
+            </div>
+          </div>
+          
+          <!-- Council Meta Info -->
+          <div class="flex flex-wrap items-center gap-x-6 gap-y-3 text-sm xl:text-base text-gray-600">
+            <div class="flex items-center gap-2">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/>
+              </svg>
+              <span>
+                {% if council.council_type %}
+                  {{ council.council_type.name }}
+                {% elif 'council_type' in pending_slugs %}
+                  <span class="text-orange-600"><i class="fas fa-clock mr-1"></i>Council type pending confirmation</span>
+                {% else %}
+                  <a href="{% url 'council_detail' council.slug %}?tab=edit&focus=council_type" class="text-blue-600 hover:text-blue-800 underline">Contribute council type</a>
+                {% endif %}
+              </span>
+            </div>
                 
                 <div class="flex items-center space-x-2">
                   <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -67,65 +71,65 @@
           </div>
         </div>
 
-        <!-- Action Buttons -->
+        <!-- Action Buttons - Better Spacing -->
         {% if user.is_authenticated %}
-          <div class="flex items-center space-x-3">
+          <div class="flex flex-col sm:flex-row gap-4 sm:gap-6 sm:items-center mt-8 sm:mt-0 sm:ml-8">
             <button id="follow-btn" 
-                    class="inline-flex items-center px-4 py-2 border border-blue-300 text-sm font-medium rounded-lg text-blue-700 bg-blue-50 hover:bg-blue-100 transition-colors" 
+                    class="inline-flex items-center justify-center px-4 xl:px-6 py-3 xl:py-3 border border-blue-300 text-sm xl:text-base font-medium rounded-lg text-blue-700 bg-blue-50 hover:bg-blue-100 active:bg-blue-200 transition-colors min-h-[44px] shadow-sm" 
                     data-following="{{ is_following|yesno:'true,false' }}" 
                     data-slug="{{ council.slug }}">
-              <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg class="w-4 h-4 xl:w-5 xl:h-5 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 {% if is_following %}
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z"/>
                 {% else %}
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/>
                 {% endif %}
               </svg>
-              {% if is_following %}Unfollow{% else %}Follow{% endif %}
+              <span>{% if is_following %}Unfollow{% else %}Follow{% endif %}</span>
             </button>
             
             <button id="compare-btn" 
-                    class="inline-flex items-center px-4 py-2 border border-purple-300 text-sm font-medium rounded-lg text-purple-700 bg-purple-50 hover:bg-purple-100 transition-colors" 
+                    class="inline-flex items-center justify-center px-4 xl:px-6 py-3 xl:py-3 border border-purple-300 text-sm xl:text-base font-medium rounded-lg text-purple-700 bg-purple-50 hover:bg-purple-100 active:bg-purple-200 transition-colors min-h-[44px] shadow-sm" 
                     data-slug="{{ council.slug }}">
-              <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg class="w-4 h-4 xl:w-5 xl:h-5 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
               </svg>
-              Compare
+              <span>Compare</span>
             </button>
           </div>
         {% endif %}
       </div>
 
-      <!-- Navigation Tabs -->
-      <div class="border-b border-gray-200">
-        <nav class="flex space-x-8">
+      <!-- Navigation Tabs - Better Aligned -->
+      <div class="border-t border-gray-200 mt-8 -mx-4 sm:-mx-6 xl:-mx-8">
+        <nav class="flex space-x-8 px-4 sm:px-6 xl:px-8 overflow-x-auto">
           <a href="{% url 'council_detail' council.slug %}" 
-             class="py-3 px-1 border-b-2 font-medium text-sm {% if tab != 'edit' %}border-blue-500 text-blue-600{% else %}border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300{% endif %} transition-colors">
-            <div class="flex items-center space-x-2">
-              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+             class="flex-shrink-0 py-4 border-b-2 font-medium text-sm {% if tab != 'edit' %}border-blue-500 text-blue-600{% else %}border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300{% endif %} transition-colors">
+            <div class="flex items-center gap-2">
+              <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
               </svg>
-              <span>Financial Data</span>
+              <span class="whitespace-nowrap">Finances</span>
             </div>
           </a>
           
           <a href="{% url 'council_detail' council.slug %}?tab=edit" 
-             class="py-3 px-1 border-b-2 font-medium text-sm {% if tab == 'edit' %}border-blue-500 text-blue-600{% else %}border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300{% endif %} transition-colors">
-            <div class="flex items-center space-x-2">
-              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+             class="flex-shrink-0 py-4 border-b-2 font-medium text-sm {% if tab == 'edit' %}border-blue-500 text-blue-600{% else %}border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300{% endif %} transition-colors">
+            <div class="flex items-center gap-2">
+              <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
               </svg>
-              <span>Edit Council</span>
+              <span class="whitespace-nowrap">Edit</span>
             </div>
           </a>
           
           <a href="{% url 'council_change_log' council.slug %}" 
-             class="py-3 px-1 border-b-2 font-medium text-sm {% if tab == 'log' %}border-blue-500 text-blue-600{% else %}border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300{% endif %} transition-colors">
-            <div class="flex items-center space-x-2">
-              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+             class="flex-shrink-0 py-4 border-b-2 font-medium text-sm {% if tab == 'log' %}border-blue-500 text-blue-600{% else %}border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300{% endif %} transition-colors">
+            <div class="flex items-center gap-2">
+              <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
               </svg>
-              <span>Change Log</span>
+              <span class="whitespace-nowrap">Log</span>
             </div>
           </a>
         </nav>
@@ -173,23 +177,117 @@
   {% if tab == 'edit' %}
     {% include 'council_finance/enhanced_council_edit.html' %}
   {% else %}
-    <!-- Financial Data View -->
-    <div class="grid grid-cols-1 lg:grid-cols-4 gap-6">
-      <!-- Main Content -->
-      <div class="lg:col-span-3 space-y-6">
+    <!-- Financial Data View - Mobile-First Grid Layout -->
+    <div class="grid grid-cols-1 xl:grid-cols-4 gap-6 xl:gap-8">
+      <!-- AI Analysis - Mobile First (Order 1), Desktop Left Sidebar (Order 1) -->
+      <div class="order-1 xl:order-1 xl:col-span-1">
+        <!-- AI Financial Analysis -->
+        <div id="ai-analysis-container" class="bg-white border border-gray-200 rounded-lg shadow-sm">
+          <div class="px-4 py-3 sm:px-6 sm:py-4 border-b border-gray-200">
+            <div class="flex items-center justify-between">
+              <h3 class="text-base sm:text-lg font-semibold text-gray-900 flex items-center">
+                <svg class="w-4 h-4 sm:w-5 sm:h-5 mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/>
+                </svg>
+                AI Analysis
+              </h3>
+              <!-- Mobile Toggle Button -->
+              <button id="ai-mobile-toggle" class="xl:hidden p-2 text-gray-400 hover:text-gray-600 transition-colors" aria-label="Toggle AI Analysis">
+                <svg class="w-5 h-5 transform transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                </svg>
+              </button>
+              <!-- Desktop Refresh Button -->
+              <div id="ai-refresh-btn" class="hidden xl:block cursor-pointer text-gray-400 hover:text-gray-600 transition-colors" title="Refresh Analysis">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+                </svg>
+              </div>
+            </div>
+          </div>
+          <div id="ai-analysis-content" class="hidden xl:block p-4 sm:p-6">
+            <!-- Loading state -->
+            <div id="ai-loading" class="flex items-center justify-center py-6 sm:py-8">
+              <div class="animate-spin rounded-full h-5 w-5 sm:h-6 sm:w-6 border-b-2 border-blue-600"></div>
+              <span class="ml-3 text-sm text-gray-600">Generating AI analysis...</span>
+            </div>
+            
+            <!-- Error state -->
+            <div id="ai-error" class="hidden py-4">
+              <div class="flex items-center space-x-2 text-red-600">
+                <svg class="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                </svg>
+                <span class="text-sm">Failed to load AI analysis</span>
+              </div>
+            </div>
+            
+            <!-- Analysis content -->
+            <div id="ai-analysis-data" class="hidden space-y-4">
+              <!-- Key insights -->
+              <div id="ai-insights" class="space-y-2">
+                <h4 class="text-sm font-medium text-gray-900 flex items-center">
+                  <svg class="w-4 h-4 mr-1 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                  </svg>
+                  Key Insights
+                </h4>
+                <div id="ai-insights-list" class="space-y-1"></div>
+              </div>
+              
+              <!-- Risk factors -->
+              <div id="ai-risks" class="space-y-2">
+                <h4 class="text-sm font-medium text-gray-900 flex items-center">
+                  <svg class="w-4 h-4 mr-1 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z"/>
+                  </svg>
+                  Risk Factors
+                </h4>
+                <div id="ai-risks-list" class="space-y-1"></div>
+              </div>
+              
+              <!-- Recommendations -->
+              <div id="ai-recommendations" class="space-y-2">
+                <h4 class="text-sm font-medium text-gray-900 flex items-center">
+                  <svg class="w-4 h-4 mr-1 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+                  </svg>
+                  Recommendations
+                </h4>
+                <div id="ai-recommendations-list" class="space-y-1"></div>
+              </div>
+              
+              <!-- Summary toggle -->
+              <div class="pt-2 border-t border-gray-200">
+                <button id="ai-summary-toggle" class="text-xs text-blue-600 hover:text-blue-800 transition-colors">
+                  Show full analysis
+                </button>
+              </div>
+              
+              <!-- Full analysis (initially hidden) -->
+              <div id="ai-full-analysis" class="hidden pt-2 border-t border-gray-200">
+                <div id="ai-full-text" class="text-sm text-gray-700 prose prose-sm max-w-none"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Main Content - Mobile Second (Order 2), Desktop Right (Order 2) -->
+      <div class="order-2 xl:order-2 xl:col-span-3 space-y-6">
         <!-- Controls Section -->
         <div class="bg-white border border-gray-200 rounded-lg shadow-sm">
-          <div class="px-6 py-4 border-b border-gray-200">
-            <div class="flex items-center justify-between">
+          <div class="px-4 py-4 sm:px-6 border-b border-gray-200">
+            <div class="space-y-4 sm:space-y-0 sm:flex sm:items-center sm:justify-between">
               <div>
                 <h3 class="text-lg font-semibold text-gray-900">Financial Overview</h3>
-                <p class="text-sm text-gray-600 mt-1">View and analyze council financial data</p>
+                <p class="text-sm text-gray-600 mt-1">View and analyse council financial data</p>
               </div>
-              <div class="flex items-center space-x-4">
+              <div class="flex flex-col sm:flex-row gap-3 sm:gap-4 sm:items-center">
                 <!-- Year Selector -->
-                <div class="flex items-center space-x-2">
-                  <label for="year-select" class="text-sm font-medium text-gray-700">Financial Year:</label>
-                  <select id="year-select" class="border border-gray-300 rounded-md px-3 py-2 bg-white text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                <div class="flex flex-col sm:flex-row sm:items-center gap-2">
+                  <label for="year-select" class="text-sm font-medium text-gray-700 whitespace-nowrap">Financial Year:</label>
+                  <select id="year-select" class="border border-gray-300 rounded-md px-3 py-3 bg-white text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 min-h-[44px]">
                     {% for y in years %}
                       <option value="{{ y.label }}" {% if y.label == selected_year.label %}selected{% endif %}>{{ y.display }}</option>
                     {% endfor %}
@@ -198,11 +296,11 @@
                 
                 <!-- Customize Button -->
                 <button id="drawer-toggle" 
-                        class="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 transition-colors">
-                  <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        class="inline-flex items-center justify-center px-4 py-3 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 active:bg-gray-100 transition-colors min-h-[44px]">
+                  <svg class="w-4 h-4 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/>
                   </svg>
-                  Customize Display
+                  Customise
                 </button>
               </div>
             </div>
@@ -210,7 +308,7 @@
 
           <!-- Expandable Settings Panel -->
           <div id="counter-drawer" class="overflow-hidden max-h-0 transition-all duration-300 ease-in-out">
-            <div class="p-6 border-t border-gray-200 bg-gray-50">
+            <div class="p-4 sm:p-6 border-t border-gray-200 bg-gray-50">
               <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
                 <!-- Counter Selection -->
                 <div class="space-y-4">
@@ -235,16 +333,16 @@
                     {% endfor %}
                   </form>
                   
-                  <div class="flex space-x-3">
+                  <div class="flex gap-3 mt-6">
                     <button id="drawer-apply" 
-                            class="flex-1 inline-flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 transition-colors">
+                            class="flex-1 inline-flex items-center justify-center px-4 py-3 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 transition-colors min-h-[44px]">
                       <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
                       </svg>
                       Apply Changes
                     </button>
                     <button id="drawer-reset" 
-                            class="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 transition-colors">
+                            class="inline-flex items-center px-4 py-3 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 transition-colors min-h-[44px]">
                       <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
                       </svg>
@@ -345,7 +443,7 @@
                 <div class="px-6 py-4 bg-gray-50 border-b border-gray-200">
                   <div class="flex items-center justify-between">
                     <h4 class="text-sm font-semibold text-gray-900">{{ item.counter.name }}</h4>
-                    <div class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-50 text-blue-600 opacity-60">
+                    <div class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-50 text-gray-600 opacity-60">
                       <svg class="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 20 20">
                         <path fill-rule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clip-rule="evenodd"/>
                       </svg>
@@ -422,92 +520,6 @@
         {% endif %}
       </div>
 
-      <!-- AI Analysis Sidebar -->
-      <div class="space-y-6">
-        <!-- AI Financial Analysis -->
-        <div id="ai-analysis-container" class="bg-white border border-gray-200 rounded-lg shadow-sm">
-          <div class="px-6 py-4 border-b border-gray-200">
-            <div class="flex items-center justify-between">
-              <h3 class="text-lg font-semibold text-gray-900 flex items-center">
-                <svg class="w-5 h-5 mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/>
-                </svg>
-                AI Analysis
-              </h3>
-              <div id="ai-refresh-btn" class="cursor-pointer text-gray-400 hover:text-gray-600 transition-colors" title="Refresh Analysis">
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
-                </svg>
-              </div>
-            </div>
-          </div>
-          <div id="ai-analysis-content" class="p-6">
-            <!-- Loading state -->
-            <div id="ai-loading" class="flex items-center justify-center py-8">
-              <div class="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
-              <span class="ml-3 text-sm text-gray-600">Generating AI analysis...</span>
-            </div>
-            
-            <!-- Error state -->
-            <div id="ai-error" class="hidden py-4">
-              <div class="flex items-center space-x-2 text-red-600">
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
-                </svg>
-                <span class="text-sm">Failed to load AI analysis</span>
-              </div>
-            </div>
-            
-            <!-- Analysis content -->
-            <div id="ai-analysis-data" class="hidden space-y-4">
-              <!-- Key insights -->
-              <div id="ai-insights" class="space-y-2">
-                <h4 class="text-sm font-medium text-gray-900 flex items-center">
-                  <svg class="w-4 h-4 mr-1 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
-                  </svg>
-                  Key Insights
-                </h4>
-                <div id="ai-insights-list" class="space-y-1"></div>
-              </div>
-              
-              <!-- Risk factors -->
-              <div id="ai-risks" class="space-y-2">
-                <h4 class="text-sm font-medium text-gray-900 flex items-center">
-                  <svg class="w-4 h-4 mr-1 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z"/>
-                  </svg>
-                  Risk Factors
-                </h4>
-                <div id="ai-risks-list" class="space-y-1"></div>
-              </div>
-              
-              <!-- Recommendations -->
-              <div id="ai-recommendations" class="space-y-2">
-                <h4 class="text-sm font-medium text-gray-900 flex items-center">
-                  <svg class="w-4 h-4 mr-1 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
-                  </svg>
-                  Recommendations
-                </h4>
-                <div id="ai-recommendations-list" class="space-y-1"></div>
-              </div>
-              
-              <!-- Summary toggle -->
-              <div class="pt-2 border-t border-gray-200">
-                <button id="ai-summary-toggle" class="text-xs text-blue-600 hover:text-blue-800 transition-colors">
-                  Show full analysis
-                </button>
-              </div>
-              
-              <!-- Full analysis (initially hidden) -->
-              <div id="ai-full-analysis" class="hidden pt-2 border-t border-gray-200">
-                <div id="ai-full-text" class="text-sm text-gray-700 prose prose-sm max-w-none"></div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
     </div>
   {% endif %}
 </div>
@@ -931,6 +943,7 @@ class AIAnalysisManager {
     this.councilSlug = '{{ council.slug }}';
     this.currentYear = '{{ selected_year.label }}';
     this.isLoading = false;
+    this.isMobileExpanded = false;
     this.init();
   }
   
@@ -938,6 +951,7 @@ class AIAnalysisManager {
     // Initialize event listeners
     const refreshBtn = document.getElementById('ai-refresh-btn');
     const summaryToggle = document.getElementById('ai-summary-toggle');
+    const mobileToggle = document.getElementById('ai-mobile-toggle');
     
     if (refreshBtn) {
       refreshBtn.addEventListener('click', () => this.loadAnalysis(true));
@@ -945,6 +959,10 @@ class AIAnalysisManager {
     
     if (summaryToggle) {
       summaryToggle.addEventListener('click', () => this.toggleFullAnalysis());
+    }
+    
+    if (mobileToggle) {
+      mobileToggle.addEventListener('click', () => this.toggleMobileView());
     }
     
     // Load analysis on page load
@@ -957,6 +975,23 @@ class AIAnalysisManager {
         this.currentYear = e.target.value;
         this.loadAnalysis();
       });
+    }
+  }
+  
+  toggleMobileView() {
+    const content = document.getElementById('ai-analysis-content');
+    const toggleIcon = document.querySelector('#ai-mobile-toggle svg');
+    
+    if (this.isMobileExpanded) {
+      content.classList.add('hidden');
+      content.classList.remove('xl:block');
+      toggleIcon.style.transform = 'rotate(0deg)';
+      this.isMobileExpanded = false;
+    } else {
+      content.classList.remove('hidden');
+      content.classList.add('xl:block');
+      toggleIcon.style.transform = 'rotate(180deg)';
+      this.isMobileExpanded = true;
     }
   }
   
@@ -1089,5 +1124,121 @@ class AIAnalysisManager {
 
 // Initialize AI Analysis Manager
 const aiAnalysis = new AIAnalysisManager();
+
+// Handle responsive behavior for AI analysis
+function handleAIAnalysisResize() {
+  const content = document.getElementById('ai-analysis-content');
+  
+  if (window.innerWidth >= 1280) { // xl breakpoint
+    // Desktop: always show content in left sidebar
+    content.classList.remove('hidden');
+    content.classList.add('xl:block');
+    aiAnalysis.isMobileExpanded = false; // Reset mobile state
+  } else {
+    // Mobile/tablet: content hidden by default unless toggled
+    if (!aiAnalysis.isMobileExpanded) {
+      content.classList.add('hidden');
+      content.classList.remove('xl:block');
+    }
+  }
+}
+
+// Template Version Check
+console.log('📜 TEMPLATE VERSION CHECK:');
+const templateContainer = document.querySelector('[data-template-version]');
+if (templateContainer) {
+  console.log('✅ Template Version:', templateContainer.dataset.templateVersion);
+  if (templateContainer.dataset.templateVersion === '2.0') {
+    console.log('✅ CORRECT: Using latest mobile-first template');
+  } else {
+    console.warn('⚠️ OUTDATED: Template version mismatch');
+  }
+} else {
+  console.error('❌ CRITICAL: Template version not found - using old template!');
+}
+
+// Window size debugging
+console.log('🖥️ Window dimensions:', {
+  width: window.innerWidth,
+  height: window.innerHeight,
+  isDesktop: window.innerWidth >= 1280,
+  breakpoint: window.innerWidth >= 1280 ? 'xl (desktop)' : window.innerWidth >= 1024 ? 'lg (tablet)' : 'mobile'
+});
+
+// Handle resize events
+window.addEventListener('resize', handleAIAnalysisResize);
+handleAIAnalysisResize(); // Call on page load
 </script>
+
+<!-- Mobile-First Responsive Styles -->
+<style>
+/* END DEBUG STYLES */
+
+/* Mobile-first base styles */
+.counter-value {
+  line-height: 1.2;
+}
+
+/* Touch-friendly button spacing */
+.btn-group {
+  gap: 0.75rem;
+}
+
+.btn-group button {
+  min-height: 44px;
+}
+
+/* Counter grid responsive adjustments */
+#counters-grid .counter-value {
+  word-break: break-word;
+}
+
+/* AI Analysis mobile enhancements */
+#ai-analysis-content {
+  transition: all 0.3s ease-in-out;
+}
+
+#ai-mobile-toggle svg {
+  transition: transform 0.2s ease-in-out;
+}
+
+/* Desktop layout refinements */
+@media (min-width: 1280px) {
+  /* Fixed desktop layout width */
+  .max-w-desktop {
+    max-width: 1280px !important;
+    margin-left: auto;
+    margin-right: auto;
+  }
+  
+  /* Desktop-specific button adjustments */
+  .btn-group button {
+    min-height: auto;
+  }
+  
+  /* AI analysis desktop behavior */
+  #ai-analysis-content {
+    display: block !important;
+  }
+}
+
+/* Ensure proper mobile touch targets */
+@media (max-width: 1279px) {
+  button, .btn, [role="button"] {
+    min-height: 44px;
+    min-width: 44px;
+  }
+  
+  /* Ensure sufficient spacing between interactive elements */
+  .space-y-3 > * + * {
+    margin-top: 0.75rem;
+  }
+  
+  .gap-3 {
+    gap: 0.75rem;
+  }
+}
+</style>
+
 {% endblock %}
+<!-- Force reload: Tue, Jul 29, 2025  3:35:12 PM -->

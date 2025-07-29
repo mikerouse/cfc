@@ -1,12 +1,387 @@
-# AGENTS.md
+applyTo: '**'
 
-## What is the app?
+# See also AGENTS.md
 
-The purpose of this app is to provide visitors with transparency data relating to UK local government entities, and in particular local councils (district, county, unitary, metropolitian borough, non-metropolitan borough, combined authority). In the future the app should be expandable to include different types of public bodies such as NHS trusts, quangos and/or UK government agencies. 
+Read the AGENTS.md file for detailed instructions.
 
-The app's approach is to use visually striking ways to give focus to financial figures found within each authority's balance sheet, cash flow statements and comprehensive income and expenditure statements as published each financial year. Each council publishes their data slightly differently, and even within the PDFs they may use differing terminology. This app aims to smooth out the language and provide consistency across the bodies in respect of their financial figures.
+# Mobile-First Design Principles
 
-The emphasis is on 'visually striking' ways to show the data using counters and other interesting and novel devices like comparing spend across councils. Cross-comparison is a key feature. There will be a comparison basket, allowing up-to six councils to be compared (initially), and there will be user-centric tools allowing users to track and collate councils, as well as provide contributions and comments. Counters will be animated, and the style wll be fresh, minimalist and professional, with a look and feel similar to GOV.UK websites so that it is easy to use, easy to navigate and provides a refreshing experience for the user.
+## Philosophy
+The Council Finance Counters platform prioritises mobile users, recognising that many citizens access council information on their phones. We design for mobile first, then enhance for larger screens.
+
+## Core Principles
+
+### 1. Touch-First Interaction
+- **Minimum touch target size**: 44px (iOS) / 48dp (Android) 
+- **Generous spacing**: Minimum 8px between interactive elements
+- **Thumb-friendly zones**: Critical actions placed within easy thumb reach
+- **Swipe gestures**: Support horizontal swipes for navigation where appropriate
+
+### 2. Progressive Disclosure
+- **Essential information first**: Show most important council data immediately
+- **Expandable sections**: Use collapsible cards for detailed information
+- **Layered navigation**: Deep content accessible through clear hierarchical paths
+- **Context-aware hiding**: Hide less critical information on smaller screens
+
+### 3. Mobile Layout Patterns
+- **Single column layout**: Default to stacked layout on mobile
+- **Responsive grid**: `sm:grid-cols-2 lg:grid-cols-4` progression
+- **Flexible containers**: Use percentage-based widths with max-width constraints
+- **Safe areas**: Respect device safe areas and notches
+
+### 4. Typography and Readability
+- **Minimum font size**: 16px for body text (prevents iOS zoom)
+- **Sufficient contrast**: WCAG AA compliance (4.5:1 minimum)
+- **Line height**: 1.5-1.6 for optimal mobile reading
+- **Truncation**: Smart truncation with expand options for long text
+
+### 5. Navigation Patterns
+- **Bottom navigation**: Primary navigation at bottom for thumb access
+- **Horizontal scrolling tabs**: For secondary navigation with indicators
+- **Breadcrumbs**: Clear path indicators for deep navigation
+- **Back button**: Always provide clear way to return to previous screen
+
+### 6. Performance on Mobile
+- **Fast loading**: Optimise for slower mobile connections
+- **Progressive loading**: Load critical content first, enhance progressively
+- **Offline graceful degradation**: Show cached content when connection fails
+- **Image optimisation**: Use responsive images with appropriate formats
+
+### 7. Grid System Implementation
+
+The platform uses a consistent CSS Grid system to ensure uniform alignment across components:
+
+#### Desktop Layout (1280px fixed width)
+- **Main container**: `max-w-none xl:max-w-desktop` (1280px)
+- **Grid structure**: `grid grid-cols-1 xl:grid-cols-4 gap-6 xl:gap-8`
+- **Content distribution**: Main content (3 cols) + Sidebar (1 col)
+
+#### Mobile-First Ordering
+- **AI Analysis**: `order-1 xl:order-2` (appears first on mobile, right on desktop)
+- **Main Content**: `order-2 xl:order-1` (appears second on mobile, left on desktop)
+
+#### Responsive Breakpoints
+- **Mobile**: Single column layout, stacked content
+- **Tablet**: 2-column grids where appropriate
+- **Desktop**: 4-column grid with fixed 1280px width
+
+#### Alignment Rules
+- **Consistent margins**: All cards and panels align to the same grid lines
+- **Uniform spacing**: `gap-6 xl:gap-8` for consistent visual rhythm
+- **Breathing room**: Minimum `mt-6` spacing for interactive elements
+
+#### Implementation Pattern
+```html
+<div class="grid grid-cols-1 xl:grid-cols-4 gap-6 xl:gap-8">
+  <!-- Sidebar: Mobile first, desktop right -->
+  <div class="order-1 xl:order-2 xl:col-span-1">...</div>
+  
+  <!-- Main content: Mobile second, desktop left -->  
+  <div class="order-2 xl:order-1 xl:col-span-3">...</div>
+</div>
+```
+
+### 8. Council-Specific Mobile Patterns
+
+#### Council Detail Pages
+- **Hero section**: Logo, name, and key stats in compact mobile header
+- **Tabbed content**: Financial data, edit, and logs in swipeable tabs
+- **Counter cards**: Financial counters in mobile-optimised card layout
+- **Quick actions**: Follow, compare, and share as prominent mobile buttons
+
+#### Data Tables
+- **Horizontal scroll**: Allow tables to scroll horizontally on mobile
+- **Column priority**: Hide less important columns on small screens
+- **Row expansion**: Allow tap-to-expand for detailed row information
+- **Sort and filter**: Mobile-friendly sort/filter controls
+
+#### Forms and Input
+- **Single column forms**: Stack form fields vertically on mobile
+- **Contextual keyboards**: Use appropriate input types (numeric, email, etc.)
+- **Validation feedback**: Clear, immediate validation messages
+- **Autocomplete**: Support for browser and app autocomplete
+
+### 8. Accessibility on Mobile
+- **Screen reader support**: Proper ARIA labels and semantic HTML
+- **Voice control**: Ensure voice navigation works correctly
+- **Motor accessibility**: Support for switch control and assistive devices
+- **Cognitive accessibility**: Clear, simple interface with consistent patterns
+
+## Implementation Guidelines
+
+### Tailwind CSS Mobile-First Approach
+```css
+/* Mobile first - no prefix */
+.council-header { padding: 1rem; }
+
+/* Small screens and up */
+@screen sm {
+  .council-header { padding: 1.5rem; }
+}
+
+/* Large screens and up */  
+@screen lg {
+  .council-header { padding: 2rem; }
+}
+```
+
+### Responsive Breakpoint Strategy
+- **xs (default)**: 0px - 639px (Mobile phones)
+- **sm**: 640px - 767px (Large phones, small tablets)
+- **md**: 768px - 1023px (Tablets, small laptops)
+- **lg**: 1024px - 1279px (Laptops, desktops)
+- **xl**: 1280px+ (Large desktops)
+
+### Mobile Testing Requirements
+- **Device testing**: Test on real devices, not just browser dev tools
+- **Network testing**: Test on slow 3G connections
+- **OS testing**: Test on both iOS and Android
+- **Browser testing**: Test on mobile Safari, Chrome, and Samsung Internet
+- **Accessibility testing**: Test with screen readers and voice control
+
+## Common Mobile Anti-Patterns to Avoid
+- **Hover-dependent interactions**: Don't rely on hover states
+- **Tiny touch targets**: Avoid buttons smaller than 44px
+- **Horizontal scrolling**: Avoid accidental horizontal scroll
+- **Modal overuse**: Minimize modal dialogs on mobile
+- **Fixed positioning**: Be careful with fixed elements that block content
+- **Auto-zoom prevention**: Don't disable zoom unless absolutely necessary
+
+# CRITICAL: Avoiding Context Loss and Over-Engineering
+
+## The Problem
+AI agents lose context over long conversations and tend to re-engineer existing systems, creating overly complex, cross-cutting code that becomes wrapped up in itself. This leads to:
+
+1. **Competing Systems**: Multiple ways to do the same thing (e.g., different API endpoints, multiple data access patterns)
+2. **Field Name Mismatches**: Converting between slug formats (`interest-payments-per-capita`) and variable names (`interest_payments_per_capita`) 
+3. **Cached State Issues**: New systems bypass existing caches/instances, creating inconsistent data
+4. **Incomplete Integration**: New APIs don't integrate with existing frontend code
+
+## Prevention Rules
+
+### 1. UNDERSTAND BEFORE CHANGING
+- **ALWAYS** check existing patterns before creating new ones
+- Run `grep_search` to find how similar problems are already solved
+- Test existing systems before assuming they're broken
+- Check for existing API endpoints before creating new ones
+
+### 2. DATA FIELD NAMING CONVENTIONS
+The system has TWO field naming formats that must be handled correctly:
+
+- **Slug format**: `interest-payments-per-capita` (used in URLs, templates, database slugs)
+- **Variable format**: `interest_payments_per_capita` (used in code, context data)
+
+**CRITICAL**: Template rendering must convert between formats:
+```python
+# WRONG - looking for slug format in context
+value = context_data.get('interest-payments-per-capita')  # Will be None
+
+# CORRECT - convert to variable format  
+field_variable_name = field_name.replace('-', '_')
+value = context_data.get(field_variable_name)  # Will find the value
+```
+
+### 3. FACTOID SYSTEM DEBUGGING
+When factoids show "N/A":
+
+1. **Check field categories**: Ensure FactoidEngine handles the field's category (`spending`, `financial`, etc.)
+2. **Test field lookup directly**: Use `engine.get_field_value(field_name, council, year)` 
+3. **Check for stale instances**: Look for cached FactoidInstance objects that might be outdated
+4. **Verify counter-specific vs generic instances**: Counter-specific instances override generic ones
+
+When factoids appear on wrong counters:
+1. **Check counter assignments**: Use `FactoidTemplate.objects.filter(counters=counter)` 
+2. **Verify no generic logic**: Ensure `FactoidEngine.get_factoids_for_counter()` only returns assigned factoids
+3. **Test counter isolation**: Each counter should only show its assigned factoids
+
+Common issues:
+- Field category not supported in FactoidEngine
+- Template uses slug format but context has variable format
+- Stale cached instances with outdated data
+- Missing field mappings for calculated fields
+- Generic factoid logic causing factoids to appear on all counters
+
+### 4. API INTEGRATION RULES
+- **Check existing API endpoints** before creating new ones
+- **Test frontend expectations** - what URL pattern does JavaScript expect?
+- **Avoid URL pattern conflicts** - `/api/factoids/<template>` vs `/api/factoids/<counter>` will conflict
+- **Use consistent response formats** - match what frontend expects
+
+### 5. DEBUGGING STRATEGY
+When things don't work:
+
+1. **Test the lowest level first**: Direct field access, then computation, then API
+2. **Check for multiple instances**: Look for competing cached data
+3. **Verify integration points**: Template → Engine → API → Frontend  
+4. **Clear caches when needed**: Delete stale instances to force recomputation
+5. **Check data format mismatches**: Refer to "SYSTEM DATA FORMATS & INTEGRATION POINTS" section for known format differences
+
+### 6. SYSTEM INTEGRITY
+- Use the integrity checker script to validate the entire pipeline
+- Monitor for competing systems doing the same job
+- Ensure frontend JavaScript matches backend API patterns
+- Test end-to-end user flows, not just individual components
+
+## Example Fix Pattern
+```bash
+# 1. Understand the problem
+python manage.py shell -c "engine.get_field_value('field_name', council, year)"
+
+# 2. Check for stale data  
+python manage.py shell -c "FactoidInstance.objects.filter(...).delete()"
+
+# 3. Test integration
+python test_frontend_api.py
+
+# 4. Verify end-to-end
+# Check actual webpage, not just API
+```
+
+Remember: **Simple fixes are usually better than complex re-engineering.**
+
+# SYSTEM DATA FORMATS & INTEGRATION POINTS
+
+**CRITICAL**: Document data formats and API contracts to prevent integration mismatches. Add new formats to this section as the system evolves.
+
+## Factoid System Data Formats
+
+### Counter Assignment Logic
+**CRITICAL**: Factoids only appear on counters they are specifically assigned to via the `FactoidTemplate.counters` ManyToMany relationship.
+
+```python
+# CORRECT: Only counter-specific factoids
+templates = FactoidTemplate.objects.filter(
+    is_active=True,
+    counters=counter  # Only templates assigned to this specific counter
+)
+
+# WRONG: Shows factoids on all counters
+templates = FactoidTemplate.objects.filter(
+    Q(target_content_type=None) |  # Generic templates (shows everywhere)
+    Q(counters=counter)  # Counter-specific (correct)
+)
+```
+
+### Counter-Factoid Assignments
+- **Interest Payments Counter**: Shows interest per capita and compares cost of interest payments to costs of running services 
+- **Total Debt Counter**: Shows current liabilities, long-term liabilities, finance leases as the core components that make up the headline debt for a council. Factoids should therefore be related to these component parts or comparing debt levels to other councils, or showing per capita breakdowns.
+- **Current Liabilities Counter**: Shows current liabilities specific data or short-term position information and insights
+- **Long-term Liabilities Counter**: Shows data relating to the long-term position of the council
+
+**Rule**: If a counter has no factoid assignments, it shows no factoids. No "generic" factoids exist. The space should remain blank and unfilled. 
+
+### API Response Format (from backend)
+```json
+{
+  "success": true,
+  "count": 8,
+  "factoids": [
+    {
+      "id": 87,
+      "template_name": "Interest payments per capita",
+      "template_slug": "interest-payments-per-capita", 
+      "rendered_text": "Equivalent to 150.19 per head.",  // ← Backend uses "rendered_text"
+      "relevance_score": 0.65,
+      "is_significant": true,
+      "computed_at": "2025-07-28T20:58:11.501402+00:00",
+      "expires_at": "2025-07-29T20:58:11.238419+00:00"
+    }
+  ]
+}
+```
+
+### JavaScript Expected Format (factoid-playlist.js)
+```javascript
+{
+  text: "Equivalent to 150.19 per head.",     // ← Frontend expects "text"
+  emoji: "📊",                               // ← Default if not provided
+  color: "blue",                             // ← Default if not provided  
+  id: 87,
+  template_name: "Interest payments per capita",
+  relevance_score: 0.65
+}
+```
+
+### Data Transformation Required
+The `factoid-playlist.js` must transform API response:
+```javascript
+this.factoids = (data.factoids || []).map(factoid => ({
+    text: factoid.rendered_text,  // ← KEY: Convert rendered_text → text
+    emoji: factoid.emoji || '📊',
+    color: factoid.color || 'blue',
+    // ... other fields
+}));
+```
+
+## HTML Data Attributes (Frontend → Backend)
+
+### Counter Factoid Elements
+```html
+<div class="counter-factoid" 
+     data-counter="interest-payments"     // ← Slug format with dashes
+     data-council="worcestershire"        // ← Council slug  
+     data-year="2024/25">                 // ← Year with forward slash
+```
+
+### JavaScript URL Construction  
+```javascript
+// Frontend converts year format for URLs
+const urlSafeYear = year.replace(/\//g, '-');  // 2024/25 → 2024-25
+const url = `/api/factoids/counter/${counterSlug}/${councilSlug}/${urlSafeYear}/`;
+```
+
+## Field Naming Conventions
+
+### URL/Template Format (Slugs)
+- `interest-payments-per-capita` 
+- `total-debt`
+- `current-liabilities`
+
+### Code/Context Format (Variables)
+- `interest_payments_per_capita`
+- `total_debt` 
+- `current_liabilities`
+
+### Conversion Required
+```python
+# Template rendering - ALWAYS convert slug to variable format
+field_variable_name = field_name.replace('-', '_')
+value = context_data.get(field_variable_name)  # Will find the value
+```
+
+## Common Integration Gotchas
+
+1. **Factoid "No data available"**: Check if frontend expects `text` but API returns `rendered_text`
+2. **Factoid shows "N/A"**: Check for stale `FactoidInstance` cache objects
+3. **Factoids appear on wrong counters**: Factoids only show on assigned counters - check `FactoidTemplate.counters` assignments
+4. **API 404 errors**: Verify slug formats match between frontend/backend 
+5. **Year format mismatches**: Frontend uses `2024-25`, backend expects `2024/25`
+6. **Field not found**: Check if using slug format (`interest-payments`) vs variable format (`interest_payments`)
+7. **All factoids showing everywhere**: Ensure no "generic" factoid logic - only counter-specific assignments
+
+## Adding New Data Formats
+
+**INSTRUCTION**: When creating new API endpoints or data structures, document the format here immediately. Include:
+
+1. **API Response Schema**: Exact JSON structure with field names
+2. **Frontend Expected Format**: What JavaScript/HTML expects
+3. **Transformation Code**: How to convert between formats
+4. **Common Pitfalls**: Known issues to watch for
+
+Example template:
+```markdown
+### [New System Name] Data Format
+API Response: { "field_name": "value" }
+Frontend Expects: { "different_field": "value" }  
+Transformation: frontend.field = api.field_name
+Common Issues: [List potential problems]
+```
+
+# Backend
+
+No users, including the super-admin, should see any Django admin pages. The Django admin is not used in this project. Instead, we use a custom-built control panel for managing the system. Only the super-admin should be able to access Django admin pages by exception and in edge case scenarios, and even then, it should be limited to specific tasks that cannot be done through the control panel. The control panel is designed to be user-friendly and intuitive, allowing administrators to manage the system without needing to navigate through complex Django admin pages.
+
+# Pages
 
 ## The 'Contribute' Pages
 
@@ -62,7 +437,7 @@ Factoids are based on data from the fields and characteristics of councils, such
 
 Factoids are a type of report building, that's not a chart. We will do charts separately. Factoids are designed to be quick and easy to create, allowing users to share interesting insights without needing to create complex reports or visualizations. They can be used to highlight key trends, comparisons between councils, or unique financial figures, providing a valuable way for users to engage with the data and share their observations with the community and the wider public via social media.
 
-## Creator's rules
+# Creator's rules that AI should follow
 
 - We care about comments. There should be useful and descriptive comments.
 - We care about helpers in the UI for the benefit of users.
@@ -78,8 +453,10 @@ Factoids are a type of report building, that's not a chart. We will do charts se
 - We build with the future in mind.
 - We use Tailwind CSS for styling. We do not need to use Bootstrap or any other CSS framework, even if it was used in the past.
 - We do not break other parts of the system when fixing things, and we do not stub things out.
+- Run the check_templates.py script to ensure all templates are valid and do not contain any errors.
+- **Use UK English throughout the system** - this means "analyse" not "analyze", "colour" not "color", "favourite" not "favorite", etc. All text, comments, variable names, and user-facing content should follow UK English conventions.
 
-## Rules about User Levels
+# Rules about User Levels
 
 This system is designed to accept contributions from the public via registered accounts, so that they may update the data relating to their own council. The user profile system also recognises and invites people who work for councils to provide us with data too. The aim of the website is to provide a platform for users to contribute data and information about councils, financial figures, and other relevant data. The user levels are designed to reflect the different roles and responsibilities of users within the system, ensuring that contributions are appropriate and beneficial to the platform.
 
@@ -93,93 +470,24 @@ Components and features should be appropriately gated to their user level, ensur
 
 The system should also offer data via API, for which a secure key is required. This API should be designed to allow users to access and interact with the data in a secure and controlled manner, ensuring that sensitive information is protected while still allowing for valuable contributions and insights. Users will be able to generate API keys from their user profile, and these keys should be securely stored and managed within the system. The API should support various endpoints for accessing council data, financial figures, and user contributions, allowing developers to build applications and integrations that leverage the platform's data and functionality. We may - or may not - charge for API access in the future.
 
-## OpenAI Integration
+# Use of AI to assist the users 
 
-- The app will integrate with OpenAI to use models to extract data from provided PDFs.
+The system is designed to leverage AI to assist users in various ways, enhancing the overall user experience and providing valuable insights into council data. AI can be used to:
+- **Generate Factoids**: AI can analyze council data and generate interesting factoids based on trends, comparisons, and unique financial figures. This can help users quickly identify key insights without needing to manually sift through large datasets.
+- **Suggest Contributions**: AI can analyze user behavior and preferences to suggest relevant contributions, such as councils to follow, lists to create, or financial figures to track. This can help users discover new areas of interest and engage more deeply with the platform.
+- **Automate Data Validation**: AI can assist in validating user contributions by checking for consistency, accuracy, and relevance. This can help reduce the burden on moderators and ensure that contributions are appropriate and beneficial to the platform.
+- **Enhance Search Functionality**: AI can improve search capabilities by understanding user intent and providing more relevant results based on context and user behavior. This can help users quickly find the information they need without having to navigate through multiple pages.
+- **Suggest Fields and Characteristics**: AI can analyze existing council data and suggest new fields or characteristics that could be added to enhance the dataset. This can help keep the platform up-to-date with the latest trends and developments in council finances.
+- **Suggest Lists**: AI can recommend custom lists for users based on their interests and contributions. This can help users organize and track relevant data more effectively.
 
-## Migrating from WordPress Plugin to Django Agent Architecture
+The API key for OpenAI can be found in the .env file, and it should be used to access the AI capabilities within the system. The AI features should be designed to be user-friendly and intuitive, allowing users to easily access and benefit from the AI-generated insights and suggestions without requiring technical expertise.
 
-This document guides the migration of the `council-finance-counters` WordPress plugin into a modern, scalable **Django-based agent system**.
+# System Rules
 
-Each “agent” in Django represents a discrete unit of business logic previously managed by PHP classes within a WordPress plugin environment. This allows for cleaner architecture, easier testing, and more powerful orchestration. The old system can be referenced at https://github.com/mikerouse/council-debt-counters
+## Console Commands
 
-## 🔗 Original Plugin Structure Reference
-
-Most core logic is located in the `includes/` directory of the original WordPress plugin at https://github.com/mikerouse/council-debt-counters:
-- `class-data-loader.php`: handles import of CSVs/data files.
-- `class-counter-manager.php`: computes financial metrics.
-- `class-councils-table.php`, `class-council-post-type.php`: model/data definitions.
-- `class-settings-page.php`, `class-admin-dashboard-widget.php`: WordPress-specific admin features.
-- `class-openai-helper.php`, `class-ai-extractor.php`: AI support agents.
-- `class-moderation-log.php`, `class-whistleblower-*`: moderation & reporting logic.
-
-
-## 📦 Django Agent System Overview
-
-In Django, each logical unit becomes a Python class inheriting from a shared `AgentBase`. These agents live in the `agents/` folder and run independently, scheduled via cron or CLI.
-
-Typical mapping:
-
-| WordPress Class                | Django Agent Equivalent                  |
-|-------------------------------|------------------------------------------|
-| `class-data-loader.php`       | `ImporterAgent` (CSV/API/data ingest)    |
-| `class-counter-manager.php`   | `CounterAgent` (calculations + output)   |
-| `class-docs-manager.php`      | `DocumentAgent` (downloads/exports)      |
-| `class-error-logger.php`      | `LoggerAgent` or integrated Django logs  |
-| `class-openai-helper.php`     | `OpenAIAgent` (content or data synthesis)|
-| `class-whistleblower-*.php`   | `WhistleblowerAgent` (form processor)    |
-
-## 🏗️ Django Project Structure
-
-```
-council_finance/
-├── agents/
-│   ├── __init__.py
-│   ├── base.py             # AgentBase with discovery
-│   ├── importer_agent.py   # replaces class-data-loader.php
-│   ├── counter_agent.py    # replaces class-counter-manager.php
-│   ├── report_agent.py     # replaces output/export logic
-├── models/
-│   └── council.py          # e.g., Council, FigureSubmission, Year, etc.
-├── manage.py
-├── config/
-│   ├── settings.py
-│   └── urls.py
-├── requirements.txt
-└── scripts/
-    └── dev.sh              # local dev bootstrap
-```
-
-## 🚀 Steps for Migration
-
-1. **Data Models**  
-   Create Django models for the following concepts:
-   - `Council`
-   - `Financial Year`
-   - `FigureSubmission`
-   - `DebtAdjustment`
-   - `WhistleblowerReport`
-   - `ModerationLog`
-
-   Migrate definitions from `class-council-post-type.php` and `class-custom-fields.php`.
-
-2. **Agents**
-   - **ImporterAgent**: move logic from `class-data-loader.php`
-   - **CounterAgent**: mirror `class-counter-manager.php` and calculation utils
-   - **DocumentAgent**: migrate file downloads, stats, CSVs, PDFs
-   - **OpenAIAgent**: wrap any OpenAI calls used in `class-openai-helper.php`
-   - **ModerationAgent**: port logs from `class-moderation-log.php`
-
-3. **Views & APIs**
-
-   Create Django views to replace WP shortcodes (`class-shortcode-renderer.php`), if needed. Consider using Django REST Framework for external APIs.
-
-4. **Admin UI**
-   Use Django’s built-in admin to replicate:
-   - Settings pages
-   - Data dashboards
-   - Moderation tools
-   - Data cleansing and import tools
+- You don't need to do `cd` before every python command - you are already in the project directory.
+- Avoid using `&&` in terminal commands.
 
 ## 🧪 Testing
 
@@ -198,16 +506,14 @@ class CounterAgentTest(TestCase):
         result = agent.run(year=2023)
         self.assertGreater(result['debt'], 0)
 ```
-When developing this app, write unit tests (and other test types) to ensure robust testing is in place. Some tests should be exposed to the admin users in the backend such as things like tests to check the integrity of data, which can be run routinely. 
-
----
 
 ## 🛠 Configuration
 
 - Use `.env` files for API keys and database URLs.
 - `config/settings.py` is loaded dynamically and supports overrides via environment.
 - Store config overrides or user-specified parameters via a `settings` model or flatfile.
-- Update requirements.txt with any requirements as needed.
+
+---
 
 ## 🔄 Scheduling
 
@@ -216,20 +522,55 @@ Use cron or Django-Q/Celery for periodic agents (e.g. daily imports):
 ```cron
 0 3 * * * /path/to/venv/bin/python manage.py runagent ImporterAgent
 ```
-## Styling
 
-- Use Tailwind CSS for styles
-- Clean, accessible UI
-- Design based on principles set out in https://frontend.design-system.service.gov.uk/
-- However, this is NOT an official UK government website and so the design should not replicate entirely GOV.UK websites, simply use them for inspiration
+---
 
-## ✅ Summary
+## Mobile-First Design Principles
 
-This migration will:
-- Separate core logic from presentation
-- Enable multi-source imports and cleaner testing
-- Support long-term extensibility (e.g., APIs, dashboards, ML)
+The application follows a mobile-first approach with progressive enhancement for larger screens. Key principles include:
 
-Each PHP class becomes a Python agent or model. Migration is incremental—start with imports, then counters, then interface code.
+### Touch Interaction Guidelines
+- **Minimum Touch Targets**: All interactive elements should be at least 44px in height and width on mobile
+- **Proper Spacing**: Touch targets should have adequate spacing (8px minimum) to prevent accidental taps
+- **Thumb-Friendly Zones**: Primary actions should be easily reachable with thumb navigation
 
-Happy porting! 🎉
+### Grid System and Alignment
+
+A consistent grid system ensures proper alignment and visual hierarchy across all screen sizes:
+
+#### Layout Structure
+- **Mobile**: Single-column layout with consistent padding (`px-3`)
+- **Tablet**: Enhanced spacing (`sm:px-4`) with some multi-column sections
+- **Desktop**: Fixed 1280px container (`xl:max-w-desktop`) with generous padding (`xl:px-6`)
+
+#### Grid Implementation
+```html
+<!-- Outer container with consistent padding -->
+<div class="mx-auto px-3 sm:px-4 xl:px-6 py-4 xl:py-8 max-w-none xl:max-w-desktop">
+  <!-- Grid system for layout -->
+  <div class="grid grid-cols-1 xl:grid-cols-4 gap-4 sm:gap-6">
+    <!-- Content areas use col-span for proper alignment -->
+    <div class="xl:col-span-4">Header content</div>
+    <div class="xl:col-span-3 order-2 xl:order-1">Main content</div>
+    <div class="xl:col-span-1 order-1 xl:order-2">Sidebar</div>
+  </div>
+</div>
+```
+
+#### Alignment Rules
+- **Consistent Containers**: All major sections use the same padding system
+- **Grid Alignment**: Content panels align with grid boundaries, not arbitrary positioning
+- **Breathing Room**: Buttons and interactive elements have proper margin/padding (never flush against containers)
+- **Visual Rhythm**: Consistent spacing using Tailwind's spacing scale (4px increments)
+
+### Responsive Breakpoints
+- **Base styles**: Mobile-first (320px+)
+- **sm**: Small tablets and large phones (640px+)
+- **lg**: Tablets and small laptops (1024px+) 
+- **xl**: Desktop and large screens (1280px+)
+- **Custom breakpoints**: `desktop: '1280px'` for precise desktop targeting
+
+### Progressive Disclosure
+- **Mobile**: Show essential information first, with secondary details accessible via taps or expansion
+- **Tablet**: Introduce more information density while maintaining touch-friendly interactions
+- **Desktop**: Full information hierarchy with hover states and advanced interactions

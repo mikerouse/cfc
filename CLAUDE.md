@@ -47,7 +47,41 @@ The Council Finance Counters platform prioritises mobile users, recognising that
 - **Offline graceful degradation**: Show cached content when connection fails
 - **Image optimisation**: Use responsive images with appropriate formats
 
-### 7. Council-Specific Mobile Patterns
+### 7. Grid System Implementation
+
+The platform uses a consistent CSS Grid system to ensure uniform alignment across components:
+
+#### Desktop Layout (1280px fixed width)
+- **Main container**: `max-w-none xl:max-w-desktop` (1280px)
+- **Grid structure**: `grid grid-cols-1 xl:grid-cols-4 gap-6 xl:gap-8`
+- **Content distribution**: Main content (3 cols) + Sidebar (1 col)
+
+#### Mobile-First Ordering
+- **AI Analysis**: `order-1 xl:order-2` (appears first on mobile, right on desktop)
+- **Main Content**: `order-2 xl:order-1` (appears second on mobile, left on desktop)
+
+#### Responsive Breakpoints
+- **Mobile**: Single column layout, stacked content
+- **Tablet**: 2-column grids where appropriate
+- **Desktop**: 4-column grid with fixed 1280px width
+
+#### Alignment Rules
+- **Consistent margins**: All cards and panels align to the same grid lines
+- **Uniform spacing**: `gap-6 xl:gap-8` for consistent visual rhythm
+- **Breathing room**: Minimum `mt-6` spacing for interactive elements
+
+#### Implementation Pattern
+```html
+<div class="grid grid-cols-1 xl:grid-cols-4 gap-6 xl:gap-8">
+  <!-- Sidebar: Mobile first, desktop right -->
+  <div class="order-1 xl:order-2 xl:col-span-1">...</div>
+  
+  <!-- Main content: Mobile second, desktop left -->  
+  <div class="order-2 xl:order-1 xl:col-span-3">...</div>
+</div>
+```
+
+### 8. Council-Specific Mobile Patterns
 
 #### Council Detail Pages
 - **Hero section**: Logo, name, and key stats in compact mobile header
@@ -488,3 +522,55 @@ Use cron or Django-Q/Celery for periodic agents (e.g. daily imports):
 ```cron
 0 3 * * * /path/to/venv/bin/python manage.py runagent ImporterAgent
 ```
+
+---
+
+## Mobile-First Design Principles
+
+The application follows a mobile-first approach with progressive enhancement for larger screens. Key principles include:
+
+### Touch Interaction Guidelines
+- **Minimum Touch Targets**: All interactive elements should be at least 44px in height and width on mobile
+- **Proper Spacing**: Touch targets should have adequate spacing (8px minimum) to prevent accidental taps
+- **Thumb-Friendly Zones**: Primary actions should be easily reachable with thumb navigation
+
+### Grid System and Alignment
+
+A consistent grid system ensures proper alignment and visual hierarchy across all screen sizes:
+
+#### Layout Structure
+- **Mobile**: Single-column layout with consistent padding (`px-3`)
+- **Tablet**: Enhanced spacing (`sm:px-4`) with some multi-column sections
+- **Desktop**: Fixed 1280px container (`xl:max-w-desktop`) with generous padding (`xl:px-6`)
+
+#### Grid Implementation
+```html
+<!-- Outer container with consistent padding -->
+<div class="mx-auto px-3 sm:px-4 xl:px-6 py-4 xl:py-8 max-w-none xl:max-w-desktop">
+  <!-- Grid system for layout -->
+  <div class="grid grid-cols-1 xl:grid-cols-4 gap-4 sm:gap-6">
+    <!-- Content areas use col-span for proper alignment -->
+    <div class="xl:col-span-4">Header content</div>
+    <div class="xl:col-span-3 order-2 xl:order-1">Main content</div>
+    <div class="xl:col-span-1 order-1 xl:order-2">Sidebar</div>
+  </div>
+</div>
+```
+
+#### Alignment Rules
+- **Consistent Containers**: All major sections use the same padding system
+- **Grid Alignment**: Content panels align with grid boundaries, not arbitrary positioning
+- **Breathing Room**: Buttons and interactive elements have proper margin/padding (never flush against containers)
+- **Visual Rhythm**: Consistent spacing using Tailwind's spacing scale (4px increments)
+
+### Responsive Breakpoints
+- **Base styles**: Mobile-first (320px+)
+- **sm**: Small tablets and large phones (640px+)
+- **lg**: Tablets and small laptops (1024px+) 
+- **xl**: Desktop and large screens (1280px+)
+- **Custom breakpoints**: `desktop: '1280px'` for precise desktop targeting
+
+### Progressive Disclosure
+- **Mobile**: Show essential information first, with secondary details accessible via taps or expansion
+- **Tablet**: Introduce more information density while maintaining touch-friendly interactions
+- **Desktop**: Full information hierarchy with hover states and advanced interactions

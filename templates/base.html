@@ -28,28 +28,29 @@
       {% if debug %}data-debug="true"{% endif %}>
     <!-- Modern site header with enhanced search and notifications -->
     <header class="bg-gradient-to-r from-gray-800 to-gray-900 text-white shadow-lg relative z-40">
-        <div class="max-w-7xl mx-auto">
+        <div class="mx-auto px-3 sm:px-4 xl:px-6 max-w-none xl:max-w-desktop">
             <!-- Main header row -->
-            <div class="flex items-center justify-between p-4">
+            <div class="flex items-center justify-between py-3 sm:py-4 xl:py-5 gap-3 sm:gap-4 xl:gap-8">
                 <!-- Brand -->
-                <div class="flex items-center space-x-4">
-                    <a href="{% url 'home' %}" class="flex items-center space-x-2 group">
-                        <div class="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center group-hover:bg-blue-500 transition-colors">
-                            <svg class="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 20 20">
+                <div class="flex items-center space-x-3 sm:space-x-4 min-w-0 flex-shrink-0">
+                    <a href="{% url 'home' %}" class="flex items-center space-x-2 sm:space-x-3 group min-w-0">
+                        <div class="w-7 h-7 sm:w-8 sm:h-8 xl:w-10 xl:h-10 bg-blue-600 rounded-lg flex items-center justify-center group-hover:bg-blue-500 transition-colors flex-shrink-0">
+                            <svg class="w-4 h-4 sm:w-5 sm:h-5 xl:w-6 xl:h-6 text-white" fill="currentColor" viewBox="0 0 20 20">
                                 <path d="M4 4a2 2 0 00-2 2v1h16V6a2 2 0 00-2-2H4zM18 9H2v5a2 2 0 002 2h12a2 2 0 002-2V9zM4 13a1 1 0 011-1h1a1 1 0 110 2H5a1 1 0 01-1-1zm5-1a1 1 0 100 2h1a1 1 0 100-2H9z"/>
                             </svg>
                         </div>
-                        <span class="text-xl font-bold bg-gradient-to-r from-white to-gray-200 bg-clip-text text-transparent">
-                            Council Finance Counters
+                        <span class="text-base sm:text-xl xl:text-2xl font-bold bg-gradient-to-r from-white to-gray-200 bg-clip-text text-transparent truncate">
+                            <span class="hidden sm:inline">Council Finance Counters</span>
+                            <span class="sm:hidden">CFC</span>
                         </span>
                     </a>
                 </div>
 
                 <!-- Enhanced Search -->
-                <div class="flex-1 max-w-2xl mx-8 relative">
-                    <div class="relative group">
-                        <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                            <svg class="h-5 w-5 text-gray-400 group-focus-within:text-blue-400 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <div class="hidden md:flex flex-1 max-w-sm lg:max-w-lg xl:max-w-2xl mx-4 lg:mx-6 xl:mx-8 relative">
+                    <div class="relative group w-full">
+                        <div class="absolute inset-y-0 left-0 pl-3 xl:pl-4 flex items-center pointer-events-none">
+                            <svg class="h-5 w-5 xl:h-6 xl:w-6 text-gray-400 group-focus-within:text-blue-400 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
                             </svg>
                         </div>
@@ -58,11 +59,11 @@
                             type="text" 
                             name="q" 
                             placeholder="Search councils by name, type, or location..."
-                            class="block w-full pl-10 pr-12 py-3 bg-gray-700/50 border border-gray-600 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent focus:bg-gray-700 transition-all duration-200 backdrop-blur-sm"
+                            class="block w-full pl-10 xl:pl-12 pr-4 xl:pr-16 py-2.5 xl:py-3.5 bg-gray-700/50 border border-gray-600 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent focus:bg-gray-700 transition-all duration-200 backdrop-blur-sm text-sm xl:text-base"
                             autocomplete="off"
                         />
-                        <div class="absolute inset-y-0 right-0 pr-3 flex items-center">
-                            <kbd class="hidden sm:inline-flex items-center px-2 py-1 bg-gray-800 border border-gray-600 rounded text-xs text-gray-400">⌘K</kbd>
+                        <div class="absolute inset-y-0 right-0 pr-3 xl:pr-4 flex items-center">
+                            <kbd class="hidden xl:inline-flex items-center px-2 py-1 bg-gray-800 border border-gray-600 rounded text-xs text-gray-400">⌘K</kbd>
                         </div>
                     </div>
                     
@@ -74,18 +75,25 @@
                     </div>
                 </div>
 
+                <!-- Mobile search toggle -->
+                <button id="mobile-search-toggle" class="md:hidden p-2 bg-gray-700 hover:bg-gray-600 rounded-lg transition-all duration-200 group focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[44px] min-w-[44px] flex items-center justify-center">
+                    <svg class="w-5 h-5 text-gray-300 group-hover:text-white transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+                    </svg>
+                </button>
+
                 <!-- Right side icons -->
-                <div class="flex items-center space-x-3 flex-shrink-0">
+                <div class="flex items-center space-x-2 sm:space-x-3 xl:space-x-4 flex-shrink-0">
                     {% if user.is_authenticated %}
                     <!-- Enhanced Notifications -->
                     {% unread_count as unread_count %}
                     <div class="relative flex-shrink-0" id="notif-wrapper">
                         <button 
                             id="notif-toggle" 
-                            class="relative p-2 bg-gray-700 hover:bg-gray-600 rounded-lg transition-all duration-200 group focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            class="relative p-2 xl:p-3 bg-gray-700 hover:bg-gray-600 rounded-lg transition-all duration-200 group focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[44px] min-w-[44px] sm:min-h-0 sm:min-w-0 flex items-center justify-center"
                             aria-label="Notifications"
                         >
-                            <svg class="w-6 h-6 text-gray-300 group-hover:text-white transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <svg class="w-5 h-5 xl:w-6 xl:h-6 text-gray-300 group-hover:text-white transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/>
                             </svg>
                             {% if unread_count %}
@@ -196,9 +204,9 @@
                     <!-- Comparison Basket -->
                     <div class="relative flex-shrink-0">
                         <a href="{% url 'compare_basket' %}" 
-                           class="relative p-2 bg-gray-700 hover:bg-gray-600 rounded-lg transition-all duration-200 group focus:outline-none focus:ring-2 focus:ring-blue-500 block"
+                           class="relative p-2 xl:p-3 bg-gray-700 hover:bg-gray-600 rounded-lg transition-all duration-200 group focus:outline-none focus:ring-2 focus:ring-blue-500 block min-h-[44px] min-w-[44px] sm:min-h-0 sm:min-w-0 flex items-center justify-center"
                            aria-label="Comparison basket">
-                            <svg class="w-6 h-6 text-gray-300 group-hover:text-white transition-colors flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <svg class="w-5 h-5 xl:w-6 xl:h-6 text-gray-300 group-hover:text-white transition-colors flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4m0 0L7 13m0 0l-2.293 2.293a1 1 0 000 1.414L6 18h12M7 13v8a2 2 0 002 2h6a2 2 0 002-2v-8"/>
                             </svg>
                             {% if compare_count %}
@@ -214,11 +222,11 @@
                     <!-- User Menu -->
                     {% if user.is_authenticated %}
                     <div class="relative flex-shrink-0" id="user-menu">
-                        <button id="user-menu-toggle" class="flex items-center space-x-2 p-2 bg-gray-700 hover:bg-gray-600 rounded-lg transition-all duration-200 group focus:outline-none focus:ring-2 focus:ring-blue-500">
-                            <div class="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white font-semibold text-sm flex-shrink-0">
+                        <button id="user-menu-toggle" class="flex items-center space-x-2 xl:space-x-3 p-2 xl:p-3 bg-gray-700 hover:bg-gray-600 rounded-lg transition-all duration-200 group focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[44px]">
+                            <div class="w-7 h-7 xl:w-9 xl:h-9 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white font-semibold text-sm xl:text-base flex-shrink-0">
                                 {{ user.first_name.0|default:user.username.0|upper }}
                             </div>
-                            <svg class="w-4 h-4 text-gray-400 group-hover:text-white transition-colors flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <svg class="w-4 h-4 xl:w-5 xl:h-5 text-gray-400 group-hover:text-white transition-colors flex-shrink-0 hidden sm:block" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
                             </svg>
                         </button>
@@ -274,47 +282,82 @@
                         </div>
                     </div>
                     {% else %}
-                    <a href="{% url 'login' %}" class="bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded-lg font-medium transition-colors flex-shrink-0">
-                        Sign In
+                    <a href="{% url 'login' %}" class="bg-blue-600 hover:bg-blue-700 px-4 xl:px-6 py-2 xl:py-3 rounded-lg font-medium transition-colors flex-shrink-0 text-sm xl:text-base min-h-[44px] flex items-center">
+                        <span class="hidden sm:inline">Sign In</span>
+                        <span class="sm:hidden">Login</span>
                     </a>
                     {% endif %}
                 </div>
             </div>
 
+            <!-- Mobile Search Bar -->
+            <div id="mobile-search-bar" class="hidden md:hidden bg-gray-700/75 border-t border-gray-600 px-4 py-3">
+                <div class="relative">
+                    <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                        <svg class="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+                        </svg>
+                    </div>
+                    <input 
+                        id="mobile-search-input" 
+                        type="text" 
+                        name="q" 
+                        placeholder="Search councils by name, type, or location..."
+                        class="block w-full pl-10 pr-3 py-3 bg-gray-700/50 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent focus:bg-gray-700 transition-all duration-200"
+                        autocomplete="off"
+                    />
+                </div>
+                <!-- Mobile Search Results -->
+                <div id="mobile-search-results" class="mt-2 bg-white rounded-lg shadow-xl border border-gray-200 hidden overflow-hidden">
+                    <div class="max-h-64 overflow-y-auto">
+                        <!-- Results will be populated here -->
+                    </div>
+                </div>
+            </div>
+
             <!-- Navigation Bar -->
             <div class="bg-gray-700/50 backdrop-blur-sm border-t border-gray-600">
-                <nav class="flex items-center space-x-8 px-4 py-3">
-                    <a href="{% url 'home' %}" class="flex items-center space-x-2 text-gray-300 hover:text-white transition-colors whitespace-nowrap">
-                        <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                <!-- Mobile/Tablet Navigation Toggle -->
+                <div class="xl:hidden flex items-center justify-between px-4 py-3">
+                    <span class="text-gray-300 text-sm font-medium">Navigation</span>
+                    <button id="nav-toggle" class="p-2 bg-gray-600 hover:bg-gray-500 rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[44px] min-w-[44px] flex items-center justify-center">
+                        <svg class="w-5 h-5 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/>
+                        </svg>
+                    </button>
+                </div>
+                <nav id="main-nav" class="hidden xl:flex xl:items-center xl:space-x-8 px-4 xl:px-6 py-2 xl:py-3 flex-col xl:flex-row space-y-2 xl:space-y-0 pb-4 xl:pb-0 max-w-none xl:max-w-desktop xl:mx-auto">
+                    <a href="{% url 'home' %}" class="flex items-center space-x-2 text-gray-300 hover:text-white transition-colors whitespace-nowrap py-2 px-2 xl:px-0 rounded xl:rounded-none hover:bg-gray-600 xl:hover:bg-transparent text-sm xl:text-base">
+                        <svg class="w-4 h-4 xl:w-5 xl:h-5" fill="currentColor" viewBox="0 0 20 20">
                             <path d="M10.707 2.293a1 1 0 00-1.414 0l-7 7a1 1 0 001.414 1.414L4 10.414V17a1 1 0 001 1h2a1 1 0 001-1v-2a1 1 0 011-1h2a1 1 0 011 1v2a1 1 0 001 1h2a1 1 0 001-1v-6.586l.293.293a1 1 0 001.414-1.414l-7-7z"/>
                         </svg>
                         <span>Home</span>
                     </a>
                     
-                    <a href="{% url 'leaderboards' %}" class="flex items-center space-x-2 text-gray-300 hover:text-white transition-colors whitespace-nowrap">
-                        <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                    <a href="{% url 'leaderboards' %}" class="flex items-center space-x-2 text-gray-300 hover:text-white transition-colors whitespace-nowrap py-2 px-2 xl:px-0 rounded xl:rounded-none hover:bg-gray-600 xl:hover:bg-transparent text-sm xl:text-base">
+                        <svg class="w-4 h-4 xl:w-5 xl:h-5" fill="currentColor" viewBox="0 0 20 20">
                             <path d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z"/>
                         </svg>
                         <span>Leaderboards</span>
                     </a>
 
-                    <a href="{% url 'contribute' %}" class="flex items-center space-x-2 text-gray-300 hover:text-white transition-colors whitespace-nowrap">
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <a href="{% url 'contribute' %}" class="flex items-center space-x-2 text-gray-300 hover:text-white transition-colors whitespace-nowrap py-2 px-2 xl:px-0 rounded xl:rounded-none hover:bg-gray-600 xl:hover:bg-transparent text-sm xl:text-base">
+                        <svg class="w-4 h-4 xl:w-5 xl:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/>
                         </svg>
                         <span>Contribute</span>
                     </a>
 
                     {% if user.is_authenticated %}
-                    <a href="{% url 'my_lists' %}" class="flex items-center space-x-2 text-gray-300 hover:text-white transition-colors whitespace-nowrap">
-                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <a href="{% url 'my_lists' %}" class="flex items-center space-x-2 text-gray-300 hover:text-white transition-colors whitespace-nowrap py-2 px-2 xl:px-0 rounded xl:rounded-none hover:bg-gray-600 xl:hover:bg-transparent text-sm xl:text-base">
+                        <svg class="w-4 h-4 xl:w-5 xl:h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"/>
                         </svg>
                         <span>My Lists</span>
                     </a>
 
-                    <a href="{% url 'following' %}" class="flex items-center space-x-2 text-gray-300 hover:text-white transition-colors whitespace-nowrap">
-                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <a href="{% url 'following' %}" class="flex items-center space-x-2 text-gray-300 hover:text-white transition-colors whitespace-nowrap py-2 px-2 xl:px-0 rounded xl:rounded-none hover:bg-gray-600 xl:hover:bg-transparent text-sm xl:text-base">
+                        <svg class="w-4 h-4 xl:w-5 xl:h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/>
                         </svg>
                         <span>Following</span>
@@ -322,9 +365,10 @@
                     {% endif %}
 
                     {% if user.is_superuser or user.profile.tier.level|default:0 >= 4 %}
-                    <div class="h-4 border-l border-gray-600"></div>
-                      <a href="{% url 'counter_definitions' %}" class="flex items-center space-x-2 text-gray-300 hover:text-white transition-colors whitespace-nowrap">
-                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <div class="hidden xl:block h-4 border-l border-gray-600"></div>
+                    <div class="xl:hidden w-full h-px bg-gray-600 my-2"></div>
+                      <a href="{% url 'counter_definitions' %}" class="flex items-center space-x-2 text-gray-300 hover:text-white transition-colors whitespace-nowrap py-2 px-2 xl:px-0 rounded xl:rounded-none hover:bg-gray-600 xl:hover:bg-transparent text-sm xl:text-base">
+                        <svg class="w-4 h-4 xl:w-5 xl:h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
                         </svg>
                         <span>Counters</span>
@@ -334,15 +378,15 @@
                     {% if user.is_superuser or user.profile.tier.level|default:0 >= 5 %}
                     <!-- God Mode Dropdown -->
                     <div class="relative" id="god-mode-dropdown">
-                        <button class="flex items-center space-x-2 text-red-400 hover:text-red-300 transition-colors whitespace-nowrap group" 
+                        <button class="flex items-center space-x-2 text-red-400 hover:text-red-300 transition-colors whitespace-nowrap group py-2 px-2 xl:px-0 rounded xl:rounded-none hover:bg-gray-600 xl:hover:bg-transparent text-sm xl:text-base" 
                                 id="god-mode-toggle"
                                 aria-expanded="false"
                                 aria-haspopup="true">
-                            <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                            <svg class="w-4 h-4 xl:w-5 xl:h-5" fill="currentColor" viewBox="0 0 20 20">
                                 <path fill-rule="evenodd" d="M2.166 4.999A11.954 11.954 0 0010 1.944 11.954 11.954 0 0017.834 5c.11.65.166 1.32.166 2.001 0 5.225-3.34 9.67-8 11.317C5.34 16.67 2 12.225 2 7c0-.682.057-1.35.166-2.001zm11.541 3.708a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
                             </svg>
                             <span>God Mode</span>
-                            <svg class="w-3 h-3 transition-transform group-hover:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <svg class="w-3 h-3 xl:w-4 xl:h-4 transition-transform group-hover:rotate-180 hidden xl:block" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
                             </svg>
                         </button>
@@ -499,13 +543,65 @@
     if (navToggle && mainNav) {
         navToggle.addEventListener('click', () => {
             mainNav.classList.toggle('hidden');
+            // Toggle icon between hamburger and X
+            const icon = navToggle.querySelector('svg');
+            if (mainNav.classList.contains('hidden')) {
+                icon.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/>';
+            } else {
+                icon.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>';
+            }
         });
+        
+        // Ensure navigation is visible on desktop resize (xl = 1280px)
+        window.addEventListener('resize', () => {
+            if (window.innerWidth >= 1280) {
+                mainNav.classList.remove('hidden');
+                // Reset hamburger icon
+                const icon = navToggle.querySelector('svg');
+                icon.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/>';
+            } else if (window.innerWidth < 1280 && !navToggle) {
+                // If we're on mobile/tablet and there's no toggle, hide nav
+                mainNav.classList.add('hidden');
+            }
+        });
+    }
+
+    // Mobile search toggle functionality
+    const mobileSearchToggle = document.getElementById('mobile-search-toggle');
+    const mobileSearchBar = document.getElementById('mobile-search-bar');
+    const mobileSearchInput = document.getElementById('mobile-search-input');
+    
+    if (mobileSearchToggle && mobileSearchBar) {
+        mobileSearchToggle.addEventListener('click', () => {
+            mobileSearchBar.classList.toggle('hidden');
+            if (!mobileSearchBar.classList.contains('hidden')) {
+                // Focus the search input when opening
+                setTimeout(() => {
+                    mobileSearchInput.focus();
+                }, 100);
+            }
+        });
+        
+        // Close mobile search when clicking outside
+        document.addEventListener('click', (e) => {
+            if (!mobileSearchToggle.contains(e.target) && !mobileSearchBar.contains(e.target)) {
+                mobileSearchBar.classList.add('hidden');
+            }
+        });
+    }
+    
+    // Attach live search to mobile search input
+    if (mobileSearchInput) {
+        attachLiveSearch(
+            mobileSearchInput,
+            document.getElementById('mobile-search-results')
+        );
     }
     </script>
 
     {# Display one-off messages generated via Django's messages framework. #}
     {% if messages %}
-    <div class="max-w-7xl mx-auto p-4 w-full" id="message-area">
+    <div class="mx-auto px-3 sm:px-4 xl:px-6 py-4 w-full xl:max-w-desktop" id="message-area">
         {% for message in messages %}
         <div class="message mb-2 p-2 bg-blue-50 border border-blue-300 text-blue-900 rounded flex justify-between items-start">
             {# Show the message text and provide a dismiss button #}
@@ -534,20 +630,20 @@
          flex-1 allows the body flex layout to fill vertical space and w-full
          keeps the element at full width while max-w-7xl caps the size on
          large screens. -->
-    <main class="flex-1 max-w-7xl w-full mx-auto p-4" id="main-content">
+    <main class="flex-1 w-full mx-auto px-3 sm:px-4 xl:px-6 py-4 xl:py-6 max-w-none xl:max-w-desktop" id="main-content">
         {% block content %}{% endblock %}
     </main>
 
     <!-- Site footer with secondary navigation -->
     <footer class="bg-gray-100 text-sm mt-8">
-        <div class="max-w-7xl mx-auto p-4 space-y-2">
-            <nav class="flex gap-4">
-                <a href="{% url 'about' %}" class="hover:underline">About</a>
-                <a href="{% url 'terms_of_use' %}" class="hover:underline">Terms of Use</a>
-                <a href="{% url 'privacy_cookies' %}" class="hover:underline">Privacy & Cookies</a>
-                <a href="{% url 'corrections' %}" class="hover:underline">Corrections</a>
+        <div class="mx-auto px-3 sm:px-4 xl:px-6 py-4 xl:py-6 max-w-none xl:max-w-desktop space-y-3">
+            <nav class="flex flex-wrap gap-3 sm:gap-4 xl:gap-6">
+                <a href="{% url 'about' %}" class="hover:underline py-1 text-sm xl:text-base transition-colors">About</a>
+                <a href="{% url 'terms_of_use' %}" class="hover:underline py-1 text-sm xl:text-base transition-colors">Terms of Use</a>
+                <a href="{% url 'privacy_cookies' %}" class="hover:underline py-1 text-sm xl:text-base transition-colors">Privacy & Cookies</a>
+                <a href="{% url 'corrections' %}" class="hover:underline py-1 text-sm xl:text-base transition-colors">Corrections</a>
             </nav>
-            <p class="text-gray-500">Copyright (c) 2025 Bluetorch Consulting Ltd. This is an open data project to support transparency.</p>
+            <p class="text-gray-500 text-xs sm:text-sm xl:text-base">Copyright (c) 2025 Bluetorch Consulting Ltd. This is an open data project to support transparency.</p>
         </div>
     </footer>
     
