@@ -156,7 +156,7 @@ ERROR_ALERTS_EMAIL_ADDRESS = os.getenv('ERROR_ALERTS_EMAIL_ADDRESS')
 # Default financial year label used across the site until updated via
 # the SiteSetting admin. This ensures new pages load figures for the
 # most recently finalised accounts.
-DEFAULT_FINANCIAL_YEAR = "2023/24"
+DEFAULT_FINANCIAL_YEAR = "2024/25"
 
 # Use BigAutoField so primary keys match the fields defined in existing
 # migrations. Without this setting Django would default to AutoField and

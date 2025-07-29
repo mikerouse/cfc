@@ -311,6 +311,7 @@ Factoids are a type of report building, that's not a chart. We will do charts se
 - We use Tailwind CSS for styling. We do not need to use Bootstrap or any other CSS framework, even if it was used in the past.
 - We do not break other parts of the system when fixing things, and we do not stub things out.
 - Run the check_templates.py script to ensure all templates are valid and do not contain any errors.
+- **Use UK English throughout the system** - this means "analyse" not "analyze", "colour" not "color", "favourite" not "favorite", etc. All text, comments, variable names, and user-facing content should follow UK English conventions.
 
 # Rules about User Levels
 
