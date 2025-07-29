@@ -445,3 +445,83 @@ def _fetch_google_models():
         {'id': 'gemini-1.5-pro', 'name': 'Gemini 1.5 Pro', 'available': True},
         {'id': 'gemini-1.5-flash', 'name': 'Gemini 1.5 Flash', 'available': True}
     ]
+
+
+@require_GET
+def council_ai_analysis_api(request, council_slug, year_label):
+    """
+    API endpoint to get AI analysis for a council/year combination.
+    Creates new analysis if none exists or if force_refresh is requested.
+    """
+    try:
+        # Get council and year
+        council = get_object_or_404(Council, slug=council_slug)
+        year = get_object_or_404(FinancialYear, label=year_label)
+        
+        # Check for force refresh parameter
+        force_refresh = request.GET.get('force_refresh', '').lower() == 'true'
+        
+        # Get or create analysis using the service
+        from council_finance.services.ai_analysis_service import AIAnalysisService
+        service = AIAnalysisService()
+        
+        analysis = service.get_or_create_analysis(council, year, force_refresh=force_refresh)
+        
+        if not analysis:
+            return JsonResponse({
+                'success': False,
+                'error': 'Failed to generate analysis. Please check AI configuration and try again.'
+            }, status=500)
+        
+        # Return analysis data
+        return JsonResponse({
+            'success': True,
+            'analysis': {
+                'id': analysis.id,
+                'status': analysis.status,
+                'analysis_text': analysis.analysis_text,
+                'analysis_summary': analysis.analysis_summary,
+                'key_insights': analysis.key_insights,
+                'risk_factors': analysis.risk_factors,
+                'recommendations': analysis.recommendations,
+                'created': analysis.created.isoformat(),
+                'expires_at': analysis.expires_at.isoformat(),
+                'processing_time_ms': analysis.processing_time_ms,
+                'tokens_used': analysis.tokens_used,
+                'error_message': analysis.error_message
+            }
+        })
+        
+    except Exception as e:
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.error(f"AI analysis API error: {e}")
+        
+        return JsonResponse({
+            'success': False,
+            'error': f'An error occurred: {str(e)}'
+        }, status=500)
+
+
+@require_GET
+def ai_analysis_status_api(request, analysis_id):
+    """
+    API endpoint to check the status of an AI analysis.
+    """
+    try:
+        analysis = get_object_or_404(CouncilAIAnalysis, id=analysis_id)
+        
+        return JsonResponse({
+            'success': True,
+            'status': analysis.status,
+            'error_message': analysis.error_message,
+            'processing_time_ms': analysis.processing_time_ms,
+            'created': analysis.created.isoformat(),
+            'expires_at': analysis.expires_at.isoformat()
+        })
+        
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'error': f'An error occurred: {str(e)}'
+        }, status=500)

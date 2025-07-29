@@ -112,15 +112,29 @@ class AIAnalysisService:
         """Generate new AI analysis for council"""
         start_time = time.time()
         
-        # Create pending analysis record
-        analysis = CouncilAIAnalysis.objects.create(
+        # Create or get pending analysis record (using get_or_create to handle race conditions)
+        analysis, created = CouncilAIAnalysis.objects.get_or_create(
             council=council,
             year=year,
             configuration=configuration,
-            status='processing',
-            expires_at=timezone.now() + timedelta(minutes=configuration.cache_duration_minutes),
-            input_data={}
+            defaults={
+                'status': 'processing',
+                'expires_at': timezone.now() + timedelta(minutes=configuration.cache_duration_minutes),
+                'input_data': {},
+                'analysis_text': '',
+                'analysis_summary': '',
+                'key_insights': [],
+                'risk_factors': [],
+                'recommendations': []
+            }
         )
+        
+        # If record already exists, update it to processing status
+        if not created:
+            analysis.status = 'processing'
+            analysis.expires_at = timezone.now() + timedelta(minutes=configuration.cache_duration_minutes)
+            analysis.input_data = {}
+            analysis.save(update_fields=['status', 'expires_at', 'input_data'])
         
         try:
             # Gather financial data
@@ -193,8 +207,7 @@ class AIAnalysisService:
                 data['financial_figures'][slug] = {
                     'name': figure['field__name'],
                     'value': float(figure['value']) if figure['value'] else 0,
-                    'formatted_value': f"£{figure['value']:,.0f}" if figure['value'] else '£0',
-                    'unit': figure['field__unit'] or '£'
+                    'formatted_value': f"£{figure['value']:,.0f}" if figure['value'] else '£0'
                 }
             
             # Get council characteristics
