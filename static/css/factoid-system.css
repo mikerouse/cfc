@@ -110,6 +110,49 @@
     padding: 0.25rem 0;
 }
 
+/* ===== CONTRIBUTION PROMPT ===== */
+.contribution-prompt {
+    display: flex;
+    justify-content: center;
+    padding: 0.25rem 0;
+}
+
+.contribution-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 0.75rem;
+    background-color: #f3f4f6;
+    border: 1px solid #d1d5db;
+    border-radius: 0.5rem;
+    text-decoration: none;
+    transition: all 0.2s ease;
+    cursor: pointer;
+}
+
+.contribution-link:hover {
+    background-color: #e5e7eb;
+    border-color: #9ca3af;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.contribution-text {
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: #374151;
+}
+
+.contribution-points {
+    background-color: #3b82f6;
+    color: white;
+    font-size: 0.75rem;
+    font-weight: 600;
+    padding: 0.125rem 0.375rem;
+    border-radius: 1rem;
+    line-height: 1;
+}
+
 /* ===== ANIMATIONS ===== */
 .factoid-text.slide-in {
     animation: slideUpIn 0.6s ease-out forwards;
@@ -156,6 +199,21 @@
     .factoid-emoji {
         font-size: 0.9rem;
     }
+    
+    .contribution-link {
+        padding: 0.75rem 1rem;
+        min-height: 44px; /* Touch-friendly minimum height */
+        min-width: 44px;
+    }
+    
+    .contribution-text {
+        font-size: 0.8rem;
+    }
+    
+    .contribution-points {
+        font-size: 0.7rem;
+        padding: 0.25rem 0.5rem;
+    }
 }
 
 /* ===== MOTION PREFERENCES ===== */
@@ -180,6 +238,14 @@
     .factoid-text {
         transition: none;
     }
+    
+    .contribution-link {
+        transition: none;
+    }
+    
+    .contribution-link:hover {
+        transform: none;
+    }
 }
 
 /* ===== PRINT STYLES ===== */
@@ -202,6 +268,10 @@
     .factoid-emoji {
         display: none;
     }
+    
+    .contribution-prompt {
+        display: none; /* Hide contribution prompts in print */
+    }
 }
 
 /* ===== HIGH CONTRAST MODE ===== */
@@ -216,5 +286,20 @@
     
     .factoid-text:hover {
         color: #000000;
+    }
+    
+    .contribution-link {
+        background-color: #ffffff;
+        border-color: #000000;
+        color: #000000;
+    }
+    
+    .contribution-text {
+        color: #000000;
+    }
+    
+    .contribution-points {
+        background-color: #000000;
+        color: #ffffff;
     }
 }

@@ -29,6 +29,13 @@ class FactoidPlaylist {
     async init() {
         try {
             this.createHTML();
+            
+            // Check for "no data" state first - this takes priority over factoids
+            if (this.hasNoData()) {
+                this.showContributionPrompt();
+                return;
+            }
+            
             await this.loadFactoids();
             
             if (this.factoids.length > 0) {
@@ -299,6 +306,26 @@ class FactoidPlaylist {
     }
 
     /**
+     * Check if counter has no data
+     */
+    hasNoData() {
+        // Find the actual counter container (parent of the factoid div)
+        const counterContainer = this.container.parentElement?.closest('[data-counter]');
+        const counterValue = counterContainer?.querySelector('.counter-value');
+        
+        // Multiple ways to detect "No data" state
+        const noData = counterValue && (
+            counterValue.textContent.trim() === 'No data' ||
+            !counterValue.hasAttribute('data-value') ||
+            counterValue.dataset.value === 'null' ||
+            counterValue.dataset.value === '' ||
+            counterValue.dataset.value === undefined
+        );
+        
+        return noData;
+    }
+
+    /**
      * Show empty state when no factoids are available
      */
     showEmptyState() {
@@ -306,6 +333,25 @@ class FactoidPlaylist {
             <div class="factoid-container">
                 <div class="factoid-empty">
                     No factoids available
+                </div>
+            </div>
+        `;
+    }
+
+    /**
+     * Show contribution prompt when counter has no data
+     */
+    showContributionPrompt() {
+        const councilSlug = this.container.dataset.council;
+        const editUrl = `/council/${councilSlug}/?tab=edit`;
+        
+        this.container.innerHTML = `
+            <div class="factoid-container">
+                <div class="contribution-prompt">
+                    <a href="${editUrl}" class="contribution-link">
+                        <span class="contribution-text">Contribute this data</span>
+                        <span class="contribution-points">+2pts</span>
+                    </a>
                 </div>
             </div>
         `;
@@ -345,13 +391,16 @@ function createFactoidPlaylist(selector, options = {}) {
  * Initialize factoid playlists when DOM is ready
  */
 document.addEventListener('DOMContentLoaded', function() {
-    // Auto-initialize factoid containers
-    createFactoidPlaylist('.counter-factoid[data-counter]', {
-        autoPlay: true,
-        duration: 8000, // 8 seconds for better readability
-        enableFlipAnimation: false,
-        enableInteractions: false
-    });
+    // Delay initialization slightly to ensure counter values are loaded
+    setTimeout(() => {
+        // Auto-initialize factoid containers
+        createFactoidPlaylist('.counter-factoid[data-counter]', {
+            autoPlay: true,
+            duration: 8000, // 8 seconds for better readability
+            enableFlipAnimation: false,
+            enableInteractions: false
+        });
+    }, 100); // Small delay to ensure counter values are populated
 });
 
 // Export for module usage
