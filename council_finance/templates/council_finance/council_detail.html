@@ -4,11 +4,11 @@
 {% block title %}{{ council.name }} - Council Finance Counters{% endblock %}
 
 {% block content %}
-<!-- CACHE CLEAR: 2025-07-29 17:45 - Header Fixed Version -->
-<div class="mx-auto px-3 sm:px-4 xl:px-6 py-4 xl:py-8 max-w-none xl:max-w-desktop">
-  <!-- Council Header -->
-  <div class="bg-white border border-gray-200 rounded-lg sm:rounded-xl shadow-sm mb-6 xl:mb-8">
-    <div class="px-4 py-6 sm:px-6 xl:px-8 sm:py-8 xl:py-10">
+<!-- CACHE CLEAR: 2025-07-29 18:15 - Header Grid Alignment Fixed -->
+<div class="mx-auto max-w-none xl:max-w-desktop">
+  <!-- Council Header - Aligned with Site Grid -->
+  <div class="bg-white border border-gray-200 rounded-lg sm:rounded-xl shadow-sm mb-6 xl:mb-8 -mx-3 sm:-mx-4 xl:-mx-6">
+    <div class="px-6 py-6 sm:px-8 xl:px-12 sm:py-8 xl:py-10">
       <!-- Council Title and Meta -->
       <div class="space-y-6 sm:space-y-0 sm:flex sm:items-start sm:justify-between mb-8 xl:mb-10">
         <div class="flex-1 min-w-0">
@@ -16,65 +16,71 @@
             <div class="w-16 h-16 sm:w-18 sm:h-18 xl:w-24 xl:h-24 rounded-xl shadow-lg overflow-hidden bg-gray-100 flex items-center justify-center flex-shrink-0">
               {% council_logo_img council size=80 css_classes="w-full h-full object-cover" %}
             </div>
-            <div class="min-w-0 flex-1">
-              <h1 class="text-2xl sm:text-3xl xl:text-4xl font-bold text-gray-900 leading-tight mb-3">{{ council.name }}</h1>
-            </div>
-          </div>
-          
-          <!-- Council Meta Info -->
-          <div class="flex flex-wrap items-center gap-x-6 gap-y-3 text-sm xl:text-base text-gray-600">
-            <div class="flex items-center gap-2">
-              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/>
-              </svg>
-              <span>
-                {% if council.council_type %}
-                  {{ council.council_type.name }}
-                {% elif 'council_type' in pending_slugs %}
-                  <span class="text-orange-600"><i class="fas fa-clock mr-1"></i>Council type pending confirmation</span>
-                {% else %}
-                  <a href="{% url 'council_detail' council.slug %}?tab=edit&focus=council_type" class="text-blue-600 hover:text-blue-800 underline">Contribute council type</a>
-                {% endif %}
-              </span>
-            </div>
+            <div class="min-w-0">
+              <div id="council-detail-name">
+                <h1 class="text-2xl sm:text-2xl xl:text-3xl font-bold text-gray-900 leading-tight mb-3">{{ council.name }}</h1>
+              </div>
+              <!-- Council Meta Info - Better Spacing -->
+            <div class="flex flex-wrap items-center gap-x-8 gap-y-4 text-sm xl:text-base text-gray-600">
+
+              <div class="flex items-center gap-4">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/>
+                </svg>
+                <span>
+                  {% if council.council_type %}
+                    {{ council.council_type.name }}
+                  {% elif 'council_type' in pending_slugs %}
+                    <span class="text-orange-600"><i class="fas fa-clock mr-1"></i>Council type pending confirmation</span>
+                  {% else %}
+                    <a href="{% url 'council_detail' council.slug %}?tab=edit&focus=council_type" class="text-blue-600 hover:text-blue-800 underline">Contribute council type</a>
+                  {% endif %}
+                </span>
+              </div>
             
-            <div class="flex items-center gap-2">
-              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
-              </svg>
-              <span>
-                {% if council.council_nation %}
-                  {{ council.council_nation.name }}
-                {% elif 'council_nation' in pending_slugs %}
-                  <span class="text-orange-600"><i class="fas fa-clock mr-1"></i>Council nation pending confirmation</span>
-                {% else %}
-                  <a href="{% url 'council_detail' council.slug %}?tab=edit&focus=council_nation" class="text-blue-600 hover:text-blue-800 underline">Contribute council nation</a>
-                {% endif %}
-              </span>
+              <div class="flex items-center gap-4">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                </svg>
+                <span>
+                  {% if council.council_nation %}
+                    {{ council.council_nation.name }}
+                  {% elif 'council_nation' in pending_slugs %}
+                    <span class="text-orange-600"><i class="fas fa-clock mr-1"></i>Council nation pending confirmation</span>
+                  {% else %}
+                    <a href="{% url 'council_detail' council.slug %}?tab=edit&focus=council_nation" class="text-blue-600 hover:text-blue-800 underline">Contribute council nation</a>
+                  {% endif %}
+                </span>
+              </div>
+
+              <div class="flex items-center gap-4">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9v-9m0-9v9"/>
+                </svg>
+                <span>
+                  {% if council.website %}
+                    <a href="{{ council.website }}" target="_blank" class="text-blue-600 hover:text-blue-800 underline">{{ council.website|truncatechars:30 }}</a>
+                  {% elif 'council_website' in pending_slugs %}
+                    <span class="text-orange-600"><i class="fas fa-clock mr-1"></i>Website pending confirmation</span>
+                  {% else %}
+                    <a href="{% url 'council_detail' council.slug %}?tab=edit&focus=council_website" class="text-blue-600 hover:text-blue-800 underline">Contribute website address</a>
+                  {% endif %}
+                </span>
+              </div>
+
+            </div>
             </div>
 
-            <div class="flex items-center gap-2">
-              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9v-9m0-9v9"/>
-              </svg>
-              <span>
-                {% if council.website %}
-                  <a href="{{ council.website }}" target="_blank" class="text-blue-600 hover:text-blue-800 underline">{{ council.website|truncatechars:30 }}</a>
-                {% elif 'council_website' in pending_slugs %}
-                  <span class="text-orange-600"><i class="fas fa-clock mr-1"></i>Website pending confirmation</span>
-                {% else %}
-                  <a href="{% url 'council_detail' council.slug %}?tab=edit&focus=council_website" class="text-blue-600 hover:text-blue-800 underline">Contribute website address</a>
-                {% endif %}
-              </span>
-            </div>
-          </div>
-            </div>
           </div>
         </div>
+      </div>
+    </div>
+          
+          
 
-        <!-- Action Buttons - Better Spacing -->
+        <!-- Action Buttons - Proper Container Spacing -->
         {% if user.is_authenticated %}
-          <div class="flex flex-col sm:flex-row gap-4 sm:gap-6 sm:items-center mt-8 sm:mt-0 sm:ml-8">
+          <div class="flex flex-col sm:flex-row gap-4 sm:gap-6 sm:items-center mt-2 sm:mt-0 sm:ml-8 mr-4 xl:mr-8 p-4">
             <button id="follow-btn" 
                     class="inline-flex items-center justify-center px-4 xl:px-6 py-3 xl:py-3 border border-blue-300 text-sm xl:text-base font-medium rounded-lg text-blue-700 bg-blue-50 hover:bg-blue-100 active:bg-blue-200 transition-colors min-h-[44px] shadow-sm" 
                     data-following="{{ is_following|yesno:'true,false' }}" 
@@ -101,9 +107,9 @@
         {% endif %}
       </div>
 
-      <!-- Navigation Tabs - Better Aligned -->
-      <div class="border-t border-gray-200 mt-8 -mx-4 sm:-mx-6 xl:-mx-8">
-        <nav class="flex space-x-8 px-4 sm:px-6 xl:px-8 overflow-x-auto">
+      <!-- Navigation Tabs - Grid Aligned -->
+      <div class="border-t border-gray-200 mt-8 -mx-6 sm:-mx-8 xl:-mx-12">
+        <nav class="flex space-x-8 px-6 sm:px-8 xl:px-12 overflow-x-auto">
           <a href="{% url 'council_detail' council.slug %}" 
              class="flex-shrink-0 py-4 border-b-2 font-medium text-sm {% if tab != 'edit' %}border-blue-500 text-blue-600{% else %}border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300{% endif %} transition-colors">
             <div class="flex items-center gap-2">
