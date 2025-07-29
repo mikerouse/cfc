@@ -561,16 +561,30 @@ def council_detail(request, slug):
     default_slugs = []
     if selected_year:
         from council_finance.agents.counter_agent import CounterAgent
+        from django.core.cache import cache
 
         agent = CounterAgent()
-        # Compute all counter values for this council/year using the agent
-        values = agent.run(council_slug=slug, year_label=selected_year.label)
+        
+        # Cache counter calculations for 10 minutes to improve performance
+        cache_key_current = f"counter_values:{slug}:{selected_year.label}"
+        values = cache.get(cache_key_current)
+        
+        if values is None:
+            # Compute all counter values for this council/year using the agent
+            values = agent.run(council_slug=slug, year_label=selected_year.label)
+            cache.set(cache_key_current, values, 600)  # 10 minutes
+        
         prev_values = {}
         prev_label = previous_year_label(selected_year.label)
         if prev_label:
             prev_year = FinancialYear.objects.filter(label=prev_label).first()
             if prev_year:
-                prev_values = agent.run(council_slug=slug, year_label=prev_year.label)
+                cache_key_prev = f"counter_values:{slug}:{prev_year.label}"
+                prev_values = cache.get(cache_key_prev)
+                
+                if prev_values is None:
+                    prev_values = agent.run(council_slug=slug, year_label=prev_year.label)
+                    cache.set(cache_key_prev, prev_values, 600)  # 10 minutes
 
         # Build a lookup of overrides so we know which counters are enabled or
         # disabled specifically for this council.

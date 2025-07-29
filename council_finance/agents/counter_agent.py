@@ -91,7 +91,14 @@ class CounterAgent(AgentBase):
                         # Convert field_name back to slug format to find the field
                         field_slug = field_name.replace('_', '-')
                         try:
-                            field = DataField.objects.get(slug=field_slug)
+                            # Use getattr to access cached field if available, otherwise query
+                            if not hasattr(self, '_field_cache'):
+                                self._field_cache = {}
+                            
+                            if field_slug not in self._field_cache:
+                                self._field_cache[field_slug] = DataField.objects.get(slug=field_slug)
+                            
+                            field = self._field_cache[field_slug]
                             # Only include numeric content types in formula calculations
                             if field.content_type in ('monetary', 'integer'):
                                 figure_map[field_name] = float(value)

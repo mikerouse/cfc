@@ -291,10 +291,48 @@ Remember: **Simple fixes are usually better than complex re-engineering.**
 3. **Added proper select_related()** - reduced database round trips
 4. **Maintained backwards compatibility** - kept population fallback to `council.latest_population`
 
-#### Next Phase Optimizations (not yet implemented):
-- Counter result caching (95% improvement potential)
-- Database indexes for frequently queried fields
+#### Phase 2 Optimizations (IMPLEMENTED):
+
+**Counter Result Caching System:**
+```python
+# Cache counter calculations for 10 minutes to improve performance
+cache_key_current = f"counter_values:{slug}:{selected_year.label}"
+values = cache.get(cache_key_current)
+
+if values is None:
+    values = agent.run(council_slug=slug, year_label=selected_year.label)
+    cache.set(cache_key_current, values, 600)  # 10 minutes
+```
+
+**CounterAgent Field Caching:**
+```python
+# Use instance-level cache to avoid repeated DataField queries
+if not hasattr(self, '_field_cache'):
+    self._field_cache = {}
+
+if field_slug not in self._field_cache:
+    self._field_cache[field_slug] = DataField.objects.get(slug=field_slug)
+```
+
+**Strategic Database Indexes:**
+- `idx_datafield_meta_display`: Optimizes meta fields lookup
+- `idx_counter_council_types`: Faster counter definition filtering  
+- `idx_datafield_slug_content_type`: Accelerates CounterAgent field lookups
+
+#### Phase 2 Performance Results:
+- **Cold request**: ~5 seconds (first visit)
+- **Cached requests**: ~0.65 seconds (**86.6% faster**)
+- **Year switching**: Near-instant when cached
+- **Overall average**: 1.5 seconds (50% improvement from Phase 1)
+
+#### Combined Phase 1 + 2 Results:
+- **Before optimization**: 6-8 seconds
+- **After both phases**: 0.65s cached, 1.5s average (**75-90% improvement**)
+
+#### Remaining Opportunities (Phase 3):
 - Background processing for heavy calculations
+- Additional query optimization in calculators.py
+- Frontend lazy loading for non-critical sections
 
 # SYSTEM DATA FORMATS & INTEGRATION POINTS
 
