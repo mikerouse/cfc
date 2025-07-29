@@ -296,9 +296,9 @@ urlpatterns = [
     
     # Field Management
     path("manage/fields/", admin_views.field_list, name="field_list"),
-    path("manage/fields/add/", admin_views.field_form, name="field_add"),
-    path("manage/fields/<int:field_id>/edit/", admin_views.field_form, name="field_edit"),
-    path("manage/fields/<int:field_id>/delete/", admin_views.field_delete, name="field_delete"),
+    path("manage/fields/add/", admin_views.field_form_view, name="field_add"),
+    path("manage/fields/<int:field_id>/edit/", admin_views.field_form_view, name="field_edit"),
+    path("manage/fields/<int:field_id>/delete/", admin_views.field_delete_view, name="field_delete"),
     
     # Formula Validation and Testing APIs
     path("api/fields/validate-formula/", admin_views.validate_formula_api, name="validate_formula_api"),

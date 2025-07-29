@@ -97,7 +97,33 @@ class DataField(models.Model):
     image_default_alt_text = models.CharField(max_length=255, blank=True, help_text="Default ALT text for image fields")
     image_copyright_text = models.TextField(blank=True, help_text="Copyright notice for image fields")
     image_ai_generated_flag = models.BooleanField(default=False, help_text="Flag to indicate if image was AI-generated")
+    
+    # Meta display options for council detail page
+    icon_svg_path = models.TextField(
+        blank=True, 
+        help_text="Heroicon SVG path for display in council meta bar (e.g., 'M17 20h5v-2a3...')"
+    )
+    display_order = models.IntegerField(
+        default=0, 
+        help_text="Order in which to display this field in the council meta bar (lower numbers appear first)"
+    )
+    show_in_meta = models.BooleanField(
+        default=False, 
+        help_text="Whether to show this field in the council detail meta bar"
+    )
+    meta_display_format = models.CharField(
+        max_length=100, 
+        blank=True, 
+        default="{value}",
+        help_text="Format string for displaying value in meta bar. Use {value} as placeholder (e.g., '{value} residents')"
+    )
 
+    class Meta:
+        ordering = ['display_order', 'name']
+    
+    def __str__(self):
+        return self.name
+    
     @property
     def variable_name(self) -> str:
         """Return the slug formatted for template variables."""

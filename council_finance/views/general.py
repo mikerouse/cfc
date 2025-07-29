@@ -792,6 +792,53 @@ def council_detail(request, slug):
                 'is_pending': field.slug in pending_slugs_list
             })
 
+    # Get meta fields for council detail header display
+    meta_fields = []
+    population_in_meta = False
+    
+    # Get fields configured to show in meta bar
+    meta_data_fields = DataField.objects.filter(
+        show_in_meta=True,
+        category='characteristic'
+    ).order_by('display_order', 'name')
+    
+    for field in meta_data_fields:
+        try:
+            # Get the characteristic value for this council and field
+            characteristic = CouncilCharacteristic.objects.get(
+                council=council,
+                field=field
+            )
+            
+            if characteristic.value:
+                # Format the value using the field's display format
+                if field.meta_display_format and '{value}' in field.meta_display_format:
+                    if field.content_type == 'integer' and characteristic.value.isdigit():
+                        # Format numbers with commas
+                        formatted_value = field.meta_display_format.format(
+                            value=f"{int(characteristic.value):,}"
+                        )
+                    else:
+                        formatted_value = field.meta_display_format.format(
+                            value=characteristic.value
+                        )
+                else:
+                    formatted_value = characteristic.value
+                
+                meta_fields.append({
+                    'field': field,
+                    'value': characteristic.value,
+                    'formatted_value': formatted_value
+                })
+                
+                # Track if population is in meta fields
+                if field.slug == 'population':
+                    population_in_meta = True
+                    
+        except CouncilCharacteristic.DoesNotExist:
+            # Field is configured for meta but no value exists for this council
+            continue
+    
     context = {
         "council": council,
         "figures": figures,
@@ -830,6 +877,9 @@ def council_detail(request, slug):
         "administrative_messages": administrative_messages,
         "recent_merge_activity": recent_merge_activity,
         "recent_flag_activity": recent_flag_activity,
+        # Dynamic meta fields for header display
+        "meta_fields": meta_fields,
+        "population_in_meta": population_in_meta,
     }
 
     # Handle AJAX POST requests for saving financial figures

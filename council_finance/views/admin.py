@@ -1898,3 +1898,148 @@ def _get_field_sample_value(field, council_slug=None, year=None):
             
     except Exception:
         return 1.0  # Safe fallback
+
+
+# Field Management Views
+
+@login_required
+def field_list(request):
+    """Display list of all data fields with management options."""
+    if not request.user.is_superuser:
+        messages.error(request, "You don't have permission to access field management.")
+        return redirect('home')
+    
+    search_query = request.GET.get('search', '')
+    category_filter = request.GET.get('category', '')
+    
+    fields = DataField.objects.all().order_by('display_order', 'name')
+    
+    if search_query:
+        fields = fields.filter(
+            Q(name__icontains=search_query) | 
+            Q(slug__icontains=search_query) |
+            Q(explanation__icontains=search_query)
+        )
+    
+    if category_filter:
+        fields = fields.filter(category=category_filter)
+    
+    # Paginate results
+    paginator = Paginator(fields, 20)
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
+    
+    context = {
+        'page_obj': page_obj,
+        'search_query': search_query,
+        'category_filter': category_filter,
+        'field_categories': DataField.FIELD_CATEGORIES,
+        'total_fields': DataField.objects.count(),
+        'meta_fields_count': DataField.objects.filter(show_in_meta=True).count(),
+    }
+    
+    return render(request, 'council_finance/admin/field_list.html', context)
+
+
+@login_required
+def field_form_view(request, field_id=None):
+    """Create or edit a data field."""
+    if not request.user.is_superuser:
+        messages.error(request, "You don't have permission to access field management.")
+        return redirect('home')
+    
+    field = None
+    is_editing = False
+    
+    if field_id:
+        field = get_object_or_404(DataField, id=field_id)
+        is_editing = True
+    
+    if request.method == 'POST':
+        form = DataFieldForm(request.POST, instance=field)
+        if form.is_valid():
+            field = form.save()
+            
+            # Log the activity
+            action = 'updated' if is_editing else 'created'
+            log_activity(
+                request.user,
+                f"Field {action}",
+                f"Data field '{field.name}' was {action}",
+                metadata={'field_id': field.id, 'field_slug': field.slug}
+            )
+            
+            messages.success(request, f"Field '{field.name}' has been {action} successfully.")
+            return redirect('field_list')
+        else:
+            messages.error(request, "Please correct the errors below.")
+    else:
+        form = DataFieldForm(instance=field)
+    
+    context = {
+        'form': form,
+        'field': field,
+        'is_editing': is_editing,
+        'page_title': f'Edit Field: {field.name}' if is_editing else 'Create New Field',
+        'is_protected': field and field.is_protected if field else False,
+    }
+    
+    return render(request, 'council_finance/admin/field_form.html', context)
+
+
+@login_required
+def field_delete_view(request, field_id):
+    """Delete a data field with confirmation."""
+    if not request.user.is_superuser:
+        messages.error(request, "You don't have permission to access field management.")
+        return redirect('home')
+    
+    field = get_object_or_404(DataField, id=field_id)
+    
+    # Check if field is protected
+    if field.is_protected:
+        messages.error(request, f"Cannot delete protected field '{field.name}'.")
+        return redirect('field_list')
+    
+    if request.method == 'POST':
+        field_name = field.name
+        field_slug = field.slug
+        
+        try:
+            field.delete()
+            
+            # Log the activity
+            log_activity(
+                request.user,
+                "Field deleted",
+                f"Data field '{field_name}' was deleted",
+                metadata={'field_slug': field_slug}
+            )
+            
+            messages.success(request, f"Field '{field_name}' has been deleted successfully.")
+        except ValidationError as e:
+            messages.error(request, str(e))
+        except Exception as e:
+            messages.error(request, f"Error deleting field: {str(e)}")
+        
+        return redirect('field_list')
+    
+    # Count related objects
+    from django.db import models
+    related_counts = {}
+    
+    # Check for CouncilCharacteristics
+    if hasattr(field, 'councilcharacteristic_set'):
+        related_counts['characteristics'] = field.councilcharacteristic_set.count()
+    
+    # Check for FinancialFigures  
+    if hasattr(field, 'financialfigure_set'):
+        related_counts['financial_figures'] = field.financialfigure_set.count()
+    
+    context = {
+        'field': field,
+        'related_counts': related_counts,
+        'page_title': f'Delete Field: {field.name}',
+    }
+    
+    return render(request, 'council_finance/admin/field_delete.html', context)

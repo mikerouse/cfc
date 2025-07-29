@@ -2,48 +2,61 @@
 
 {% block title %}{{ page_title }} - Council Finance Counters{% endblock %}
 
-{% block extra_head %}
-<!-- Cache busting for development -->
-<meta name="cache-version" content="{{ cache_version }}">
-{% endblock %}
-
 {% block content %}
-<div class="max-w-4xl mx-auto px-4 py-6">
-    <!-- Header Section -->
-    <div class="mb-8">
-        <div class="flex items-center justify-between">
-            <div>
-                <nav class="flex" aria-label="Breadcrumb">
-                    <ol class="inline-flex items-center space-x-1 md:space-x-3">
-                        <li class="inline-flex items-center">
-                            <a href="{% url 'field_list' %}" class="inline-flex items-center text-sm font-medium text-gray-700 hover:text-blue-600">
-                                <svg class="w-4 h-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
-                                </svg>
-                                Fields & Characteristics
-                            </a>
-                        </li>
-                        <li>
-                            <div class="flex items-center">
-                                <svg class="w-6 h-6 text-gray-400" fill="currentColor" viewBox="0 0 20 20">
-                                    <path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd"/>
-                                </svg>
-                                <span class="ml-1 text-sm font-medium text-gray-500">{{ page_title }}</span>
-                            </div>
-                        </li>
-                    </ol>
-                </nav>
-                <h1 class="text-3xl font-bold text-gray-900 mt-2 flex items-center">
-                    <svg class="w-8 h-8 text-blue-500 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+<!-- Mobile-first container with proper grid alignment -->
+<div class="mx-auto px-3 sm:px-4 xl:px-6 py-4 xl:py-8 max-w-none xl:max-w-desktop">
+    <!-- Header Section with Mobile-First Design -->
+    <div class="mb-6 xl:mb-8">
+        <!-- Breadcrumb Navigation -->
+        <nav class="flex mb-4" aria-label="Breadcrumb">
+            <ol class="inline-flex items-center space-x-1 xl:space-x-3">
+                <li class="inline-flex items-center">
+                    <a href="{% url 'field_list' %}" class="inline-flex items-center text-sm font-medium text-gray-700 hover:text-blue-600 transition-colors">
+                        <svg class="w-4 h-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                        </svg>
+                        <span class="hidden sm:inline">Fields & Characteristics</span>
+                        <span class="sm:hidden">Fields</span>
+                    </a>
+                </li>
+                <li>
+                    <div class="flex items-center">
+                        <svg class="w-6 h-6 text-gray-400" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd"/>
+                        </svg>
+                        <span class="ml-1 text-sm font-medium text-gray-500">{% if is_editing %}Edit{% else %}Create{% endif %}</span>
+                    </div>
+                </li>
+            </ol>
+        </nav>
+        
+        <!-- Header Title and Description -->
+        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div class="min-w-0 flex-1">
+                <h1 class="text-2xl sm:text-3xl font-bold text-gray-900 flex items-center gap-3">
+                    <svg class="w-6 h-6 sm:w-8 sm:h-8 text-blue-500 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="{% if is_editing %}M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z{% else %}M12 6v6m0 0v6m0-6h6m-6 0H6{% endif %}"/>
                     </svg>
-                    {{ page_title }}
+                    <span>{{ page_title }}</span>
                 </h1>
-                {% if is_editing %}
-                    <p class="text-gray-600 mt-2">Update the field details below</p>
-                {% else %}
-                    <p class="text-gray-600 mt-2">Create a new data field for councils to populate</p>
-                {% endif %}
+                <p class="text-gray-600 mt-2">
+                    {% if is_editing %}
+                        Update field settings and meta display options
+                    {% else %}
+                        Create a new data field or council characteristic
+                    {% endif %}
+                </p>
+            </div>
+            
+            <!-- Action Buttons -->
+            <div class="flex flex-col sm:flex-row gap-3">
+                <a href="{% url 'field_list' %}" 
+                   class="inline-flex items-center justify-center px-4 py-2 border border-gray-300 rounded-lg shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors min-h-[44px]">
+                    <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/>
+                    </svg>
+                    Back to Fields
+                </a>
             </div>
         </div>
     </div>
@@ -130,6 +143,86 @@
                             <div class="mt-1 text-sm text-red-600">{{ form.required.errors.0 }}</div>
                         {% endif %}
                         <p class="mt-1 text-sm text-gray-500">Whether this field must be filled</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Meta Display Options (highlighted section) -->
+            <div class="p-6 bg-blue-50 border-l-4 border-blue-400">
+                <h3 class="text-lg font-medium text-gray-900 mb-2 flex items-center">
+                    <svg class="w-5 h-5 text-blue-500 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
+                    </svg>
+                    Council Meta Bar Display
+                </h3>
+                <p class="text-sm text-gray-700 mb-4">Configure how this field appears in the council detail meta information bar</p>
+                
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <!-- Left Column -->
+                    <div class="space-y-4">
+                        <!-- Show in Meta Toggle -->
+                        <div class="bg-white p-4 rounded-lg border border-blue-200">
+                            <label class="flex items-center justify-between">
+                                <div>
+                                    <span class="text-sm font-medium text-gray-900">Show in Meta Bar</span>
+                                    <p class="text-xs text-gray-600">Display this field in the council header</p>
+                                </div>
+                                {{ form.show_in_meta }}
+                            </label>
+                            {% if form.show_in_meta.errors %}
+                                <div class="mt-1 text-sm text-red-600">{{ form.show_in_meta.errors.0 }}</div>
+                            {% endif %}
+                        </div>
+                        
+                        <!-- Display Order -->
+                        <div>
+                            <label for="{{ form.display_order.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">
+                                Display Order
+                            </label>
+                            {{ form.display_order }}
+                            {% if form.display_order.errors %}
+                                <div class="mt-1 text-sm text-red-600">{{ form.display_order.errors.0 }}</div>
+                            {% endif %}
+                            <p class="mt-1 text-xs text-gray-500">Lower numbers appear first (0-100)</p>
+                        </div>
+                    </div>
+                    
+                    <!-- Right Column -->
+                    <div class="space-y-4">
+                        <!-- Icon Selection -->
+                        <div>
+                            <label for="{{ form.icon_svg_path.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">
+                                Icon
+                            </label>
+                            {{ form.icon_svg_path }}
+                            {% if form.icon_svg_path.errors %}
+                                <div class="mt-1 text-sm text-red-600">{{ form.icon_svg_path.errors.0 }}</div>
+                            {% endif %}
+                            <p class="mt-1 text-xs text-gray-500">Icon to display next to the value</p>
+                        </div>
+                        
+                        <!-- Display Format -->
+                        <div>
+                            <label for="{{ form.meta_display_format.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">
+                                Display Format
+                            </label>
+                            {{ form.meta_display_format }}
+                            {% if form.meta_display_format.errors %}
+                                <div class="mt-1 text-sm text-red-600">{{ form.meta_display_format.errors.0 }}</div>
+                            {% endif %}
+                            <p class="mt-1 text-xs text-gray-500">Use {value} as placeholder (e.g., "{value} residents")</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Preview Section -->
+                <div class="mt-4 p-3 bg-white rounded border border-blue-200">
+                    <h4 class="text-sm font-medium text-gray-700 mb-2">Preview</h4>
+                    <div class="flex items-center gap-2 text-xs text-gray-500">
+                        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"/>
+                        </svg>
+                        <span>Example: 609,216 residents</span>
                     </div>
                 </div>
             </div>
