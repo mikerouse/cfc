@@ -4,49 +4,9 @@
 {% block title %}UK Council Finance Transparency - Council Finance Counters{% endblock %}
 
 {% block content %}
-<!-- Clean Hero Section -->
-<section class="bg-white border-b border-gray-200">
-  <div class="max-w-7xl mx-auto px-4 py-12">
-    <div class="text-center">
-      <h1 class="text-4xl font-bold text-gray-900 mb-4">
-        UK Council Finance Transparency
-      </h1>
-      <p class="text-xl text-gray-600 mb-8 max-w-3xl mx-auto">
-        Tracking financial transparency across {{ total_councils|floatformat:0 }} UK councils
-      </p>
-      
-      
-      <!-- Clean Stats -->
-      <div class="grid grid-cols-3 gap-8 max-w-2xl mx-auto">
-        <div class="text-center">
-          <div class="text-3xl font-bold text-gray-900">{{ total_councils|floatformat:0 }}</div>
-          <div class="text-sm text-gray-600">Councils</div>
-        </div>
-        <div class="text-center">
-          <div class="text-3xl font-bold text-gray-900">£{{ total_debt_billions|floatformat:1 }}B</div>
-          <div class="text-sm text-gray-600">Total Debt</div>
-        </div>
-        <div class="text-center">
-          <div class="text-3xl font-bold text-gray-900">{{ completion_percentage|floatformat:0 }}%</div>
-          <div class="text-sm text-gray-600">Complete</div>
-        </div>
-      </div>
-    </div>
-  </div>
-</section>
 
 <!-- Main Content -->
 <div class="max-w-7xl mx-auto px-4 py-8">
-  
-  <!-- Discrete Ad Space -->
-  <div class="mb-8">
-    <div class="bg-gray-50 border border-gray-200 rounded-lg p-4 text-center">
-      <div class="text-gray-500 text-sm">Advertisement</div>
-      <div class="w-full h-20 bg-gray-100 rounded mt-2 flex items-center justify-center">
-        <span class="text-gray-400">728x90</span>
-      </div>
-    </div>
-  </div>
 
   <!-- Live Financial Data -->
   <section class="mb-12">
@@ -269,28 +229,10 @@
       </section>
       {% endif %}
 
-      <!-- Discrete Sidebar Ad -->
-      <div>
-        <div class="bg-gray-50 border border-gray-200 rounded-lg p-4 text-center">
-          <div class="text-gray-500 text-xs mb-2">Advertisement</div>
-          <div class="w-full h-48 bg-gray-100 rounded flex items-center justify-center">
-            <span class="text-gray-400 text-sm">300x250</span>
-          </div>
-        </div>
-      </div>
     </div>
   </div>
 </div>
 
-<!-- Discrete Footer Ad -->
-<div class="max-w-7xl mx-auto px-4 py-6">
-  <div class="bg-gray-50 border border-gray-200 rounded-lg p-4 text-center">
-    <div class="text-gray-500 text-sm mb-2">Advertisement</div>
-    <div class="w-full h-20 bg-gray-100 rounded flex items-center justify-center">
-      <span class="text-gray-400">728x90</span>
-    </div>
-  </div>
-</div>
 {% endblock %}
 
 {% block extra_scripts %}

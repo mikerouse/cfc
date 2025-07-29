@@ -343,7 +343,7 @@ class FactoidPlaylist {
      */
     showContributionPrompt() {
         const councilSlug = this.container.dataset.council;
-        const editUrl = `/council/${councilSlug}/?tab=edit`;
+        const editUrl = `/councils/${councilSlug}/?tab=edit`;
         
         this.container.innerHTML = `
             <div class="factoid-container">
