@@ -338,9 +338,9 @@
                     <!-- Navigation Menu -->
                     <nav id="main-nav" 
                          class="hidden xl:block pb-4 xl:pb-0">
-                        <div class="grid grid-cols-1 xl:grid-cols-12 gap-2 xl:gap-0 py-2 xl:py-3">
-                            <!-- Primary Navigation -->
-                            <div class="xl:col-span-8 flex flex-col xl:flex-row xl:items-center gap-2 xl:gap-6">
+                        <div class="flex flex-col xl:flex-row xl:items-center py-2 xl:py-3 gap-2 xl:gap-6">
+                            <!-- Navigation Links -->
+                            <div class="flex flex-col xl:flex-row xl:items-center gap-2 xl:gap-6 flex-1">
                                 <!-- Core Navigation Links -->
                                 <div class="flex flex-col xl:flex-row gap-2 xl:gap-6">
                                     <a href="{% url 'home' %}" 
@@ -366,6 +366,16 @@
                                         </svg>
                                         <span class="font-medium">Contribute</span>
                                     </a>
+
+                                    {% if user.is_superuser or user.profile.tier.level|default:0 >= 4 %}
+                                    <a href="{% url 'counter_definitions' %}" 
+                                       class="nav-link group flex items-center space-x-3 text-gray-300 hover:text-white hover:bg-gray-600 xl:hover:bg-transparent transition-all duration-200 py-3 px-4 xl:py-2 xl:px-0 rounded-lg xl:rounded-none min-h-[44px] xl:min-h-0">
+                                        <svg class="w-5 h-5 flex-shrink-0 text-gray-400 group-hover:text-indigo-400 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
+                                        </svg>
+                                        <span class="font-medium">Counters</span>
+                                    </a>
+                                    {% endif %}
                                 </div>
 
                                 <!-- Authenticated User Links -->
@@ -391,118 +401,86 @@
                                     </a>
                                 </div>
                                 {% endif %}
-                            </div>
-
-                            <!-- Admin Navigation -->
-                            <div class="xl:col-span-4 xl:justify-end xl:flex">
-                                {% if user.is_superuser or user.profile.tier.level|default:0 >= 4 %}
-                                <div class="flex flex-col xl:flex-row xl:items-center gap-2 xl:gap-6 xl:justify-end">
-                                    <!-- Divider for mobile -->
-                                    <div class="xl:hidden h-px bg-gray-600 my-2"></div>
-                                    
-                                    <a href="{% url 'counter_definitions' %}" 
-                                       class="nav-link group flex items-center space-x-3 text-gray-300 hover:text-white hover:bg-gray-600 xl:hover:bg-transparent transition-all duration-200 py-3 px-4 xl:py-2 xl:px-0 rounded-lg xl:rounded-none min-h-[44px] xl:min-h-0">
-                                        <svg class="w-5 h-5 flex-shrink-0 text-gray-400 group-hover:text-indigo-400 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
+                                 <!-- Admin Menu Toggle - As Normal Nav Item -->
+                                    {% if user.is_superuser %}
+                                    <button class="nav-link group flex items-center space-x-3 text-red-400 hover:text-red-300 hover:bg-gray-600 xl:hover:bg-transparent transition-all duration-200 py-3 px-4 xl:py-2 xl:px-0 rounded-lg xl:rounded-none min-h-[44px] xl:min-h-0" 
+                                            id="admin-menu-toggle"
+                                            aria-label="Toggle admin menu"
+                                            aria-expanded="false">
+                                        <svg class="w-5 h-5 flex-shrink-0 text-red-500 group-hover:text-red-400 transition-colors" fill="currentColor" viewBox="0 0 20 20">
+                                            <path fill-rule="evenodd" d="M2.166 4.999A11.954 11.954 0 0010 1.944 11.954 11.954 0 0017.834 5c.11.65.166 1.32.166 2.001 0 5.225-3.34 9.67-8 11.317C5.34 16.67 2 12.225 2 7c0-.682.057-1.35.166-2.001zm11.541 3.708a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
                                         </svg>
-                                        <span class="font-medium">Counters</span>
-                                    </a>
-
-                                    {% if user.is_superuser or user.profile.tier.level|default:0 >= 5 %}
-                                    <!-- God Mode Dropdown -->
-                                    <div class="relative" id="god-mode-dropdown">
-                                        <button class="nav-link group flex items-center justify-between xl:justify-start space-x-3 text-red-400 hover:text-red-300 hover:bg-gray-600 xl:hover:bg-transparent transition-all duration-200 py-3 px-4 xl:py-2 xl:px-0 rounded-lg xl:rounded-none min-h-[44px] xl:min-h-0 w-full xl:w-auto" 
-                                                id="god-mode-toggle"
-                                                aria-expanded="false"
-                                                aria-haspopup="true">
-                                            <div class="flex items-center space-x-3">
-                                                <svg class="w-5 h-5 flex-shrink-0 text-red-500 group-hover:text-red-400 transition-colors" fill="currentColor" viewBox="0 0 20 20">
-                                                    <path fill-rule="evenodd" d="M2.166 4.999A11.954 11.954 0 0010 1.944 11.954 11.954 0 0017.834 5c.11.65.166 1.32.166 2.001 0 5.225-3.34 9.67-8 11.317C5.34 16.67 2 12.225 2 7c0-.682.057-1.35.166-2.001zm11.541 3.708a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
-                                                </svg>
-                                                <span class="font-medium">God Mode</span>
-                                            </div>
-                                            <svg class="w-4 h-4 text-red-400 group-hover:text-red-300 transition-all duration-200 transform group-hover:rotate-180 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
-                                            </svg>
-                                        </button>
-
-                                        <!-- Enhanced Dropdown Menu -->
-                                        <div id="god-mode-menu" 
-                                             class="hidden absolute right-0 xl:right-0 left-0 xl:left-auto mt-2 w-full xl:w-64 bg-white rounded-xl shadow-2xl border border-gray-200 z-50 overflow-hidden transition-all duration-200 opacity-0 transform scale-95">
-                                            
-                                            <!-- Header -->
-                                            <div class="bg-gradient-to-r from-red-50 to-red-100 px-4 py-3 border-b border-red-200">
-                                                <h3 class="text-sm font-semibold text-red-800 flex items-center space-x-2">
-                                                    <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                                                        <path fill-rule="evenodd" d="M2.166 4.999A11.954 11.954 0 0010 1.944 11.954 11.954 0 0017.834 5c.11.65.166 1.32.166 2.001 0 5.225-3.34 9.67-8 11.317C5.34 16.67 2 12.225 2 7c0-.682.057-1.35.166-2.001zm11.541 3.708a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
-                                                    </svg>
-                                                    <span>Administrative Tools</span>
-                                                </h3>
-                                            </div>
-
-                                            <!-- Menu Items -->
-                                            <div class="py-2">
-                                                <a href="{% url 'god_mode' %}" 
-                                                   class="flex items-center space-x-3 px-4 py-3 text-sm text-gray-700 hover:bg-red-50 hover:text-red-600 transition-colors">
-                                                    <svg class="w-4 h-4 text-red-500" fill="currentColor" viewBox="0 0 20 20">
-                                                        <path fill-rule="evenodd" d="M2.166 4.999A11.954 11.954 0 0010 1.944 11.954 11.954 0 0017.834 5c.11.65.166 1.32.166 2.001 0 5.225-3.34 9.67-8 11.317C5.34 16.67 2 12.225 2 7c0-.682.057-1.35.166-2.001zm11.541 3.708a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
-                                                    </svg>
-                                                    <span class="font-medium">Dashboard</span>
-                                                </a>
-                                                
-                                                <a href="{% url 'council_management_dashboard' %}" 
-                                                   class="flex items-center space-x-3 px-4 py-3 text-sm text-gray-700 hover:bg-emerald-50 hover:text-emerald-600 transition-colors">
-                                                    <svg class="w-4 h-4 text-emerald-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/>
-                                                    </svg>
-                                                    <span class="font-medium">Council Management</span>
-                                                </a>
-                                                
-                                                <div class="border-t border-gray-100 my-2"></div>
-                                                
-                                                <a href="{% url 'flagged_content_list' %}" 
-                                                   class="flex items-center space-x-3 px-4 py-3 text-sm text-gray-700 hover:bg-orange-50 hover:text-orange-600 transition-colors">
-                                                    <svg class="w-4 h-4 text-orange-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 21v-4m0 0V5a2 2 0 012-2h6.5l1 1H21l-3 6 3 6h-8.5l-1-1H5a2 2 0 00-2 2zm9-13.5V9"/>
-                                                    </svg>
-                                                    <span class="font-medium">Flagged Content</span>
-                                                </a>
-                                                
-                                                <a href="{% url 'field_list' %}" 
-                                                   class="flex items-center space-x-3 px-4 py-3 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors">
-                                                    <svg class="w-4 h-4 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
-                                                    </svg>
-                                                    <span class="font-medium">Fields & Characteristics</span>
-                                                </a>
-                                                
-                                                <a href="{% url 'factoid_builder_react' %}" 
-                                                   class="flex items-center space-x-3 px-4 py-3 text-sm text-gray-700 hover:bg-purple-50 hover:text-purple-600 transition-colors">
-                                                    <svg class="w-4 h-4 text-purple-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 4a2 2 0 114 0v1a1 1 0 001 1h3a1 1 0 011 1v3a1 1 0 01-1 1h-1a2 2 0 100 4h1a1 1 0 011 1v3a1 1 0 01-1 1h-3a1 1 0 01-1-1v-1a2 2 0 10-4 0v1a1 1 0 01-1 1H7a1 1 0 01-1-1v-3a1 1 0 00-1-1H4a1 1 0 01-1-1V9a1 1 0 011-1h1a2 2 0 100-4H4a1 1 0 01-1-1V4a1 1 0 011-1h3a1 1 0 001-1z"/>
-                                                    </svg>
-                                                    <span class="font-medium">Factoid Builder</span>
-                                                </a>
-                                                
-                                                <div class="border-t border-gray-100 my-2"></div>
-                                                
-                                                <a href="{% url 'admin:index' %}" 
-                                                   class="flex items-center space-x-3 px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 transition-colors">
-                                                    <svg class="w-4 h-4 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/>
-                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
-                                                    </svg>
-                                                    <span class="font-medium">Django Admin</span>
-                                                </a>
-                                            </div>
-                                        </div>
-                                    </div>
+                                        <span class="font-medium">Admin</span>
+                                        <svg id="admin-chevron" class="w-4 h-4 text-red-400 group-hover:text-red-300 transition-all duration-300 transform flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                                        </svg>
+                                    </button>
                                     {% endif %}
-                                </div>
-                                {% endif %}
                             </div>
                         </div>
                     </nav>
+
+                    <!-- Secondary Admin Navigation Drawer -->
+                    {% if user.is_superuser %}
+                    <div id="admin-drawer" 
+                         class="hidden bg-gray-600/75 backdrop-blur-sm border-t border-gray-500">
+                        <div class="mx-auto px-3 sm:px-4 xl:px-6 max-w-none xl:max-w-desktop">
+                            <div class="py-3">
+                                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-2 sm:gap-3">
+                                    <!-- Primary Admin Tools -->
+                                    <a href="{% url 'god_mode' %}" 
+                                       class="group flex items-center space-x-3 text-gray-300 hover:text-white hover:bg-gray-500 transition-all duration-200 py-3 px-4 rounded-lg min-h-[44px]">
+                                        <svg class="w-5 h-5 flex-shrink-0 text-red-400 group-hover:text-red-300 transition-colors" fill="currentColor" viewBox="0 0 20 20">
+                                            <path fill-rule="evenodd" d="M2.166 4.999A11.954 11.954 0 0010 1.944 11.954 11.954 0 0017.834 5c.11.65.166 1.32.166 2.001 0 5.225-3.34 9.67-8 11.317C5.34 16.67 2 12.225 2 7c0-.682.057-1.35.166-2.001zm11.541 3.708a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+                                        </svg>
+                                        <span class="font-medium text-sm">Dashboard</span>
+                                    </a>
+                                    
+                                    <a href="{% url 'council_management_dashboard' %}" 
+                                       class="group flex items-center space-x-3 text-gray-300 hover:text-white hover:bg-gray-500 transition-all duration-200 py-3 px-4 rounded-lg min-h-[44px]">
+                                        <svg class="w-5 h-5 flex-shrink-0 text-emerald-400 group-hover:text-emerald-300 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/>
+                                        </svg>
+                                        <span class="font-medium text-sm">Council Mgmt</span>
+                                    </a>
+                                    
+                                    <a href="{% url 'flagged_content_list' %}" 
+                                       class="group flex items-center space-x-3 text-gray-300 hover:text-white hover:bg-gray-500 transition-all duration-200 py-3 px-4 rounded-lg min-h-[44px]">
+                                        <svg class="w-5 h-5 flex-shrink-0 text-orange-400 group-hover:text-orange-300 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 21v-4m0 0V5a2 2 0 012-2h6.5l1 1H21l-3 6 3 6h-8.5l-1-1H5a2 2 0 00-2 2zm9-13.5V9"/>
+                                        </svg>
+                                        <span class="font-medium text-sm">Flagged Content</span>
+                                    </a>
+                                    
+                                    <a href="{% url 'field_list' %}" 
+                                       class="group flex items-center space-x-3 text-gray-300 hover:text-white hover:bg-gray-500 transition-all duration-200 py-3 px-4 rounded-lg min-h-[44px]">
+                                        <svg class="w-5 h-5 flex-shrink-0 text-blue-400 group-hover:text-blue-300 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                                        </svg>
+                                        <span class="font-medium text-sm">Fields & Data</span>
+                                    </a>
+                                    
+                                    <a href="{% url 'factoid_builder_react' %}" 
+                                       class="group flex items-center space-x-3 text-gray-300 hover:text-white hover:bg-gray-500 transition-all duration-200 py-3 px-4 rounded-lg min-h-[44px]">
+                                        <svg class="w-5 h-5 flex-shrink-0 text-purple-400 group-hover:text-purple-300 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 4a2 2 0 114 0v1a1 1 0 001 1h3a1 1 0 011 1v3a1 1 0 01-1 1h-1a2 2 0 100 4h1a1 1 0 011 1v3a1 1 0 01-1 1h-3a1 1 0 01-1-1v-1a2 2 0 10-4 0v1a1 1 0 01-1 1H7a1 1 0 01-1-1v-3a1 1 0 00-1-1H4a1 1 0 01-1-1V9a1 1 0 011-1h1a2 2 0 100-4H4a1 1 0 01-1-1V4a1 1 0 011-1h3a1 1 0 001-1z"/>
+                                        </svg>
+                                        <span class="font-medium text-sm">Factoid Builder</span>
+                                    </a>
+                                    
+                                    <a href="{% url 'admin:index' %}" 
+                                       class="group flex items-center space-x-3 text-gray-300 hover:text-white hover:bg-gray-500 transition-all duration-200 py-3 px-4 rounded-lg min-h-[44px]">
+                                        <svg class="w-5 h-5 flex-shrink-0 text-gray-400 group-hover:text-gray-300 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/>
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                                        </svg>
+                                        <span class="font-medium text-sm">Django Admin</span>
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
                 </div>
             </div>
         </div>
@@ -541,39 +519,6 @@
         });
     }
 
-    // God Mode dropdown functionality
-    const godModeToggle = document.getElementById('god-mode-toggle');
-    if (godModeToggle) {
-        const godModeMenu = document.getElementById('god-mode-menu');
-        godModeToggle.addEventListener('click', (e) => {
-            e.preventDefault();
-            const isHidden = godModeMenu.classList.contains('hidden');
-            
-            if (isHidden) {
-                godModeMenu.classList.remove('hidden');
-                setTimeout(() => {
-                    godModeMenu.classList.remove('opacity-0', 'scale-95');
-                    godModeMenu.classList.add('opacity-100', 'scale-100');
-                }, 10);
-            } else {
-                godModeMenu.classList.remove('opacity-100', 'scale-100');
-                godModeMenu.classList.add('opacity-0', 'scale-95');
-                setTimeout(() => {
-                    godModeMenu.classList.add('hidden');
-                }, 200);
-            }
-        });
-        
-        document.addEventListener('click', (e) => {
-            if (!godModeToggle.contains(e.target) && !godModeMenu.contains(e.target)) {
-                godModeMenu.classList.remove('opacity-100', 'scale-100');
-                godModeMenu.classList.add('opacity-0', 'scale-95');
-                setTimeout(() => {
-                    godModeMenu.classList.add('hidden');
-                }, 200);
-            }
-        });
-    }
 
     // Debug message to verify the God Mode link renders when expected.
     document.addEventListener('DOMContentLoaded', () => {
@@ -653,6 +598,7 @@
             document.getElementById('mobile-search-results')
         );
     }
+
     </script>
 
     {# Display one-off messages generated via Django's messages framework. #}
@@ -707,5 +653,20 @@
     {% include "council_finance/accessibility_toolbar.html" %}
     
     {% block extra_scripts %}{% endblock %}
+    
+    <!-- Admin menu script - placed at end to ensure DOM is ready -->
+    <script>
+    (function() {
+        const adminToggle = document.getElementById('admin-menu-toggle');
+        const adminDrawer = document.getElementById('admin-drawer');
+        
+        if (adminToggle && adminDrawer) {
+            adminToggle.addEventListener('click', function(e) {
+                e.preventDefault();
+                adminDrawer.classList.toggle('hidden');
+            });
+        }
+    })();
+    </script>
 </body>
 </html>
