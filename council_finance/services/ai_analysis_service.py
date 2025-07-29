@@ -314,15 +314,30 @@ class AIAnalysisService:
     ) -> Dict[str, str]:
         """Build context for AI analysis prompt"""
         
+        # Create template-friendly version of financial data with underscores
+        template_financial_data = {}
+        for key, value in financial_data.items():
+            if isinstance(value, dict):
+                # Convert nested dict keys from hyphens to underscores
+                template_value = {}
+                for nested_key, nested_value in value.items():
+                    template_key = nested_key.replace('-', '_')
+                    template_value[template_key] = nested_value
+                template_financial_data[key.replace('-', '_')] = template_value
+            else:
+                template_financial_data[key.replace('-', '_')] = value
+        
         # Create Django template context
         context_data = {
             'council': council,
             'year': year,
-            'financial_data': financial_data,
+            'financial_data': template_financial_data,
             'council_name': council.name,
             'council_type': council.council_type.name if council.council_type else 'Council',
             'current_year': year.label,
             'population': getattr(council, 'latest_population', None),
+            'current_data': 'Financial data available in financial_data variable',
+            'previous_data': 'Previous year data available in financial_data.previous_year',
         }
         
         # Add percentage changes if previous year data available
