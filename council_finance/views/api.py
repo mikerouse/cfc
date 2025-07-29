@@ -456,7 +456,10 @@ def council_ai_analysis_api(request, council_slug, year_label):
     try:
         # Get council and year
         council = get_object_or_404(Council, slug=council_slug)
-        year = get_object_or_404(FinancialYear, label=year_label)
+        
+        # Convert year label format if needed (2024-25 -> 2024/25)
+        normalized_year_label = year_label.replace('-', '/')
+        year = get_object_or_404(FinancialYear, label=normalized_year_label)
         
         # Check for force refresh parameter
         force_refresh = request.GET.get('force_refresh', '').lower() == 'true'
