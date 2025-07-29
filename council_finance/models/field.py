@@ -58,6 +58,7 @@ class DataField(models.Model):
         ("boolean", "True/False"),
         # New list type references another dataset for selectable options
         ("list", "List"),
+        ("image", "Image"),
     ]
 
     # Use BigAutoField to stay compatible with existing migrations which
@@ -88,6 +89,14 @@ class DataField(models.Model):
     )
     formula = models.CharField(max_length=255, blank=True)
     required = models.BooleanField(default=False)
+    
+    # Image field configuration options
+    image_max_width = models.PositiveIntegerField(null=True, blank=True, help_text="Maximum width in pixels for image fields")
+    image_max_height = models.PositiveIntegerField(null=True, blank=True, help_text="Maximum height in pixels for image fields")
+    image_max_file_size = models.PositiveIntegerField(null=True, blank=True, help_text="Maximum file size in KB for image fields")
+    image_default_alt_text = models.CharField(max_length=255, blank=True, help_text="Default ALT text for image fields")
+    image_copyright_text = models.TextField(blank=True, help_text="Copyright notice for image fields")
+    image_ai_generated_flag = models.BooleanField(default=False, help_text="Flag to indicate if image was AI-generated")
 
     @property
     def variable_name(self) -> str:

@@ -1,220 +1,244 @@
-# CLAUDE.md
+applyTo: '**'
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+# See also AGENTS.md
 
-## Development Commands
+Read the AGENTS.md file for detailed instructions.
 
-### Basic Django Operations
-```bash
-# Start development server
-python manage.py runserver
+# CRITICAL: Avoiding Context Loss and Over-Engineering
 
-# Run database migrations
-python manage.py migrate
+## The Problem
+AI agents lose context over long conversations and tend to re-engineer existing systems, creating overly complex, cross-cutting code that becomes wrapped up in itself. This leads to:
 
-# Create superuser for admin access
-python manage.py createsuperuser
+1. **Competing Systems**: Multiple ways to do the same thing (e.g., different API endpoints, multiple data access patterns)
+2. **Field Name Mismatches**: Converting between slug formats (`interest-payments-per-capita`) and variable names (`interest_payments_per_capita`) 
+3. **Cached State Issues**: New systems bypass existing caches/instances, creating inconsistent data
+4. **Incomplete Integration**: New APIs don't integrate with existing frontend code
 
-# Run tests
-pytest
+## Prevention Rules
 
-# Run specific test file
-pytest council_finance/tests/test_specific_file.py
+### 1. UNDERSTAND BEFORE CHANGING
+- **ALWAYS** check existing patterns before creating new ones
+- Run `grep_search` to find how similar problems are already solved
+- Test existing systems before assuming they're broken
+- Check for existing API endpoints before creating new ones
 
-# Run single test method
-pytest council_finance/tests/test_file.py::TestClass::test_method
-```
+### 2. DATA FIELD NAMING CONVENTIONS
+The system has TWO field naming formats that must be handled correctly:
 
-### Custom Management Commands
-```bash
-# Test template rendering and catch errors
-python manage.py test_templates
+- **Slug format**: `interest-payments-per-capita` (used in URLs, templates, database slugs)
+- **Variable format**: `interest_payments_per_capita` (used in code, context data)
 
-# Assess data quality issues across councils
-python manage.py assess_data_issues
-
-# Smart data quality assessment
-python manage.py smart_assess
-
-# Migrate legacy data to new architecture
-python manage.py migrate_to_new_data_model --dry-run
-
-# Run agent-based operations
-python manage.py runagent ImporterAgent --source "data.csv"
-
-# Reconcile population cache
-python manage.py reconcile_population_cache
-
-# Set up financial fields for new installations
-python manage.py setup_financial_fields
-
-# Validate JavaScript syntax in Django templates
-python manage.py validate_template_javascript
-
-# Comprehensive syntax validation and error logging
-python manage.py reload --validate --no-checks
-```
-
-## Architecture Overview
-
-### Data Model Evolution
-This codebase is transitioning from a legacy WordPress plugin architecture to a modern Django system with a fundamental data model change:
-
-**Legacy System (FigureSubmission)**:
-- Single model storing all data (financial figures + council characteristics)
-- Year-based storage for everything, including non-temporal data like council websites
-- String-based values for all data types
-
-**New Architecture (CouncilCharacteristic + FinancialFigure)**:
-- **CouncilCharacteristic**: Non-temporal council properties (website, postcode, etc.)
-- **FinancialFigure**: Year-specific financial data with proper decimal types
-- Full history tracking for both models
-- ContributionV2 for user submissions
-
-Key field categorization:
-- `category='characteristic'`: Council properties (website, address, council type)
-- Other categories: Financial data requiring year-specific storage
-
-### Model Relationships
-```
-Council
-├── CouncilCharacteristic (current values)
-├── CouncilCharacteristicHistory (change tracking)
-├── FinancialFigure (by year)
-├── FinancialFigureHistory (change tracking)
-└── FigureSubmission (legacy, being phased out)
-
-DataField (field definitions)
-├── category='characteristic' → CouncilCharacteristic
-└── other categories → FinancialFigure
-```
-
-### View Architecture
-Views are organized into focused modules:
-- `views/councils.py`: Council detail, editing, financial data APIs
-- `views/contributions.py`: User contribution workflow and moderation
-- `views/api.py`: RESTful endpoints for frontend interactions
-- `views/auth.py`: Authentication, profiles, notifications
-- `views/admin.py`: Management interfaces for counters, fields, factoids
-- `views/moderation.py`: Flagging system and content moderation
-
-### Frontend Architecture
-- **Spreadsheet Editor** (`static/js/spreadsheet_editor.js`): Excel-like editing interface
-- **Progressive Enhancement**: Core functionality works without JavaScript
-- **API-First**: Frontend communicates via RESTful endpoints
-- Real-time features powered by Django Channels
-
-### Agent System
-Located in `council_finance/agents/`:
-- **CounterAgent**: Handles animated counter calculations
-- **SiteTotalsAgent**: Aggregates data across councils
-- Run via `python manage.py runagent AgentName`
-
-## Data Quality System
-The platform includes sophisticated data validation:
-- **DataIssue**: Tracks and categorizes data problems
-- **Smart Assessment**: Automated data quality checks
-- **Trust Tiers**: User contribution reliability system
-- **Flagging System**: Community-driven content moderation
-
-## Syntax Validation System
-
-The project includes a comprehensive syntax validation system designed to catch errors before they cause runtime issues. This system is integrated into the reload command and provides AI-friendly error logging.
-
-### Running Validation
-```bash
-# Run comprehensive validation with reload
-python manage.py reload --validate
-
-# Run comprehensive validation without starting server  
-python manage.py reload --validate --no-checks
-
-# Run only JavaScript template validation
-python manage.py validate_template_javascript
-```
-
-### Validation Checks Performed
-The system validates:
-1. **JavaScript in Django Templates**: Ensures template variables render valid JavaScript
-2. **Python Syntax**: Validates all .py files using AST parsing
-3. **Django Template Syntax**: Checks template syntax and tag usage
-4. **CSS/SCSS Syntax**: Basic validation for unbalanced braces
-5. **JSON Configuration Files**: Validates JSON syntax in config files
-
-### Error Logging
-When validation errors are found, they're logged to `syntax_errors.log` in the project root with:
-- **AI-Friendly Format**: Structured for easy copy-paste to AI tools
-- **File-by-File Breakdown**: Errors grouped by file for targeted fixes
-- **Detailed Instructions**: Specific guidance for AI tools on how to fix each error
-- **Summary Statistics**: Overview of error types and counts
-
-### Example Error Log Format
-```
-FILE: demo_syntax_error.py
-ERROR COUNT: 1
-────────────────────────────────────────────────────────────
-
-ERROR #1:
-Type: python_syntax_error
-Severity: error
-Line: 3
-Message: Line 3: unterminated string literal (detected at line 3)
-
-AI INSTRUCTIONS:
-Please fix the python_syntax_error in file 'demo_syntax_error.py'.
-The error is on line 3.
-Error details: Line 3: unterminated string literal (detected at line 3)
-Please provide the corrected code.
-```
-
-### Integration with Development Workflow
-- Use `--validate` flag during development to catch issues early
-- Errors are logged to `syntax_errors.log` for AI-assisted fixing
-- Re-run validation after fixes to verify corrections
-- The log file is overwritten each time validation runs
-
-## Development Patterns
-
-### Working with Financial Data
-Always check field category when processing data:
+**CRITICAL**: Template rendering must convert between formats:
 ```python
-if field.category == 'characteristic':
-    # Use CouncilCharacteristic model
-    characteristic = CouncilCharacteristic.objects.get(council=council, field=field)
-else:
-    # Use FinancialFigure model
-    figure = FinancialFigure.objects.get(council=council, field=field, year=year)
+# WRONG - looking for slug format in context
+value = context_data.get('interest-payments-per-capita')  # Will be None
+
+# CORRECT - convert to variable format  
+field_variable_name = field_name.replace('-', '_')
+value = context_data.get(field_variable_name)  # Will find the value
 ```
 
-### Migration Considerations
-When modifying models that interact with the legacy FigureSubmission:
-1. Check if the model exists in migrations (use try/except blocks)
-2. Handle both old and new data models during transition period
-3. Update `migrate_to_new_data_model` management command if needed
+### 3. FACTOID SYSTEM DEBUGGING
+When factoids show "N/A":
 
-### Testing Financial Year Logic
-Financial years have complex status logic (current/past/future/provisional). Test edge cases around:
-- Year transitions
-- Data reliability levels
-- Provisional vs final figures
+1. **Check field categories**: Ensure FactoidEngine handles the field's category (`spending`, `financial`, etc.)
+2. **Test field lookup directly**: Use `engine.get_field_value(field_name, council, year)` 
+3. **Check for stale instances**: Look for cached FactoidInstance objects that might be outdated
+4. **Verify counter-specific vs generic instances**: Counter-specific instances override generic ones
 
-### URL Patterns
-- Main URLs in `council_finance/urls.py`
-- API endpoints use consistent `/api/` prefixes
-- Council-specific URLs follow pattern `/councils/<slug>/action/`
+When factoids appear on wrong counters:
+1. **Check counter assignments**: Use `FactoidTemplate.objects.filter(counters=counter)` 
+2. **Verify no generic logic**: Ensure `FactoidEngine.get_factoids_for_counter()` only returns assigned factoids
+3. **Test counter isolation**: Each counter should only show its assigned factoids
 
-## Key Constants and Settings
-- `CHARACTERISTIC_SLUGS`: Protected field slugs for council properties
-- Financial year statuses: current, past, future (with reliability indicators)
-- Trust tier levels affect contribution workflow and permissions
+Common issues:
+- Field category not supported in FactoidEngine
+- Template uses slug format but context has variable format
+- Stale cached instances with outdated data
+- Missing field mappings for calculated fields
+- Generic factoid logic causing factoids to appear on all counters
 
-## What is the app?
+### 4. API INTEGRATION RULES
+- **Check existing API endpoints** before creating new ones
+- **Test frontend expectations** - what URL pattern does JavaScript expect?
+- **Avoid URL pattern conflicts** - `/api/factoids/<template>` vs `/api/factoids/<counter>` will conflict
+- **Use consistent response formats** - match what frontend expects
 
-The purpose of this app is to provide visitors with transparency data relating to UK local government entities, and in particular local councils (district, county, unitary, metropolitian borough, non-metropolitan borough, combined authority). In the future the app should be expandable to include different types of public bodies such as NHS trusts, quangos and/or UK government agencies. 
+### 5. DEBUGGING STRATEGY
+When things don't work:
 
-The app's approach is to use visually striking ways to give focus to financial figures found within each authority's balance sheet, cash flow statements and comprehensive income and expenditure statements as published each financial year. Each council publishes their data slightly differently, and even within the PDFs they may use differing terminology. This app aims to smooth out the language and provide consistency across the bodies in respect of their financial figures.
+1. **Test the lowest level first**: Direct field access, then computation, then API
+2. **Check for multiple instances**: Look for competing cached data
+3. **Verify integration points**: Template → Engine → API → Frontend  
+4. **Clear caches when needed**: Delete stale instances to force recomputation
+5. **Check data format mismatches**: Refer to "SYSTEM DATA FORMATS & INTEGRATION POINTS" section for known format differences
 
-The emphasis is on 'visually striking' ways to show the data using counters and other interesting and novel devices like comparing spend across councils. Cross-comparison is a key feature. There will be a comparison basket, allowing up-to six councils to be compared (initially), and there will be user-centric tools allowing users to track and collate councils, as well as provide contributions and comments. Counters will be animated, and the style wll be fresh, minimalist and professional, with a look and feel similar to GOV.UK websites so that it is easy to use, easy to navigate and provides a refreshing experience for the user.
+### 6. SYSTEM INTEGRITY
+- Use the integrity checker script to validate the entire pipeline
+- Monitor for competing systems doing the same job
+- Ensure frontend JavaScript matches backend API patterns
+- Test end-to-end user flows, not just individual components
+
+## Example Fix Pattern
+```bash
+# 1. Understand the problem
+python manage.py shell -c "engine.get_field_value('field_name', council, year)"
+
+# 2. Check for stale data  
+python manage.py shell -c "FactoidInstance.objects.filter(...).delete()"
+
+# 3. Test integration
+python test_frontend_api.py
+
+# 4. Verify end-to-end
+# Check actual webpage, not just API
+```
+
+Remember: **Simple fixes are usually better than complex re-engineering.**
+
+# SYSTEM DATA FORMATS & INTEGRATION POINTS
+
+**CRITICAL**: Document data formats and API contracts to prevent integration mismatches. Add new formats to this section as the system evolves.
+
+## Factoid System Data Formats
+
+### Counter Assignment Logic
+**CRITICAL**: Factoids only appear on counters they are specifically assigned to via the `FactoidTemplate.counters` ManyToMany relationship.
+
+```python
+# CORRECT: Only counter-specific factoids
+templates = FactoidTemplate.objects.filter(
+    is_active=True,
+    counters=counter  # Only templates assigned to this specific counter
+)
+
+# WRONG: Shows factoids on all counters
+templates = FactoidTemplate.objects.filter(
+    Q(target_content_type=None) |  # Generic templates (shows everywhere)
+    Q(counters=counter)  # Counter-specific (correct)
+)
+```
+
+### Counter-Factoid Assignments
+- **Interest Payments Counter**: Shows interest per capita and compares cost of interest payments to costs of running services 
+- **Total Debt Counter**: Shows current liabilities, long-term liabilities, finance leases as the core components that make up the headline debt for a council. Factoids should therefore be related to these component parts or comparing debt levels to other councils, or showing per capita breakdowns.
+- **Current Liabilities Counter**: Shows current liabilities specific data or short-term position information and insights
+- **Long-term Liabilities Counter**: Shows data relating to the long-term position of the council
+
+**Rule**: If a counter has no factoid assignments, it shows no factoids. No "generic" factoids exist. The space should remain blank and unfilled. 
+
+### API Response Format (from backend)
+```json
+{
+  "success": true,
+  "count": 8,
+  "factoids": [
+    {
+      "id": 87,
+      "template_name": "Interest payments per capita",
+      "template_slug": "interest-payments-per-capita", 
+      "rendered_text": "Equivalent to 150.19 per head.",  // ← Backend uses "rendered_text"
+      "relevance_score": 0.65,
+      "is_significant": true,
+      "computed_at": "2025-07-28T20:58:11.501402+00:00",
+      "expires_at": "2025-07-29T20:58:11.238419+00:00"
+    }
+  ]
+}
+```
+
+### JavaScript Expected Format (factoid-playlist.js)
+```javascript
+{
+  text: "Equivalent to 150.19 per head.",     // ← Frontend expects "text"
+  emoji: "📊",                               // ← Default if not provided
+  color: "blue",                             // ← Default if not provided  
+  id: 87,
+  template_name: "Interest payments per capita",
+  relevance_score: 0.65
+}
+```
+
+### Data Transformation Required
+The `factoid-playlist.js` must transform API response:
+```javascript
+this.factoids = (data.factoids || []).map(factoid => ({
+    text: factoid.rendered_text,  // ← KEY: Convert rendered_text → text
+    emoji: factoid.emoji || '📊',
+    color: factoid.color || 'blue',
+    // ... other fields
+}));
+```
+
+## HTML Data Attributes (Frontend → Backend)
+
+### Counter Factoid Elements
+```html
+<div class="counter-factoid" 
+     data-counter="interest-payments"     // ← Slug format with dashes
+     data-council="worcestershire"        // ← Council slug  
+     data-year="2024/25">                 // ← Year with forward slash
+```
+
+### JavaScript URL Construction  
+```javascript
+// Frontend converts year format for URLs
+const urlSafeYear = year.replace(/\//g, '-');  // 2024/25 → 2024-25
+const url = `/api/factoids/counter/${counterSlug}/${councilSlug}/${urlSafeYear}/`;
+```
+
+## Field Naming Conventions
+
+### URL/Template Format (Slugs)
+- `interest-payments-per-capita` 
+- `total-debt`
+- `current-liabilities`
+
+### Code/Context Format (Variables)
+- `interest_payments_per_capita`
+- `total_debt` 
+- `current_liabilities`
+
+### Conversion Required
+```python
+# Template rendering - ALWAYS convert slug to variable format
+field_variable_name = field_name.replace('-', '_')
+value = context_data.get(field_variable_name)  # Will find the value
+```
+
+## Common Integration Gotchas
+
+1. **Factoid "No data available"**: Check if frontend expects `text` but API returns `rendered_text`
+2. **Factoid shows "N/A"**: Check for stale `FactoidInstance` cache objects
+3. **Factoids appear on wrong counters**: Factoids only show on assigned counters - check `FactoidTemplate.counters` assignments
+4. **API 404 errors**: Verify slug formats match between frontend/backend 
+5. **Year format mismatches**: Frontend uses `2024-25`, backend expects `2024/25`
+6. **Field not found**: Check if using slug format (`interest-payments`) vs variable format (`interest_payments`)
+7. **All factoids showing everywhere**: Ensure no "generic" factoid logic - only counter-specific assignments
+
+## Adding New Data Formats
+
+**INSTRUCTION**: When creating new API endpoints or data structures, document the format here immediately. Include:
+
+1. **API Response Schema**: Exact JSON structure with field names
+2. **Frontend Expected Format**: What JavaScript/HTML expects
+3. **Transformation Code**: How to convert between formats
+4. **Common Pitfalls**: Known issues to watch for
+
+Example template:
+```markdown
+### [New System Name] Data Format
+API Response: { "field_name": "value" }
+Frontend Expects: { "different_field": "value" }  
+Transformation: frontend.field = api.field_name
+Common Issues: [List potential problems]
+```
+
+# Backend
+
+No users, including the super-admin, should see any Django admin pages. The Django admin is not used in this project. Instead, we use a custom-built control panel for managing the system. Only the super-admin should be able to access Django admin pages by exception and in edge case scenarios, and even then, it should be limited to specific tasks that cannot be done through the control panel. The control panel is designed to be user-friendly and intuitive, allowing administrators to manage the system without needing to navigate through complex Django admin pages.
+
+# Pages
 
 ## The 'Contribute' Pages
 
@@ -258,7 +282,19 @@ Users can prioritise which updates they see first, allowing them to customize th
 
 Data and telemetry based on the 'Following' page and interactions therein should be collected to help improve the user experience and trigger algorithm-based features such as which council to promote to the home page. For instance, where a council is suddenly getting a lot of follows, comments or visits we would want to look to promote that council and understand the reason for the attention. For instance, if a council is getting a lot of follows it may be because they are doing something interesting or have recently made a significant change that users want to know more about. This could be a new initiative, a change in leadership, or a significant financial update. By promoting these councils on the home page, we can help users discover new and relevant information that they may not have been aware of otherwise.
 
-## Creator's rules
+## Factoids
+
+These are little 'newsflash-style' pieces of information, snippets or nuggets. They are factoids that tell us something interesting about the data we are looking at. For instance, "Did you know that Council X has the highest debt per capita in the country?" or "Council Y has reduced its debt by 20% over the last year." These factoids are designed to be engaging and informative, providing users with quick insights into council finances and performance. They can be displayed on council pages, in user feeds, or as part of the 'Following' updates.
+
+Factoids can be created by users, allowing them to share interesting insights or observations about council data. This could include notable trends, comparisons between councils, or unique financial figures. Users can also upvote or downvote factoids, helping to surface the most relevant and interesting information for the community.
+
+Factoids use a template system, allowing users to create custom templates for their factoids. This could include options for formatting, styling, and including specific data points. Users can also choose from a library of pre-defined templates to quickly create factoids without needing to design them from scratch.
+
+Factoids are based on data from the fields and characteristics of councils, such as financial figures, demographics, or other relevant information. This allows users to create factoids that are grounded in real data, providing valuable insights into council performance and trends. New fields and groups of data can be added dynamically in the 'God Mode' control panel, allowing new figures and data to be related to a council. For instance, we may add a field called 'Number of Band D properties' to the council characteristics, which would then allow users to create factoids based on that data. Or we may add non-financial data such as 'Number of bus services' or 'Number of potholes filled' to the council's dataset, which could also be used to create interesting factoids. These performance indicators still relate to financial years, quarters and/or months, but they are non-financial in nature. Conversely, we may even start adding quarterly outturns of financial data, such as 'Q1 2024 Debt Levels', which would allow users to create factoids based on quarterly financial performance.
+
+Factoids are a type of report building, that's not a chart. We will do charts separately. Factoids are designed to be quick and easy to create, allowing users to share interesting insights without needing to create complex reports or visualizations. They can be used to highlight key trends, comparisons between councils, or unique financial figures, providing a valuable way for users to engage with the data and share their observations with the community and the wider public via social media.
+
+# Creator's rules that AI should follow
 
 - We care about comments. There should be useful and descriptive comments.
 - We care about helpers in the UI for the benefit of users.
@@ -274,8 +310,10 @@ Data and telemetry based on the 'Following' page and interactions therein should
 - We build with the future in mind.
 - We use Tailwind CSS for styling. We do not need to use Bootstrap or any other CSS framework, even if it was used in the past.
 - We do not break other parts of the system when fixing things, and we do not stub things out.
+- Run the check_templates.py script to ensure all templates are valid and do not contain any errors.
+- **Use UK English throughout the system** - this means "analyse" not "analyze", "colour" not "color", "favourite" not "favorite", etc. All text, comments, variable names, and user-facing content should follow UK English conventions.
 
-## Rules about User Levels
+# Rules about User Levels
 
 This system is designed to accept contributions from the public via registered accounts, so that they may update the data relating to their own council. The user profile system also recognises and invites people who work for councils to provide us with data too. The aim of the website is to provide a platform for users to contribute data and information about councils, financial figures, and other relevant data. The user levels are designed to reflect the different roles and responsibilities of users within the system, ensuring that contributions are appropriate and beneficial to the platform.
 
@@ -288,3 +326,56 @@ This system is designed to accept contributions from the public via registered a
 Components and features should be appropriately gated to their user level, ensuring that users only have access to the features and data that are relevant to their role within the system. This helps maintain the integrity of the platform and ensures that contributions are appropriate and beneficial to all users. There should be a control panel under God Mode to set permission levels for each tier and control what they each have access to. This control panel should be user-friendly and intuitive, allowing administrators to easily manage user levels and permissions without confusion.
 
 The system should also offer data via API, for which a secure key is required. This API should be designed to allow users to access and interact with the data in a secure and controlled manner, ensuring that sensitive information is protected while still allowing for valuable contributions and insights. Users will be able to generate API keys from their user profile, and these keys should be securely stored and managed within the system. The API should support various endpoints for accessing council data, financial figures, and user contributions, allowing developers to build applications and integrations that leverage the platform's data and functionality. We may - or may not - charge for API access in the future.
+
+# Use of AI to assist the users 
+
+The system is designed to leverage AI to assist users in various ways, enhancing the overall user experience and providing valuable insights into council data. AI can be used to:
+- **Generate Factoids**: AI can analyze council data and generate interesting factoids based on trends, comparisons, and unique financial figures. This can help users quickly identify key insights without needing to manually sift through large datasets.
+- **Suggest Contributions**: AI can analyze user behavior and preferences to suggest relevant contributions, such as councils to follow, lists to create, or financial figures to track. This can help users discover new areas of interest and engage more deeply with the platform.
+- **Automate Data Validation**: AI can assist in validating user contributions by checking for consistency, accuracy, and relevance. This can help reduce the burden on moderators and ensure that contributions are appropriate and beneficial to the platform.
+- **Enhance Search Functionality**: AI can improve search capabilities by understanding user intent and providing more relevant results based on context and user behavior. This can help users quickly find the information they need without having to navigate through multiple pages.
+- **Suggest Fields and Characteristics**: AI can analyze existing council data and suggest new fields or characteristics that could be added to enhance the dataset. This can help keep the platform up-to-date with the latest trends and developments in council finances.
+- **Suggest Lists**: AI can recommend custom lists for users based on their interests and contributions. This can help users organize and track relevant data more effectively.
+
+The API key for OpenAI can be found in the .env file, and it should be used to access the AI capabilities within the system. The AI features should be designed to be user-friendly and intuitive, allowing users to easily access and benefit from the AI-generated insights and suggestions without requiring technical expertise.
+
+# System Rules
+
+## Console Commands
+
+- You don't need to do `cd` before every python command - you are already in the project directory.
+- Avoid using `&&` in terminal commands.
+
+## 🧪 Testing
+
+Test each migrated agent as a standalone unit:
+
+```bash
+python manage.py runagent ImporterAgent --source "https://example.com/figures.csv"
+```
+
+Write tests in `agents/tests/` for each module:
+
+```python
+class CounterAgentTest(TestCase):
+    def test_basic_debt_calculation(self):
+        agent = CounterAgent()
+        result = agent.run(year=2023)
+        self.assertGreater(result['debt'], 0)
+```
+
+## 🛠 Configuration
+
+- Use `.env` files for API keys and database URLs.
+- `config/settings.py` is loaded dynamically and supports overrides via environment.
+- Store config overrides or user-specified parameters via a `settings` model or flatfile.
+
+---
+
+## 🔄 Scheduling
+
+Use cron or Django-Q/Celery for periodic agents (e.g. daily imports):
+
+```cron
+0 3 * * * /path/to/venv/bin/python manage.py runagent ImporterAgent
+```

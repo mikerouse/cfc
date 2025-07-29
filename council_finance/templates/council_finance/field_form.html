@@ -180,6 +180,98 @@
           </div>
         </div>
 
+        <!-- Image Configuration (conditional) -->
+        <div id="image_config_section" class="px-6 py-6 border-b border-gray-200" style="display: none;">
+          <h3 class="text-lg font-semibold text-gray-900 mb-4">Image Configuration</h3>
+          <p class="text-sm text-gray-600 mb-4">Configure constraints and metadata for image uploads.</p>
+          
+          <div class="grid grid-cols-1 gap-6 sm:grid-cols-2">
+            <!-- Max Width -->
+            <div>
+              <label for="{{ form.image_max_width.id_for_label }}" class="block text-sm font-medium text-gray-700">
+                Maximum Width (pixels)
+              </label>
+              <div class="mt-1">
+                {{ form.image_max_width }}
+              </div>
+              {% if form.image_max_width.errors %}
+                <div class="mt-1 text-sm text-red-600">{{ form.image_max_width.errors.0 }}</div>
+              {% endif %}
+              <p class="mt-1 text-xs text-gray-500">Maximum width allowed for uploaded images</p>
+            </div>
+
+            <!-- Max Height -->
+            <div>
+              <label for="{{ form.image_max_height.id_for_label }}" class="block text-sm font-medium text-gray-700">
+                Maximum Height (pixels)
+              </label>
+              <div class="mt-1">
+                {{ form.image_max_height }}
+              </div>
+              {% if form.image_max_height.errors %}
+                <div class="mt-1 text-sm text-red-600">{{ form.image_max_height.errors.0 }}</div>
+              {% endif %}
+              <p class="mt-1 text-xs text-gray-500">Maximum height allowed for uploaded images</p>
+            </div>
+
+            <!-- Max File Size -->
+            <div>
+              <label for="{{ form.image_max_file_size.id_for_label }}" class="block text-sm font-medium text-gray-700">
+                Maximum File Size (KB)
+              </label>
+              <div class="mt-1">
+                {{ form.image_max_file_size }}
+              </div>
+              {% if form.image_max_file_size.errors %}
+                <div class="mt-1 text-sm text-red-600">{{ form.image_max_file_size.errors.0 }}</div>
+              {% endif %}
+              <p class="mt-1 text-xs text-gray-500">Maximum file size in kilobytes</p>
+            </div>
+
+            <!-- Default Alt Text -->
+            <div>
+              <label for="{{ form.image_default_alt_text.id_for_label }}" class="block text-sm font-medium text-gray-700">
+                Default Alt Text
+              </label>
+              <div class="mt-1">
+                {{ form.image_default_alt_text }}
+              </div>
+              {% if form.image_default_alt_text.errors %}
+                <div class="mt-1 text-sm text-red-600">{{ form.image_default_alt_text.errors.0 }}</div>
+              {% endif %}
+              <p class="mt-1 text-xs text-gray-500">Default alternative text for accessibility</p>
+            </div>
+
+            <!-- Copyright Text -->
+            <div class="sm:col-span-2">
+              <label for="{{ form.image_copyright_text.id_for_label }}" class="block text-sm font-medium text-gray-700">
+                Copyright Notice
+              </label>
+              <div class="mt-1">
+                {{ form.image_copyright_text }}
+              </div>
+              {% if form.image_copyright_text.errors %}
+                <div class="mt-1 text-sm text-red-600">{{ form.image_copyright_text.errors.0 }}</div>
+              {% endif %}
+              <p class="mt-1 text-xs text-gray-500">Copyright notice or attribution information</p>
+            </div>
+
+            <!-- AI Generated Flag -->
+            <div>
+              <div class="flex items-center">
+                {{ form.image_ai_generated_flag }}
+                <label for="{{ form.image_ai_generated_flag.id_for_label }}" class="ml-2 block text-sm text-gray-700">
+                  AI-Generated Images Allowed
+                </label>
+              </div>
+              {% if form.image_ai_generated_flag.errors %}
+                <div class="mt-1 text-sm text-red-600">{{ form.image_ai_generated_flag.errors.0 }}</div>
+              {% endif %}
+              <p class="mt-1 text-xs text-gray-500">Allow AI-generated images for this field</p>
+            </div>
+          </div>
+        </div>
+
         <!-- Field Information -->
         {% if field %}
         <div class="px-6 py-6 border-b border-gray-200 bg-gray-50">
@@ -268,6 +360,7 @@
             <li><strong>Text:</strong> Free-form text content</li>
             <li><strong>URL:</strong> Web addresses and links</li>
             <li><strong>List:</strong> Selections from predefined options</li>
+            <li><strong>Image:</strong> Image files (PNG, WEBP, SVG, JPG/JPEG) with size and metadata constraints</li>
           </ul>
         </div>
         
@@ -282,23 +375,32 @@
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-  // Show/hide dataset type based on content type selection
+  // Show/hide dataset type and image config based on content type selection
   const contentTypeSelect = document.getElementById('{{ form.content_type.id_for_label }}');
   const datasetRow = document.getElementById('dataset_type_row');
+  const imageConfigSection = document.getElementById('image_config_section');
   
-  function toggleDatasetType() {
+  function toggleContentTypeOptions() {
+    // Show/hide dataset type for list fields
     if (contentTypeSelect.value === 'list') {
       datasetRow.style.display = 'block';
     } else {
       datasetRow.style.display = 'none';
     }
+    
+    // Show/hide image configuration for image fields
+    if (contentTypeSelect.value === 'image') {
+      imageConfigSection.style.display = 'block';
+    } else {
+      imageConfigSection.style.display = 'none';
+    }
   }
   
   // Initial state
-  toggleDatasetType();
+  toggleContentTypeOptions();
   
   // Listen for changes
-  contentTypeSelect.addEventListener('change', toggleDatasetType);
+  contentTypeSelect.addEventListener('change', toggleContentTypeOptions);
   
   // Form styling
   const formFields = document.querySelectorAll('input, select, textarea');

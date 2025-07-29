@@ -67,6 +67,10 @@ from .ai_analysis import (
     AIAnalysisConfiguration,
     CouncilAIAnalysis,
 )
+from .image_file import (
+    ImageFile,
+    ImageFileHistory,
+)
 
 __all__ = [
     'Council',
@@ -124,4 +128,6 @@ __all__ = [
     'AIAnalysisTemplate',
     'AIAnalysisConfiguration',
     'CouncilAIAnalysis',
+    'ImageFile',
+    'ImageFileHistory',
 ]

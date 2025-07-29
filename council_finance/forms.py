@@ -379,12 +379,26 @@ class DataFieldForm(forms.ModelForm):
             # ``formula`` is rarely needed and shown under an advanced section
             "formula",
             "required",
+            # Image field configuration options
+            "image_max_width",
+            "image_max_height", 
+            "image_max_file_size",
+            "image_default_alt_text",
+            "image_copyright_text",
+            "image_ai_generated_flag",
         ]
         widgets = {
             "explanation": forms.Textarea(
                 attrs={"rows": 2, "class": "border rounded p-1 w-full"}
             ),
             "formula": forms.TextInput(attrs={"class": "border rounded p-1 w-full"}),
+            # Image field widgets
+            "image_max_width": forms.NumberInput(attrs={"class": "border rounded p-1 w-full", "min": "1", "placeholder": "e.g. 500"}),
+            "image_max_height": forms.NumberInput(attrs={"class": "border rounded p-1 w-full", "min": "1", "placeholder": "e.g. 500"}),
+            "image_max_file_size": forms.NumberInput(attrs={"class": "border rounded p-1 w-full", "min": "1", "placeholder": "Size in KB"}),
+            "image_default_alt_text": forms.TextInput(attrs={"class": "border rounded p-1 w-full", "placeholder": "Default alt text for accessibility"}),
+            "image_copyright_text": forms.Textarea(attrs={"rows": 2, "class": "border rounded p-1 w-full", "placeholder": "Copyright notice or attribution"}),
+            "image_ai_generated_flag": forms.CheckboxInput(attrs={"class": "mr-2"}),
         }
 
     def __init__(self, *args, **kwargs):

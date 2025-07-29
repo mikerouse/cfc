@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% load static %}
+{% load logo_tags %}
 {% block title %}{{ council.name }} - Council Finance Counters{% endblock %}
 
 {% block content %}
@@ -11,10 +12,8 @@
       <div class="flex items-start justify-between mb-6">
         <div class="flex-1">
           <div class="flex items-center space-x-4 mb-4">
-            <div class="w-16 h-16 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl flex items-center justify-center shadow-lg">
-              <svg class="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/>
-              </svg>
+            <div class="w-16 h-16 rounded-xl shadow-lg overflow-hidden bg-gray-100 flex items-center justify-center">
+              {% council_logo_img council size=64 css_classes="w-full h-full object-cover" %}
             </div>
             <div>
               <h1 class="text-3xl font-bold text-gray-900">{{ council.name }}</h1>
