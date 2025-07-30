@@ -32,10 +32,26 @@ class Command(BaseCommand):
             action='store_true',
             help='Run comprehensive validation checks and log errors to syntax_errors.log',
         )
+        parser.add_argument(
+            '--no-tests',
+            action='store_true',
+            help='Skip comprehensive test suite (tests run by default)',
+        )
+        parser.add_argument(
+            '--test-only',
+            action='store_true',
+            help='Only run tests, do not start the server',
+        )
 
     def handle(self, *args, **options):
         # Determine number of steps
-        total_steps = 5 if options['validate'] else 4
+        total_steps = 5  # Always include tests by default
+        if options['validate']:
+            total_steps += 1
+        if options['no_tests']:
+            total_steps -= 1
+        if options['test_only']:
+            total_steps -= 1  # Don't start server
         
         self.stdout.write(
             self.style.SUCCESS('Council Finance Counters - Development Reload')
@@ -43,21 +59,45 @@ class Command(BaseCommand):
         self.stdout.write('=' * 45)
         self.stdout.write('')
 
-        # Step 1: Stop existing servers
-        self.stdout.write(f'[1/{total_steps}] Stopping Django server...')
-        self._stop_existing_servers()
+        # Step 1: Stop existing servers (unless test-only)
+        step_num = 1
+        if not options['test_only']:
+            self.stdout.write(f'[{step_num}/{total_steps}] Stopping Django server...')
+            self._stop_existing_servers()
+            step_num += 1
 
-        # Step 2: Clear caches
-        self.stdout.write(f'[2/{total_steps}] Clearing caches...')
-        try:
-            call_command('clear_dev_cache', verbosity=0)
-        except Exception as e:
-            self.stdout.write(
-                self.style.WARNING(f'Cache clearing failed: {e}')
-            )
+            # Step 2: Clear caches
+            self.stdout.write(f'[{step_num}/{total_steps}] Clearing caches...')
+            try:
+                call_command('clear_dev_cache', verbosity=0)
+            except Exception as e:
+                self.stdout.write(
+                    self.style.WARNING(f'Cache clearing failed: {e}')
+                )
+            step_num += 1
 
-        # Step 3: Run validation checks (if requested)
-        step_num = 3
+        # Step N: Run comprehensive test suite (unless skipped)
+        if not options['no_tests']:
+            self.stdout.write(f'[{step_num}/{total_steps}] Running comprehensive test suite...')
+            test_success = self._run_comprehensive_tests()
+            
+            if not test_success:
+                self.stdout.write(
+                    self.style.ERROR('Comprehensive tests failed! Check syntax_errors.log for details.')
+                )
+                if not options['test_only']:
+                    self.stdout.write(
+                        self.style.WARNING('Continuing with server start despite test failures...')
+                    )
+                else:
+                    return
+            else:
+                self.stdout.write(
+                    self.style.SUCCESS('All comprehensive tests passed!')
+                )
+            step_num += 1
+
+        # Step N: Run validation checks (if requested)
         if options['validate']:
             self.stdout.write(f'[{step_num}/{total_steps}] Running comprehensive validation...')
             validation_errors = self._run_comprehensive_validation()
@@ -72,8 +112,8 @@ class Command(BaseCommand):
                 )
             step_num += 1
 
-        # Step N: Run Django checks (unless skipped)
-        if not options['no_checks']:
+        # Step N: Run Django checks (unless skipped or test-only)
+        if not options['no_checks'] and not options['test_only']:
             self.stdout.write(f'[{step_num}/{total_steps}] Running Django checks...')
             try:
                 call_command('check', verbosity=1)
@@ -84,25 +124,33 @@ class Command(BaseCommand):
                         self.style.ERROR('Django checks failed! Please fix the errors above.')
                     )
                     return
-        else:
+            step_num += 1
+        elif not options['test_only']:
             self.stdout.write(f'[{step_num}/{total_steps}] Skipping Django checks...')
+            step_num += 1
 
-        # Final step: Start server
-        self.stdout.write(f'[{total_steps}/{total_steps}] Starting development server...')
-        self.stdout.write('')
-        self.stdout.write(
-            self.style.SUCCESS('>> CFC development server starting...')
-        )
-        self.stdout.write(f'   Navigate to: http://127.0.0.1:{options["port"]}/')
-        self.stdout.write('   Press Ctrl+C to stop')
-        self.stdout.write('')
-
-        # Start the development server
-        try:
-            call_command('runserver', options['port'])
-        except KeyboardInterrupt:
+        # Final step: Start server (unless test-only)
+        if not options['test_only']:
+            self.stdout.write(f'[{total_steps}/{total_steps}] Starting development server...')
             self.stdout.write('')
-            self.stdout.write('Development server stopped.')
+            self.stdout.write(
+                self.style.SUCCESS('>> CFC development server starting...')
+            )
+            self.stdout.write(f'   Navigate to: http://127.0.0.1:{options["port"]}/')
+            self.stdout.write('   Press Ctrl+C to stop')
+            self.stdout.write('')
+
+            # Start the development server
+            try:
+                call_command('runserver', options['port'])
+            except KeyboardInterrupt:
+                self.stdout.write('')
+                self.stdout.write('Development server stopped.')
+        else:
+            self.stdout.write('')
+            self.stdout.write(
+                self.style.SUCCESS('Test-only mode complete. Server not started.')
+            )
 
     def _stop_existing_servers(self):
         """Stop any existing Django development servers."""
@@ -480,6 +528,139 @@ class Command(BaseCommand):
             })
         
         return errors
+
+    def _run_comprehensive_tests(self):
+        """Run the comprehensive test suite from run_all_tests.py and log failures to syntax_errors.log."""
+        try:
+            import sys
+            import subprocess
+            import os
+            import json
+            
+            # Get the path to run_all_tests.py
+            test_script_path = os.path.join(os.getcwd(), 'run_all_tests.py')
+            
+            if not os.path.exists(test_script_path):
+                self.stdout.write(
+                    self.style.ERROR('run_all_tests.py not found in project root')
+                )
+                self._write_test_error_to_log('run_all_tests.py not found in project root')
+                return False
+            
+            # Run the comprehensive test suite
+            try:
+                result = subprocess.run([
+                    sys.executable, test_script_path
+                ], capture_output=True, text=True, timeout=300)  # 5 minute timeout
+                
+                # Print condensed output from the test suite
+                if result.stdout:
+                    lines = result.stdout.split('\n')
+                    # Show key summary lines, not every single test
+                    for line in lines:
+                        if any(keyword in line for keyword in ['SUMMARY', 'FAILED', 'ERROR', 'SUCCESS', '='*20]):
+                            if line.strip():
+                                self.stdout.write(f'   {line}')
+                
+                # Log errors to syntax_errors.log if tests failed
+                if result.returncode != 0:
+                    self._write_test_failures_to_log(result.stdout, result.stderr)
+                
+                # Return success based on exit code
+                return result.returncode == 0
+                
+            except subprocess.TimeoutExpired:
+                error_msg = 'Comprehensive test suite timed out after 5 minutes'
+                self.stdout.write(self.style.ERROR(error_msg))
+                self._write_test_error_to_log(error_msg)
+                return False
+                
+        except Exception as e:
+            error_msg = f'Failed to run comprehensive test suite: {e}'
+            self.stdout.write(self.style.ERROR(error_msg))
+            self._write_test_error_to_log(error_msg)
+            return False
+
+    def _write_test_failures_to_log(self, stdout_output, stderr_output):
+        """Write test failures to syntax_errors.log, overwriting the file."""
+        log_file_path = os.path.join(os.getcwd(), 'syntax_errors.log')
+        
+        try:
+            with open(log_file_path, 'w', encoding='utf-8') as f:
+                f.write("COUNCIL FINANCE COUNTERS - COMPREHENSIVE TEST FAILURES\n")
+                f.write("=" * 65 + "\n")
+                f.write(f"Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
+                f.write("Source: Django reload command comprehensive testing\n\n")
+                
+                f.write("❌ COMPREHENSIVE TESTS FAILED\n")
+                f.write("The following issues were detected during testing:\n\n")
+                
+                # Write test output
+                if stdout_output:
+                    f.write("TEST OUTPUT:\n")
+                    f.write("-" * 40 + "\n")
+                    f.write(stdout_output)
+                    f.write("\n\n")
+                
+                if stderr_output:
+                    f.write("ERROR OUTPUT:\n")
+                    f.write("-" * 40 + "\n")
+                    f.write(stderr_output)
+                    f.write("\n\n")
+                
+                # Also check if test_report.json exists and include key errors
+                test_report_path = os.path.join(os.getcwd(), 'test_report.json')
+                if os.path.exists(test_report_path):
+                    try:
+                        with open(test_report_path, 'r') as report_file:
+                            report_data = json.load(report_file)
+                            
+                        if 'errors' in report_data and report_data['errors']:
+                            f.write("DETAILED ERROR ANALYSIS:\n")
+                            f.write("-" * 40 + "\n")
+                            for i, error in enumerate(report_data['errors'][:10], 1):  # Limit to 10 errors
+                                f.write(f"{i}. {error}\n")
+                            
+                            if len(report_data['errors']) > 10:
+                                f.write(f"... and {len(report_data['errors']) - 10} more errors\n")
+                            f.write("\n")
+                        
+                        if 'warnings' in report_data and report_data['warnings']:
+                            f.write("WARNINGS:\n")
+                            f.write("-" * 40 + "\n")
+                            for i, warning in enumerate(report_data['warnings'][:5], 1):  # Limit to 5 warnings
+                                f.write(f"{i}. {warning}\n")
+                            f.write("\n")
+                            
+                    except Exception:
+                        f.write("Could not parse test_report.json for detailed errors\n\n")
+                
+                f.write("RECOMMENDED ACTIONS:\n")
+                f.write("-" * 40 + "\n")
+                f.write("1. Run 'python run_all_tests.py -v' for full detailed output\n")
+                f.write("2. Fix the errors identified above\n")
+                f.write("3. Run 'python manage.py reload --test-only' to verify fixes\n")
+                f.write("4. Use 'python manage.py reload --no-tests' to skip tests temporarily\n")
+                
+        except Exception as e:
+            self.stdout.write(
+                self.style.WARNING(f'Could not write test failures to syntax_errors.log: {e}')
+            )
+
+    def _write_test_error_to_log(self, error_message):
+        """Write a single test error to syntax_errors.log."""
+        log_file_path = os.path.join(os.getcwd(), 'syntax_errors.log')
+        
+        try:
+            with open(log_file_path, 'w', encoding='utf-8') as f:
+                f.write("COUNCIL FINANCE COUNTERS - TEST EXECUTION ERROR\n")
+                f.write("=" * 60 + "\n")
+                f.write(f"Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
+                f.write(f"Error: {error_message}\n\n")
+                f.write("The comprehensive test suite could not be executed.\n")
+                f.write("Please check the error above and ensure run_all_tests.py is available.\n")
+        except Exception:
+            pass  # Silent fail if we can't write the log
 
     def _extract_filename_from_error(self, error_line):
         """Extract filename from error message."""
