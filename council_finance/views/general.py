@@ -3302,6 +3302,57 @@ def list_metric(request, list_id):
         return JsonResponse({'error': 'Server error occurred'}, status=500)
 
 
+@login_required
+@require_POST
+def create_list_api(request):
+    """API endpoint to create a new custom list."""
+    try:
+        import json
+        data = json.loads(request.body)
+        
+        # Validate required fields
+        name = data.get('name', '').strip()
+        if not name:
+            return JsonResponse({'success': False, 'error': 'List name is required'}, status=400)
+        
+        # Check if user already has a list with this name
+        if CouncilList.objects.filter(user=request.user, name=name).exists():
+            return JsonResponse({'success': False, 'error': 'You already have a list with this name'}, status=400)
+        
+        # Create the new list
+        new_list = CouncilList.objects.create(
+            user=request.user,
+            name=name,
+            description=data.get('description', '').strip(),
+            color=data.get('color', 'blue'),
+            is_default=False
+        )
+        
+        log_activity(
+            request,
+            activity="Created custom list",
+            extra=f"List: {new_list.name}"
+        )
+        
+        return JsonResponse({
+            'success': True,
+            'message': f'List "{new_list.name}" created successfully!',
+            'list': {
+                'id': new_list.id,
+                'name': new_list.name,
+                'description': new_list.description,
+                'color': new_list.color,
+                'council_count': 0
+            }
+        })
+        
+    except json.JSONDecodeError:
+        return JsonResponse({'success': False, 'error': 'Invalid JSON data'}, status=400)
+    except Exception as e:
+        logger.error(f"Error creating list: {e}")
+        return JsonResponse({'success': False, 'error': 'Failed to create list'}, status=500)
+
+
 # ============================================================================
 # FOLLOWING & COMPARISON FUNCTIONALITY - Placeholder implementations
 # ============================================================================

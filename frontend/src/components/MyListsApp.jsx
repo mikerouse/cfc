@@ -27,6 +27,7 @@ const MyListsApp = ({ initialData = {} }) => {
   const [config] = useState({
     apiUrls: {
       searchCouncils: '/api/councils/search/',
+      createList: '/lists/create/',
       addFavourite: '/lists/favourites/add/',
       removeFavourite: '/lists/favourites/remove/',
       addToList: (listId) => `/lists/${listId}/add/`,
@@ -193,15 +194,28 @@ const MyListsApp = ({ initialData = {} }) => {
   const createList = useCallback(async (listData) => {
     try {
       setLoading(true);
-      // This would call a create list API endpoint
-      showNotification(`List "${listData.name}" created successfully!`, 'success');
-      setShowListCreator(false);
+      const data = await apiCall(config.apiUrls.createList, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(listData),
+      });
+
+      if (data.success) {
+        showNotification(data.message, 'success');
+        setShowListCreator(false);
+        
+        // Add the new list to our local state
+        setLists(prevLists => [...prevLists, data.list]);
+      }
     } catch (err) {
       showNotification(`Failed to create list: ${err.message}`, 'error');
+      throw err; // Re-throw so ListCreator can show the error
     } finally {
       setLoading(false);
     }
-  }, [showNotification]);
+  }, [apiCall, config.apiUrls.createList, showNotification]);
 
   // Choose appropriate drag & drop backend based on device
   const dndBackend = isMobile ? TouchBackend : HTML5Backend;

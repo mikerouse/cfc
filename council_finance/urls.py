@@ -147,6 +147,7 @@ urlpatterns = [
     # Common menu pages
     path("leaderboards/", general_views.leaderboards, name="leaderboards"),
     path("lists/", my_lists, name="my_lists"),
+    path("lists/create/", general_views.create_list_api, name="create_list_api"),
     path("lists/favourites/add/", add_favourite, name="add_favourite"),
     path("lists/favourites/remove/", remove_favourite, name="remove_favourite"),
     path("lists/<int:list_id>/add/", add_to_list, name="add_to_list_api"),
