@@ -575,6 +575,46 @@ python manage.py runserver
 
 **RESULT**: World-class, mobile-first My Lists feature with drag-and-drop, real-time updates, and comprehensive error handling. Ready for production with minor build fix.
 
+### MY LISTS - RECENT FIXES (2025-01-30)
+
+#### Fixed Issues:
+1. **Template Syntax Error** - Added missing `{% load humanize %}` for intcomma filter
+2. **Duplicate FlaggingSystem** - Wrapped class declaration to prevent re-declaration
+3. **React App Timeout** - Fixed timeout check to use data-react-mounted attribute
+4. **Create List API** - Added `/lists/create/` endpoint with @csrf_exempt
+5. **Search Functionality** - Fixed search to properly parse API response and added council population
+
+#### Current React Build:
+- Main JS: `main-DCKgZfUG.js`
+- Main CSS: `main-BlzmEwI8.css`
+- Template: `my_lists_enhanced.html`
+
+#### API Endpoints:
+- `/lists/` - Main page
+- `/lists/create/` - Create new list (POST, JSON body)
+- `/lists/favourites/add/` - Add to favourites
+- `/lists/favourites/remove/` - Remove from favourites
+- `/lists/<id>/add/` - Add to specific list
+- `/lists/<id>/remove/` - Remove from list
+- `/lists/move/` - Move between lists
+- `/api/councils/search/` - Search councils
+
+# CRITICAL: Testing After Changes
+
+**ALWAYS run testing tools after making changes to prevent deployment issues:**
+
+1. **Template Testing**: Run `python diagnose_template_error.py` after template changes
+2. **Import Testing**: Test imports after model changes with `python manage.py shell`
+3. **React Build**: After JS changes, run `npm run build` and update template with new hash
+4. **API Testing**: Test new endpoints with curl or browser before marking complete
+
+**Common Issues to Check:**
+- Import errors after moving/renaming models
+- Template syntax errors (missing load tags, wrong filter names)
+- JavaScript build failures or wrong file hashes
+- CSRF token issues with new API endpoints
+- Data format mismatches between frontend/backend
+
 # Backend Management Rule
 
 No users, including the super-admin, should see any Django admin pages. The Django admin is not used in this project. Instead, we use a custom-built control panel for managing the system. Only the super-admin should be able to access Django admin pages by exception and in edge case scenarios, and even then, it should be limited to specific tasks that cannot be done through the control panel. The control panel is designed to be user-friendly and intuitive, allowing administrators to manage the system without needing to navigate through complex Django admin pages.
