@@ -118,7 +118,7 @@ const FavouritesList = ({
       </div>
 
       {/* Desktop Table View */}
-      <div id="my-lists-favourites-desktop-view" className="hidden md:block overflow-x-auto">
+      <div id="my-lists-favourites-desktop-view" className="overflow-x-auto">
         <table id="my-lists-favourites-table" className="min-w-full divide-y divide-gray-200">
           <thead id="my-lists-favourites-table-head" className="bg-gray-50">
             <tr>
