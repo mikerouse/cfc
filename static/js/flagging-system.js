@@ -1,5 +1,7 @@
 /* Flagging System JavaScript Component */
 
+// Only declare FlaggingSystem if it doesn't already exist
+if (typeof FlaggingSystem === 'undefined') {
 class FlaggingSystem {
     constructor() {
         this.isInitialized = false;
@@ -354,14 +356,17 @@ class FlaggingSystem {
             </button>
         `;
     }
-}
+} // End of FlaggingSystem class
 
 // Initialize flagging system when DOM is ready
 document.addEventListener('DOMContentLoaded', function() {
-    window.flaggingSystem = new FlaggingSystem();
+    if (!window.flaggingSystem) {
+        window.flaggingSystem = new FlaggingSystem();
+    }
 });
 
 // Export for use in other scripts
 if (typeof module !== 'undefined' && module.exports) {
     module.exports = FlaggingSystem;
 }
+} // End of if (typeof FlaggingSystem === 'undefined')

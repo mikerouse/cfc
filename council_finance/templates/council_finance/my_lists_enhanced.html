@@ -1,6 +1,7 @@
 {% extends "council_finance/base.html" %}
 {% load static %}
 {% load extras %}
+{% load humanize %}
 
 {% block title %}My Lists - Council Finance Counters{% endblock %}
 
@@ -248,7 +249,8 @@
 {% block extra_scripts %}
 {{ block.super }}
 <!-- Load the compiled React app -->
-<script type="module" src="{% static 'frontend/main.js' %}"></script>
+<script type="module" src="{% static 'frontend/main-BlefOZ0N.js' %}"></script>
+<link rel="stylesheet" href="{% static 'frontend/main-BlzmEwI8.css' %}">
 
 <!-- Fallback timeout -->
 <script>
@@ -257,8 +259,8 @@ setTimeout(function() {
   const reactRoot = document.getElementById('my-lists-react-root');
   const fallback = document.getElementById('my-lists-fallback');
   
-  // Check if React app loaded successfully
-  if (reactRoot && reactRoot.children.length <= 1) {
+  // Check if React app loaded successfully by looking for the data-react-mounted attribute
+  if (reactRoot && !reactRoot.hasAttribute('data-react-mounted')) {
     console.warn('⏰ React app timeout - showing fallback interface');
     reactRoot.classList.add('hidden');
     fallback.classList.remove('hidden');

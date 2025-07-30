@@ -45,6 +45,9 @@ const MyListsIntegration = () => {
         </ErrorBoundary>
       );
 
+      // Mark container as having React mounted successfully
+      container.setAttribute('data-react-mounted', 'true');
+      
       console.log('🎉 MyListsIntegration: React app successfully mounted!');
     } catch (error) {
       console.error('💥 MyListsIntegration: Failed to mount React app:', error);
