@@ -17,10 +17,15 @@ const ListCard = ({
   apiUrls 
 }) => {
   const [selectedYear, setSelectedYear] = useState(years[0]?.id || '');
-  const [selectedMetric, setSelectedMetric] = useState(metricChoices[0]?.value || 'total_debt');
+  const [selectedMetric, setSelectedMetric] = useState(metricChoices[0]?.value || 'total-debt');
   const [metricData, setMetricData] = useState({ values: {}, total: 0 });
   const [loadingMetrics, setLoadingMetrics] = useState(false);
   const [councils, setCouncils] = useState(list.councils || []);
+  
+  // Update local state when list prop changes
+  useEffect(() => {
+    setCouncils(list.councils || []);
+  }, [list.councils, list.name]);
 
   // Drag and drop setup
   const [{ isOver }, drop] = useDrop({
@@ -28,8 +33,7 @@ const ListCard = ({
     drop: (item) => {
       if (item.fromListId !== list.id) {
         onMoveCouncil(item.slug, item.fromListId, list.id);
-        // Optimistically add to local state
-        setCouncils(prev => [...prev, { slug: item.slug, name: item.name }]);
+        // Note: State updates are handled by parent MyListsApp component
       }
     },
     collect: (monitor) => ({
@@ -252,7 +256,6 @@ const ListCard = ({
                   key={council.slug}
                   council={council}
                   onRemove={() => handleRemoveCouncil(council.slug)}
-                  onMove={onMoveCouncil}
                   listId={list.id}
                   showRemoveButton={true}
                   isDraggable={true}

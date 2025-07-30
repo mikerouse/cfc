@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useDrag, useDrop } from 'react-dnd';
+import { useDrag } from 'react-dnd';
 
 /**
  * Individual council card component with drag-and-drop capability
@@ -11,8 +11,7 @@ const CouncilCard = ({
   lists = [], 
   showRemoveButton = false,
   isDraggable = true,
-  listId = null,
-  onMove = null
+  listId = null
 }) => {
   const [showActions, setShowActions] = useState(false);
 
@@ -30,27 +29,18 @@ const CouncilCard = ({
     canDrag: isDraggable,
   });
 
-  const [{ isOver }, drop] = useDrop({
-    accept: 'council',
-    drop: (item) => {
-      if (onMove && item.fromListId !== listId && item.slug !== council.slug) {
-        onMove(item.slug, item.fromListId, listId);
-      }
-    },
-    collect: (monitor) => ({
-      isOver: monitor.isOver(),
-    }),
-  });
+  // Removed drop functionality - CouncilCard should only be draggable, not droppable
+  // Drop functionality is handled by ListCard component
 
   const opacity = isDragging ? 0.5 : 1;
 
   return (
     <div
-      ref={isDraggable ? (node) => drag(drop(node)) : drop}
+      ref={isDraggable ? drag : null}
       className={`
         p-4 transition-all duration-200 cursor-${isDraggable ? 'move' : 'default'}
         ${isDragging ? 'opacity-50' : ''}
-        ${isOver ? 'bg-blue-50 border-blue-200' : 'hover:bg-gray-50'}
+        hover:bg-gray-50
       `}
       style={{ opacity }}
       onMouseEnter={() => setShowActions(true)}

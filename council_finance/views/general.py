@@ -2462,59 +2462,6 @@ def move_between_lists(request):
         return JsonResponse({"error": "Internal server error"}, status=500)
 
 
-def list_metric(request, list_id):
-    """Get metric data for a specific list."""
-    if not request.user.is_authenticated:
-        return JsonResponse({"error": "Authentication required"}, status=401)
-    
-    try:
-        council_list = request.user.council_lists.get(id=list_id)
-        metric = request.GET.get('metric', 'total_debt')
-        year_id = request.GET.get('year')
-          # Get councils in the list with their metric values
-        councils = council_list.councils.all()
-        results = {}
-        total = 0
-        
-        for council in councils:
-            try:
-                if year_id:
-                    year = FinancialYear.objects.get(id=year_id)
-                    financial_figure = FinancialFigure.objects.filter(
-                        council=council, 
-                        year=year,
-                        field__slug=metric
-                    ).first()
-                    value = financial_figure.value if financial_figure else 0
-                else:
-                    # Use latest available data
-                    financial_figure = FinancialFigure.objects.filter(
-                        council=council,
-                        field__slug=metric
-                    ).order_by('-year__label').first()
-                    value = financial_figure.value if financial_figure else 0
-                
-                results[council.id] = {
-                    'value': float(value) if value else 0,
-                    'formatted': f"£{value:,.0f}" if value else "N/A"
-                }
-                total += float(value) if value else 0
-            except (TypeError, ValueError):
-                results[council.id] = {'value': 0, 'formatted': "N/A"}
-        
-        return JsonResponse({
-            "status": "success",
-            "results": results,
-            "total": total,
-            "total_formatted": f"£{total:,.0f}"
-        })
-    
-    except CouncilList.DoesNotExist:
-        return JsonResponse({"error": "List not found"}, status=404)
-    except Exception as e:
-        logger.error(f"Error getting list metric: {e}")
-        return JsonResponse({"error": "Internal server error"}, status=500)
-
 
 def add_to_compare(request, slug):
     """Add a council to the comparison basket."""
@@ -3022,10 +2969,10 @@ def my_lists(request):
     
     # Metric choices for financial data  
     metric_choices = [
-        ('total_debt', 'Total Debt'),
-        ('current_liabilities', 'Current Liabilities'),
-        ('long_term_liabilities', 'Long-term Liabilities'),
-        ('interest_payments', 'Interest Payments'),
+        ('total-debt', 'Total Debt'),
+        ('current-liabilities', 'Current Liabilities'),
+        ('long-term-liabilities', 'Long-term Liabilities'),
+        ('interest-paid', 'Interest Paid'),
     ]
     
     # Prepare list metadata for JavaScript
@@ -3083,7 +3030,16 @@ def add_favourite(request):
                 activity="Added council to favourites",
                 extra=f"Council: {council.name}"
             )
-            return JsonResponse({'success': True, 'message': f'{council.name} added to favourites'})
+            return JsonResponse({
+                'success': True, 
+                'message': f'{council.name} added to favourites',
+                'council': {
+                    'id': council.id,
+                    'name': council.name,
+                    'slug': council.slug,
+                    'population': council.latest_population or 0,
+                }
+            })
         else:
             return JsonResponse({'success': False, 'error': 'Council already in favourites'})
             
@@ -3148,7 +3104,13 @@ def add_to_list(request, list_id):
                 'success': True, 
                 'message': f'{council.name} added to {council_list.name}',
                 'list_id': list_id,
-                'council_count': council_list.get_council_count()
+                'council_count': council_list.get_council_count(),
+                'council': {
+                    'id': council.id,
+                    'name': council.name,
+                    'slug': council.slug,
+                    'population': council.latest_population or 0,
+                }
             })
         else:
             return JsonResponse({'success': False, 'error': 'Council already in this list'})
@@ -3226,7 +3188,13 @@ def move_between_lists(request):
                 'success': True,
                 'message': f'{council.name} moved from {from_list.name} to {to_list.name}',
                 'from_list_count': from_list.get_council_count(),
-                'to_list_count': to_list.get_council_count()
+                'to_list_count': to_list.get_council_count(),
+                'council': {
+                    'id': council.id,
+                    'name': council.name,
+                    'slug': council.slug,
+                    'population': council.latest_population or 0,
+                }
             })
         else:
             return JsonResponse({'success': False, 'error': 'Council not in source list'})
@@ -3246,8 +3214,10 @@ def list_metric(request, list_id):
     year_id = request.GET.get('year')
     
     try:
+        logger.info(f"list_metric: user={request.user.username}, list_id={list_id}, field={field_slug}, year_id={year_id}")
         council_list = get_object_or_404(CouncilList, id=list_id, user=request.user)
         councils = council_list.councils.all()
+        logger.info(f"list_metric: found list '{council_list.name}' with {councils.count()} councils")
         
         if not councils:
             return JsonResponse({'values': {}, 'total': 0})
@@ -3295,11 +3265,14 @@ def list_metric(request, list_id):
             'year_label': year.label
         })
         
-    except (DataField.DoesNotExist, FinancialYear.DoesNotExist):
-        return JsonResponse({'error': 'Field or year not found'}, status=404)
+    except (DataField.DoesNotExist, FinancialYear.DoesNotExist) as e:
+        logger.error(f"Field or year not found in list_metric: {e}")
+        return JsonResponse({'error': f'Field or year not found: {str(e)}'}, status=404)
     except Exception as e:
+        import traceback
         logger.error(f"Error getting list metric: {e}")
-        return JsonResponse({'error': 'Server error occurred'}, status=500)
+        logger.error(f"Traceback: {traceback.format_exc()}")
+        return JsonResponse({'error': f'Server error: {str(e)}'}, status=500)
 
 
 @login_required

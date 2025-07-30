@@ -76,13 +76,9 @@ const MyListsApp = ({ initialData = {} }) => {
         headers: {
           'Content-Type': 'application/x-www-form-urlencoded',
           'X-CSRFToken': config.csrfToken,
-        },
-        ...options,
-        headers: {
-          'Content-Type': 'application/x-www-form-urlencoded',
-          'X-CSRFToken': config.csrfToken,
           ...options.headers,
         },
+        ...options,
       });
 
       if (!response.ok) {
@@ -110,9 +106,18 @@ const MyListsApp = ({ initialData = {} }) => {
       });
 
       if (data.success) {
-        // Refresh favourites list - in a real app we'd optimistically update
+        // Update favourites list with the new council
+        if (data.council) {
+          setFavouritesList(prev => {
+            // Don't add if already exists
+            const exists = prev.some(council => council.slug === councilSlug);
+            if (!exists) {
+              return [...prev, data.council];
+            }
+            return prev;
+          });
+        }
         showNotification(`Added to favourites`, 'success');
-        // Note: We'd normally update state here, but for now just show success
       }
     } catch (err) {
       // Error already handled in apiCall
@@ -157,8 +162,22 @@ const MyListsApp = ({ initialData = {} }) => {
 
       if (data.success) {
         showNotification(data.message, 'success');
-        // Update local state - find the list and add council
-        // This would be more sophisticated in a real app with proper state management
+        
+        // Update local state - find the list and add council to it
+        setLists(prevLists => prevLists.map(list => {
+          if (list.id === parseInt(listId)) {
+            // Add council to the list's councils array if not already present
+            const councilExists = list.councils.some(c => c.slug === councilSlug);
+            if (!councilExists && data.council) {
+              return {
+                ...list,
+                councils: [...list.councils, data.council],
+                council_count: list.council_count + 1
+              };
+            }
+          }
+          return list;
+        }));
       }
     } catch (err) {
       // Error already handled in apiCall
@@ -171,10 +190,13 @@ const MyListsApp = ({ initialData = {} }) => {
    * Move council between lists (drag & drop handler)
    */
   const moveCouncilBetweenLists = useCallback(async (councilSlug, fromListId, toListId) => {
-    if (fromListId === toListId) return;
+    if (fromListId === toListId) {
+      return;
+    }
 
     try {
       setLoading(true);
+      
       const data = await apiCall(config.apiUrls.moveCouncil, {
         method: 'POST',
         body: `council=${encodeURIComponent(councilSlug)}&from=${fromListId}&to=${toListId}`,
@@ -182,8 +204,34 @@ const MyListsApp = ({ initialData = {} }) => {
 
       if (data.success) {
         showNotification(data.message, 'success');
-        // Update local state for both lists
-        // This would trigger a re-render with updated counts
+        
+        // Update local state for both lists - remove from source, add to target
+        setLists(prevLists => {
+          const updatedLists = prevLists.map(list => {
+            if (list.id === parseInt(fromListId)) {
+              // Remove council from source list
+              const updatedCouncils = list.councils.filter(c => c.slug !== councilSlug);
+              return {
+                ...list,
+                councils: updatedCouncils,
+                council_count: updatedCouncils.length
+              };
+            } else if (list.id === parseInt(toListId)) {
+              // Add council to target list if not already present
+              const councilExists = list.councils.some(c => c.slug === councilSlug);
+              if (!councilExists && data.council) {
+                return {
+                  ...list,
+                  councils: [...list.councils, data.council],
+                  council_count: list.council_count + 1
+                };
+              }
+            }
+            return list;
+          });
+          
+          return updatedLists;
+        });
       }
     } catch (err) {
       // Error already handled in apiCall

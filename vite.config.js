@@ -23,6 +23,7 @@ export default defineConfig(({ command }) => ({
     outDir: '../static/frontend',
     assetsDir: '',
     manifest: true,
+    emptyOutDir: true,  // This will clean old build files automatically
     rollupOptions: {
       input: 'frontend/src/main.jsx',
     },
