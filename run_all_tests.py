@@ -94,8 +94,8 @@ class TestRunner:
         self.header("8. Testing JavaScript in Templates")
         self.test_javascript_in_templates()
         
-        # 9. Programming Error Detection
-        self.header("9. Testing for Programming Errors")
+        # 9. Programming Error Detection  
+        self.header("9. Testing for Programming Errors & Type Errors")
         self.test_programming_errors()
         
         # Final Summary
@@ -436,6 +436,9 @@ class TestRunner:
         
         # Test specific model methods that might cause database errors
         self._test_model_methods()
+        
+        # Test for TypeError issues (datetime/SafeString conversion errors)
+        self._test_type_errors()
     
     def _test_model_methods(self):
         """Test specific model methods that could cause programming errors."""
@@ -477,6 +480,102 @@ class TestRunner:
                 
         except ImportError as e:
             self.log(f"Could not import models for programming error testing: {e}", 'warning')
+    
+    def _test_type_errors(self):
+        """Test for specific TypeError issues like datetime/SafeString conversion errors."""
+        from django.test import Client
+        from django.contrib.auth import get_user_model
+        
+        try:
+            # Test the /lists endpoint specifically as mentioned by user
+            client = Client()
+            
+            # Test without authentication first
+            try:
+                response = client.get('/lists/', follow=True)
+                if response.status_code < 400:
+                    self.log("Lists endpoint (unauthenticated) renders without TypeError", 'success')
+                else:
+                    self.log(f"Lists endpoint returns {response.status_code} (unauthenticated)", 'warning')
+            except TypeError as e:
+                error_msg = str(e)
+                if 'combine() argument 1 must be datetime.date' in error_msg and 'SafeString' in error_msg:
+                    self.log(f"CRITICAL TYPEERROR: datetime/SafeString conversion error in /lists (unauthenticated): {error_msg}", 'error')
+                else:
+                    self.log(f"TYPEERROR in /lists (unauthenticated): {error_msg}", 'error')
+            except Exception as e:
+                error_msg = str(e)
+                if 'combine() argument 1 must be datetime.date' in error_msg:
+                    self.log(f"CRITICAL DATETIME ERROR in /lists (unauthenticated): {error_msg}", 'error')
+                elif 'TypeError' in error_msg:
+                    self.log(f"TYPE ERROR in /lists (unauthenticated): {error_msg}", 'error')
+            
+            # Test with authenticated user
+            try:
+                User = get_user_model()
+                test_user, created = User.objects.get_or_create(
+                    username='test_user_type_check',
+                    defaults={'email': 'typecheck@example.com'}
+                )
+                
+                client.force_login(test_user)
+                
+                try:
+                    response = client.get('/lists/', follow=True)
+                    if response.status_code < 400:
+                        self.log("Lists endpoint (authenticated) renders without TypeError", 'success')
+                    else:
+                        self.log(f"Lists endpoint returns {response.status_code} (authenticated)", 'warning')
+                except TypeError as e:
+                    error_msg = str(e)
+                    if 'combine() argument 1 must be datetime.date' in error_msg and 'SafeString' in error_msg:
+                        self.log(f"CRITICAL TYPEERROR: datetime/SafeString conversion error in /lists (authenticated): {error_msg}", 'error')
+                    else:
+                        self.log(f"TYPEERROR in /lists (authenticated): {error_msg}", 'error')
+                except Exception as e:
+                    error_msg = str(e)
+                    if 'combine() argument 1 must be datetime.date' in error_msg:
+                        self.log(f"CRITICAL DATETIME ERROR in /lists (authenticated): {error_msg}", 'error')
+                    elif 'TypeError' in error_msg:
+                        self.log(f"TYPE ERROR in /lists (authenticated): {error_msg}", 'error')
+                
+                # Also test model methods directly that might cause the SafeString issue
+                try:
+                    from council_finance.models import CouncilList
+                    
+                    # Get user's lists which might trigger the SafeString/datetime error
+                    user_lists = CouncilList.objects.filter(user=test_user)
+                    for council_list in user_lists[:3]:  # Test first 3 lists
+                        try:
+                            # These methods might cause the SafeString/datetime conversion error
+                            population = council_list.get_total_population()
+                            council_count = council_list.get_council_count()
+                            self.log(f"CouncilList '{council_list.name}' methods work correctly (pop: {population}, count: {council_count})", 'success')
+                        except TypeError as e:
+                            error_msg = str(e)
+                            if 'combine() argument 1 must be datetime.date' in error_msg and 'SafeString' in error_msg:
+                                self.log(f"CRITICAL TYPEERROR: SafeString/datetime error in CouncilList.get_total_population() for '{council_list.name}': {error_msg}", 'error')
+                            else:
+                                self.log(f"TYPEERROR in CouncilList methods for '{council_list.name}': {error_msg}", 'error')
+                        except Exception as e:
+                            error_msg = str(e)
+                            if 'combine() argument 1 must be datetime.date' in error_msg:
+                                self.log(f"DATETIME ERROR in CouncilList methods for '{council_list.name}': {error_msg}", 'error')
+                            elif 'function sum(text) does not exist' in error_msg:
+                                self.log(f"DATABASE ERROR: Attempting to SUM text field in CouncilList.get_total_population() for '{council_list.name}': {error_msg}", 'error')
+                
+                except ImportError:
+                    self.log("Could not import CouncilList for direct model testing", 'warning')
+                
+                # Clean up test user if we created it
+                if created:
+                    test_user.delete()
+                    
+            except Exception as e:
+                self.log(f"Could not test authenticated TypeError scenarios: {e}", 'warning')
+                
+        except Exception as e:
+            self.log(f"Could not perform TypeError testing: {e}", 'warning')
     
     def print_summary(self, elapsed_time):
         """Print test summary."""

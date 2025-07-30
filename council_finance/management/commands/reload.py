@@ -66,14 +66,17 @@ class Command(BaseCommand):
             self._stop_existing_servers()
             step_num += 1
 
-            # Step 2: Clear caches
-            self.stdout.write(f'[{step_num}/{total_steps}] Clearing caches...')
+            # Step 2: Clear caches and rebuild frontend
+            self.stdout.write(f'[{step_num}/{total_steps}] Clearing caches and rebuilding frontend...')
             try:
                 call_command('clear_dev_cache', verbosity=0)
             except Exception as e:
                 self.stdout.write(
                     self.style.WARNING(f'Cache clearing failed: {e}')
                 )
+            
+            # Rebuild React components with cache busting
+            self._rebuild_frontend_with_cache_busting()
             step_num += 1
 
         # Step N: Run comprehensive test suite (unless skipped)
@@ -150,6 +153,114 @@ class Command(BaseCommand):
             self.stdout.write('')
             self.stdout.write(
                 self.style.SUCCESS('Test-only mode complete. Server not started.')
+            )
+
+    def _rebuild_frontend_with_cache_busting(self):
+        """Rebuild React frontend with cache busting and template updates."""
+        try:
+            # Step 1: Rebuild React components
+            self.stdout.write('   > Rebuilding React components...')
+            
+            # Check if frontend directory exists
+            frontend_dir = os.path.join(os.getcwd(), 'frontend')
+            if not os.path.exists(frontend_dir):
+                self.stdout.write(
+                    self.style.WARNING('Frontend directory not found, skipping React rebuild')
+                )
+                return
+            
+            # Run npm build in frontend directory
+            build_result = subprocess.run([
+                'npm', 'run', 'build'
+            ], cwd=frontend_dir, capture_output=True, text=True, timeout=120)
+            
+            if build_result.returncode != 0:
+                self.stdout.write(
+                    self.style.WARNING(f'React build failed: {build_result.stderr}')
+                )
+                return
+            
+            # Step 2: Extract new build filenames from Vite manifest
+            self.stdout.write('   > Updating template references with cache busting...')
+            self._update_template_build_references()
+            
+            self.stdout.write('   > Frontend rebuild completed successfully')
+            
+        except subprocess.TimeoutExpired:
+            self.stdout.write(
+                self.style.WARNING('React build timed out after 2 minutes')
+            )
+        except FileNotFoundError:
+            self.stdout.write(
+                self.style.WARNING('npm not found, skipping React rebuild')
+            )
+        except Exception as e:
+            self.stdout.write(
+                self.style.WARNING(f'Frontend rebuild failed: {e}')
+            )
+
+    def _update_template_build_references(self):
+        """Update template references to use new build files with cache busting."""
+        try:
+            import glob
+            import re
+            
+            # Find the new build files
+            static_frontend_dir = os.path.join(os.getcwd(), 'static', 'frontend')
+            if not os.path.exists(static_frontend_dir):
+                return
+            
+            # Get the latest main JS and CSS files
+            js_files = glob.glob(os.path.join(static_frontend_dir, 'main-*.js'))
+            css_files = glob.glob(os.path.join(static_frontend_dir, 'main-*.css'))
+            
+            if not js_files or not css_files:
+                self.stdout.write('   ! No build files found to update')
+                return
+            
+            # Get the newest files (in case multiple exist)
+            latest_js = max(js_files, key=os.path.getctime) if js_files else None
+            latest_css = max(css_files, key=os.path.getctime) if css_files else None
+            
+            if latest_js:
+                latest_js_name = os.path.basename(latest_js)
+            if latest_css:
+                latest_css_name = os.path.basename(latest_css)
+            
+            # Update my_lists_enhanced.html template
+            template_path = os.path.join(
+                os.getcwd(), 
+                'council_finance', 
+                'templates', 
+                'council_finance', 
+                'my_lists_enhanced.html'
+            )
+            
+            if os.path.exists(template_path):
+                with open(template_path, 'r', encoding='utf-8') as f:
+                    content = f.read()
+                
+                # Update JS reference
+                if latest_js:
+                    js_pattern = r'src="{% static \'frontend/main-[^\']+\.js\' %}"'
+                    js_replacement = f'src="{{{{ static \'frontend/{latest_js_name}\' }}}}?v={{{{ \'now\'|date:\'U\' }}}}"'
+                    content = re.sub(js_pattern, js_replacement, content)
+                
+                # Update CSS reference  
+                if latest_css:
+                    css_pattern = r'href="{% static \'frontend/main-[^\']+\.css\' %}"'
+                    css_replacement = f'href="{{{{ static \'frontend/{latest_css_name}\' }}}}?v={{{{ \'now\'|date:\'U\' }}}}"'
+                    content = re.sub(css_pattern, css_replacement, content)
+                
+                # Write back the updated template
+                with open(template_path, 'w', encoding='utf-8') as f:
+                    f.write(content)
+                
+                self.stdout.write(f'   > Updated template with {latest_js_name} and {latest_css_name}')
+            
+        except Exception as e:
+            self.stdout.write(
+                self.style.WARNING(f'Template update failed: {e}')
             )
 
     def _stop_existing_servers(self):
