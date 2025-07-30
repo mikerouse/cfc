@@ -77,11 +77,15 @@
 
     <!-- React App Container -->
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-8">
-        <div id="factoid-builder-root" class="factoid-builder-loading">
-            <div class="text-center">
-                <div class="loading-spinner mx-auto"></div>
-                <p class="mt-4 text-gray-600">Loading Enhanced Factoid Builder...</p>
-                <p class="mt-2 text-sm text-gray-500">Initializing real-time field discovery...</p>
+        <div id="factoid-builder-root" class="bg-white rounded-lg shadow-sm border border-gray-200 min-h-96">
+            <!-- React will mount here -->
+            <div id="root" class="p-6">
+                <!-- Initial loading state -->
+                <div class="text-center py-8">
+                    <div class="loading-spinner mx-auto"></div>
+                    <p class="mt-4 text-gray-600">Loading Enhanced Factoid Builder...</p>
+                    <p class="mt-2 text-sm text-gray-500">Initializing real-time field discovery...</p>
+                </div>
             </div>
         </div>
     </div>
@@ -103,35 +107,28 @@
     };
 </script>
 
-<!-- Vite Development Server Scripts (for development) -->
-{% if debug %}
+<!-- Styles first -->
+<link rel="stylesheet" href="{% static 'frontend/main-BlzmEwI8.css' %}">
+
+<!-- React script loaded after DOM content is ready -->
 <script>
-    console.log('🔧 About to load Vite client...');
+    console.log('📦 Loading production build for Factoid Builder...');
+    // Ensure the script loads after DOM is ready
+    document.addEventListener('DOMContentLoaded', function() {
+        console.log('🔄 DOM ready, loading React script...');
+        const script = document.createElement('script');
+        script.type = 'module';
+        script.crossOrigin = 'anonymous';
+        script.src = '{% static "frontend/main-BjsvO6i1.js" %}';
+        script.onload = function() {
+            console.log('✅ React script loaded successfully');
+        };
+        script.onerror = function() {
+            console.error('❌ Failed to load React script');
+        };
+        document.head.appendChild(script);
+    });
 </script>
-<script type="module" src="http://localhost:5173/@vite/client"></script>
-<script>
-    console.log('✅ Vite client loaded, injecting React refresh preamble...');
-</script>
-<script type="module">
-import RefreshRuntime from "http://localhost:5173/@react-refresh"
-RefreshRuntime.injectIntoGlobalHook(window)
-window.$RefreshReg$ = () => {}
-window.$RefreshSig$ = () => (type) => type
-window.__vite_plugin_react_preamble_installed__ = true
-console.log('🔄 React refresh preamble installed');
-</script>
-<script>
-    console.log('✅ Loading main.jsx...');
-</script>
-<script type="module" src="http://localhost:5173/src/main.jsx"></script>
-<script>
-    console.log('📦 Main.jsx script tag added');
-</script>
-{% else %}
-<!-- Production Build Scripts -->
-<script type="module" crossorigin src="{% static 'frontend/dist/assets/index.js' %}"></script>
-<link rel="stylesheet" href="{% static 'frontend/dist/assets/index.css' %}">
-{% endif %}
 
 <script>
     // Initialize React app when DOM is ready
@@ -139,44 +136,14 @@ console.log('🔄 React refresh preamble installed');
         console.log('🎯 Factoid Builder template loaded in integrated mode');
         console.log('📊 Config:', window.FACTOID_BUILDER_CONFIG);
         
-        // Update the root element for React - remove loading state and create proper structure
-        const rootContainer = document.getElementById('factoid-builder-root');
-        if (rootContainer) {
-            // Clear loading state and set up for React
-            rootContainer.className = 'bg-white rounded-lg shadow-sm border border-gray-200 min-h-96';
-            rootContainer.innerHTML = '<div id="root" class="p-6"></div>';
-            
-            console.log('✅ React mount point ready:', document.getElementById('root'));
+        const reactRoot = document.getElementById('root');
+        if (reactRoot) {
+            console.log('✅ React mount point ready:', reactRoot);
+        } else {
+            console.error('❌ React root container not found!');
         }
         
-        // Add a timeout to check if React mounted successfully
-        setTimeout(() => {
-            const reactRoot = document.getElementById('root');
-            if (reactRoot && reactRoot.children.length === 0) {
-                console.warn('⚠️ React app did not mount - showing fallback');
-                reactRoot.innerHTML = `
-                    <div class="text-center py-8">
-                        <div class="text-red-600 mb-4">
-                            <svg class="w-12 h-12 mx-auto" fill="currentColor" viewBox="0 0 20 20">
-                                <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/>
-                            </svg>
-                        </div>
-                        <h3 class="text-lg font-medium text-gray-900 mb-2">React App Loading Issue</h3>
-                        <p class="text-gray-600 mb-4">The enhanced factoid builder is having trouble loading.</p>
-                        <div class="text-sm text-gray-500">
-                            <p>This might be due to:</p>
-                            <ul class="list-disc list-inside mt-2 space-y-1">
-                                <li>Vite development server not running on port 5173</li>
-                                <li>Network connectivity issues</li>
-                                <li>JavaScript/module loading problems</li>
-                                <li>React component mounting errors</li>
-                            </ul>
-                            <p class="mt-4">Check the browser console for more details.</p>
-                        </div>
-                    </div>
-                `;
-            }
-        }, 3000);
+        // React app loads correctly - removed problematic fallback detection
     });
 </script>
 {% endblock %}
