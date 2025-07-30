@@ -36,6 +36,7 @@ const CouncilCard = ({
 
   return (
     <div
+      id={`council-card-${council.slug}`}
       ref={isDraggable ? drag : null}
       className={`
         p-4 transition-all duration-200 cursor-${isDraggable ? 'move' : 'default'}
@@ -46,10 +47,10 @@ const CouncilCard = ({
       onMouseEnter={() => setShowActions(true)}
       onMouseLeave={() => setShowActions(false)}
     >
-      <div className="flex items-start gap-3">
+      <div id={`council-card-content-${council.slug}`} className="flex items-start gap-3">
         {/* Drag Handle (Mobile/Touch) */}
         {isDraggable && (
-          <div className="flex-shrink-0 touch-manipulation">
+          <div id={`council-card-drag-handle-${council.slug}`} className="flex-shrink-0 touch-manipulation">
             <div className="w-6 h-6 flex items-center justify-center text-gray-400 hover:text-gray-600">
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z" />
@@ -59,7 +60,7 @@ const CouncilCard = ({
         )}
 
         {/* Council Logo */}
-        <div className="flex-shrink-0">
+        <div id={`council-card-logo-${council.slug}`} className="flex-shrink-0">
           <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-lg shadow-sm overflow-hidden bg-gray-100 flex items-center justify-center">
             {council.logo_url ? (
               <img 
@@ -77,7 +78,7 @@ const CouncilCard = ({
         </div>
 
         {/* Council Information */}
-        <div className="flex-1 min-w-0">
+        <div id={`council-card-info-${council.slug}`} className="flex-1 min-w-0">
           <h3 className="font-semibold text-gray-900 text-sm sm:text-base leading-tight mb-1">
             <a 
               href={`/councils/${council.slug}/`} 
@@ -119,11 +120,12 @@ const CouncilCard = ({
         </div>
 
         {/* Action Buttons */}
-        <div className={`flex-shrink-0 transition-opacity duration-200 ${showActions || 'sm:opacity-0 sm:group-hover:opacity-100'}`}>
+        <div id={`council-card-actions-${council.slug}`} className={`flex-shrink-0 transition-opacity duration-200 ${showActions || 'sm:opacity-0 sm:group-hover:opacity-100'}`}>
           <div className="flex flex-col gap-2 min-w-0">
             {/* Add to List Dropdown */}
             {lists.length > 0 && onAddToList && (
-              <select 
+              <select
+                id={`council-card-add-to-list-${council.slug}`} 
                 className="text-xs border border-gray-300 rounded-md px-2 py-1 min-w-[100px]"
                 onChange={(e) => {
                   if (e.target.value) {
@@ -144,6 +146,7 @@ const CouncilCard = ({
             {/* Remove Button */}
             {showRemoveButton && onRemove && (
               <button
+                id={`council-card-remove-btn-${council.slug}`}
                 onClick={() => onRemove()}
                 className="inline-flex items-center justify-center px-2 py-1 text-xs font-medium rounded-md text-red-700 bg-red-50 border border-red-300 hover:bg-red-100 transition-colors min-h-[28px]"
                 title="Remove from list"
@@ -160,7 +163,7 @@ const CouncilCard = ({
 
       {/* Drag Drop Visual Indicator */}
       {isDraggable && (
-        <div className="mt-2 text-xs text-gray-500 flex items-center">
+        <div id={`council-card-drag-indicator-${council.slug}`} className="mt-2 text-xs text-gray-500 flex items-center">
           <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4" />
           </svg>

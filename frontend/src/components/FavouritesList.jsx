@@ -53,8 +53,8 @@ const FavouritesList = ({
 
   if (councils.length === 0) {
     return (
-      <div className="bg-white border border-gray-200 rounded-lg shadow-sm p-6">
-        <div className="flex items-start mb-4">
+      <div id="my-lists-favourites-section" className="bg-white border border-gray-200 rounded-lg shadow-sm p-6">
+        <div id="my-lists-favourites-header-empty" className="flex items-start mb-4">
           <svg className="w-6 h-6 text-blue-500 mr-3 mt-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
           </svg>
@@ -64,7 +64,7 @@ const FavouritesList = ({
           </div>
         </div>
 
-        <div className="text-center py-8">
+        <div id="my-lists-favourites-empty-state" className="text-center py-8">
           <svg className="w-16 h-16 text-gray-400 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
           </svg>
@@ -78,9 +78,9 @@ const FavouritesList = ({
   }
 
   return (
-    <div className="bg-white border border-gray-200 rounded-lg shadow-sm overflow-hidden">
+    <div id="my-lists-favourites-section" className="bg-white border border-gray-200 rounded-lg shadow-sm overflow-hidden">
       {/* Header */}
-      <div className="px-4 sm:px-6 py-4 border-b border-gray-200">
+      <div id="my-lists-favourites-header" className="px-4 sm:px-6 py-4 border-b border-gray-200">
         <div className="flex items-start justify-between">
           <div className="flex items-start">
             <svg className="w-6 h-6 text-blue-500 mr-3 mt-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -88,7 +88,7 @@ const FavouritesList = ({
             </svg>
             <div>
               <h2 className="text-lg font-semibold text-gray-900">My Favourites</h2>
-              <p className="text-sm text-gray-600 mt-1">
+              <p id="my-lists-favourites-stats" className="text-sm text-gray-600 mt-1">
                 {councils.length} council{councils.length !== 1 ? 's' : ''} • 
                 Total population: {totalPopulation.toLocaleString()}
               </p>
@@ -96,9 +96,10 @@ const FavouritesList = ({
           </div>
 
           {/* Sort Controls */}
-          <div className="flex items-center gap-2">
+          <div id="my-lists-favourites-sort-controls" className="flex items-center gap-2">
             <span className="text-sm text-gray-500">Sort by:</span>
             <select 
+              id="my-lists-favourites-sort-select"
               value={`${sortBy}-${sortOrder}`}
               onChange={(e) => {
                 const [newSortBy, newOrder] = e.target.value.split('-');
@@ -117,11 +118,12 @@ const FavouritesList = ({
       </div>
 
       {/* Desktop Table View */}
-      <div className="hidden md:block overflow-x-auto">
-        <table className="min-w-full divide-y divide-gray-200">
-          <thead className="bg-gray-50">
+      <div id="my-lists-favourites-desktop-view" className="hidden md:block overflow-x-auto">
+        <table id="my-lists-favourites-table" className="min-w-full divide-y divide-gray-200">
+          <thead id="my-lists-favourites-table-head" className="bg-gray-50">
             <tr>
               <th 
+                id="my-lists-favourites-header-name"
                 className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
                 onClick={() => handleSort('name')}
               >
@@ -135,6 +137,7 @@ const FavouritesList = ({
                 </div>
               </th>
               <th 
+                id="my-lists-favourites-header-population"
                 className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
                 onClick={() => handleSort('population')}
               >
@@ -147,12 +150,12 @@ const FavouritesList = ({
                   )}
                 </div>
               </th>
-              <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+              <th id="my-lists-favourites-header-actions" className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Actions
               </th>
             </tr>
           </thead>
-          <tbody className="bg-white divide-y divide-gray-200">
+          <tbody id="my-lists-favourites-table-body" className="bg-white divide-y divide-gray-200">
             {sortedCouncils.map((council) => (
               <tr key={council.slug} className="hover:bg-gray-50">
                 <td className="px-6 py-4 whitespace-nowrap">
@@ -225,8 +228,8 @@ const FavouritesList = ({
       </div>
 
       {/* Mobile Card View */}
-      <div className="md:hidden">
-        <div className="divide-y divide-gray-200">
+      <div id="my-lists-favourites-mobile-view" className="md:hidden">
+        <div id="my-lists-favourites-mobile-container" className="divide-y divide-gray-200">
           {sortedCouncils.map((council) => (
             <CouncilCard
               key={council.slug}

@@ -276,10 +276,10 @@ const MyListsApp = ({ initialData = {} }) => {
   return (
     <ErrorBoundary>
       <DndProvider backend={dndBackend} options={dndOptions}>
-        <div className="my-lists-app">
+        <div id="my-lists-app-container" className="my-lists-app">
           {/* Notification Display */}
           {notification && (
-            <div className={`fixed top-4 right-4 z-50 max-w-sm p-4 rounded-lg shadow-lg ${
+            <div id="my-lists-notification" className={`fixed top-4 right-4 z-50 max-w-sm p-4 rounded-lg shadow-lg ${
               notification.type === 'success' 
                 ? 'bg-green-50 border border-green-200 text-green-800'
                 : 'bg-red-50 border border-red-200 text-red-800'
@@ -305,7 +305,7 @@ const MyListsApp = ({ initialData = {} }) => {
 
           {/* Error Display */}
           {error && (
-            <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
+            <div id="my-lists-error-display" className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
               <div className="flex items-start">
                 <svg className="w-5 h-5 text-red-500 mt-0.5 mr-3 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
                   <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd"/>
@@ -318,7 +318,7 @@ const MyListsApp = ({ initialData = {} }) => {
           )}
 
           {/* Main Content */}
-          <div className="space-y-6">
+          <div id="my-lists-main-content" className="space-y-6">
             {/* Search and Add Component */}
             <SearchAndAdd 
               onAddToFavourites={addToFavourites}

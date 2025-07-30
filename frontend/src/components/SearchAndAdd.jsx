@@ -104,8 +104,8 @@ const SearchAndAdd = ({
   }, [onAddToList]);
 
   return (
-    <div className="bg-white border border-gray-200 rounded-lg shadow-sm p-4 sm:p-6">
-      <div className="mb-4">
+    <div id="my-lists-search-section" className="bg-white border border-gray-200 rounded-lg shadow-sm p-4 sm:p-6">
+      <div id="my-lists-search-header" className="mb-4">
         <h2 className="text-lg font-semibold text-gray-900 mb-2">Find Councils</h2>
         <p className="text-sm text-gray-600">
           Search for councils to add to your favourites or custom lists
@@ -113,11 +113,11 @@ const SearchAndAdd = ({
       </div>
 
       {/* Search Input */}
-      <div className="relative mb-4">
+      <div id="my-lists-search-input-container" className="relative mb-4">
         <div className="relative">
           <input
             ref={searchRef}
-            id="council-search"
+            id="my-lists-search-input"
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
@@ -139,6 +139,7 @@ const SearchAndAdd = ({
         {/* Search Results Dropdown */}
         {showResults && searchResults.length > 0 && (
           <div 
+            id="my-lists-search-results"
             ref={resultsRef}
             className="absolute z-50 w-full bg-white border border-gray-300 rounded-lg shadow-lg mt-1 max-h-96 overflow-y-auto"
           >

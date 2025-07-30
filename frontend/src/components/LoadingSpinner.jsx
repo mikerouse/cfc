@@ -20,8 +20,8 @@ const LoadingSpinner = ({ size = 'default', overlay = true }) => {
 
   if (overlay) {
     return (
-      <div className="fixed inset-0 bg-black bg-opacity-25 flex items-center justify-center z-50">
-        <div className="bg-white rounded-lg p-6 shadow-xl">
+      <div id="my-lists-loading-overlay" className="fixed inset-0 bg-black bg-opacity-25 flex items-center justify-center z-50">
+        <div id="my-lists-loading-modal" className="bg-white rounded-lg p-6 shadow-xl">
           <div className="flex items-center space-x-3">
             <div className="text-blue-600">
               {spinner}
