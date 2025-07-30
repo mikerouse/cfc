@@ -3303,6 +3303,7 @@ def list_metric(request, list_id):
 
 
 @login_required
+@csrf_exempt
 @require_POST
 def create_list_api(request):
     """API endpoint to create a new custom list."""

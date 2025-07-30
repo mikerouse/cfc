@@ -76,9 +76,13 @@ const MyListsApp = ({ initialData = {} }) => {
         headers: {
           'Content-Type': 'application/x-www-form-urlencoded',
           'X-CSRFToken': config.csrfToken,
-          ...options.headers,
         },
         ...options,
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+          'X-CSRFToken': config.csrfToken,
+          ...options.headers,
+        },
       });
 
       if (!response.ok) {
