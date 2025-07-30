@@ -2,6 +2,7 @@ import React from 'react';
 import { createRoot } from 'react-dom/client';
 import App from './App';
 import MyListsIntegration from './components/MyListsIntegration';
+import CouncilEditApp from './components/CouncilEditApp';
 
 console.log('🚀 Main.jsx loading - React apps initialization');
 
@@ -39,6 +40,26 @@ function initializeReactApps() {
   if (myListsContainer) {
     console.log('🎯 My Lists container found, initializing...');
     MyListsIntegration();
+  }
+  
+  // Initialize Council Edit app if container exists
+  const councilEditContainer = document.getElementById('council-edit-react-root');
+  if (councilEditContainer) {
+    console.log('🏛️ Council Edit container found, initializing...');
+    try {
+      // Make CouncilEditApp globally available for template integration
+      window.CouncilEditApp = {
+        mount: (container, props) => {
+          console.log('🚀 Mounting Council Edit React app with props:', props);
+          const root = createRoot(container);
+          root.render(<CouncilEditApp {...props} />);
+          return root;
+        }
+      };
+      console.log('✅ Council Edit app registered successfully');
+    } catch (error) {
+      console.error('💥 Council Edit app registration failed:', error);
+    }
   }
   
   console.log('✅ React apps initialization completed');

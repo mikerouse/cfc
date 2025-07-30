@@ -6,7 +6,7 @@ This module handles all API endpoints and AJAX requests.
 from django.shortcuts import get_object_or_404
 from django.http import JsonResponse
 from django.contrib.auth.decorators import login_required
-from django.views.decorators.http import require_POST, require_GET
+from django.views.decorators.http import require_POST, require_GET, require_http_methods
 from django.views.decorators.csrf import csrf_exempt
 from django.core.exceptions import ValidationError
 from django.db.models import Q
@@ -100,14 +100,166 @@ def field_info_api(request, field_slug):
         return JsonResponse({
             'name': field.name,
             'slug': field.slug,
-            'description': field.description or '',
-            'data_type': field.data_type,
-            'unit': field.unit or '',
-            'help_text': field.help_text or '',
+            'description': field.explanation or '',
+            'content_type': field.content_type,
+            'category': field.category,
+            'required': field.required,
         })
         
     except DataField.DoesNotExist:
         return JsonResponse({'error': 'Field not found'}, status=404)
+
+
+@require_http_methods(['POST'])
+def validate_url_api(request):
+    """API endpoint to validate URLs for security and accessibility."""
+    import json
+    import requests
+    from urllib.parse import urlparse
+    from django.conf import settings
+    from council_finance.models import DataField
+    
+    try:
+        data = json.loads(request.body)
+        url = data.get('url', '').strip()
+        field_slug = data.get('field_slug', '')
+        
+        if not url:
+            return JsonResponse({
+                'valid': False,
+                'message': 'URL is required'
+            })
+        
+        # Get field-specific validation settings
+        field_settings = {}
+        if field_slug:
+            try:
+                field = DataField.objects.get(slug=field_slug)
+                field_settings = {
+                    'validation_enabled': field.url_validation_enabled,
+                    'allow_redirects': field.url_allow_redirects,
+                    'require_https': field.url_require_https,
+                    'blocked_domains': [d.strip().lower() for d in field.url_blocked_domains.split(',') if d.strip()],
+                    'allowed_domains': [d.strip().lower() for d in field.url_allowed_domains.split(',') if d.strip()]
+                }
+            except DataField.DoesNotExist:
+                pass
+        
+        # Use defaults if no field-specific settings
+        validation_enabled = field_settings.get('validation_enabled', True)
+        allow_redirects = field_settings.get('allow_redirects', True)
+        require_https = field_settings.get('require_https', False)
+        blocked_domains = field_settings.get('blocked_domains', [])
+        allowed_domains = field_settings.get('allowed_domains', [])
+        
+        # Skip validation if disabled for this field
+        if not validation_enabled:
+            return JsonResponse({
+                'valid': True,
+                'message': 'URL validation is disabled for this field'
+            })
+        
+        # Parse URL
+        try:
+            parsed = urlparse(url)
+        except Exception:
+            return JsonResponse({
+                'valid': False,
+                'message': 'Invalid URL format'
+            })
+        
+        # Protocol validation
+        allowed_protocols = ['https'] if require_https else ['http', 'https']
+        if parsed.scheme not in allowed_protocols:
+            message = 'Only HTTPS URLs are allowed' if require_https else 'Only HTTP and HTTPS URLs are allowed'
+            return JsonResponse({
+                'valid': False,
+                'message': message
+            })
+        
+        # Domain validation
+        domain = parsed.hostname.lower() if parsed.hostname else ''
+        
+        # Check allowed domains first (if specified)
+        if allowed_domains:
+            if not any(allowed_domain in domain for allowed_domain in allowed_domains):
+                return JsonResponse({
+                    'valid': False,
+                    'message': f'URLs are only allowed from these domains: {", ".join(allowed_domains)}'
+                })
+        
+        # Default blocked domains (merged with field-specific ones)
+        default_blocked = [
+            'bit.ly', 'tinyurl.com', 'goo.gl', 't.co', 'ow.ly',
+            'localhost', '127.0.0.1', '0.0.0.0', '::1'
+        ]
+        all_blocked_domains = list(set(default_blocked + blocked_domains))
+        
+        if any(blocked in domain for blocked in all_blocked_domains):
+            return JsonResponse({
+                'valid': False,
+                'message': 'This domain is blocked for security reasons'
+            })
+        
+        # Check for private IP ranges
+        import ipaddress
+        try:
+            ip = ipaddress.ip_address(domain)
+            if ip.is_private or ip.is_loopback or ip.is_link_local:
+                return JsonResponse({
+                    'valid': False,
+                    'message': 'Private, loopback, and link-local IP addresses are not allowed'
+                })
+        except ValueError:
+            # Not an IP address, that's fine
+            pass
+        
+        # Basic connectivity test with timeout
+        try:
+            response = requests.head(
+                url, 
+                timeout=5,
+                allow_redirects=True,
+                headers={'User-Agent': 'Council Finance Counters URL Validator'}
+            )
+            
+            if response.status_code >= 400:
+                return JsonResponse({
+                    'valid': False,
+                    'message': f'URL returned error status: {response.status_code}'
+                })
+            
+            # Check content type for reasonable expectations
+            content_type = response.headers.get('content-type', '').lower()
+            if 'application/octet-stream' in content_type and not any(ext in url.lower() for ext in ['.pdf', '.doc', '.docx']):
+                return JsonResponse({
+                    'valid': False,
+                    'message': 'URL appears to serve binary content which may not be appropriate for a financial statement link'
+                })
+            
+            return JsonResponse({
+                'valid': True,
+                'message': 'URL is valid and accessible',
+                'status_code': response.status_code,
+                'content_type': content_type
+            })
+            
+        except requests.RequestException as e:
+            return JsonResponse({
+                'valid': False,
+                'message': f'URL is not accessible: {str(e)}'
+            })
+        
+    except json.JSONDecodeError:
+        return JsonResponse({
+            'valid': False,
+            'message': 'Invalid JSON data'
+        }, status=400)
+    except Exception as e:
+        return JsonResponse({
+            'valid': False,
+            'message': f'Validation error: {str(e)}'
+        }, status=500)
 
 
 def council_recent_activity_api(request, council_slug):

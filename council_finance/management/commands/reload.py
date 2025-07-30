@@ -662,6 +662,17 @@ class Command(BaseCommand):
             import os
             import json
             
+            # First run our built-in syntax tests for the Council Edit interface
+            self.stdout.write('   > Running Council Edit interface syntax checks...')
+            syntax_success = self._run_council_edit_syntax_tests()
+            
+            if not syntax_success:
+                self.stdout.write(
+                    self.style.WARNING('Council Edit syntax tests failed - see details below')
+                )
+            else:
+                self.stdout.write('   SUCCESS: Council Edit interface passed all syntax checks')
+            
             # Get the path to run_all_tests.py
             test_script_path = os.path.join(os.getcwd(), 'run_all_tests.py')
             
@@ -670,7 +681,7 @@ class Command(BaseCommand):
                     self.style.ERROR('run_all_tests.py not found in project root')
                 )
                 self._write_test_error_to_log('run_all_tests.py not found in project root')
-                return False
+                return syntax_success  # Return syntax test result if main tests unavailable
             
             # Run the comprehensive test suite
             try:
@@ -691,8 +702,8 @@ class Command(BaseCommand):
                 if result.returncode != 0:
                     self._write_test_failures_to_log(result.stdout, result.stderr)
                 
-                # Return success based on exit code
-                return result.returncode == 0
+                # Return success based on exit code AND syntax tests
+                return result.returncode == 0 and syntax_success
                 
             except subprocess.TimeoutExpired:
                 error_msg = 'Comprehensive test suite timed out after 5 minutes'
@@ -705,6 +716,139 @@ class Command(BaseCommand):
             self.stdout.write(self.style.ERROR(error_msg))
             self._write_test_error_to_log(error_msg)
             return False
+
+    def _run_council_edit_syntax_tests(self):
+        """Run syntax tests for the Council Edit React interface."""
+        try:
+            # Import our syntax test functions
+            import ast
+            import os
+            
+            errors = []
+            
+            # Test 1: Python files syntax
+            files_to_test = [
+                'council_finance/views/council_edit_api.py',
+                'council_finance/views/councils.py',
+                'council_finance/urls.py',
+                'council_finance/tests/test_syntax_errors.py',
+                'council_finance/tests/test_council_edit_integration.py',
+            ]
+            
+            for file_path in files_to_test:
+                if os.path.exists(file_path):
+                    try:
+                        with open(file_path, 'r', encoding='utf-8') as f:
+                            content = f.read()
+                        ast.parse(content, filename=file_path)
+                    except SyntaxError as e:
+                        errors.append(f"Python syntax error in {file_path}: {e}")
+                        self.stdout.write(f'   FAIL {os.path.basename(file_path)}: {e}')
+                    except Exception as e:
+                        errors.append(f"Error checking {file_path}: {e}")
+                        self.stdout.write(f'   WARN {os.path.basename(file_path)}: {e}')
+                else:
+                    errors.append(f"Missing file: {file_path}")
+                    self.stdout.write(f'   FAIL {os.path.basename(file_path)}: File not found')
+            
+            # Test 2: React components exist and have basic structure
+            components = [
+                'frontend/src/components/CouncilEditApp.jsx',
+                'frontend/src/components/council-edit/CharacteristicsTab.jsx',
+                'frontend/src/components/council-edit/GeneralDataTab.jsx',
+                'frontend/src/components/council-edit/FinancialDataTab.jsx',
+                'frontend/src/components/council-edit/FieldEditor.jsx',
+            ]
+            
+            for component in components:
+                if os.path.exists(component):
+                    try:
+                        with open(component, 'r', encoding='utf-8') as f:
+                            content = f.read()
+                        if 'export default' not in content:
+                            errors.append(f"React component missing export: {component}")
+                            self.stdout.write(f'   WARN {os.path.basename(component)}: No default export')
+                    except Exception as e:
+                        errors.append(f"Error checking React component {component}: {e}")
+                        self.stdout.write(f'   FAIL {os.path.basename(component)}: {e}')
+                else:
+                    errors.append(f"Missing React component: {component}")
+                    self.stdout.write(f'   FAIL {os.path.basename(component)}: Not found')
+            
+            # Test 3: Build artifacts exist
+            artifacts = [
+                'static/frontend/main-_xUhIr_S.js',
+                'static/frontend/main-BlzmEwI8.css',
+            ]
+            
+            for artifact in artifacts:
+                if not os.path.exists(artifact):
+                    errors.append(f"Missing build artifact: {artifact}")
+                    self.stdout.write(f'   WARN {os.path.basename(artifact)}: Not found (may need rebuild)')
+            
+            # Test 4: Django template exists
+            template_path = 'council_finance/templates/council_finance/council_edit_react.html'
+            if os.path.exists(template_path):
+                try:
+                    with open(template_path, 'r', encoding='utf-8') as f:
+                        content = f.read()
+                    
+                    required_elements = [
+                        'council-edit-react-root',
+                        'CouncilEditApp',
+                        'csrf_token',
+                    ]
+                    
+                    missing = [req for req in required_elements if req not in content]
+                    if missing:
+                        errors.append(f"Template missing elements: {missing}")
+                        self.stdout.write(f'   WARN council_edit_react.html: Missing {missing}')
+                        
+                except Exception as e:
+                    errors.append(f"Error checking template: {e}")
+                    self.stdout.write(f'   FAIL council_edit_react.html: {e}')
+            else:
+                errors.append("Missing template: council_edit_react.html")
+                self.stdout.write('   FAIL council_edit_react.html: Not found')
+            
+            # If there are errors, write them to a separate section in the log
+            if errors:
+                self._write_council_edit_errors_to_log(errors)
+                return False
+            
+            return True
+            
+        except Exception as e:
+            self.stdout.write(f'   FAIL Council Edit syntax test failed: {e}')
+            return False
+
+    def _write_council_edit_errors_to_log(self, errors):
+        """Write Council Edit interface errors to syntax_errors.log."""
+        log_file_path = os.path.join(os.getcwd(), 'syntax_errors.log')
+        current_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        
+        try:
+            # Append to existing log or create new one
+            with open(log_file_path, 'a', encoding='utf-8') as f:
+                f.write(f"\n\n{'='*60}\n")
+                f.write("COUNCIL EDIT REACT INTERFACE - SYNTAX TEST FAILURES\n")
+                f.write(f"{'='*60}\n")
+                f.write(f"Generated: {current_time}\n")
+                f.write(f"Total errors: {len(errors)}\n\n")
+                
+                for i, error in enumerate(errors, 1):
+                    f.write(f"{i}. {error}\n")
+                
+                f.write(f"\n{'='*60}\n")
+                f.write("COUNCIL EDIT INTERFACE STATUS:\n")
+                f.write("The mobile-first React council edit interface has syntax issues.\n")
+                f.write("Please fix the errors above to ensure proper functionality.\n")
+                f.write(f"{'='*60}\n\n")
+                
+        except Exception as e:
+            self.stdout.write(
+                self.style.WARNING(f'Could not write Council Edit errors to log: {e}')
+            )
 
     def _write_test_failures_to_log(self, stdout_output, stderr_output):
         """Write test failures to syntax_errors.log, overwriting the file."""

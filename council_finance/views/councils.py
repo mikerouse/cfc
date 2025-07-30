@@ -901,3 +901,56 @@ def generate_share_link(request, slug):
         
     except Exception as e:
         return JsonResponse({'error': str(e)}, status=500)
+
+
+@login_required
+def council_edit_react(request, slug):
+    """
+    Mobile-first React council edit interface
+    
+    Provides the modern React-based editing interface with proper separation of:
+    - Characteristics (non-temporal)
+    - General data (temporal)  
+    - Financial data (temporal)
+    """
+    try:
+        council = get_object_or_404(Council, slug=slug)
+        
+        # Get council data for React props
+        council_data = {
+            'id': council.id,
+            'slug': council.slug,
+            'name': council.name,
+            'councilType': council.council_type.name if council.council_type else None,
+            'nation': council.council_nation.name if council.council_nation else None,
+            'website': council.website,
+            'logo_url': council.logo.url if hasattr(council, 'logo') and council.logo else None
+        }
+        
+        # Get available financial years
+        years = FinancialYear.objects.all().order_by('-start_date')
+        years_data = [
+            {
+                'id': year.id,
+                'label': year.label,
+                'display': getattr(year, 'display', None) or year.label.replace('/', '-'),
+                'is_current': getattr(year, 'is_current', False)
+            }
+            for year in years
+        ]
+        
+        # Convert to JSON for template
+        council_data_json = json.dumps(council_data)
+        years_data_json = json.dumps(years_data)
+        
+        context = {
+            'council': council,
+            'council_data_json': council_data_json,
+            'years_data_json': years_data_json,
+        }
+        
+        return render(request, 'council_finance/council_edit_react.html', context)
+        
+    except Exception as e:
+        messages.error(request, f'Error loading council editor: {str(e)}')
+        return redirect('council_detail', slug=slug)

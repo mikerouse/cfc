@@ -117,6 +117,28 @@ class DataField(models.Model):
         default="{value}",
         help_text="Format string for displaying value in meta bar. Use {value} as placeholder (e.g., '{value} residents')"
     )
+    
+    # Security and validation options for URL fields
+    url_validation_enabled = models.BooleanField(
+        default=True,
+        help_text="Whether to perform security validation on URL fields"
+    )
+    url_allow_redirects = models.BooleanField(
+        default=True,
+        help_text="Allow URLs that redirect to other locations"
+    )
+    url_require_https = models.BooleanField(
+        default=False,
+        help_text="Require HTTPS protocol for URL fields"
+    )
+    url_blocked_domains = models.TextField(
+        blank=True,
+        help_text="Comma-separated list of domains to block (e.g., 'example.com,malicious.site')"
+    )
+    url_allowed_domains = models.TextField(
+        blank=True,
+        help_text="If specified, only allow URLs from these comma-separated domains"
+    )
 
     class Meta:
         ordering = ['display_order', 'name']

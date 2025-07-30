@@ -38,6 +38,71 @@ document.addEventListener('DOMContentLoaded', function() {
     const councilName = window.councilData?.name || 'Council';
 
     /**
+     * Validate URL for security and accessibility
+     */
+    async function validateURL(url) {
+        // Basic URL format validation
+        try {Be careful 
+            const urlObj = new URL(url);
+            
+            // Check for allowed protocols
+            const allowedProtocols = ['http:', 'https:'];
+            if (!allowedProtocols.includes(urlObj.protocol)) {
+                return {
+                    valid: false,
+                    message: 'Only HTTP and HTTPS URLs are allowed'
+                };
+            }
+            
+            // Check for suspicious domains or patterns
+            const suspiciousDomains = [
+                'bit.ly', 'tinyurl.com', 'goo.gl', 't.co', 'ow.ly',
+                'localhost', '127.0.0.1', '0.0.0.0'
+            ];
+            
+            const domain = urlObj.hostname.toLowerCase();
+            if (suspiciousDomains.some(suspicious => domain.includes(suspicious))) {
+                return {
+                    valid: false,
+                    message: 'URL shorteners and local addresses are not allowed for security reasons'
+                };
+            }
+            
+            // Check if URL is accessible (basic connectivity test)
+            try {
+                const testResponse = await fetch('/api/validate-url/', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+                    },
+                    body: JSON.stringify({ 
+                        url: url,
+                        field_slug: currentFieldSlug 
+                    })
+                });
+                
+                const validationResult = await testResponse.json();
+                return validationResult;
+                
+            } catch (fetchError) {
+                // If validation service is unavailable, allow URL but warn
+                console.warn('URL validation service unavailable:', fetchError);
+                return {
+                    valid: true,
+                    message: 'URL format appears valid (validation service unavailable)'
+                };
+            }
+            
+        } catch (urlError) {
+            return {
+                valid: false,
+                message: 'Invalid URL format'
+            };
+        }
+    }
+
+    /**
      * Show a toast notification
      */
     function showToast(type, message) {
@@ -254,6 +319,22 @@ document.addEventListener('DOMContentLoaded', function() {
             }
             
             try {
+                // Get field information to check content type
+                const fieldResponse = await fetch(`/api/field/${currentFieldSlug}/info/`);
+                if (!fieldResponse.ok) throw new Error('Failed to get field information');
+                const fieldData = await fieldResponse.json();
+                
+                // Validate URL fields
+                if (fieldData.content_type === 'url') {
+                    const urlValue = valueInput.value.trim();
+                    if (urlValue) {
+                        const validationResult = await validateURL(urlValue);
+                        if (!validationResult.valid) {
+                            throw new Error(validationResult.message);
+                        }
+                    }
+                }
+                
                 const formData = new FormData(editForm);
                 const response = await fetch(editForm.action, {
                     method: 'POST',

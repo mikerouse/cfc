@@ -585,7 +585,10 @@ class DataFieldForm(forms.ModelForm):
             'show_in_meta', 'display_order', 'icon_svg_path', 'meta_display_format',
             # Image field options
             'image_max_width', 'image_max_height', 'image_max_file_size',
-            'image_default_alt_text', 'image_copyright_text', 'image_ai_generated_flag'
+            'image_default_alt_text', 'image_copyright_text', 'image_ai_generated_flag',
+            # URL security options
+            'url_validation_enabled', 'url_allow_redirects', 'url_require_https',
+            'url_blocked_domains', 'url_allowed_domains'
         ]
         widgets = {
             'name': forms.TextInput(attrs={
@@ -645,6 +648,26 @@ class DataFieldForm(forms.ModelForm):
             }),
             'image_ai_generated_flag': forms.CheckboxInput(attrs={
                 'class': 'h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded'
+            }),
+            # URL security field widgets
+            'url_validation_enabled': forms.CheckboxInput(attrs={
+                'class': 'h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded'
+            }),
+            'url_allow_redirects': forms.CheckboxInput(attrs={
+                'class': 'h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded'
+            }),
+            'url_require_https': forms.CheckboxInput(attrs={
+                'class': 'h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded'
+            }),
+            'url_blocked_domains': forms.Textarea(attrs={
+                'rows': 2,
+                'class': 'block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm',
+                'placeholder': 'example.com, malicious.site, spam.domain'
+            }),
+            'url_allowed_domains': forms.Textarea(attrs={
+                'rows': 2,
+                'class': 'block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm',
+                'placeholder': 'gov.uk, parliament.uk, local-authority.org'
             }),
         }
         

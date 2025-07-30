@@ -1,0 +1,309 @@
+{% extends "base.html" %}
+{% load static %}
+{% block title %}Edit {{ council.name }} - Council Finance Counters{% endblock %}
+
+{% block extra_css %}
+<style>
+  /* Mobile-First Council Edit Styles */
+  .animate-slide-in {
+    animation: slideIn 0.3s ease-out;
+  }
+  
+  @keyframes slideIn {
+    from {
+      transform: translateX(100%);
+      opacity: 0;
+    }
+    to {
+      transform: translateX(0);
+      opacity: 1;
+    }
+  }
+  
+  /* Touch-friendly input sizing */
+  @media (max-width: 640px) {
+    input, select, textarea, button {
+      min-height: 44px;
+      min-width: 44px;
+    }
+  }
+  
+  /* Custom scrollbar for year selector */
+  .overflow-x-auto::-webkit-scrollbar {
+    height: 4px;
+  }
+  
+  .overflow-x-auto::-webkit-scrollbar-track {
+    background: #f1f5f9;
+    border-radius: 2px;
+  }
+  
+  .overflow-x-auto::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: 2px;
+  }
+  
+  .overflow-x-auto::-webkit-scrollbar-thumb:hover {
+    background: #94a3b8;
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- React Council Edit Container -->
+<div id="council-edit-react-root" 
+     data-council='{{ council_data_json|safe }}'
+     data-years='{{ years_data_json|safe }}'
+     data-csrf-token="{{ csrf_token }}"
+     data-react-timeout="5000">
+  
+  <!-- Loading State -->
+  <div id="council-edit-loading-fallback" class="min-h-screen bg-gray-50 flex items-center justify-center">
+    <div class="text-center">
+      <div class="inline-flex items-center justify-center w-16 h-16 bg-blue-100 rounded-lg mb-4">
+        <svg class="animate-spin w-8 h-8 text-blue-600" fill="none" viewBox="0 0 24 24">
+          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 714 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+        </svg>
+      </div>
+      <h3 class="text-lg font-semibold text-gray-900 mb-2">Loading Council Editor</h3>
+      <p class="text-sm text-gray-600">Preparing the mobile-first editing interface...</p>
+    </div>
+  </div>
+  
+  <!-- Fallback Interface (if React fails to load) -->
+  <div id="council-edit-fallback-interface" class="hidden">
+    <div class="min-h-screen bg-gray-50">
+      
+      <!-- Fallback Header -->
+      <header class="bg-white border-b border-gray-200 shadow-sm">
+        <div class="mx-auto px-3 sm:px-4 xl:px-6 py-4 max-w-none xl:max-w-desktop">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center space-x-3">
+              <a href="{% url 'council_detail' council.slug %}" 
+                 class="p-2 text-gray-600 hover:text-gray-900 rounded-lg hover:bg-gray-100 min-h-[44px] min-w-[44px] flex items-center justify-center">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/>
+                </svg>
+              </a>
+              <div>
+                <h1 class="text-lg font-semibold text-gray-900">Edit {{ council.name }}</h1>
+                <p class="text-sm text-gray-600">Basic editing interface</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      <!-- Fallback Content -->
+      <div class="mx-auto px-3 sm:px-4 xl:px-6 py-6 max-w-none xl:max-w-desktop">
+        
+        <!-- Error Message -->
+        <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-6">
+          <div class="flex items-start space-x-3">
+            <svg class="w-5 h-5 text-yellow-600 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+            </svg>
+            <div class="text-sm text-yellow-800">
+              <p class="font-medium mb-1">Enhanced Editor Unavailable</p>
+              <p>The mobile-first React editing interface couldn't load. You can still edit using the basic interface below, or try refreshing the page.</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Basic Editing Options -->
+        <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          
+          <!-- Characteristics -->
+          <div class="bg-white rounded-lg border border-gray-200 p-4">
+            <div class="flex items-center space-x-3 mb-3">
+              <div class="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center">
+                <svg class="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/>
+                </svg>
+              </div>
+              <div>
+                <h3 class="font-medium text-gray-900">Characteristics</h3>
+                <p class="text-xs text-gray-600">Council type, website, etc.</p>
+              </div>
+            </div>
+            <a href="{% url 'council_detail' council.slug %}?tab=edit&focus=council_type"
+               class="block w-full text-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors min-h-[44px] flex items-center justify-center">
+              Edit Characteristics
+            </a>
+          </div>
+
+          <!-- Financial Data -->
+          <div class="bg-white rounded-lg border border-gray-200 p-4">
+            <div class="flex items-center space-x-3 mb-3">
+              <div class="w-8 h-8 bg-purple-100 rounded-lg flex items-center justify-center">
+                <svg class="w-5 h-5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1"/>
+                </svg>
+              </div>
+              <div>
+                <h3 class="font-medium text-gray-900">Financial Data</h3>
+                <p class="text-xs text-gray-600">Debt, revenue, expenditure</p>
+              </div>
+            </div>
+            <a href="{% url 'council_detail' council.slug %}?tab=edit"
+               class="block w-full text-center px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors min-h-[44px] flex items-center justify-center">
+              Edit Financial Data
+            </a>
+          </div>
+
+          <!-- General Data -->
+          <div class="bg-white rounded-lg border border-gray-200 p-4">
+            <div class="flex items-center space-x-3 mb-3">
+              <div class="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center">
+                <svg class="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                </svg>
+              </div>
+              <div>
+                <h3 class="font-medium text-gray-900">General Data</h3>
+                <p class="text-xs text-gray-600">Links, political control</p>
+              </div>
+            </div>
+            <button class="block w-full text-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors min-h-[44px] flex items-center justify-center"
+                    onclick="alert('General data editing will be available in the enhanced React interface. Please try refreshing the page.')">
+              Edit General Data
+            </button>
+          </div>
+        </div>
+
+        <!-- Instructions -->
+        <div class="mt-6 bg-gray-50 rounded-lg p-4">
+          <h4 class="font-medium text-gray-900 mb-2">Troubleshooting</h4>
+          <ul class="text-sm text-gray-600 space-y-1">
+            <li>• Try refreshing the page to reload the enhanced editor</li>
+            <li>• Ensure JavaScript is enabled in your browser</li>
+            <li>• Check your internet connection</li>
+            <li>• Use the basic editing links above as a fallback</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Include React components -->
+{% with react_build_hash="_xUhIr_S" css_build_hash="BlzmEwI8" %}
+<script type="module" src="{% static 'frontend/main-'|add:react_build_hash|add:'.js' %}"></script>
+<link rel="stylesheet" href="{% static 'frontend/main-'|add:css_build_hash|add:'.css' %}">
+{% endwith %}
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  console.log('Council Edit: DOM loaded, checking for React...');
+  
+  // Get data from template
+  const councilEditRoot = document.getElementById('council-edit-react-root');
+  if (!councilEditRoot) {
+    console.error('Council Edit: Root element not found');
+    return;
+  }
+  
+  // Parse data
+  let councilData, yearsData, csrfToken;
+  try {
+    councilData = JSON.parse(councilEditRoot.dataset.council || '{}');
+    yearsData = JSON.parse(councilEditRoot.dataset.years || '[]');
+    csrfToken = councilEditRoot.dataset.csrfToken || '';
+    
+    console.log('Council Edit: Data parsed successfully', {
+      council: councilData.name,
+      years: yearsData.length,
+      hasCSRF: !!csrfToken
+    });
+  } catch (error) {
+    console.error('Council Edit: Failed to parse data', error);
+    showFallback();
+    return;
+  }
+  
+  // Set up React timeout
+  const timeout = parseInt(councilEditRoot.dataset.reactTimeout) || 5000;
+  const fallbackTimer = setTimeout(() => {
+    if (!councilEditRoot.dataset.reactMounted) {
+      console.warn('Council Edit: React timeout, showing fallback');
+      showFallback();
+    }
+  }, timeout);
+  
+  // Initialize React app
+  if (typeof window.CouncilEditApp !== 'undefined') {
+    console.log('Council Edit: Initializing React app...');
+    
+    try {
+      window.CouncilEditApp.mount(councilEditRoot, {
+        councilData: councilData,
+        initialYears: yearsData,
+        csrfToken: csrfToken
+      });
+      
+      // Mark as mounted
+      councilEditRoot.dataset.reactMounted = 'true';
+      clearTimeout(fallbackTimer);
+      
+      // Hide loading fallback
+      const loadingFallback = document.getElementById('council-edit-loading-fallback');
+      if (loadingFallback) {
+        loadingFallback.style.display = 'none';
+      }
+      
+      console.log('Council Edit: React app mounted successfully');
+      
+    } catch (error) {
+      console.error('Council Edit: React mount failed', error);
+      showFallback();
+    }
+  } else {
+    console.warn('Council Edit: React app not available, waiting...');
+    
+    // Try again in a moment
+    setTimeout(() => {
+      if (typeof window.CouncilEditApp !== 'undefined') {
+        console.log('Council Edit: React app found on retry');
+        clearTimeout(fallbackTimer);
+        // Recursive call to try mounting again
+        document.dispatchEvent(new Event('DOMContentLoaded'));
+      }
+    }, 1000);
+  }
+  
+  function showFallback() {
+    console.log('Council Edit: Showing fallback interface');
+    
+    // Hide loading and React root
+    const loadingFallback = document.getElementById('council-edit-loading-fallback');
+    const fallbackInterface = document.getElementById('council-edit-fallback-interface');
+    
+    if (loadingFallback) loadingFallback.style.display = 'none';
+    if (fallbackInterface) {
+      fallbackInterface.classList.remove('hidden');
+      fallbackInterface.classList.add('block');
+    }
+    
+    // Clear the React root
+    councilEditRoot.innerHTML = '';
+  }
+});
+
+// Handle browser back/forward navigation
+window.addEventListener('popstate', function(event) {
+  console.log('Council Edit: Navigation detected');
+  // Could implement state restoration here
+});
+
+// Handle mobile viewport changes
+window.addEventListener('orientationchange', function() {
+  setTimeout(() => {
+    console.log('Council Edit: Orientation changed');
+    // Could trigger responsive updates here
+  }, 100);
+});
+</script>
+{% endblock %}

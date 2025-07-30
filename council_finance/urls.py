@@ -19,6 +19,7 @@ from .views import (
     council_management as council_mgmt_views,
     email_status as email_status_views,
     factoid_builder as factoid_builder_api,
+    council_edit_api,
 )
 # Import following functions directly from general to avoid circular import issues
 from .views.general import (
@@ -176,9 +177,29 @@ urlpatterns = [
     path("contribute/", contrib_views.contribute, name="contribute"),
     # Enhanced editing API endpoints
     path("api/field/<slug:field_slug>/info/", api_views.field_info_api, name="field_info_api"),
+    path("api/validate-url/", api_views.validate_url_api, name="validate_url_api"),
     path("api/field/<slug:field_slug>/options/", api_views.list_field_options, name="field_options_api"),
     path("api/council/<slug:council_slug>/recent-activity/", api_views.council_recent_activity_api, name="council_recent_activity_api"),
     path("api/council/<slug:council_slug>/recent-activity/<slug:field_slug>/", api_views.field_recent_activity_api, name="field_recent_activity_api"),
+    
+    # ============================================================================
+    # COUNCIL EDIT REACT API ENDPOINTS
+    # ============================================================================
+    
+    # Council characteristics (non-temporal data)
+    path("api/council/<slug:council_slug>/characteristics/", council_edit_api.council_characteristics_api, name="council_characteristics_api"),
+    path("api/council/<slug:council_slug>/characteristics/save/", council_edit_api.save_council_characteristic_api, name="save_council_characteristic_api"),
+    
+    # Temporal data (general + financial by year)
+    path("api/council/<slug:council_slug>/temporal/<int:year_id>/", council_edit_api.council_temporal_data_api, name="council_temporal_data_api"),
+    path("api/council/<slug:council_slug>/temporal/<int:year_id>/save/", council_edit_api.save_temporal_data_api, name="save_temporal_data_api"),
+    
+    # Available years and context
+    path("api/council/<slug:council_slug>/years/", council_edit_api.council_available_years_api, name="council_available_years_api"), 
+    path("api/council/<slug:council_slug>/edit-context/", council_edit_api.council_edit_context_api, name="council_edit_context_api"),
+    
+    # React council edit interface
+    path("councils/<slug:slug>/edit-react/", council_views.council_edit_react, name="council_edit_react"),
     
     # ============================================================================
     # REACT FACTOID BUILDER API ENDPOINTS
