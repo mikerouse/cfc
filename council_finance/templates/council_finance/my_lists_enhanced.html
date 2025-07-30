@@ -12,10 +12,10 @@
 
 {% block content %}
 <!-- Mobile-First Enhanced My Lists Interface -->
-<div class="mx-auto px-3 sm:px-4 xl:px-6 py-4 xl:py-8 max-w-none xl:max-w-desktop">
+<div id="my-lists-main-container" class="mx-auto px-3 sm:px-4 xl:px-6 py-4 xl:py-8 max-w-none xl:max-w-desktop">
   
   <!-- Page Header -->
-  <div class="mb-6 xl:mb-8">
+  <div id="my-lists-page-header" class="mb-6 xl:mb-8">
     <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
       <div>
         <h1 class="text-2xl sm:text-3xl font-bold text-gray-900 mb-2">My Lists</h1>
@@ -25,12 +25,12 @@
       </div>
       
       <!-- Quick Stats -->
-      <div class="flex items-center gap-4 text-sm">
-        <div class="bg-blue-50 px-3 py-2 rounded-lg">
+      <div id="my-lists-quick-stats" class="flex items-center gap-4 text-sm">
+        <div id="my-lists-stats-total" class="bg-blue-50 px-3 py-2 rounded-lg">
           <span class="font-semibold text-blue-900">{{ lists.count }}</span>
           <span class="text-blue-700">list{{ lists.count|pluralize }}</span>
         </div>
-        <div class="bg-green-50 px-3 py-2 rounded-lg">
+        <div id="my-lists-stats-favourites" class="bg-green-50 px-3 py-2 rounded-lg">
           <span class="font-semibold text-green-900">{{ favourites.count }}</span>
           <span class="text-green-700">favourite{{ favourites.count|pluralize }}</span>
         </div>
@@ -41,7 +41,7 @@
   <!-- React App Container -->
   <div id="my-lists-react-root" class="min-h-screen">
     <!-- Loading State -->
-    <div class="flex items-center justify-center py-12">
+    <div id="my-lists-loading-state" class="flex items-center justify-center py-12">
       <div class="text-center">
         <div class="inline-block w-8 h-8 animate-spin rounded-full border-4 border-solid border-blue-600 border-r-transparent align-[-0.125em] motion-reduce:animate-[spin_1.5s_linear_infinite]" role="status">
           <span class="!absolute !-m-px !h-px !w-px !overflow-hidden !whitespace-nowrap !border-0 !p-0 ![clip:rect(0,0,0,0)]">Loading...</span>
@@ -56,7 +56,7 @@
 
   <!-- Fallback Content (Hidden by default, shown if React fails) -->
   <div id="my-lists-fallback" class="hidden">
-    <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-6">
+    <div id="my-lists-fallback-notice" class="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-6">
       <div class="flex items-start">
         <svg class="w-5 h-5 text-yellow-500 mt-0.5 mr-3 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
           <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/>
@@ -69,9 +69,9 @@
     </div>
 
     <!-- Basic Fallback Interface -->
-    <div class="space-y-6">
+    <div id="my-lists-fallback-interface" class="space-y-6">
       <!-- Search Form -->
-      <div class="bg-white border border-gray-200 rounded-lg shadow-sm p-4 sm:p-6">
+      <div id="my-lists-search-section" class="bg-white border border-gray-200 rounded-lg shadow-sm p-4 sm:p-6">
         <h2 class="text-lg font-semibold text-gray-900 mb-4">Find Councils</h2>
         <div class="relative">
           <input 
@@ -86,20 +86,20 @@
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
             </svg>
           </div>
-          <div id="list-search-results" class="absolute bg-white text-black border rounded w-full hidden z-50"></div>
+          <div id="my-lists-search-results" class="absolute bg-white text-black border rounded w-full hidden z-50"></div>
         </div>
       </div>
 
       <!-- Favourites -->
-      <div class="bg-white border border-gray-200 rounded-lg shadow-sm overflow-hidden">
-        <div class="px-4 sm:px-6 py-4 border-b border-gray-200">
+      <div id="my-lists-favourites-section" class="bg-white border border-gray-200 rounded-lg shadow-sm overflow-hidden">
+        <div id="my-lists-favourites-header" class="px-4 sm:px-6 py-4 border-b border-gray-200">
           <h2 class="text-lg font-semibold text-gray-900">My Favourites</h2>
           <p class="text-sm text-gray-600 mt-1">{{ favourites.count }} council{{ favourites.count|pluralize }}</p>
         </div>
         
         {% if favourites %}
-        <div class="overflow-x-auto">
-          <table class="min-w-full divide-y divide-gray-200">
+        <div id="my-lists-favourites-table-container" class="overflow-x-auto">
+          <table id="my-lists-favourites-table" class="min-w-full divide-y divide-gray-200">
             <thead class="bg-gray-50">
               <tr>
                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Council</th>
@@ -107,7 +107,7 @@
                 <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
               </tr>
             </thead>
-            <tbody class="bg-white divide-y divide-gray-200">
+            <tbody id="my-lists-favourites-tbody" class="bg-white divide-y divide-gray-200">
               {% for council in favourites %}
               <tr class="hover:bg-gray-50">
                 <td class="px-6 py-4 whitespace-nowrap">
@@ -132,18 +132,18 @@
           </table>
         </div>
         {% else %}
-        <div class="p-8 text-center text-gray-500">
+        <div id="my-lists-favourites-empty" class="p-8 text-center text-gray-500">
           <p>No favourite councils yet. Use the search above to add some!</p>
         </div>
         {% endif %}
       </div>
 
       <!-- Custom Lists -->
-      <div class="bg-white border border-gray-200 rounded-lg shadow-sm p-4 sm:p-6">
+      <div id="my-lists-custom-section" class="bg-white border border-gray-200 rounded-lg shadow-sm p-4 sm:p-6">
         <h2 class="text-lg font-semibold text-gray-900 mb-4">My Custom Lists</h2>
         
         <!-- Create List Form -->
-        <form method="post" class="mb-6 p-4 bg-gray-50 rounded-lg">
+        <form id="my-lists-create-form" method="post" class="mb-6 p-4 bg-gray-50 rounded-lg">
           {% csrf_token %}
           <div class="flex flex-col sm:flex-row gap-3">
             <div class="flex-1">
@@ -157,10 +157,10 @@
 
         <!-- Lists Display -->
         {% if lists %}
-        <div class="space-y-4">
+        <div id="my-lists-custom-display" class="space-y-4">
           {% for list in lists %}
           {% if not list.is_default %}
-          <div class="border border-gray-200 rounded-lg p-4">
+          <div id="my-lists-custom-item-{{ list.id }}" class="border border-gray-200 rounded-lg p-4">
             <h3 class="font-semibold text-gray-900 mb-2">{{ list.name }}</h3>
             {% if list.description %}
             <p class="text-sm text-gray-600 mb-3">{{ list.description }}</p>
@@ -176,7 +176,7 @@
           {% endfor %}
         </div>
         {% else %}
-        <div class="text-center py-8 text-gray-500">
+        <div id="my-lists-custom-empty" class="text-center py-8 text-gray-500">
           <p>No custom lists yet. Create your first list above!</p>
         </div>
         {% endif %}
@@ -216,6 +216,7 @@
   "favourites": [
     {% for council in favourites %}
     {
+      "id": {{ council.id }},
       "slug": "{{ council.slug }}",
       "name": "{{ council.name|escapejs }}",
       "type": "{{ council.council_type.name|escapejs }}",
@@ -249,8 +250,9 @@
 {% block extra_scripts %}
 {{ block.super }}
 <!-- Load the compiled React app -->
-<script type="module" src="{% static 'frontend/main-BjsvO6i1.js' %}"></script>
-<link rel="stylesheet" href="{% static 'frontend/main-BlzmEwI8.css' %}">
+{% now "U" as timestamp %}
+<script type="module" src="{% static 'frontend/main-m1lwcea2.js' %}?v={{ timestamp }}"></script>
+<link rel="stylesheet" href="{% static 'frontend/main-BlzmEwI8.css' %}?v={{ timestamp }}">
 
 <!-- Fallback timeout -->
 <script>

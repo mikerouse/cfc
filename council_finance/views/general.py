@@ -1007,102 +1007,6 @@ def leaderboards(request):
     return render(request, "council_finance/leaderboards.html", context)
 
 
-def my_lists(request):
-    """Allow users to manage their favourite councils and custom lists."""
-    if not request.user.is_authenticated:
-        return redirect("login")
-
-    profile = request.user.profile
-    # Prefetch councils so template access doesn't hit the DB repeatedly
-    lists = request.user.council_lists.prefetch_related("councils")
-    favourites = profile.favourites.all()
-    form = CouncilListForm()
-
-    # Cached population figures avoid expensive per-request lookups.
-    councils = Council.objects.all()
-    # Map of council_id -> numeric value for sorting and totals
-    pop_values = {c.id: float(c.latest_population or 0) for c in councils}
-    # Map of council_id -> display string used in templates
-    pop_display = {
-        c.id: int(c.latest_population)
-        if c.latest_population is not None
-        else "Needs populating"
-        for c in councils
-    }
-
-    # Pre-calculate population totals for each list so the template can
-    # display a summary row without additional queries.
-    pop_totals = {}
-    for lst in lists:
-        total = 0
-        for c in lst.councils.all():
-            try:
-                total += float(pop_values.get(c.id, 0))
-            except (TypeError, ValueError):
-                continue
-        pop_totals[lst.id] = total
-
-    # Choices for the dynamic metric column. We exclude population because it
-    # already has a dedicated column.
-    metric_choices = [
-        (f.slug, f.slug.replace("_", " ").title())
-        for f in DataField.objects.exclude(slug="population")
-    ]
-    default_metric = "total_debt"
-
-    # Allow the metric column to show figures from different years.
-    # Present the years newest first so the latest data is selected by default.
-    years = FinancialYear.objects.order_by("-label")
-    default_year = years.first() if years else None
-
-    if request.method == "POST":
-        if "new_list" in request.POST:
-            form = CouncilListForm(request.POST)
-            if form.is_valid():
-                new_list = form.save(commit=False)
-                new_list.user = request.user
-                new_list.save()
-                messages.success(request, "List created")
-                return redirect("my_lists")
-        elif "remove_fav" in request.POST:
-            slug = request.POST.get("council")
-            try:
-                council = Council.objects.get(slug=slug)
-                profile.favourites.remove(council)
-                messages.info(request, "Favourite removed")
-            except Council.DoesNotExist:
-                messages.error(request, "Council not found")
-            return redirect("my_lists")
-        elif "add_to_list" in request.POST:
-            slug = request.POST.get("council")
-            list_id = request.POST.get("list")
-            try:
-                council = Council.objects.get(slug=slug)
-                target = request.user.council_lists.get(id=list_id)
-                target.councils.add(council)
-                messages.success(request, "Added to list")
-            except (Council.DoesNotExist, CouncilList.DoesNotExist):
-                messages.error(request, "Invalid request")
-            return redirect("my_lists")
-
-    # Provide population figures and list metadata to the template
-    list_meta = list(lists.values("id", "name"))
-    context = {
-        "favourites": favourites,
-        "lists": lists,
-        "form": form,
-        # Display values shown in the table
-        "populations": pop_display,
-        # Numeric values for sorting and totals
-        "pop_values": pop_values,
-        "list_meta": list_meta,
-        "pop_totals": pop_totals,
-        "metric_choices": metric_choices,
-        "default_metric": default_metric,
-        "years": years,
-        "default_year": default_year,
-    }
-    return render(request, "council_finance/my_lists.html", context)
 
 
 def following(request):
@@ -2325,54 +2229,6 @@ def search_results(request):
     return render(request, 'council_finance/search_results.html', context)
 
 
-@csrf_exempt
-@require_http_methods(["POST"])
-def add_favourite(request):
-    """Add a council to user's favourites."""
-    if not request.user.is_authenticated:
-        return JsonResponse({"error": "Authentication required"}, status=401)
-    
-    try:
-        council_slug = request.POST.get('council')
-        if not council_slug:
-            return JsonResponse({"error": "Council slug required"}, status=400)
-        
-        council = Council.objects.get(slug=council_slug)
-        profile = request.user.profile
-        profile.favourites.add(council)
-        
-        return JsonResponse({"status": "success", "message": "Added to favourites"})
-    
-    except Council.DoesNotExist:
-        return JsonResponse({"error": "Council not found"}, status=404)
-    except Exception as e:
-        logger.error(f"Error adding favourite: {e}")
-        return JsonResponse({"error": "Internal server error"}, status=500)
-
-
-@csrf_exempt
-@require_http_methods(["POST"])
-def remove_favourite(request):
-    """Remove a council from user's favourites."""
-    if not request.user.is_authenticated:
-        return JsonResponse({"error": "Authentication required"}, status=401)
-    
-    try:
-        council_slug = request.POST.get('council')
-        if not council_slug:
-            return JsonResponse({"error": "Council slug required"}, status=400)
-        
-        council = Council.objects.get(slug=council_slug)
-        profile = request.user.profile
-        profile.favourites.remove(council)
-        
-        return JsonResponse({"status": "success", "message": "Removed from favourites"})
-    
-    except Council.DoesNotExist:
-        return JsonResponse({"error": "Council not found"}, status=404)
-    except Exception as e:
-        logger.error(f"Error removing favourite: {e}")
-        return JsonResponse({"error": "Internal server error"}, status=500)
 
 
 @csrf_exempt
@@ -3038,6 +2894,9 @@ def add_favourite(request):
                     'name': council.name,
                     'slug': council.slug,
                     'population': council.latest_population or 0,
+                    'type': council.council_type.name if council.council_type else 'Unknown',
+                    'nation': council.nation.name if council.nation else 'Unknown',
+                    'logo_url': council.logo.url if council.logo else None,
                 }
             })
         else:
