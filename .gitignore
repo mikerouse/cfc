@@ -80,6 +80,11 @@ Thumbs.db
 node_modules/
 .github/prompts/prompts.prompt.md
 
+# Vite build artifacts (hashed filenames)
+static/frontend/main-*.js
+static/frontend/main-*.css
+static/frontend/.vite/
+
 #Claude settings
 .claude/settings.local.json
 .claude/*
