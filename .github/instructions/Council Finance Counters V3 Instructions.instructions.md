@@ -1,5 +1,99 @@
 applyTo: '**'
 
+# COMPREHENSIVE TESTING INTEGRATION (2025-07-30)
+
+## Enhanced Reload Command with Testing
+
+The reload command has been enhanced to include comprehensive testing capabilities:
+
+### New Command Options
+```bash
+# Default behavior - runs tests AND starts server
+python manage.py reload
+
+# Skip tests (faster startup)
+python manage.py reload --no-tests
+
+# Run only tests, don't start server  
+python manage.py reload --test-only
+
+# Run both validation and tests (maximum checks)
+python manage.py reload --validate
+
+# Legacy validation only
+python manage.py reload --validate --no-tests
+```
+
+### Testing Integration Details
+
+**run_all_tests.py Integration**: The reload command now calls the comprehensive test suite that includes:
+1. **Python Import Tests** - Validates all critical model and view imports
+2. **Django Template Tests** - Checks template syntax and loading
+3. **React Build Tests** - Verifies React build files and manifest
+4. **API Endpoint Tests** - Confirms URL routing works
+5. **Database Integrity Tests** - Checks migrations and model queries
+6. **Static Files Tests** - Validates static file configuration
+7. **Management Commands Tests** - Ensures Django commands work
+8. **JavaScript Template Tests** - Validates JS syntax in templates
+9. **Programming Error Detection** - Tests critical pages and model methods for runtime errors
+
+**Test Results**: 
+- **SUCCESS**: Condensed summary shown in console, server starts normally
+- **FAILURES**: Detailed errors written to `syntax_errors.log` (OVERWRITTEN each time)
+- Test failures noted but server still starts (unless `--test-only`)
+- 5-minute timeout prevents hanging on problematic tests
+
+**Usage Patterns**:
+- **Default** (`python manage.py reload`): Always runs tests + starts server
+- `--no-tests`: Skip tests for faster startup during development
+- `--test-only`: Perfect for CI/CD or quick validation after changes
+- `--validate`: Maximum validation (syntax + comprehensive tests) before server start
+
+### Legacy Testing Tools
+
+The following standalone tools are still available but are now consolidated into `run_all_tests.py`:
+- `test_imports.py` - Now integrated as "Python Import Tests"
+- `test_templates.py` - Now integrated as "Django Template Tests" 
+- Individual validation commands - Now part of comprehensive suite
+
+### Best Practices
+
+**After Making Changes**:
+```bash
+# Normal development (tests run automatically)
+python manage.py reload
+
+# Quick validation without server
+python manage.py reload --test-only
+
+# Maximum validation with server start
+python manage.py reload --validate
+
+# Fast startup (skip tests temporarily)
+python manage.py reload --no-tests
+```
+
+**Error Resolution**:
+1. Check console output for immediate feedback
+2. **Review `syntax_errors.log`** for detailed error information (OVERWRITTEN each reload)
+3. Fix issues and re-run `python manage.py reload --test-only` to verify fixes
+4. Use `--no-tests` for rapid iteration during complex debugging
+
+This integration ensures that all changes are validated before the server starts, preventing deployment of broken code and catching issues early in the development cycle.
+
+### Programming Error Detection Details
+
+The new **Programming Error Detection** test (#9) specifically catches runtime errors like:
+
+- **Database ProgrammingErrors**: Detects SQL errors like "function sum(text) does not exist"
+- **Template Rendering Errors**: Catches errors when templates access broken model methods
+- **AttributeErrors**: Identifies missing methods or properties 
+- **Authentication Issues**: Tests both anonymous and authenticated user workflows
+
+**Recent Fix Example**: Fixed `CouncilList.get_total_population()` which was attempting to `SUM()` a text field, causing PostgreSQL errors. The method now properly handles text-to-integer conversion with error handling for malformed data.
+
+**Detection Method**: The test suite makes actual HTTP requests to critical pages (/lists/, /contribute/, etc.) and calls specific model methods known to cause issues, catching errors before users encounter them.
+
 # Mobile-First Design Principles
 
 ## Design Philosophy
@@ -82,6 +176,87 @@ The platform uses a consistent CSS Grid system to ensure uniform alignment acros
 - **Voice control**: Ensure voice navigation works correctly
 - **Motor accessibility**: Support for switch control and assistive devices
 - **Cognitive accessibility**: Clear, simple interface with consistent patterns
+
+### 9. HTML Element ID Conventions
+
+**STANDING ORDER**: All significant DIV elements and containers must have meaningful IDs that clearly describe their purpose or content.
+
+#### ID Naming Convention
+Use kebab-case with a clear hierarchy that describes the element's function:
+
+```html
+<!-- Page/Section Pattern: [page]-[section]-[element] -->
+<div id="my-lists-main-container">           <!-- Main page container -->
+<div id="my-lists-page-header">              <!-- Page header section -->
+<div id="my-lists-quick-stats">              <!-- Statistics display -->
+<div id="my-lists-favourites-section">       <!-- Favourites content area -->
+<div id="my-lists-search-results">           <!-- Search results dropdown -->
+```
+
+#### Required ID Categories
+
+1. **Container Elements**
+   - `[page]-main-container` - Primary page wrapper
+   - `[page]-[section]-container` - Section wrappers
+
+2. **Functional Sections**
+   - `[page]-header` - Page headers
+   - `[page]-navigation` - Navigation elements
+   - `[page]-content` - Main content areas
+   - `[page]-sidebar` - Sidebar elements
+   - `[page]-footer` - Footer elements
+
+3. **Interactive Elements**
+   - `[page]-search-form` - Search forms
+   - `[page]-search-results` - Search result containers
+   - `[page]-create-form` - Creation forms
+   - `[page]-action-buttons` - Button groups
+
+4. **Data Display Elements**
+   - `[page]-[data]-table` - Data tables
+   - `[page]-[data]-list` - Data lists
+   - `[page]-[data]-empty` - Empty state displays
+   - `[page]-stats-[metric]` - Statistic displays
+
+5. **State Elements**
+   - `[page]-loading-state` - Loading indicators
+   - `[page]-error-state` - Error displays
+   - `[page]-success-state` - Success messages
+   - `[page]-fallback-interface` - Fallback content
+
+#### Benefits of Consistent IDs
+- **Testing**: Easier to write Playwright/Selenium tests
+- **CSS targeting**: Specific styling without class conflicts
+- **JavaScript**: Reliable element selection
+- **Debugging**: Clear element identification in dev tools
+- **Accessibility**: Better screen reader navigation
+- **Documentation**: Self-documenting HTML structure
+
+#### Examples from My Lists Page
+```html
+<div id="my-lists-main-container">
+  <div id="my-lists-page-header">
+    <div id="my-lists-quick-stats">
+      <div id="my-lists-stats-total">4 lists</div>
+      <div id="my-lists-stats-favourites">1 favourite</div>
+    </div>
+  </div>
+  
+  <div id="my-lists-favourites-section">
+    <div id="my-lists-favourites-header">My Favourites</div>
+    <div id="my-lists-favourites-table-container">
+      <table id="my-lists-favourites-table">
+        <tbody id="my-lists-favourites-tbody">
+          <!-- Council rows -->
+        </tbody>
+      </table>
+    </div>
+    <div id="my-lists-favourites-empty">No favourites yet</div>
+  </div>
+</div>
+```
+
+**Enforcement**: All new templates and template modifications must include meaningful IDs. Code reviews should verify ID consistency and usefulness.
 
 ## Implementation Guidelines
 
@@ -574,6 +749,46 @@ python manage.py runserver
 - Unique constraint on default lists per user
 
 **RESULT**: World-class, mobile-first My Lists feature with drag-and-drop, real-time updates, and comprehensive error handling. Ready for production with minor build fix.
+
+### MY LISTS - RECENT FIXES (2025-01-30)
+
+#### Fixed Issues:
+1. **Template Syntax Error** - Added missing `{% load humanize %}` for intcomma filter
+2. **Duplicate FlaggingSystem** - Wrapped class declaration to prevent re-declaration
+3. **React App Timeout** - Fixed timeout check to use data-react-mounted attribute
+4. **Create List API** - Added `/lists/create/` endpoint with @csrf_exempt
+5. **Search Functionality** - Fixed search to properly parse API response and added council population
+
+#### Current React Build:
+- Main JS: `main-DCKgZfUG.js`
+- Main CSS: `main-BlzmEwI8.css`
+- Template: `my_lists_enhanced.html`
+
+#### API Endpoints:
+- `/lists/` - Main page
+- `/lists/create/` - Create new list (POST, JSON body)
+- `/lists/favourites/add/` - Add to favourites
+- `/lists/favourites/remove/` - Remove from favourites
+- `/lists/<id>/add/` - Add to specific list
+- `/lists/<id>/remove/` - Remove from list
+- `/lists/move/` - Move between lists
+- `/api/councils/search/` - Search councils
+
+# CRITICAL: Testing After Changes
+
+**ALWAYS run testing tools after making changes to prevent deployment issues:**
+
+1. **Template Testing**: Run `python diagnose_template_error.py` after template changes
+2. **Import Testing**: Test imports after model changes with `python manage.py shell`
+3. **React Build**: After JS changes, run `npm run build` and update template with new hash
+4. **API Testing**: Test new endpoints with curl or browser before marking complete
+
+**Common Issues to Check:**
+- Import errors after moving/renaming models
+- Template syntax errors (missing load tags, wrong filter names)
+- JavaScript build failures or wrong file hashes
+- CSRF token issues with new API endpoints
+- Data format mismatches between frontend/backend
 
 # Backend Management Rule
 

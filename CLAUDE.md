@@ -177,6 +177,87 @@ The platform uses a consistent CSS Grid system to ensure uniform alignment acros
 - **Motor accessibility**: Support for switch control and assistive devices
 - **Cognitive accessibility**: Clear, simple interface with consistent patterns
 
+### 9. HTML Element ID Conventions
+
+**STANDING ORDER**: All significant DIV elements and containers must have meaningful IDs that clearly describe their purpose or content.
+
+#### ID Naming Convention
+Use kebab-case with a clear hierarchy that describes the element's function:
+
+```html
+<!-- Page/Section Pattern: [page]-[section]-[element] -->
+<div id="my-lists-main-container">           <!-- Main page container -->
+<div id="my-lists-page-header">              <!-- Page header section -->
+<div id="my-lists-quick-stats">              <!-- Statistics display -->
+<div id="my-lists-favourites-section">       <!-- Favourites content area -->
+<div id="my-lists-search-results">           <!-- Search results dropdown -->
+```
+
+#### Required ID Categories
+
+1. **Container Elements**
+   - `[page]-main-container` - Primary page wrapper
+   - `[page]-[section]-container` - Section wrappers
+
+2. **Functional Sections**
+   - `[page]-header` - Page headers
+   - `[page]-navigation` - Navigation elements
+   - `[page]-content` - Main content areas
+   - `[page]-sidebar` - Sidebar elements
+   - `[page]-footer` - Footer elements
+
+3. **Interactive Elements**
+   - `[page]-search-form` - Search forms
+   - `[page]-search-results` - Search result containers
+   - `[page]-create-form` - Creation forms
+   - `[page]-action-buttons` - Button groups
+
+4. **Data Display Elements**
+   - `[page]-[data]-table` - Data tables
+   - `[page]-[data]-list` - Data lists
+   - `[page]-[data]-empty` - Empty state displays
+   - `[page]-stats-[metric]` - Statistic displays
+
+5. **State Elements**
+   - `[page]-loading-state` - Loading indicators
+   - `[page]-error-state` - Error displays
+   - `[page]-success-state` - Success messages
+   - `[page]-fallback-interface` - Fallback content
+
+#### Benefits of Consistent IDs
+- **Testing**: Easier to write Playwright/Selenium tests
+- **CSS targeting**: Specific styling without class conflicts
+- **JavaScript**: Reliable element selection
+- **Debugging**: Clear element identification in dev tools
+- **Accessibility**: Better screen reader navigation
+- **Documentation**: Self-documenting HTML structure
+
+#### Examples from My Lists Page
+```html
+<div id="my-lists-main-container">
+  <div id="my-lists-page-header">
+    <div id="my-lists-quick-stats">
+      <div id="my-lists-stats-total">4 lists</div>
+      <div id="my-lists-stats-favourites">1 favourite</div>
+    </div>
+  </div>
+  
+  <div id="my-lists-favourites-section">
+    <div id="my-lists-favourites-header">My Favourites</div>
+    <div id="my-lists-favourites-table-container">
+      <table id="my-lists-favourites-table">
+        <tbody id="my-lists-favourites-tbody">
+          <!-- Council rows -->
+        </tbody>
+      </table>
+    </div>
+    <div id="my-lists-favourites-empty">No favourites yet</div>
+  </div>
+</div>
+```
+
+**Enforcement**: All new templates and template modifications must include meaningful IDs. Code reviews should verify ID consistency and usefulness.
+
 ## Implementation Guidelines
 
 ### Tailwind CSS Mobile-First Approach
