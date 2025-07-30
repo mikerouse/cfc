@@ -330,6 +330,16 @@ def get_data_context_for_council(council, year=None, counter_slug=None):
     return context
 
 
+def get_calculator():
+    """
+    Get a configured FormulaEvaluator instance.
+    
+    Returns:
+        FormulaEvaluator: Configured calculator instance
+    """
+    return FormulaEvaluator()
+
+
 def test_formula_evaluator():
     """Test function for the formula evaluator."""
     evaluator = FormulaEvaluator()

@@ -217,17 +217,29 @@ class TestRunner:
     def check_template_references(self, main_js, main_css):
         """Check if templates reference the correct React build files."""
         try:
-            template = get_template('council_finance/my_lists_enhanced.html')
-            template_content = template.source
+            # Read template file directly instead of using Django template loader
+            import os
+            template_path = os.path.join(
+                'council_finance', 'templates', 'council_finance', 'my_lists_enhanced.html'
+            )
             
-            if main_js in template_content:
-                self.log(f"Template correctly references {main_js}", 'success')
-            else:
-                self.log(f"Template does not reference current build file {main_js}", 'error')
-                self.log("Run 'npm run build' and update template with new hash", 'warning')
+            if os.path.exists(template_path):
+                with open(template_path, 'r', encoding='utf-8') as f:
+                    template_content = f.read()
                 
-            if main_css and main_css in template_content:
-                self.log(f"Template correctly references {main_css}", 'success')
+                if main_js in template_content:
+                    self.log(f"Template correctly references {main_js}", 'success')
+                else:
+                    self.log(f"Template does not reference current build file {main_js}", 'error')
+                    self.log("Run 'npm run build' and update template with new hash", 'warning')
+                    
+                if main_css and main_css in template_content:
+                    self.log(f"Template correctly references {main_css}", 'success')
+                else:
+                    self.log(f"Template does not reference current CSS file {main_css}", 'warning')
+            else:
+                self.log(f"Template file not found: {template_path}", 'warning')
+                
         except Exception as e:
             self.log(f"Could not check template references: {e}", 'warning')
     
@@ -289,34 +301,35 @@ class TestRunner:
         critical_static_files = [
             'js/flagging-system.js',
             'css/output.css',
-            'frontend/main-*.js',  # Pattern for React build
         ]
+        
+        # Check for React build files separately in the correct location
+        import os
+        static_frontend_dir = os.path.join('static', 'frontend')
+        if os.path.exists(static_frontend_dir):
+            js_files = [f for f in os.listdir(static_frontend_dir) if f.startswith('main-') and f.endswith('.js')]
+            css_files = [f for f in os.listdir(static_frontend_dir) if f.startswith('main-') and f.endswith('.css')]
+            
+            if js_files:
+                self.log(f"React build JS files found: {', '.join(js_files)}", 'success')
+            else:
+                self.log("No React JS build files found in static/frontend/", 'warning')
+                
+            if css_files:
+                self.log(f"React build CSS files found: {', '.join(css_files)}", 'success')
+            else:
+                self.log("No React CSS build files found in static/frontend/", 'warning')
+        else:
+            self.log("Static frontend directory not found", 'warning')
         
         from django.contrib.staticfiles import finders
         
         for file_pattern in critical_static_files:
-            if '*' in file_pattern:
-                # Handle wildcard patterns
-                base_dir = os.path.dirname(file_pattern)
-                pattern = os.path.basename(file_pattern).replace('*', '')
-                
-                found = False
-                static_dir = Path('static') / base_dir
-                if static_dir.exists():
-                    for file in static_dir.iterdir():
-                        if pattern in file.name:
-                            found = True
-                            self.log(f"Static file pattern '{file_pattern}' matched: {file.name}", 'success')
-                            break
-                
-                if not found:
-                    self.log(f"No files matching pattern '{file_pattern}'", 'warning')
+            result = finders.find(file_pattern)
+            if result:
+                self.log(f"Static file '{file_pattern}' found", 'success')
             else:
-                result = finders.find(file_pattern)
-                if result:
-                    self.log(f"Static file '{file_pattern}' found", 'success')
-                else:
-                    self.log(f"Static file '{file_pattern}' not found", 'warning')
+                self.log(f"Static file '{file_pattern}' not found", 'warning')
     
     def test_management_commands(self):
         """Test critical management commands."""
