@@ -24,9 +24,7 @@ export default defineConfig(({ command }) => ({
     assetsDir: '',
     manifest: true,
     rollupOptions: {
-      input: {
-        main: 'src/main.jsx',
-      },
+      input: 'frontend/src/main.jsx',
     },
   },
 }));

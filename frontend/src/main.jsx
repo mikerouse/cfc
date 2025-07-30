@@ -1,36 +1,67 @@
 import React from 'react';
 import { createRoot } from 'react-dom/client';
 import App from './App';
+import MyListsIntegration from './components/MyListsIntegration';
 
-console.log('🚀 Main.jsx loading - React app initialization');
+console.log('🚀 Main.jsx loading - React apps initialization');
 
-function waitForRoot() {
+/**
+ * Initialize the main Factoid Builder React app
+ */
+function initializeMainApp() {
   const container = document.getElementById('root');
   if (container) {
-    console.log('✅ Root container found, mounting React app...');
+    console.log('✅ Main app container found, mounting React app...');
     
     try {
       const root = createRoot(container);
       root.render(<App />);
-      console.log('🎉 React app mounted successfully!');
+      console.log('🎉 Main React app mounted successfully!');
     } catch (error) {
-      console.error('💥 React mount failed:', error);
+      console.error('💥 Main React app mount failed:', error);
     }
   } else {
-    console.log('⏳ Waiting for root container...');
-    setTimeout(waitForRoot, 100); // Check every 100ms
+    console.log('⏳ Main app container not found - likely not on factoid builder page');
+  }
+}
+
+/**
+ * Initialize all React apps based on available containers
+ */
+function initializeReactApps() {
+  console.log('📍 Searching for React app containers...');
+  
+  // Initialize main app (Factoid Builder)
+  initializeMainApp();
+  
+  // Initialize My Lists app if container exists
+  const myListsContainer = document.getElementById('my-lists-react-root');
+  if (myListsContainer) {
+    console.log('🎯 My Lists container found, initializing...');
+    MyListsIntegration();
+  }
+  
+  console.log('✅ React apps initialization completed');
+}
+
+/**
+ * Wait for DOM to be ready, then initialize apps
+ */
+function waitForDOM() {
+  if (document.readyState === 'loading') {
+    console.log('⏳ Waiting for DOM to be ready...');
+    document.addEventListener('DOMContentLoaded', initializeReactApps);
+  } else {
+    console.log('📋 DOM already ready, initializing immediately...');
+    initializeReactApps();
   }
 }
 
 try {
-  console.log('📍 Starting root container check...');
-  
-  // Start checking for root container immediately
-  waitForRoot();
-  
-  console.log('✅ Main.jsx execution completed');
+  waitForDOM();
 } catch (error) {
   console.error('💥 Critical error in main.jsx:', error);
+  
   // Add fallback error display
   const errorDiv = document.createElement('div');
   errorDiv.innerHTML = `
@@ -38,6 +69,9 @@ try {
       <h3 style="color: #c33;">JavaScript Module Failed</h3>
       <p>Error: ${error.message}</p>
       <pre style="background: #f5f5f5; padding: 10px; border-radius: 4px; text-align: left; font-size: 12px;">${error.stack}</pre>
+      <button onclick="window.location.reload()" style="margin-top: 10px; padding: 8px 16px; background: #c33; color: white; border: none; border-radius: 4px; cursor: pointer;">
+        Reload Page
+      </button>
     </div>
   `;
   document.body.appendChild(errorDiv);

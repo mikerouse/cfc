@@ -667,3 +667,32 @@ class DataFieldForm(forms.ModelForm):
             raise forms.ValidationError("This field's slug is protected and cannot be changed.")
         return slug
 
+
+class CouncilListForm(forms.ModelForm):
+    """Form for creating and editing council lists with enhanced functionality."""
+    
+    class Meta:
+        model = CouncilList
+        fields = ['name', 'description', 'color']
+        widgets = {
+            'name': forms.TextInput(attrs={
+                'class': 'w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500',
+                'placeholder': 'Enter list name (e.g., "North London Boroughs")',
+                'maxlength': 100
+            }),
+            'description': forms.Textarea(attrs={
+                'class': 'w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500',
+                'placeholder': 'Optional description or notes about this list...',
+                'rows': 3
+            }),
+            'color': forms.Select(attrs={
+                'class': 'w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500'
+            })
+        }
+        
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['name'].help_text = "Give your list a descriptive name"
+        self.fields['description'].help_text = "Add notes about what this list is for (optional)"
+        self.fields['color'].help_text = "Choose a color theme for this list"
+

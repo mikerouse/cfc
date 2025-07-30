@@ -2945,3 +2945,538 @@ def factoid_builder_react(request):
         }
         return render(request, 'council_finance/factoid_builder_react.html', context)
 
+
+# ============================================================================
+# MY LISTS FUNCTIONALITY - Enhanced Phase 1 Implementation
+# ============================================================================
+
+@login_required
+def my_lists(request):
+    """Enhanced My Lists page with improved functionality and auto-created favourites."""
+    user = request.user
+    
+    # Get or create the user's default favourites list
+    default_list, created = CouncilList.get_or_create_default_list(user)
+    
+    # Handle new list creation
+    if request.method == 'POST' and 'new_list' in request.POST:
+        form = CouncilListForm(request.POST)
+        if form.is_valid():
+            new_list = form.save(commit=False)
+            new_list.user = user
+            new_list.save()
+            messages.success(request, f'List "{new_list.name}" created successfully!')
+            return redirect('my_lists')
+    else:
+        form = CouncilListForm()
+    
+    # Get all user's lists (default first due to ordering)
+    lists = CouncilList.objects.filter(user=user).prefetch_related('councils')
+    
+    # Get favourites (councils in default list)
+    favourites = default_list.councils.all() if default_list else []
+    
+    # Get financial years for year selector
+    financial_years = FinancialYear.objects.all()
+    # Get current year - use first year if no current is marked
+    default_year = financial_years.filter(is_current=True).first() or financial_years.first()
+    
+    # Calculate populations for all councils
+    population_data = {}
+    try:
+        population_field = DataField.objects.get(slug='population')
+        
+        # Try to import from new data model, fall back to original model
+        try:
+            if NEW_DATA_MODEL_AVAILABLE:
+                from council_finance.models.new_data_model import CouncilCharacteristic as NewCouncilCharacteristic
+                CharacteristicModel = NewCouncilCharacteristic
+            else:
+                CharacteristicModel = CouncilCharacteristic
+        except ImportError:
+            CharacteristicModel = CouncilCharacteristic
+        
+        for council_list in lists:
+            councils_in_list = council_list.councils.all()
+            if councils_in_list:
+                # Get population data for councils in this list
+                characteristics = CharacteristicModel.objects.filter(
+                    council__in=councils_in_list,
+                    field=population_field
+                ).select_related('council')
+                
+                list_total = 0
+                for char in characteristics:
+                    try:
+                        value = int(float(char.value)) if char.value else 0
+                        population_data[char.council.id] = value
+                        list_total += value
+                    except (ValueError, TypeError):
+                        population_data[char.council.id] = 0
+                        
+                population_data[f'list_{council_list.id}_total'] = list_total
+                
+    except (DataField.DoesNotExist, NameError):
+        # Fallback if population field doesn't exist or models not available
+        pass
+    
+    # Metric choices for financial data  
+    metric_choices = [
+        ('total_debt', 'Total Debt'),
+        ('current_liabilities', 'Current Liabilities'),
+        ('long_term_liabilities', 'Long-term Liabilities'),
+        ('interest_payments', 'Interest Payments'),
+    ]
+    
+    # Prepare list metadata for JavaScript
+    list_meta = []
+    for lst in lists:
+        list_meta.append({
+            'id': lst.id,
+            'name': lst.name,
+            'color': lst.color,
+            'council_count': lst.get_council_count(),
+            'is_default': lst.is_default
+        })
+    
+    log_activity(
+        request,
+        activity="Viewed My Lists page", 
+        extra=f"Lists: {lists.count()}, Favourites: {len(favourites)}"
+    )
+    
+    context = {
+        'form': form,
+        'lists': lists,
+        'favourites': favourites,
+        'default_list': default_list,
+        'years': financial_years,
+        'default_year': default_year,
+        'populations': population_data,
+        'pop_totals': {lst.id: population_data.get(f'list_{lst.id}_total', 0) for lst in lists},
+        'metric_choices': metric_choices,
+        'default_metric': 'total_debt',
+        'list_meta': list_meta,
+        'page_title': 'My Lists',
+    }
+    
+    return render(request, 'council_finance/my_lists_enhanced.html', context)
+
+
+@login_required
+@require_POST
+def add_favourite(request):
+    """Add a council to the user's favourites list."""
+    council_slug = request.POST.get('council')
+    if not council_slug:
+        return JsonResponse({'success': False, 'error': 'Council slug required'})
+    
+    try:
+        council = Council.objects.get(slug=council_slug)
+        default_list, created = CouncilList.get_or_create_default_list(request.user)
+        
+        # Add council to favourites if not already there
+        if not default_list.councils.filter(id=council.id).exists():
+            default_list.councils.add(council)
+            log_activity(
+                request,
+                activity="Added council to favourites",
+                extra=f"Council: {council.name}"
+            )
+            return JsonResponse({'success': True, 'message': f'{council.name} added to favourites'})
+        else:
+            return JsonResponse({'success': False, 'error': 'Council already in favourites'})
+            
+    except Council.DoesNotExist:
+        return JsonResponse({'success': False, 'error': 'Council not found'})
+    except Exception as e:
+        logger.error(f"Error adding favourite: {e}")
+        return JsonResponse({'success': False, 'error': 'Server error occurred'})
+
+
+@login_required
+@require_POST  
+def remove_favourite(request):
+    """Remove a council from the user's favourites list."""
+    council_slug = request.POST.get('council')
+    if not council_slug:
+        return JsonResponse({'success': False, 'error': 'Council slug required'})
+    
+    try:
+        council = Council.objects.get(slug=council_slug)
+        default_list = CouncilList.objects.filter(user=request.user, is_default=True).first()
+        
+        if default_list and default_list.councils.filter(id=council.id).exists():
+            default_list.councils.remove(council)
+            log_activity(
+                request,
+                activity="Removed council from favourites",
+                extra=f"Council: {council.name}"
+            )
+            return JsonResponse({'success': True, 'message': f'{council.name} removed from favourites'})
+        else:
+            return JsonResponse({'success': False, 'error': 'Council not in favourites'})
+            
+    except Council.DoesNotExist:
+        return JsonResponse({'success': False, 'error': 'Council not found'})
+    except Exception as e:
+        logger.error(f"Error removing favourite: {e}")
+        return JsonResponse({'success': False, 'error': 'Server error occurred'})
+
+
+@login_required
+@require_POST
+def add_to_list(request, list_id):
+    """Add a council to a specific list."""
+    council_slug = request.POST.get('council')
+    if not council_slug:
+        return JsonResponse({'success': False, 'error': 'Council slug required'})
+    
+    try:
+        council = Council.objects.get(slug=council_slug)
+        council_list = get_object_or_404(CouncilList, id=list_id, user=request.user)
+        
+        # Add council to list if not already there
+        if not council_list.councils.filter(id=council.id).exists():
+            council_list.councils.add(council)
+            log_activity(
+                request,
+                activity="Added council to list",
+                extra=f"Council: {council.name}, List: {council_list.name}"
+            )
+            return JsonResponse({
+                'success': True, 
+                'message': f'{council.name} added to {council_list.name}',
+                'list_id': list_id,
+                'council_count': council_list.get_council_count()
+            })
+        else:
+            return JsonResponse({'success': False, 'error': 'Council already in this list'})
+            
+    except Council.DoesNotExist:
+        return JsonResponse({'success': False, 'error': 'Council not found'})
+    except Exception as e:
+        logger.error(f"Error adding to list: {e}")
+        return JsonResponse({'success': False, 'error': 'Server error occurred'})
+
+
+@login_required
+@require_POST
+def remove_from_list(request, list_id):
+    """Remove a council from a specific list."""
+    council_slug = request.POST.get('council')
+    if not council_slug:
+        return JsonResponse({'success': False, 'error': 'Council slug required'})
+    
+    try:
+        council = Council.objects.get(slug=council_slug)
+        council_list = get_object_or_404(CouncilList, id=list_id, user=request.user)
+        
+        if council_list.councils.filter(id=council.id).exists():
+            council_list.councils.remove(council)
+            log_activity(
+                request,
+                activity="Removed council from list",
+                extra=f"Council: {council.name}, List: {council_list.name}"
+            )
+            return JsonResponse({
+                'success': True, 
+                'message': f'{council.name} removed from {council_list.name}',
+                'list_id': list_id,
+                'council_count': council_list.get_council_count()
+            })
+        else:
+            return JsonResponse({'success': False, 'error': 'Council not in this list'})
+            
+    except Council.DoesNotExist:
+        return JsonResponse({'success': False, 'error': 'Council not found'})
+    except Exception as e:
+        logger.error(f"Error removing from list: {e}")
+        return JsonResponse({'success': False, 'error': 'Server error occurred'})
+
+
+@login_required
+@require_POST
+def move_between_lists(request):
+    """Move a council from one list to another (for drag & drop functionality)."""
+    council_slug = request.POST.get('council')
+    from_list_id = request.POST.get('from')
+    to_list_id = request.POST.get('to')
+    
+    if not all([council_slug, from_list_id, to_list_id]):
+        return JsonResponse({'success': False, 'error': 'Missing required parameters'})
+    
+    try:
+        council = Council.objects.get(slug=council_slug)
+        from_list = get_object_or_404(CouncilList, id=from_list_id, user=request.user)
+        to_list = get_object_or_404(CouncilList, id=to_list_id, user=request.user)
+        
+        # Remove from source list and add to destination list
+        if from_list.councils.filter(id=council.id).exists():
+            from_list.councils.remove(council)
+            to_list.councils.add(council)
+            
+            log_activity(
+                request,
+                activity="Moved council between lists",
+                extra=f"Council: {council.name}, From: {from_list.name}, To: {to_list.name}"
+            )
+            
+            return JsonResponse({
+                'success': True,
+                'message': f'{council.name} moved from {from_list.name} to {to_list.name}',
+                'from_list_count': from_list.get_council_count(),
+                'to_list_count': to_list.get_council_count()
+            })
+        else:
+            return JsonResponse({'success': False, 'error': 'Council not in source list'})
+            
+    except Council.DoesNotExist:
+        return JsonResponse({'success': False, 'error': 'Council not found'})
+    except Exception as e:
+        logger.error(f"Error moving between lists: {e}")
+        return JsonResponse({'success': False, 'error': 'Server error occurred'})
+
+
+@login_required
+@require_GET
+def list_metric(request, list_id):
+    """Get financial metric data for all councils in a list."""
+    field_slug = request.GET.get('field', 'total_debt')
+    year_id = request.GET.get('year')
+    
+    try:
+        council_list = get_object_or_404(CouncilList, id=list_id, user=request.user)
+        councils = council_list.councils.all()
+        
+        if not councils:
+            return JsonResponse({'values': {}, 'total': 0})
+        
+        # Get the requested field and year
+        field = get_object_or_404(DataField, slug=field_slug)
+        year = get_object_or_404(FinancialYear, id=year_id) if year_id else FinancialYear.objects.filter(is_current=True).first()
+        
+        if not year:
+            return JsonResponse({'error': 'No financial year available'}, status=404)
+        
+        # Get financial figures for all councils in the list
+        # Try to use new data model if available, otherwise use original
+        try:
+            if NEW_DATA_MODEL_AVAILABLE:
+                from council_finance.models.new_data_model import FinancialFigure as NewFinancialFigure
+                FigureModel = NewFinancialFigure 
+            else:
+                FigureModel = FinancialFigure
+        except (ImportError, NameError):
+            FigureModel = FinancialFigure
+        
+        figures = FigureModel.objects.filter(
+            council__in=councils,
+            field=field,
+            year=year
+        ).select_related('council')
+        
+        # Build response data
+        values = {}
+        total = 0
+        
+        for figure in figures:
+            try:
+                value = float(figure.value) if figure.value else 0
+                values[figure.council.id] = value
+                total += value
+            except (ValueError, TypeError):
+                values[figure.council.id] = 0
+        
+        return JsonResponse({
+            'values': values,
+            'total': total,
+            'field_name': field.name,
+            'year_label': year.label
+        })
+        
+    except (DataField.DoesNotExist, FinancialYear.DoesNotExist):
+        return JsonResponse({'error': 'Field or year not found'}, status=404)
+    except Exception as e:
+        logger.error(f"Error getting list metric: {e}")
+        return JsonResponse({'error': 'Server error occurred'}, status=500)
+
+
+# ============================================================================
+# FOLLOWING & COMPARISON FUNCTIONALITY - Placeholder implementations
+# ============================================================================
+
+@login_required
+def following(request):
+    """Following page placeholder - to be enhanced in future phases."""
+    context = {
+        'page_title': 'Following',
+        'message': 'Following functionality will be enhanced in Phase 2'
+    }
+    return render(request, 'council_finance/following.html', context)
+
+
+@login_required
+@require_POST
+def follow_item_api(request):
+    """API endpoint to follow items - placeholder."""
+    return JsonResponse({'success': True, 'message': 'Follow functionality coming soon'})
+
+
+@login_required  
+@require_POST
+def unfollow_item_api(request):
+    """API endpoint to unfollow items - placeholder."""
+    return JsonResponse({'success': True, 'message': 'Unfollow functionality coming soon'})
+
+
+@login_required
+@require_POST
+def follow_council(request, slug):
+    """Follow a council - basic implementation."""
+    try:
+        council = get_object_or_404(Council, slug=slug)
+        # Basic following logic would go here
+        return JsonResponse({'status': 'success', 'message': f'Following {council.name}'})
+    except Exception as e:
+        return JsonResponse({'status': 'error', 'message': str(e)})
+
+
+@login_required
+@require_POST  
+def unfollow_council(request, slug):
+    """Unfollow a council - basic implementation."""
+    try:
+        council = get_object_or_404(Council, slug=slug)
+        # Basic unfollowing logic would go here
+        return JsonResponse({'status': 'success', 'message': f'Unfollowed {council.name}'})
+    except Exception as e:
+        return JsonResponse({'status': 'error', 'message': str(e)})
+
+
+# ============================================================================
+# COMPARISON FUNCTIONALITY - Basic implementations
+# ============================================================================
+
+@login_required
+@require_POST
+def add_to_compare(request, slug):
+    """Add a council to comparison basket."""
+    try:
+        council = get_object_or_404(Council, slug=slug)  
+        # Get or create comparison list in session
+        compare_list = request.session.get('compare_councils', [])
+        
+        if slug not in compare_list:
+            compare_list.append(slug)
+            request.session['compare_councils'] = compare_list
+            
+        return JsonResponse({
+            'status': 'success',
+            'message': f'{council.name} added to comparison',
+            'count': len(compare_list)
+        })
+    except Exception as e:
+        return JsonResponse({'status': 'error', 'message': str(e)})
+
+
+@login_required
+@require_POST
+def remove_from_compare(request, slug):
+    """Remove a council from comparison basket."""
+    try:
+        council = get_object_or_404(Council, slug=slug)
+        compare_list = request.session.get('compare_councils', [])
+        
+        if slug in compare_list:
+            compare_list.remove(slug)
+            request.session['compare_councils'] = compare_list
+            
+        return JsonResponse({
+            'status': 'success', 
+            'message': f'{council.name} removed from comparison',
+            'count': len(compare_list)
+        })
+    except Exception as e:
+        return JsonResponse({'status': 'error', 'message': str(e)})
+
+
+@login_required
+def compare_basket(request):
+    """Show comparison basket page."""
+    compare_slugs = request.session.get('compare_councils', [])
+    councils = Council.objects.filter(slug__in=compare_slugs)
+    
+    context = {
+        'councils': councils,
+        'page_title': 'Compare Councils'
+    }
+    return render(request, 'council_finance/compare_basket.html', context)
+
+
+@login_required
+@require_POST
+def clear_compare_basket(request):
+    """Clear all councils from comparison basket."""
+    request.session['compare_councils'] = []
+    return JsonResponse({'status': 'success', 'message': 'Comparison basket cleared'})
+
+
+@login_required
+def compare_row(request):
+    """Compare row functionality - placeholder."""
+    return JsonResponse({'status': 'success', 'data': []})
+
+
+@login_required
+def detailed_comparison(request):
+    """Detailed comparison page - placeholder."""
+    context = {'page_title': 'Detailed Comparison'}
+    return render(request, 'council_finance/detailed_comparison.html', context)
+
+
+# ============================================================================
+# FEED & UPDATE FUNCTIONALITY - Placeholder implementations  
+# ============================================================================
+
+@login_required
+@require_POST
+def like_update(request, update_id):
+    """Like an update - placeholder."""
+    return JsonResponse({'status': 'success', 'message': 'Like functionality coming soon'})
+
+
+@login_required
+@require_POST
+def comment_update(request, update_id):
+    """Comment on an update - placeholder."""  
+    return JsonResponse({'status': 'success', 'message': 'Comment functionality coming soon'})
+
+
+@login_required
+@require_POST
+def interact_with_update_api(request, update_id):
+    """API to interact with updates - placeholder."""
+    return JsonResponse({'success': True, 'message': 'Interaction API coming soon'})
+
+
+@login_required
+@require_POST
+def comment_on_update_api(request, update_id):
+    """API to comment on updates - placeholder."""
+    return JsonResponse({'success': True, 'message': 'Comment API coming soon'})
+
+
+@login_required
+@require_POST
+def update_feed_preferences_api(request):
+    """API to update feed preferences - placeholder."""
+    return JsonResponse({'success': True, 'message': 'Feed preferences API coming soon'})
+
+
+@login_required
+@require_GET
+def get_feed_updates_api(request):
+    """API to get feed updates - placeholder."""
+    return JsonResponse({'updates': [], 'message': 'Feed updates API coming soon'})
+
