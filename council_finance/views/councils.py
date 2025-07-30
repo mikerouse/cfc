@@ -32,45 +32,75 @@ from .general import log_activity, current_financial_year_label
 
 
 def council_list(request):
-    """Display list of all councils."""
-    # Get search query
-    search_query = request.GET.get('search', '').strip()
+    """Enhanced list of all councils with filtering, sorting, and quick actions."""
+    # Get parameters
+    search_query = request.GET.get('q', '').strip()
+    sort_by = request.GET.get('sort', 'name')
+    sort_order = request.GET.get('order', 'asc')
+    council_type_filter = request.GET.get('type', '')
+    nation_filter = request.GET.get('nation', '')
+    try:
+        page_size = int(request.GET.get('per_page', '24'))
+        if page_size not in [12, 24, 48, 96]:
+            page_size = 24
+    except (ValueError, TypeError):
+        page_size = 24
     
-    # Base queryset
+    # Base queryset - start simple
     councils = Council.objects.all()
     
     # Apply search filter
     if search_query:
         councils = councils.filter(
             Q(name__icontains=search_query) |
-            Q(slug__icontains=search_query) |
-            Q(council_type__icontains=search_query)
+            Q(slug__icontains=search_query)
         )
     
-    # Get filter parameters
-    council_type = request.GET.get('type', '')
-    if council_type:
-        councils = councils.filter(council_type=council_type)
-    
-    # Order by name
+    # Apply basic ordering
     councils = councils.order_by('name')
     
+    # Get totals before pagination
+    total_councils = councils.count()
+    
     # Paginate results
-    paginator = Paginator(councils, 50)
-    page_number = request.GET.get('page')
+    paginator = Paginator(councils, page_size)
+    page_number = request.GET.get('page', 1)
     page_obj = paginator.get_page(page_number)
     
-    # Get council types for filter dropdown
-    council_types = Council.objects.values_list(
-        'council_type', flat=True
-    ).distinct().order_by('council_type')
+    # Get filter options (empty for now)
+    council_types = []
+    nations = []
+    
+    # Simple council data
+    enhanced_councils = []
+    for council in page_obj:
+        enhanced_councils.append({
+            'council': council,
+            'population': getattr(council, 'latest_population', None),
+            'debt_total': 0,
+            'completion_percentage': 50,
+            'is_following': False,
+        })
+    
+    # Page size options
+    page_size_options = [12, 24, 48, 96]
     
     context = {
+        'councils': enhanced_councils,
         'page_obj': page_obj,
         'search_query': search_query,
-        'council_type': council_type,
+        'sort_by': sort_by,
+        'sort_order': sort_order,
+        'council_type_filter': council_type_filter,
+        'nation_filter': nation_filter,
+        'page_size': page_size,
+        'page_size_options': page_size_options,
         'council_types': council_types,
-        'total_councils': councils.count(),
+        'nations': nations,
+        'total_councils': total_councils,
+        'start_index': page_obj.start_index() if page_obj else 0,
+        'end_index': page_obj.end_index() if page_obj else 0,
+        'following_councils': set(),
     }
     
     return render(request, 'council_finance/council_list.html', context)

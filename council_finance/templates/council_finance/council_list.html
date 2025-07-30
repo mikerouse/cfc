@@ -1,44 +1,262 @@
-{% extends "base.html" %}
-{% block title %}Councils - Council Finance Counters{% endblock %}
-{% block content %}
-<h1 class="text-2xl font-bold mb-4">Councils</h1>
-<form method="get" class="my-4 flex gap-2">
-    <input type="text" name="q" value="{{ query }}" placeholder="Search by name or slug" class="border rounded px-2 py-1" />
-    <button type="submit" class="bg-blue-600 text-white px-4 py-1 rounded">Search</button>
-</form>
+{% extends "council_finance/base.html" %}
+{% load static %}
+{% load humanize %}
+{% load logo_tags %}
 
-<div class="grid gap-4">
-{% for council in councils %}
-    <div class="flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50">
-        <div class="flex items-center gap-3">
-            <span class="w-8 h-8 bg-gray-300 rounded-full flex-shrink-0"></span>
-            <div>
-                <a href="{% url 'council_detail' council.slug %}" class="text-lg font-medium text-blue-700 hover:underline">{{ council.name }}</a>
-                <div class="text-sm text-gray-600">
-                    {% if council.council_type %}{{ council.council_type.name }}{% endif %}
-                    {% if council.council_nation %} • {{ council.council_nation.name }}{% endif %}
-                </div>
-            </div>
+{% block title %}Browse Councils - Council Finance Counters{% endblock %}
+
+{% block content %}
+<!-- Mobile-First Enhanced Council Browser -->
+<div class="mx-auto max-w-none xl:max-w-desktop">
+  <!-- Header Section -->
+  <div class="bg-white border border-gray-200 rounded-lg sm:rounded-xl shadow-sm mb-6 xl:mb-8 -mx-3 sm:-mx-4 xl:-mx-6">
+    <div class="px-6 py-6 sm:px-8 xl:px-12 sm:py-8 xl:py-10">
+      <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+          <h1 class="text-2xl sm:text-3xl font-bold text-gray-900 mb-2">Browse Councils</h1>
+          <p class="text-gray-600">
+            Showing {{ start_index }}-{{ end_index }} of {{ total_councils|intcomma }} councils
+          </p>
         </div>
-        {% if user.is_authenticated %}
-        <div class="flex gap-2">
-            <button class="compare-btn bg-purple-600 hover:bg-purple-700 text-white px-3 py-1 rounded text-sm transition-colors" 
-                    data-slug="{{ council.slug }}">
-                + Compare
-            </button>
-            <a href="{% url 'council_detail' council.slug %}" class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded text-sm">
-                View Details
-            </a>
+        
+        <!-- Quick Stats -->
+        <div class="flex items-center gap-4 text-sm">
+          <div class="bg-blue-50 px-3 py-2 rounded-lg">
+            <span class="font-semibold text-blue-900">{{ total_councils|intcomma }}</span>
+            <span class="text-blue-700">councils</span>
+          </div>
         </div>
-        {% else %}
-        <a href="{% url 'council_detail' council.slug %}" class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded text-sm">
-            View Details
-        </a>
-        {% endif %}
+      </div>
     </div>
-{% empty %}
-    <div class="text-center py-8 text-gray-500">No councils found.</div>
-{% endfor %}
+  </div>
+
+  <!-- Filters and Controls -->
+  <div class="bg-white border border-gray-200 rounded-lg shadow-sm mb-6">
+    <div class="p-4 sm:p-6">
+      <form method="get" class="space-y-4">
+        <!-- Search Bar -->
+        <div class="flex flex-col sm:flex-row gap-3">
+          <div class="flex-1">
+            <input type="text" 
+                   name="q" 
+                   value="{{ search_query }}" 
+                   placeholder="Search councils by name, type, or nation..." 
+                   class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 min-h-[44px]">
+          </div>
+          <button type="submit" 
+                  class="inline-flex items-center justify-center px-6 py-3 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-colors min-h-[44px] min-w-[44px]">
+            <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+            </svg>
+            <span class="hidden sm:inline">Search</span>
+          </button>
+        </div>
+
+        <!-- Filter Row -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+          <!-- Council Type Filter -->
+          <select name="type" class="px-3 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 min-h-[44px]">
+            <option value="">All Types</option>
+            {% for type in council_types %}
+              <option value="{{ type.slug }}" {% if council_type_filter == type.slug %}selected{% endif %}>
+                {{ type.name }}
+              </option>
+            {% endfor %}
+          </select>
+
+          <!-- Nation Filter -->
+          <select name="nation" class="px-3 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 min-h-[44px]">
+            <option value="">All Nations</option>
+            {% for nation in nations %}
+              <option value="{{ nation.slug }}" {% if nation_filter == nation.slug %}selected{% endif %}>
+                {{ nation.name }}
+              </option>
+            {% endfor %}
+          </select>
+
+          <!-- Sort By -->
+          <select name="sort" class="px-3 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 min-h-[44px]">
+            <option value="name" {% if sort_by == 'name' %}selected{% endif %}>Name</option>
+            <option value="type" {% if sort_by == 'type' %}selected{% endif %}>Type</option>
+            <option value="nation" {% if sort_by == 'nation' %}selected{% endif %}>Nation</option>
+            <option value="population" {% if sort_by == 'population' %}selected{% endif %}>Population</option>
+          </select>
+
+          <!-- Sort Order -->
+          <select name="order" class="px-3 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 min-h-[44px]">
+            <option value="asc" {% if sort_order == 'asc' %}selected{% endif %}>A-Z / Low-High</option>
+            <option value="desc" {% if sort_order == 'desc' %}selected{% endif %}>Z-A / High-Low</option>
+          </select>
+        </div>
+
+        <!-- Bottom Controls -->
+        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <!-- Page Size -->
+          <div class="flex items-center gap-2">
+            <label for="per_page" class="text-sm font-medium text-gray-700">Show:</label>
+            <select name="per_page" id="per_page" class="px-3 py-2 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+              {% for size in page_size_options %}
+                <option value="{{ size }}" {% if page_size == size %}selected{% endif %}>{{ size }}</option>
+              {% endfor %}
+            </select>
+            <span class="text-sm text-gray-600">per page</span>
+          </div>
+
+          <!-- Apply/Reset -->
+          <div class="flex gap-2">
+            <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors text-sm min-h-[44px]">
+              Apply Filters
+            </button>
+            <a href="{% url 'council_list' %}" class="px-4 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50 transition-colors text-sm min-h-[44px] flex items-center">
+              Reset
+            </a>
+          </div>
+        </div>
+
+        <!-- Hidden inputs to preserve state -->
+        {% if search_query %}<input type="hidden" name="q" value="{{ search_query }}">{% endif %}
+        {% if council_type_filter %}<input type="hidden" name="type" value="{{ council_type_filter }}">{% endif %}
+        {% if nation_filter %}<input type="hidden" name="nation" value="{{ nation_filter }}">{% endif %}
+        {% if sort_by != 'name' %}<input type="hidden" name="sort" value="{{ sort_by }}">{% endif %}
+        {% if sort_order != 'asc' %}<input type="hidden" name="order" value="{{ sort_order }}">{% endif %}
+        {% if page_size != 24 %}<input type="hidden" name="per_page" value="{{ page_size }}">{% endif %}
+      </form>
+    </div>
+  </div>
+
+  <!-- Results Grid -->
+  {% if councils %}
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6 mb-8">
+      {% for item in councils %}
+        <div class="bg-white border border-gray-200 rounded-lg shadow-sm hover:shadow-md transition-all duration-200 overflow-hidden">
+          <!-- Council Card Header -->
+          <div class="p-4 sm:p-6">
+            <div class="flex items-start gap-3 mb-4">
+              <div class="w-12 h-12 sm:w-14 sm:h-14 rounded-lg shadow-sm overflow-hidden bg-gray-100 flex items-center justify-center flex-shrink-0">
+                {% council_logo_img item.council size=56 css_classes="w-full h-full object-cover" %}
+              </div>
+              <div class="flex-1 min-w-0">
+                <h3 class="font-semibold text-gray-900 text-sm sm:text-base leading-tight mb-1">
+                  <a href="{% url 'council_detail' item.council.slug %}" class="hover:text-blue-600 transition-colors">
+                    {{ item.council.name }}
+                  </a>
+                </h3>
+                <div class="text-xs sm:text-sm text-gray-600 space-y-1">
+                  {% if item.council.council_type %}
+                    <div>{{ item.council.council_type.name }}</div>
+                  {% endif %}
+                  {% if item.council.council_nation %}
+                    <div>{{ item.council.council_nation.name }}</div>
+                  {% endif %}
+                </div>
+              </div>
+            </div>
+
+            <!-- Key Metrics -->
+            <div class="space-y-2 mb-4">
+              {% if item.population %}
+                <div class="flex items-center justify-between text-xs sm:text-sm">
+                  <span class="text-gray-600">Population</span>
+                  <span class="font-medium text-gray-900">{{ item.population|intcomma }}</span>
+                </div>
+              {% endif %}
+              <div class="flex items-center justify-between text-xs sm:text-sm">
+                <span class="text-gray-600">Data Complete</span>
+                <span class="font-medium text-gray-900">{{ item.completion_percentage }}%</span>
+              </div>
+            </div>
+
+            <!-- Action Buttons -->
+            {% if user.is_authenticated %}
+              <div class="flex gap-2">
+                <!-- Follow Button -->
+                <button class="follow-btn flex-1 inline-flex items-center justify-center px-3 py-2 border text-xs font-medium rounded-md transition-colors min-h-[40px]
+                         {% if item.is_following %}border-green-300 text-green-700 bg-green-50 hover:bg-green-100{% else %}border-blue-300 text-blue-700 bg-blue-50 hover:bg-blue-100{% endif %}"
+                        data-slug="{{ item.council.slug }}"
+                        data-following="{{ item.is_following|yesno:'true,false' }}">
+                  <svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    {% if item.is_following %}
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+                    {% else %}
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/>
+                    {% endif %}
+                  </svg>
+                  {% if item.is_following %}Following{% else %}Follow{% endif %}
+                </button>
+
+                <!-- Compare Button -->
+                <button class="compare-btn flex-1 inline-flex items-center justify-center px-3 py-2 border border-purple-300 text-xs font-medium rounded-md text-purple-700 bg-purple-50 hover:bg-purple-100 transition-colors min-h-[40px]"
+                        data-slug="{{ item.council.slug }}">
+                  <svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
+                  </svg>
+                  Compare
+                </button>
+              </div>
+            {% else %}
+              <a href="{% url 'council_detail' item.council.slug %}" 
+                 class="block w-full text-center px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-md hover:bg-blue-700 transition-colors min-h-[40px] flex items-center justify-center">
+                View Details
+              </a>
+            {% endif %}
+          </div>
+        </div>
+      {% endfor %}
+    </div>
+
+    <!-- Pagination -->
+    {% if page_obj.has_other_pages %}
+      <div class="bg-white border border-gray-200 rounded-lg shadow-sm px-4 py-3 sm:px-6">
+        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <!-- Page Info -->
+          <div class="text-sm text-gray-700">
+            Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}
+          </div>
+
+          <!-- Pagination Controls -->
+          <div class="flex items-center gap-2">
+            {% if page_obj.has_previous %}
+              <a href="?{% for key, value in request.GET.items %}{% if key != 'page' %}{{ key }}={{ value }}&{% endif %}{% endfor %}page=1" 
+                 class="px-3 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50 transition-colors text-sm min-h-[36px] flex items-center">
+                First
+              </a>
+              <a href="?{% for key, value in request.GET.items %}{% if key != 'page' %}{{ key }}={{ value }}&{% endif %}{% endfor %}page={{ page_obj.previous_page_number }}" 
+                 class="px-3 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50 transition-colors text-sm min-h-[36px] flex items-center">
+                Previous
+              </a>
+            {% endif %}
+
+            <span class="px-3 py-2 bg-blue-600 text-white rounded-md text-sm min-h-[36px] flex items-center">
+              {{ page_obj.number }}
+            </span>
+
+            {% if page_obj.has_next %}
+              <a href="?{% for key, value in request.GET.items %}{% if key != 'page' %}{{ key }}={{ value }}&{% endif %}{% endfor %}page={{ page_obj.next_page_number }}" 
+                 class="px-3 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50 transition-colors text-sm min-h-[36px] flex items-center">
+                Next
+              </a>
+              <a href="?{% for key, value in request.GET.items %}{% if key != 'page' %}{{ key }}={{ value }}&{% endif %}{% endfor %}page={{ page_obj.paginator.num_pages }}" 
+                 class="px-3 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50 transition-colors text-sm min-h-[36px] flex items-center">
+                Last
+              </a>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+    {% endif %}
+  {% else %}
+    <!-- Empty State -->
+    <div class="text-center py-12">
+      <svg class="w-16 h-16 text-gray-400 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/>
+      </svg>
+      <h3 class="text-lg font-medium text-gray-900 mb-2">No councils found</h3>
+      <p class="text-gray-600 mb-4">Try adjusting your search criteria or filters.</p>
+      <a href="{% url 'council_list' %}" class="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors">
+        Reset Filters
+      </a>
+    </div>
+  {% endif %}
 </div>
 
 <script>
@@ -57,18 +275,72 @@ function getCookie(name) {
     return cookieValue;
 }
 
-// Compare button functionality for list page
+// Auto-submit form when filters change
+document.querySelectorAll('select[name="type"], select[name="nation"], select[name="sort"], select[name="order"], select[name="per_page"]').forEach(select => {
+    select.addEventListener('change', function() {
+        this.form.submit();
+    });
+});
+
+// Follow button functionality
 document.addEventListener('click', function(e) {
-    if (e.target.classList.contains('compare-btn')) {
+    if (e.target.closest('.follow-btn')) {
         e.preventDefault();
-        const btn = e.target;
+        const btn = e.target.closest('.follow-btn');
+        const slug = btn.dataset.slug;
+        const isFollowing = btn.dataset.following === 'true';
+        const csrftoken = getCookie('csrftoken');
+        
+        const originalText = btn.innerHTML;
+        btn.disabled = true;
+        btn.innerHTML = '<svg class="w-3 h-3 animate-spin mr-1" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>Loading...';
+        
+        const url = isFollowing ? `/unfollow/${slug}/` : `/follow/${slug}/`;
+        
+        fetch(url, {
+            method: 'POST',
+            headers: {'X-CSRFToken': csrftoken}
+        })
+        .then(r => r.json())
+        .then(data => {
+            if (data.status === 'success') {
+                const newFollowing = !isFollowing;
+                btn.dataset.following = newFollowing.toString();
+                
+                if (newFollowing) {
+                    btn.className = btn.className.replace(/border-blue-\d+|text-blue-\d+|bg-blue-\d+|hover:bg-blue-\d+/g, '');
+                    btn.className += ' border-green-300 text-green-700 bg-green-50 hover:bg-green-100';
+                    btn.innerHTML = '<svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>Following';
+                } else {
+                    btn.className = btn.className.replace(/border-green-\d+|text-green-\d+|bg-green-\d+|hover:bg-green-\d+/g, '');
+                    btn.className += ' border-blue-300 text-blue-700 bg-blue-50 hover:bg-blue-100';
+                    btn.innerHTML = '<svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/></svg>Follow';
+                }
+            } else {
+                throw new Error(data.message || 'Failed to update follow status');
+            }
+        })
+        .catch(error => {
+            console.error('Follow error:', error);
+            btn.innerHTML = originalText;
+        })
+        .finally(() => {
+            btn.disabled = false;
+        });
+    }
+});
+
+// Compare button functionality
+document.addEventListener('click', function(e) {
+    if (e.target.closest('.compare-btn')) {
+        e.preventDefault();
+        const btn = e.target.closest('.compare-btn');
         const slug = btn.dataset.slug;
         const csrftoken = getCookie('csrftoken');
         
-        // Disable button during request
         btn.disabled = true;
-        const originalText = btn.textContent;
-        btn.textContent = 'Adding...';
+        const originalText = btn.innerHTML;
+        btn.innerHTML = '<svg class="w-3 h-3 animate-spin mr-1" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>Adding...';
         
         fetch(`/compare/add/${slug}/`, {
             method: 'POST',
@@ -77,8 +349,9 @@ document.addEventListener('click', function(e) {
         .then(r => r.json())
         .then(data => {
             if (data.status === 'success') {
-                btn.style.backgroundColor = '#10b981';
-                btn.textContent = `✓ Added (${data.count})`;
+                btn.className = btn.className.replace(/border-purple-\d+|text-purple-\d+|bg-purple-\d+|hover:bg-purple-\d+/g, '');
+                btn.className += ' border-green-300 text-green-700 bg-green-50 hover:bg-green-100';
+                btn.innerHTML = '<svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>Added (' + data.count + ')';
                 
                 // Update header basket count if it exists
                 const basketCount = document.querySelector('.compare-count');
@@ -88,30 +361,66 @@ document.addEventListener('click', function(e) {
                 }
                 
                 setTimeout(() => {
-                    btn.style.backgroundColor = '#7c3aed';
-                    btn.textContent = '✓ Added';
+                    btn.innerHTML = '<svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>Added';
                     btn.disabled = true;
                 }, 1500);
             } else {
-                btn.style.backgroundColor = '#ef4444';
-                btn.textContent = data.message || 'Error';
-                setTimeout(() => {
-                    btn.style.backgroundColor = '#7c3aed';
-                    btn.textContent = originalText;
-                    btn.disabled = false;
-                }, 2000);
+                throw new Error(data.message || 'Failed to add to comparison');
             }
         })
-        .catch(() => {
-            btn.style.backgroundColor = '#ef4444';
-            btn.textContent = 'Error';
+        .catch(error => {
+            console.error('Compare error:', error);
+            btn.className = btn.className.replace(/border-green-\d+|text-green-\d+|bg-green-\d+/g, '');
+            btn.className += ' border-red-300 text-red-700 bg-red-50';
+            btn.innerHTML = '<svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>Error';
+            
             setTimeout(() => {
-                btn.style.backgroundColor = '#7c3aed';
-                btn.textContent = originalText;
+                btn.className = btn.className.replace(/border-red-\d+|text-red-\d+|bg-red-\d+/g, '');
+                btn.className += ' border-purple-300 text-purple-700 bg-purple-50 hover:bg-purple-100';
+                btn.innerHTML = originalText;
                 btn.disabled = false;
             }, 2000);
         });
     }
 });
 </script>
+
+<style>
+/* Mobile-First Responsive Styles */
+@media (max-width: 639px) {
+  .min-h-\[44px\] {
+    min-height: 44px;
+  }
+  
+  .min-h-\[40px\] {
+    min-height: 40px;
+  }
+  
+  .min-h-\[36px\] {
+    min-height: 36px;
+  }
+}
+
+/* Loading spinner animation */
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.animate-spin {
+  animation: spin 1s linear infinite;
+}
+
+/* Hover states for cards */
+.council-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+}
+
+/* Smooth transitions */
+.council-card {
+  transition: all 0.2s ease-in-out;
+}
+</style>
 {% endblock %}
