@@ -162,7 +162,22 @@ class FactoidTemplate(models.Model):
         
         # Check field references exist
         from .field import DataField
+        
+        # Define computed fields that are available in factoid templates
+        # These are provided by the system but not stored in DataField
+        COMPUTED_FIELDS = {
+            'year_label',        # Financial year label (e.g., "2024/25")
+            'council_name',      # Name of the council
+            'council_slug',      # URL-friendly council identifier  
+            'council_type',      # Type of council (e.g., "County Council")
+        }
+        
         for field_name in self.referenced_fields:
+            # Check if it's a computed field first
+            if field_name in COMPUTED_FIELDS:
+                continue  # Valid computed field, skip DataField lookup
+                
+            # Check if it exists in DataField database
             try:
                 DataField.from_variable_name(field_name)
             except DataField.DoesNotExist:
