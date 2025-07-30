@@ -40,8 +40,8 @@ const SearchAndAdd = ({
         throw new Error('Search failed');
       }
 
-      const results = await response.json();
-      setSearchResults(results);
+      const data = await response.json();
+      setSearchResults(data.results || []);
       setShowResults(true);
     } catch (error) {
       console.error('Search error:', error);
@@ -117,6 +117,7 @@ const SearchAndAdd = ({
         <div className="relative">
           <input
             ref={searchRef}
+            id="council-search"
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
@@ -163,8 +164,8 @@ const SearchAndAdd = ({
                       {council.type && (
                         <div>{council.type}</div>
                       )}
-                      {council.nation && (
-                        <div>{council.nation}</div>
+                      {(council.nation || council.region) && (
+                        <div>{council.nation || council.region}</div>
                       )}
                       {council.population && (
                         <div>Population: {council.population.toLocaleString()}</div>

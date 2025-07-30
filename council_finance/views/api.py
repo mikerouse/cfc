@@ -39,12 +39,18 @@ def search_councils(request):
     
     results = []
     for council in councils:
+        # Get latest population if available
+        population = None
+        if hasattr(council, 'latest_population') and council.latest_population:
+            population = council.latest_population
+        
         results.append({
             'id': council.id,
             'name': council.name,
             'slug': council.slug,
             'type': council.council_type.name if council.council_type else 'Council',
             'region': council.council_nation.name if council.council_nation else 'Unknown region',
+            'population': population,
             'url': f'/councils/{council.slug}/',
         })
     

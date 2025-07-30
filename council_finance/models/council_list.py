@@ -60,7 +60,7 @@ class CouncilList(models.Model):
 
     def get_total_population(self):
         """Calculate total population for all councils in this list."""
-        from .council import CouncilCharacteristic
+        from .new_data_model import CouncilCharacteristic
         from .field import DataField
         
         try:
