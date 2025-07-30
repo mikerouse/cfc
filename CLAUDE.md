@@ -35,6 +35,7 @@ python manage.py reload --validate --no-tests
 6. **Static Files Tests** - Validates static file configuration
 7. **Management Commands Tests** - Ensures Django commands work
 8. **JavaScript Template Tests** - Validates JS syntax in templates
+9. **Programming Error Detection** - Tests critical pages and model methods for runtime errors
 
 **Test Results**: 
 - **SUCCESS**: Condensed summary shown in console, server starts normally
@@ -79,6 +80,19 @@ python manage.py reload --no-tests
 4. Use `--no-tests` for rapid iteration during complex debugging
 
 This integration ensures that all changes are validated before the server starts, preventing deployment of broken code and catching issues early in the development cycle.
+
+### Programming Error Detection Details
+
+The new **Programming Error Detection** test (#9) specifically catches runtime errors like:
+
+- **Database ProgrammingErrors**: Detects SQL errors like "function sum(text) does not exist"
+- **Template Rendering Errors**: Catches errors when templates access broken model methods
+- **AttributeErrors**: Identifies missing methods or properties 
+- **Authentication Issues**: Tests both anonymous and authenticated user workflows
+
+**Recent Fix Example**: Fixed `CouncilList.get_total_population()` which was attempting to `SUM()` a text field, causing PostgreSQL errors. The method now properly handles text-to-integer conversion with error handling for malformed data.
+
+**Detection Method**: The test suite makes actual HTTP requests to critical pages (/lists/, /contribute/, etc.) and calls specific model methods known to cause issues, catching errors before users encounter them.
 
 # Mobile-First Design Principles
 

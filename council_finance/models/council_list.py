@@ -62,16 +62,32 @@ class CouncilList(models.Model):
         """Calculate total population for all councils in this list."""
         from .new_data_model import CouncilCharacteristic
         from .field import DataField
+        from django.db.models import Case, When, IntegerField, Value
+        from django.db.models.functions import Cast
         
         try:
             population_field = DataField.objects.get(slug='population')
-            total = CouncilCharacteristic.objects.filter(
+            
+            # Get all population characteristics for councils in this list
+            characteristics = CouncilCharacteristic.objects.filter(
                 council__in=self.councils.all(),
-                field=population_field
-            ).aggregate(
-                total=Sum('value', output_field=models.IntegerField())
-            )['total']
-            return total or 0
+                field=population_field,
+                value__isnull=False
+            ).exclude(value='')
+            
+            total = 0
+            for characteristic in characteristics:
+                try:
+                    # Convert text value to integer, handling common formats
+                    value_str = characteristic.value.replace(',', '').replace(' ', '')
+                    if value_str.isdigit():
+                        total += int(value_str)
+                except (ValueError, AttributeError):
+                    # Skip invalid values
+                    continue
+            
+            return total
+            
         except (DataField.DoesNotExist, ValueError):
             return 0
 

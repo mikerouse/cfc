@@ -94,6 +94,10 @@ class TestRunner:
         self.header("8. Testing JavaScript in Templates")
         self.test_javascript_in_templates()
         
+        # 9. Programming Error Detection
+        self.header("9. Testing for Programming Errors")
+        self.test_programming_errors()
+        
         # Final Summary
         self.print_summary(time.time() - start_time)
         
@@ -356,6 +360,123 @@ class TestRunner:
                 
         except Exception as e:
             self.log(f"JavaScript template validation error: {e}", 'warning')
+    
+    def test_programming_errors(self):
+        """Test for common programming errors by attempting to render critical pages."""
+        from django.test import Client
+        from django.contrib.auth import get_user_model
+        
+        # Critical URLs to test for programming errors
+        test_urls = [
+            ('/', 'Home page'),
+            ('/councils/', 'Councils list'),
+            ('/contribute/', 'Contribute page'),
+            ('/lists/', 'My Lists page'),
+        ]
+        
+        # Test without authentication first
+        client = Client()
+        for url, description in test_urls:
+            try:
+                response = client.get(url, follow=True)
+                if response.status_code < 400:
+                    self.log(f"{description} ({url}) renders without errors", 'success')
+                elif response.status_code == 404:
+                    self.log(f"{description} ({url}) returns 404 - check URL configuration", 'warning')
+                else:
+                    self.log(f"{description} ({url}) returns {response.status_code}", 'warning')
+            except Exception as e:
+                error_msg = str(e)
+                if 'ProgrammingError' in error_msg:
+                    self.log(f"DATABASE ERROR in {description} ({url}): {error_msg}", 'error')
+                elif 'TemplateDoesNotExist' in error_msg:
+                    self.log(f"TEMPLATE ERROR in {description} ({url}): {error_msg}", 'error')
+                elif 'AttributeError' in error_msg:
+                    self.log(f"ATTRIBUTE ERROR in {description} ({url}): {error_msg}", 'error')
+                else:
+                    self.log(f"PROGRAMMING ERROR in {description} ({url}): {error_msg}", 'error')
+        
+        # Test authenticated user endpoints
+        try:
+            User = get_user_model()
+            # Try to create or get a test user
+            test_user, created = User.objects.get_or_create(
+                username='test_user_programming_check',
+                defaults={'email': 'test@example.com'}
+            )
+            
+            # Login and test authenticated endpoints
+            client.force_login(test_user)
+            
+            auth_test_urls = [
+                ('/lists/', 'My Lists (authenticated)'),
+                ('/contribute/', 'Contribute (authenticated)'),
+            ]
+            
+            for url, description in auth_test_urls:
+                try:
+                    response = client.get(url, follow=True)
+                    if response.status_code < 400:
+                        self.log(f"{description} ({url}) renders without errors", 'success')
+                    else:
+                        self.log(f"{description} ({url}) returns {response.status_code}", 'warning')
+                except Exception as e:
+                    error_msg = str(e)
+                    if 'ProgrammingError' in error_msg:
+                        self.log(f"DATABASE ERROR in {description} ({url}): {error_msg}", 'error')
+                    else:
+                        self.log(f"PROGRAMMING ERROR in {description} ({url}): {error_msg}", 'error')
+            
+            # Clean up test user if we created it
+            if created:
+                test_user.delete()
+                
+        except Exception as e:
+            self.log(f"Could not test authenticated endpoints: {e}", 'warning')
+        
+        # Test specific model methods that might cause database errors
+        self._test_model_methods()
+    
+    def _test_model_methods(self):
+        """Test specific model methods that could cause programming errors."""
+        try:
+            from council_finance.models import CouncilList, Council
+            from django.contrib.auth import get_user_model
+            
+            User = get_user_model()
+            
+            # Test CouncilList.get_total_population which caused the reported error
+            try:
+                # Get first user and council for testing
+                user = User.objects.first()
+                council = Council.objects.first()
+                
+                if user and council:
+                    # Create a test list
+                    test_list = CouncilList(name="Test List for Programming Check", user=user)
+                    test_list.save()
+                    test_list.councils.add(council)
+                    
+                    # Test the method that was causing the SQL error
+                    try:
+                        population = test_list.get_total_population()
+                        self.log(f"CouncilList.get_total_population() works correctly: {population}", 'success')
+                    except Exception as e:
+                        if 'function sum(text) does not exist' in str(e):
+                            self.log(f"CRITICAL DATABASE ERROR: CouncilList.get_total_population() trying to SUM text field: {e}", 'error')
+                        else:
+                            self.log(f"ERROR in CouncilList.get_total_population(): {e}", 'error')
+                    
+                    # Clean up
+                    test_list.delete()
+                else:
+                    self.log("Cannot test CouncilList methods - no user or council data available", 'warning')
+                    
+            except Exception as e:
+                self.log(f"Could not test CouncilList methods: {e}", 'warning')
+                
+        except ImportError as e:
+            self.log(f"Could not import models for programming error testing: {e}", 'warning')
     
     def print_summary(self, elapsed_time):
         """Print test summary."""

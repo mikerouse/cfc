@@ -1,0 +1,59 @@
+{
+  "timestamp": "2025-07-30T15:41:15.588330",
+  "summary": {
+    "total_tests": 44,
+    "passed": 39,
+    "warnings": 4,
+    "errors": 1
+  },
+  "errors": [
+    "council_finance.calculators.get_calculator not found"
+  ],
+  "warnings": [
+    "Template council_finance/council_detail.html render warning: Field 'id' expected a number but got ''.",
+    "Could not check template references: 'Template' object has no attribute 'source'",
+    "No files matching pattern 'frontend/main-*.js'",
+    "JavaScript template validation inconclusive"
+  ],
+  "successes": [
+    "council_finance.models.Council",
+    "council_finance.models.CouncilList",
+    "council_finance.models.DataField",
+    "council_finance.models.FinancialYear",
+    "council_finance.models.council_list.CouncilList",
+    "council_finance.models.new_data_model.CouncilCharacteristic",
+    "council_finance.models.new_data_model.FinancialFigure",
+    "council_finance.views.general.my_lists",
+    "council_finance.views.general.create_list_api",
+    "council_finance.views.api.search_councils",
+    "council_finance.forms.CouncilListForm",
+    "council_finance.services.flagging_services.FlaggingService",
+    "Template base.html - syntax OK",
+    "Template council_finance/base.html - syntax OK",
+    "Template council_finance/my_lists_enhanced.html - syntax OK",
+    "Template council_finance/home.html - syntax OK",
+    "Template council_finance/contribute.html - syntax OK",
+    "React main JS found: main-DCKgZfUG.js",
+    "React main CSS found: main-BlzmEwI8.css",
+    "URL 'search_councils' resolves to /api/councils/search/",
+    "URL 'create_list_api' resolves to /lists/create/",
+    "URL 'add_favourite' resolves to /lists/favourites/add/",
+    "URL 'remove_favourite' resolves to /lists/favourites/remove/",
+    "URL 'my_lists' resolves to /lists/",
+    "All migrations applied",
+    "Council model query successful",
+    "DataField model query successful",
+    "Static file 'js/flagging-system.js' found",
+    "Static file 'css/output.css' found",
+    "Command 'check' executed successfully",
+    "Command 'showmigrations' executed successfully",
+    "Command 'validate_template_javascript' executed successfully",
+    "Home page (/) renders without errors",
+    "Councils list (/councils/) renders without errors",
+    "Contribute page (/contribute/) renders without errors",
+    "My Lists page (/lists/) renders without errors",
+    "My Lists (authenticated) (/lists/) renders without errors",
+    "Contribute (authenticated) (/contribute/) renders without errors",
+    "CouncilList.get_total_population() works correctly: 198590"
+  ]
+}
