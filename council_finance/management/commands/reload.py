@@ -417,17 +417,31 @@ class Command(BaseCommand):
             output = out.getvalue()
             error_output = err.getvalue()
             
-            # Parse output for errors
-            if 'FAIL' in output or error_output:
+            # Parse output for errors - improved patterns
+            has_failures = ('FAIL' in output or 'ERROR' in output or 
+                          'validation failed' in output.lower() or error_output)
+            has_success = ('PASS' in output or 'All templates passed' in output or 
+                          'validation passed' in output.lower())
+            
+            if has_failures:
                 lines = output.split('\n') + error_output.split('\n')
                 for line in lines:
-                    if 'FAIL' in line or 'ERROR' in line or line.strip().startswith('- '):
+                    if ('FAIL' in line or 'ERROR' in line or 'failed' in line.lower() or 
+                        line.strip().startswith('- ') or line.strip().startswith('Error')):
                         errors.append({
                             'type': 'javascript_template_error',
                             'message': line.strip(),
                             'file': self._extract_filename_from_error(line),
                             'severity': 'error'
                         })
+            elif not has_success and output.strip():
+                # Command ran but output format unexpected - treat as warning
+                errors.append({
+                    'type': 'javascript_validation_unexpected',
+                    'message': f'Unexpected validation output: {output.strip()[:200]}',
+                    'file': 'validation_system', 
+                    'severity': 'warning'
+                })
                         
         except Exception as e:
             errors.append({
