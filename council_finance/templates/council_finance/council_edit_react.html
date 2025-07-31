@@ -188,11 +188,10 @@
 </div>
 
 <!-- Include React components -->
-{% with react_build_hash="CIQTZiVE" css_build_hash="BlzmEwI8" %}
+{% load vite %}
 {% now "U" as cache_bust %}
-<script type="module" src="{% static 'frontend/main-'|add:react_build_hash|add:'.js' %}?v={{ cache_bust }}&cb=20250731"></script>
-<link rel="stylesheet" href="{% static 'frontend/main-'|add:css_build_hash|add:'.css' %}?v={{ cache_bust }}&cb=20250731">
-{% endwith %}
+<script type="module" src="{% vite_js %}?v={{ cache_bust }}"></script>
+<link rel="stylesheet" href="{% vite_css %}?v={{ cache_bust }}">
 {% endblock %}
 
 {% block extra_js %}

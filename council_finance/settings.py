@@ -32,7 +32,6 @@ INSTALLED_APPS = [
     "corsheaders",     # CORS headers for React frontend
     "core",
     "council_finance",
-    "react_frontend",
     "channels",
     "heroicons",
 ]

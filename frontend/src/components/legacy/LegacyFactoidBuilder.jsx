@@ -8,7 +8,10 @@
  * - Saving and validation
  */
 
-const { useState, useEffect, useCallback } = React;
+import React, { useState, useEffect, useCallback } from 'react';
+import LegacyFieldPicker from './LegacyFieldPicker';
+import LegacyTemplateEditor from './LegacyTemplateEditor';
+import LegacyLivePreview from './LegacyLivePreview';
 
 const FactoidBuilder = ({ config }) => {
     console.log('🎨 FactoidBuilder component mounting with config:', config);
@@ -241,8 +244,8 @@ const FactoidBuilder = ({ config }) => {
         <div className="grid grid-cols-12 h-full">
             {/* Field Picker Sidebar */}
             <div className="col-span-4 field-picker">
-                <FieldPicker 
-                    fields={fields} 
+                <LegacyFieldPicker
+                    fields={fields}
                     onFieldDrop={handleFieldDrop}
                 />
             </div>
@@ -259,13 +262,13 @@ const FactoidBuilder = ({ config }) => {
                 </div>
                 
                 <div className="editor-content">
-                    <TemplateEditor 
+                    <LegacyTemplateEditor
                         template={template}
                         onChange={handleTemplateChange}
                         onFieldDrop={handleFieldDrop}
                     />
                     
-                    <LivePreview 
+                    <LegacyLivePreview
                         previewText={previewText}
                         errors={previewErrors}
                         template={template}
@@ -307,5 +310,4 @@ const FactoidBuilder = ({ config }) => {
     );
 };
 
-// Make component available globally
-window.FactoidBuilder = FactoidBuilder;
+export default FactoidBuilder;

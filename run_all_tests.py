@@ -217,28 +217,35 @@ class TestRunner:
     def check_template_references(self, main_js, main_css):
         """Check if templates reference the correct React build files."""
         try:
-            # Read template file directly instead of using Django template loader
             import os
-            template_path = os.path.join(
-                'council_finance', 'templates', 'council_finance', 'my_lists_enhanced.html'
-            )
-            
-            if os.path.exists(template_path):
-                with open(template_path, 'r', encoding='utf-8') as f:
-                    template_content = f.read()
-                
-                if main_js in template_content:
-                    self.log(f"Template correctly references {main_js}", 'success')
+            template_files = [
+                os.path.join('council_finance', 'templates', 'council_finance', 'my_lists_enhanced.html'),
+                os.path.join('council_finance', 'templates', 'council_finance', 'council_edit_react.html'),
+                os.path.join('council_finance', 'templates', 'council_finance', 'factoid_builder_react.html'),
+            ]
+
+            for template_path in template_files:
+                if os.path.exists(template_path):
+                    with open(template_path, 'r', encoding='utf-8') as f:
+                        template_content = f.read()
+
+                    if main_js in template_content:
+                        self.log(f"{os.path.basename(template_path)} references {main_js}", 'success')
+                    else:
+                        self.log(
+                            f"{os.path.basename(template_path)} does not reference current build file {main_js}",
+                            'error'
+                        )
+
+                    if main_css and main_css in template_content:
+                        self.log(f"{os.path.basename(template_path)} references {main_css}", 'success')
+                    else:
+                        self.log(
+                            f"{os.path.basename(template_path)} does not reference current CSS file {main_css}",
+                            'warning'
+                        )
                 else:
-                    self.log(f"Template does not reference current build file {main_js}", 'error')
-                    self.log("Run 'npm run build' and update template with new hash", 'warning')
-                    
-                if main_css and main_css in template_content:
-                    self.log(f"Template correctly references {main_css}", 'success')
-                else:
-                    self.log(f"Template does not reference current CSS file {main_css}", 'warning')
-            else:
-                self.log(f"Template file not found: {template_path}", 'warning')
+                    self.log(f"Template file not found: {template_path}", 'warning')
                 
         except Exception as e:
             self.log(f"Could not check template references: {e}", 'warning')

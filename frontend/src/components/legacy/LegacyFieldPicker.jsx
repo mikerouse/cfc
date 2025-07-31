@@ -5,7 +5,7 @@
  * and enables drag-and-drop functionality for building templates.
  */
 
-const { useState, useEffect } = React;
+import React, { useState, useEffect } from 'react';
 
 const FieldPicker = ({ fields, onFieldDrop }) => {
     const [searchTerm, setSearchTerm] = useState('');
@@ -265,4 +265,4 @@ const FieldPicker = ({ fields, onFieldDrop }) => {
 };
 
 // Make component available globally
-window.FieldPicker = FieldPicker;
+export default FieldPicker;

@@ -8,7 +8,7 @@
  * - Form field management
  */
 
-const { useState, useRef, useEffect } = React;
+import React, { useState, useRef, useEffect } from 'react';
 
 const TemplateEditor = ({ template, onChange, onFieldDrop }) => {
     const textareaRef = useRef(null);
@@ -297,4 +297,4 @@ Drag fields from the sidebar to insert them, or type your template text using th
 };
 
 // Make component available globally
-window.TemplateEditor = TemplateEditor;
+export default TemplateEditor;

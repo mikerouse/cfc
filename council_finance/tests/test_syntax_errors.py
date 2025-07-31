@@ -8,6 +8,7 @@ including the new React council edit API and view files.
 import os
 import ast
 import sys
+import json
 from django.test import TestCase
 from django.conf import settings
 
@@ -242,10 +243,15 @@ class ReactComponentTests(TestCase):
         if not os.path.exists(static_dir):
             self.skipTest("Static frontend directory not found")
         
-        # Check for build artifacts
+        # Read hashed filenames from Vite manifest
+        manifest_path = os.path.join(static_dir, '.vite', 'manifest.json')
+        with open(manifest_path, 'r', encoding='utf-8') as f:
+            manifest = json.load(f)
+
+        main_entry = manifest.get('src/main.jsx', {})
         expected_files = [
-            'main-BhCRMDWS.js',  # Current build hash
-            'main-BlzmEwI8.css',
+            main_entry.get('file'),
+            main_entry.get('css', [None])[0],
         ]
         
         missing_files = []
