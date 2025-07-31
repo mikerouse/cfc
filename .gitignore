@@ -92,3 +92,4 @@ static/frontend/.vite/
 .claude
 patches/*
 test_report.json
+static/frontend/.cache_bust

@@ -5,7 +5,7 @@
  * including error handling and formatting preview.
  */
 
-const { useState, useEffect } = React;
+import React, { useState, useEffect } from 'react';
 
 const LivePreview = ({ previewText, errors, template }) => {
     const [isLoading, setIsLoading] = useState(false);
@@ -200,4 +200,4 @@ const LivePreview = ({ previewText, errors, template }) => {
 };
 
 // Make component available globally
-window.LivePreview = LivePreview;
+export default LivePreview;

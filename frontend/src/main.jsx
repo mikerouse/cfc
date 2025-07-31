@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client';
 import App from './App';
 import MyListsIntegration from './components/MyListsIntegration';
 import CouncilEditApp from './components/CouncilEditApp';
+import LegacyFactoidBuilder from './components/legacy/LegacyFactoidBuilder';
 
 console.log('🚀 Main.jsx loading - React apps initialization');
 
@@ -10,7 +11,7 @@ console.log('🚀 Main.jsx loading - React apps initialization');
  * Initialize the main Factoid Builder React app
  */
 function initializeMainApp() {
-  const container = document.getElementById('root');
+  const container = document.getElementById('factoid-builder-root');
   if (container) {
     try {
       const root = createRoot(container);
@@ -18,6 +19,21 @@ function initializeMainApp() {
       console.log('🎉 Factoid Builder app mounted successfully!');
     } catch (error) {
       console.error('💥 Factoid Builder app mount failed:', error);
+    }
+  }
+}
+
+function initializeLegacyApp() {
+  const container = document.getElementById('legacy-factoid-builder-root');
+  if (container) {
+    try {
+      const root = createRoot(container);
+      root.render(
+        <LegacyFactoidBuilder config={window.FACTOID_BUILDER_CONFIG || {}} />
+      );
+      console.log('🎨 Legacy Factoid Builder mounted successfully');
+    } catch (error) {
+      console.error('💥 Legacy Factoid Builder mount failed:', error);
     }
   }
 }
@@ -31,11 +47,19 @@ function initializeReactApps() {
   let initializedApps = [];
   
   // Initialize main app (Factoid Builder)
-  const mainContainer = document.getElementById('root');
+  const mainContainer = document.getElementById('factoid-builder-root');
   if (mainContainer) {
     console.log('📊 Factoid Builder container found, initializing...');
     initializeMainApp();
     initializedApps.push('Factoid Builder');
+  }
+
+  // Initialize legacy app if container exists
+  const legacyContainer = document.getElementById('legacy-factoid-builder-root');
+  if (legacyContainer) {
+    console.log('🕹️ Legacy Factoid Builder container found, initializing...');
+    initializeLegacyApp();
+    initializedApps.push('Legacy Factoid Builder');
   }
   
   // Initialize My Lists app if container exists

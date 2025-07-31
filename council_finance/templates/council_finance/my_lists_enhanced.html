@@ -46,143 +46,31 @@
         <div class="inline-block w-8 h-8 animate-spin rounded-full border-4 border-solid border-blue-600 border-r-transparent align-[-0.125em] motion-reduce:animate-[spin_1.5s_linear_infinite]" role="status">
           <span class="!absolute !-m-px !h-px !w-px !overflow-hidden !whitespace-nowrap !border-0 !p-0 ![clip:rect(0,0,0,0)]">Loading...</span>
         </div>
-        <p class="mt-4 text-gray-600">Loading enhanced My Lists interface...</p>
-        <p class="mt-2 text-sm text-gray-500">
-          If this takes too long, the page will fall back to the basic version.
+        <p class="mt-4 text-gray-600">Loading My Lists interface...</p>
+      </div>
+    </div>
+    
+    <!-- Error State (hidden by default) -->
+    <div id="my-lists-error-state" class="hidden flex items-center justify-center py-12">
+      <div class="text-center max-w-md">
+        <div class="mx-auto h-12 w-12 text-red-400">
+          <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+          </svg>
+        </div>
+        <h3 class="mt-4 text-lg font-medium text-gray-900">Failed to load interface</h3>
+        <p class="mt-2 text-sm text-gray-600">
+          The My Lists interface could not be loaded. Please try refreshing the page.
         </p>
+        <div class="mt-6">
+          <button onclick="window.location.reload()" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+            Refresh Page
+          </button>
+        </div>
       </div>
     </div>
   </div>
 
-  <!-- Fallback Content (Hidden by default, shown if React fails) -->
-  <div id="my-lists-fallback" class="hidden">
-    <div id="my-lists-fallback-notice" class="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-6">
-      <div class="flex items-start">
-        <svg class="w-5 h-5 text-yellow-500 mt-0.5 mr-3 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-          <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/>
-        </svg>
-        <div class="text-sm text-yellow-800">
-          <strong>Enhanced interface unavailable:</strong> 
-          The page has fallen back to the basic version. All functionality remains available.
-        </div>
-      </div>
-    </div>
-
-    <!-- Basic Fallback Interface -->
-    <div id="my-lists-fallback-interface" class="space-y-6">
-      <!-- Search Form -->
-      <div id="my-lists-search-section" class="bg-white border border-gray-200 rounded-lg shadow-sm p-4 sm:p-6">
-        <h2 class="text-lg font-semibold text-gray-900 mb-4">Find Councils</h2>
-        <div class="relative">
-          <input 
-            id="list-search" 
-            type="text" 
-            class="w-full px-4 py-3 pl-12 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 min-h-[44px]" 
-            placeholder="Search councils by name, type, or location..." 
-            autocomplete="off" 
-          />
-          <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-            <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
-            </svg>
-          </div>
-          <div id="my-lists-search-results" class="absolute bg-white text-black border rounded w-full hidden z-50"></div>
-        </div>
-      </div>
-
-      <!-- Favourites -->
-      <div id="my-lists-favourites-section" class="bg-white border border-gray-200 rounded-lg shadow-sm overflow-hidden">
-        <div id="my-lists-favourites-header" class="px-4 sm:px-6 py-4 border-b border-gray-200">
-          <h2 class="text-lg font-semibold text-gray-900">My Favourites</h2>
-          <p class="text-sm text-gray-600 mt-1">{{ favourites.count }} council{{ favourites.count|pluralize }}</p>
-        </div>
-        
-        {% if favourites %}
-        <div id="my-lists-favourites-table-container" class="overflow-x-auto">
-          <table id="my-lists-favourites-table" class="min-w-full divide-y divide-gray-200">
-            <thead class="bg-gray-50">
-              <tr>
-                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Council</th>
-                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Population</th>
-                <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
-              </tr>
-            </thead>
-            <tbody id="my-lists-favourites-tbody" class="bg-white divide-y divide-gray-200">
-              {% for council in favourites %}
-              <tr class="hover:bg-gray-50">
-                <td class="px-6 py-4 whitespace-nowrap">
-                  <div class="text-sm font-medium text-gray-900">
-                    <a href="{% url 'council_detail' council.slug %}" class="text-blue-600 hover:text-blue-700 hover:underline">
-                      {{ council.name }}
-                    </a>
-                  </div>
-                  <div class="text-sm text-gray-500">{{ council.council_type.name }} • {{ council.council_nation.name }}</div>
-                </td>
-                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                  {{ populations|get_item:council.id|default:'Not available' }}
-                </td>
-                <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                  <button class="remove-fav text-red-600 hover:text-red-900" data-slug="{{ council.slug }}">
-                    Remove
-                  </button>
-                </td>
-              </tr>
-              {% endfor %}
-            </tbody>
-          </table>
-        </div>
-        {% else %}
-        <div id="my-lists-favourites-empty" class="p-8 text-center text-gray-500">
-          <p>No favourite councils yet. Use the search above to add some!</p>
-        </div>
-        {% endif %}
-      </div>
-
-      <!-- Custom Lists -->
-      <div id="my-lists-custom-section" class="bg-white border border-gray-200 rounded-lg shadow-sm p-4 sm:p-6">
-        <h2 class="text-lg font-semibold text-gray-900 mb-4">My Custom Lists</h2>
-        
-        <!-- Create List Form -->
-        <form id="my-lists-create-form" method="post" class="mb-6 p-4 bg-gray-50 rounded-lg">
-          {% csrf_token %}
-          <div class="flex flex-col sm:flex-row gap-3">
-            <div class="flex-1">
-              {{ form.name }}
-            </div>
-            <button name="new_list" type="submit" class="px-4 py-2 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-colors min-h-[44px]">
-              Create List
-            </button>
-          </div>
-        </form>
-
-        <!-- Lists Display -->
-        {% if lists %}
-        <div id="my-lists-custom-display" class="space-y-4">
-          {% for list in lists %}
-          {% if not list.is_default %}
-          <div id="my-lists-custom-item-{{ list.id }}" class="border border-gray-200 rounded-lg p-4">
-            <h3 class="font-semibold text-gray-900 mb-2">{{ list.name }}</h3>
-            {% if list.description %}
-            <p class="text-sm text-gray-600 mb-3">{{ list.description }}</p>
-            {% endif %}
-            <div class="text-sm text-gray-500">
-              {{ list.get_council_count }} council{{ list.get_council_count|pluralize }}
-              {% if list.get_total_population %}
-              • {{ list.get_total_population|intcomma }} total population
-              {% endif %}
-            </div>
-          </div>
-          {% endif %}
-          {% endfor %}
-        </div>
-        {% else %}
-        <div id="my-lists-custom-empty" class="text-center py-8 text-gray-500">
-          <p>No custom lists yet. Create your first list above!</p>
-        </div>
-        {% endif %}
-      </div>
-    </div>
-  </div>
 
 </div>
 
@@ -250,22 +138,24 @@
 {% block extra_scripts %}
 {{ block.super }}
 <!-- Load the compiled React app -->
+{% load vite %}
 {% now "U" as timestamp %}
-<script type="module" src="{% static 'frontend/main-BhCRMDWS.js' %}?v={{ timestamp }}"></script>
-<link rel="stylesheet" href="{% static 'frontend/main-BlzmEwI8.css' %}?v={{ timestamp }}">
+<script type="module" src="{% vite_js %}?v={{ timestamp }}"></script>
+<link rel="stylesheet" href="{% vite_css %}?v={{ timestamp }}">
 
-<!-- Fallback timeout -->
+<!-- Error timeout -->
 <script>
-// Show fallback if React doesn't load within 10 seconds
+// Show error if React doesn't load within 10 seconds
 setTimeout(function() {
   const reactRoot = document.getElementById('my-lists-react-root');
-  const fallback = document.getElementById('my-lists-fallback');
+  const loadingState = document.getElementById('my-lists-loading-state');
+  const errorState = document.getElementById('my-lists-error-state');
   
   // Check if React app loaded successfully by looking for the data-react-mounted attribute
   if (reactRoot && !reactRoot.hasAttribute('data-react-mounted')) {
-    console.warn('⏰ React app timeout - showing fallback interface');
-    reactRoot.classList.add('hidden');
-    fallback.classList.remove('hidden');
+    console.error('⏰ React app timeout - showing error state');
+    loadingState.classList.add('hidden');
+    errorState.classList.remove('hidden');
   }
 }, 10000);
 </script>

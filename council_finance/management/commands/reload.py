@@ -261,36 +261,39 @@ class Command(BaseCommand):
             if latest_css:
                 latest_css_name = os.path.basename(latest_css)
             
-            # Update my_lists_enhanced.html template
-            template_path = os.path.join(
-                os.getcwd(), 
-                'council_finance', 
-                'templates', 
-                'council_finance', 
-                'my_lists_enhanced.html'
-            )
-            
-            if os.path.exists(template_path):
-                with open(template_path, 'r', encoding='utf-8') as f:
-                    content = f.read()
-                
-                # Update JS reference
-                if latest_js:
-                    js_pattern = r'src="{% static \'frontend/main-[^\']+\.js\' %}"'
-                    js_replacement = f'src="{{{{ static \'frontend/{latest_js_name}\' }}}}?v={{{{ \'now\'|date:\'U\' }}}}"'
-                    content = re.sub(js_pattern, js_replacement, content)
-                
-                # Update CSS reference  
-                if latest_css:
-                    css_pattern = r'href="{% static \'frontend/main-[^\']+\.css\' %}"'
-                    css_replacement = f'href="{{{{ static \'frontend/{latest_css_name}\' }}}}?v={{{{ \'now\'|date:\'U\' }}}}"'
-                    content = re.sub(css_pattern, css_replacement, content)
-                
-                # Write back the updated template
-                with open(template_path, 'w', encoding='utf-8') as f:
-                    f.write(content)
-                
-                self.stdout.write(f'   > Updated template with {latest_js_name} and {latest_css_name}')
+            template_files = [
+                'my_lists_enhanced.html',
+                'council_edit_react.html',
+                'factoid_builder_react.html',
+            ]
+
+            for filename in template_files:
+                template_path = os.path.join(
+                    os.getcwd(),
+                    'council_finance',
+                    'templates',
+                    'council_finance',
+                    filename,
+                )
+
+                if os.path.exists(template_path):
+                    with open(template_path, 'r', encoding='utf-8') as f:
+                        content = f.read()
+
+                    if latest_js:
+                        js_pattern = r'src="{% static \'frontend/main-[^\']+\.js\' %}"'
+                        js_replacement = f'src="{{{{ static \'frontend/{latest_js_name}\' }}}}?v={{{{ \'now\'|date:\'U\' }}}}"'
+                        content = re.sub(js_pattern, js_replacement, content)
+
+                    if latest_css:
+                        css_pattern = r'href="{% static \'frontend/main-[^\']+\.css\' %}"'
+                        css_replacement = f'href="{{{{ static \'frontend/{latest_css_name}\' }}}}?v={{{{ \'now\'|date:\'U\' }}}}"'
+                        content = re.sub(css_pattern, css_replacement, content)
+
+                    with open(template_path, 'w', encoding='utf-8') as f:
+                        f.write(content)
+
+                    self.stdout.write(f'   > Updated {filename} with {latest_js_name} and {latest_css_name}')
             
         except Exception as e:
             self.stdout.write(
@@ -810,10 +813,22 @@ class Command(BaseCommand):
                     self.stdout.write(f'   FAIL {os.path.basename(component)}: Not found')
             
             # Test 3: Build artifacts exist
-            artifacts = [
-                'static/frontend/main-BhCRMDWS.js',
-                'static/frontend/main-BlzmEwI8.css',
-            ]
+            manifest_path = os.path.join(
+                os.getcwd(), 'static', 'frontend', '.vite', 'manifest.json'
+            )
+            artifacts = []
+            try:
+                with open(manifest_path, 'r', encoding='utf-8') as f:
+                    manifest = json.load(f)
+                main_entry = manifest.get('src/main.jsx', {})
+                js_file = main_entry.get('file')
+                css_file = main_entry.get('css', [None])[0]
+                if js_file:
+                    artifacts.append(os.path.join('static', 'frontend', js_file))
+                if css_file:
+                    artifacts.append(os.path.join('static', 'frontend', css_file))
+            except Exception:
+                errors.append('Could not read Vite manifest for artifact check')
             
             for artifact in artifacts:
                 if not os.path.exists(artifact):
@@ -1191,7 +1206,8 @@ class Command(BaseCommand):
             # Template files that need updating
             template_files = [
                 'council_finance/council_edit_react.html',
-                'council_finance/my_lists_enhanced.html'
+                'council_finance/my_lists_enhanced.html',
+                'council_finance/factoid_builder_react.html'
             ]
             
             for template_file in template_files:

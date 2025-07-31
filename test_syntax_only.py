@@ -92,7 +92,7 @@ def test_build_artifacts():
     print("=" * 40)
     
     artifacts = [
-        'static/frontend/main-BhCRMDWS.js',
+        'static/frontend/main-Bg2gLYqg.js',
         'static/frontend/main-BlzmEwI8.css',
     ]
     
