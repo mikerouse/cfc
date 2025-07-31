@@ -75,8 +75,18 @@ class AIFactoidPlaylist {
                 this.factoids = data.factoids;
                 this.hasError = false;
                 
-                console.log(`✅ Loaded ${this.factoids.length} AI factoids for ${this.council}`);
-                console.log('📊 Factoids:', this.factoids);
+                // Determine if these are AI or fallback factoids
+                const hasAiFactoids = this.factoids.some(f => f.insight_type !== 'basic' && f.insight_type !== 'system');
+                const factoidType = hasAiFactoids ? '🤖 LIVE AI' : '🔄 FALLBACK';
+                
+                console.log(`✅ Loaded ${this.factoids.length} ${factoidType} factoids for ${this.council}`);
+                console.log(`📊 ${factoidType} Factoids:`, this.factoids);
+                
+                // Log individual factoids with type indicators
+                this.factoids.forEach((factoid, i) => {
+                    const typeIndicator = (factoid.insight_type === 'basic' || factoid.insight_type === 'system') ? '📋' : '🤖';
+                    console.log(`  ${typeIndicator} Factoid ${i+1} (${factoid.insight_type}): ${factoid.text}`);
+                });
                 
                 // Log cache status for debugging
                 if (data.cache_status) {

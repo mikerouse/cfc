@@ -476,12 +476,6 @@
                     {% if item.value is not None %}{{ item.formatted }}{% else %}No data{% endif %}
                   </div>
 
-                  <!-- Enhanced Factoid Display -->
-                  <div class="counter-factoid" 
-                       data-counter="{{ item.counter.slug }}"
-                       data-council="{{ council.slug }}"
-                       data-year="{{ selected_year.label }}">
-                  </div>
 
                   <!-- Explanation -->
                   {% if item.counter.explanation %}
@@ -627,9 +621,8 @@ function animateCounters() {
       el.textContent = cu.formattingFn(0);
     }
     
-    // Initialize enhanced factoid system
+    // Counter display initialized
     const container = el.parentElement.parentElement;
-    const factoidContainer = container.querySelector('.counter-factoid');
     
     if (!cu.error) {
       cu.start(() => {
@@ -693,35 +686,8 @@ if (yearSelect) {
       yearDisplay.textContent = newYear;
     });
     
-    // Update factoid containers with new year and force refresh
-    document.querySelectorAll('.counter-factoid').forEach(factoidContainer => {
-      factoidContainer.setAttribute('data-year', newYear);
-      factoidContainer.setAttribute('data-force-refresh', 'true');
-      
-      // Destroy and recreate factoid playlist to force refresh
-      if (factoidContainer._factoidPlaylist) {
-        factoidContainer._factoidPlaylist.destroy();
-      }
-      
-      // Re-initialize factoid playlist with force refresh
-      try {
-        const playlist = new FactoidPlaylist(factoidContainer, {
-          autoPlay: true,
-          duration: 8000,
-          enableFlipAnimation: false,
-          enableInteractions: false,
-          apiBaseUrl: '/api'
-        });
-        factoidContainer._factoidPlaylist = playlist;
-        
-        // Clear the force refresh flag after initialization
-        setTimeout(() => {
-          factoidContainer.removeAttribute('data-force-refresh');
-        }, 1000);
-      } catch (error) {
-        console.error('Failed to refresh factoid playlist:', error);
-      }
-    });
+    // Year changed - AI factoids will automatically refresh when cache expires
+    console.log(`📅 Year changed to ${newYear} - AI factoids will refresh automatically`);
   });
 }
 

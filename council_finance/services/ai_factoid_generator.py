@@ -65,12 +65,16 @@ class AIFactoidGenerator:
         try:
             if not self.client:
                 logger.warning("OpenAI client unavailable - using fallback factoids")
+                print(f"[FALLBACK] No OpenAI client configured, using fallback for {council_data['council'].name}")
                 return self._generate_fallback_factoids(council_data, limit)
                 
             # Generate AI prompt from council data
             prompt = self._build_analysis_prompt(council_data, limit, style)
             
             # Call OpenAI API
+            print(f"[AI-API] Calling OpenAI GPT-4 - Requesting {limit} AI insights for {council_data['council'].name}")
+            logger.info(f"🤖 Calling OpenAI GPT-4 for {council_data['council'].name}")
+            
             response = self.client.chat.completions.create(
                 model="gpt-4",
                 messages=[{"role": "user", "content": prompt}],
@@ -82,14 +86,17 @@ class AIFactoidGenerator:
             factoids = self._parse_ai_response(response.choices[0].message.content)
             
             if factoids:
-                logger.info(f"✅ Generated {len(factoids)} AI factoids for {council_data['council'].name}")
+                logger.info(f"🤖 Generated {len(factoids)} LIVE AI factoids for {council_data['council'].name}")
+                print(f"[AI-SUCCESS] Generated {len(factoids)} LIVE AI insights using OpenAI GPT-4 for {council_data['council'].name}")
                 return factoids[:limit]  # Ensure we don't exceed limit
             else:
-                logger.warning("AI response parsing failed - using fallback")
+                logger.warning("🔄 AI response parsing failed - using fallback factoids")
+                print(f"[FALLBACK] AI parsing failed, using fallback for {council_data['council'].name}")
                 return self._generate_fallback_factoids(council_data, limit)
                 
         except Exception as e:
             logger.error(f"❌ AI factoid generation failed: {str(e)}")
+            print(f"[FALLBACK] OpenAI API failed ({str(e)}), using fallback for {council_data['council'].name}")
             return self._generate_fallback_factoids(council_data, limit)
     
     def _build_analysis_prompt(self, data: Dict, limit: int, style: str) -> str:
@@ -275,14 +282,54 @@ class AIFactoidGenerator:
             
             # Latest financial data if available
             financial_data = council_data.get('financial_time_series', {})
+            
+            # Add debt information
             if 'total_debt' in financial_data:
                 debt_data = financial_data['total_debt']
                 if debt_data:
                     latest_year = max(debt_data.keys())
                     latest_debt = debt_data[latest_year]
                     fallback_factoids.append({
-                        'text': f"Latest debt figure: £{latest_debt}M for {latest_year}",
+                        'text': f"Total debt: £{latest_debt}M for {latest_year}",
                         'insight_type': 'basic',
+                        'confidence': 1.0
+                    })
+            
+            # Add interest payments information
+            if 'interest_payments' in financial_data:
+                interest_data = financial_data['interest_payments']
+                if interest_data:
+                    latest_year = max(interest_data.keys())
+                    latest_interest = interest_data[latest_year]
+                    fallback_factoids.append({
+                        'text': f"Interest payments: £{latest_interest}M in {latest_year}",
+                        'insight_type': 'basic',
+                        'confidence': 1.0
+                    })
+            
+            # Add revenue information
+            if 'total_revenue' in financial_data:
+                revenue_data = financial_data['total_revenue']
+                if revenue_data:
+                    latest_year = max(revenue_data.keys())
+                    latest_revenue = revenue_data[latest_year]
+                    fallback_factoids.append({
+                        'text': f"Total revenue: £{latest_revenue}M in {latest_year}",
+                        'insight_type': 'basic',
+                        'confidence': 1.0
+                    })
+            
+            # Add per capita calculations if we have both debt and population
+            if (hasattr(council, 'latest_population') and council.latest_population and 
+                'total_debt' in financial_data and financial_data['total_debt']):
+                debt_data = financial_data['total_debt']
+                if debt_data:
+                    latest_year = max(debt_data.keys())
+                    latest_debt_millions = float(debt_data[latest_year])
+                    debt_per_capita = (latest_debt_millions * 1_000_000) / council.latest_population
+                    fallback_factoids.append({
+                        'text': f"Debt per resident: £{debt_per_capita:,.0f} in {latest_year}",
+                        'insight_type': 'comparison',
                         'confidence': 1.0
                     })
             
@@ -294,16 +341,58 @@ class AIFactoidGenerator:
                     'confidence': 1.0
                 })
             
+            # Add current liabilities if available
+            if 'current_liabilities' in financial_data:
+                current_data = financial_data['current_liabilities']
+                if current_data:
+                    latest_year = max(current_data.keys())
+                    latest_current = current_data[latest_year]
+                    fallback_factoids.append({
+                        'text': f"Current liabilities: £{latest_current}M in {latest_year}",
+                        'insight_type': 'basic',
+                        'confidence': 1.0
+                    })
+            
+            # Ensure we have enough factoids
+            while len(fallback_factoids) < limit:
+                fallback_factoids.append({
+                    'text': f"Financial analysis for {council.name} includes data from multiple years",
+                    'insight_type': 'system',
+                    'confidence': 1.0
+                })
+                break  # Don't loop infinitely
+            
         except Exception as e:
             logger.error(f"Error generating fallback factoids: {e}")
-            # Ultimate fallback
-            fallback_factoids = [{
-                'text': f"Financial data for {council.name} is being processed",
-                'insight_type': 'basic',
-                'confidence': 1.0
-            }]
+            # Ultimate fallback - generate the requested number
+            fallback_factoids = []
+            for i in range(limit):
+                if i == 0:
+                    fallback_factoids.append({
+                        'text': f"Financial data for {council.name} is being analysed",
+                        'insight_type': 'system',
+                        'confidence': 1.0
+                    })
+                elif i == 1:
+                    fallback_factoids.append({
+                        'text': f"AI insights are being generated for {council.name}",
+                        'insight_type': 'system',
+                        'confidence': 1.0
+                    })
+                else:
+                    fallback_factoids.append({
+                        'text': f"Comprehensive financial analysis available for {council.name}",
+                        'insight_type': 'system',
+                        'confidence': 1.0
+                    })
         
-        return fallback_factoids[:limit]
+        # Log the final result
+        final_factoids = fallback_factoids[:limit]
+        print(f"[FALLBACK-SUMMARY] Generated {len(final_factoids)} fallback factoids for {council.name}")
+        for i, factoid in enumerate(final_factoids):
+            print(f"  [FALLBACK-{i+1}] {factoid['text']}")
+        
+        return final_factoids
 
 
 class CouncilDataGatherer:
