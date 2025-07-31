@@ -750,6 +750,32 @@ The API key for OpenAI can be found in the .env file, and it should be used to a
 - `config/settings.py` is loaded dynamically and supports overrides via environment.
 - Store config overrides or user-specified parameters via a `settings` model or flatfile.
 
+## 🔑 Authentication for Testing and Debugging
+
+The `.env` file contains `ADMIN_USER` and `ADMIN_PASSWORD` environment variables that should be used for authenticated testing and debugging. This eliminates the need to create additional test users.
+
+**Usage in Testing:**
+```python
+# Example: Authenticating in tests
+from django.contrib.auth import authenticate, login
+import os
+
+admin_user = os.getenv('ADMIN_USER')
+admin_password = os.getenv('ADMIN_PASSWORD')
+
+# Use these credentials for:
+- API endpoint testing that requires authentication
+- Accessing protected pages during debugging
+- Running comprehensive tests that need authenticated access
+- Simulating admin actions in test scenarios
+```
+
+**Benefits:**
+- Consistent authentication across all test environments
+- No need to create or manage test user accounts
+- Secure credential storage via environment variables
+- Easy to update credentials without code changes
+
 ---
 
 ## 🔄 Scheduling
