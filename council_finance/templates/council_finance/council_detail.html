@@ -229,104 +229,8 @@
     </div>
   </div>
 
-  <!-- Financial Data View - Mobile-First Grid Layout -->
-    <div class="grid grid-cols-1 xl:grid-cols-4 gap-6 xl:gap-8">
-      <!-- AI Analysis - Mobile First (Order 1), Desktop Left Sidebar (Order 1) -->
-      <div class="order-1 xl:order-1 xl:col-span-1">
-        <!-- AI Financial Analysis -->
-        <div id="ai-analysis-container" class="bg-white border border-gray-200 rounded-lg shadow-sm">
-          <div class="px-4 py-3 sm:px-6 sm:py-4 border-b border-gray-200">
-            <div class="flex items-center justify-between">
-              <h3 class="text-base sm:text-lg font-semibold text-gray-900 flex items-center">
-                <svg class="w-4 h-4 sm:w-5 sm:h-5 mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/>
-                </svg>
-                AI Analysis
-              </h3>
-              <!-- Mobile Toggle Button -->
-              <button id="ai-mobile-toggle" class="xl:hidden p-2 text-gray-400 hover:text-gray-600 transition-colors" aria-label="Toggle AI Analysis">
-                <svg class="w-5 h-5 transform transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
-                </svg>
-              </button>
-              <!-- Desktop Refresh Button -->
-              <div id="ai-refresh-btn" class="hidden xl:block cursor-pointer text-gray-400 hover:text-gray-600 transition-colors" title="Refresh Analysis">
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
-                </svg>
-              </div>
-            </div>
-          </div>
-          <div id="ai-analysis-content" class="hidden xl:block p-4 sm:p-6">
-            <!-- Loading state -->
-            <div id="ai-loading" class="flex items-center justify-center py-6 sm:py-8">
-              <div class="animate-spin rounded-full h-5 w-5 sm:h-6 sm:w-6 border-b-2 border-blue-600"></div>
-              <span class="ml-3 text-sm text-gray-600">Generating AI analysis...</span>
-            </div>
-            
-            <!-- Error state -->
-            <div id="ai-error" class="hidden py-4">
-              <div class="flex items-center space-x-2 text-red-600">
-                <svg class="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
-                </svg>
-                <span class="text-sm">Failed to load AI analysis</span>
-              </div>
-            </div>
-            
-            <!-- Analysis content -->
-            <div id="ai-analysis-data" class="hidden space-y-4">
-              <!-- Key insights -->
-              <div id="ai-insights" class="space-y-2">
-                <h4 class="text-sm font-medium text-gray-900 flex items-center">
-                  <svg class="w-4 h-4 mr-1 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
-                  </svg>
-                  Key Insights
-                </h4>
-                <div id="ai-insights-list" class="space-y-1"></div>
-              </div>
-              
-              <!-- Risk factors -->
-              <div id="ai-risks" class="space-y-2">
-                <h4 class="text-sm font-medium text-gray-900 flex items-center">
-                  <svg class="w-4 h-4 mr-1 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z"/>
-                  </svg>
-                  Risk Factors
-                </h4>
-                <div id="ai-risks-list" class="space-y-1"></div>
-              </div>
-              
-              <!-- Recommendations -->
-              <div id="ai-recommendations" class="space-y-2">
-                <h4 class="text-sm font-medium text-gray-900 flex items-center">
-                  <svg class="w-4 h-4 mr-1 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
-                  </svg>
-                  Recommendations
-                </h4>
-                <div id="ai-recommendations-list" class="space-y-1"></div>
-              </div>
-              
-              <!-- Summary toggle -->
-              <div class="pt-2 border-t border-gray-200">
-                <button id="ai-summary-toggle" class="text-xs text-blue-600 hover:text-blue-800 transition-colors">
-                  Show full analysis
-                </button>
-              </div>
-              
-              <!-- Full analysis (initially hidden) -->
-              <div id="ai-full-analysis" class="hidden pt-2 border-t border-gray-200">
-                <div id="ai-full-text" class="text-sm text-gray-700 prose prose-sm max-w-none"></div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Main Content - Mobile Second (Order 2), Desktop Right (Order 2) -->
-      <div class="order-2 xl:order-2 xl:col-span-3 space-y-6">
+  <!-- Financial Data View - Full Width Layout -->
+  <div class="space-y-6">
         <!-- Controls Section -->
         <div class="bg-white border border-gray-200 rounded-lg shadow-sm">
           <div class="px-4 py-4 sm:px-6 border-b border-gray-200">
@@ -955,249 +859,25 @@ document.getElementById('copy-share-link').addEventListener('click', () => {
 formatAllCounters();
 animateCounters();
 
-// AI Analysis Functionality
-class AIAnalysisManager {
-  constructor() {
-    this.councilSlug = '{{ council.slug }}';
-    this.currentYear = '{{ selected_year.label }}';
-    this.isLoading = false;
-    this.isMobileExpanded = false;
-    this.init();
-  }
-  
-  init() {
-    // Initialize event listeners
-    const refreshBtn = document.getElementById('ai-refresh-btn');
-    const summaryToggle = document.getElementById('ai-summary-toggle');
-    const mobileToggle = document.getElementById('ai-mobile-toggle');
-    
-    if (refreshBtn) {
-      refreshBtn.addEventListener('click', () => this.loadAnalysis(true));
-    }
-    
-    if (summaryToggle) {
-      summaryToggle.addEventListener('click', () => this.toggleFullAnalysis());
-    }
-    
-    if (mobileToggle) {
-      mobileToggle.addEventListener('click', () => this.toggleMobileView());
-    }
-    
-    // Load analysis on page load
-    this.loadAnalysis();
-    
-    // Update analysis when year changes
-    const yearSelect = document.getElementById('year-select');
-    if (yearSelect) {
-      yearSelect.addEventListener('change', (e) => {
-        this.currentYear = e.target.value;
-        this.loadAnalysis();
-      });
-    }
-  }
-  
-  toggleMobileView() {
-    const content = document.getElementById('ai-analysis-content');
-    const toggleIcon = document.querySelector('#ai-mobile-toggle svg');
-    
-    if (this.isMobileExpanded) {
-      content.classList.add('hidden');
-      content.classList.remove('xl:block');
-      toggleIcon.style.transform = 'rotate(0deg)';
-      this.isMobileExpanded = false;
-    } else {
-      content.classList.remove('hidden');
-      content.classList.add('xl:block');
-      toggleIcon.style.transform = 'rotate(180deg)';
-      this.isMobileExpanded = true;
-    }
-  }
-  
-  async loadAnalysis(forceRefresh = false) {
-    if (this.isLoading) return;
-    
-    this.isLoading = true;
-    this.showLoading();
-    
-    try {
-      // Convert year to URL-safe format
-      const urlSafeYear = this.currentYear.replace(/\//g, '-');
-      const refreshParam = forceRefresh ? '?force_refresh=true' : '';
-      const url = `/api/ai-analysis/${this.councilSlug}/${urlSafeYear}/${refreshParam}`;
-      
-      const response = await fetch(url);
-      const data = await response.json();
-      
-      if (data.success) {
-        this.displayAnalysis(data.analysis);
-      } else {
-        this.showError(data.error || 'Failed to load analysis');
-      }
-    } catch (error) {
-      console.error('AI Analysis error:', error);
-      this.showError('Network error loading analysis');
-    } finally {
-      this.isLoading = false;
-    }
-  }
-  
-  showLoading() {
-    document.getElementById('ai-loading').classList.remove('hidden');
-    document.getElementById('ai-error').classList.add('hidden');
-    document.getElementById('ai-analysis-data').classList.add('hidden');
-  }
-  
-  showError(message) {
-    document.getElementById('ai-loading').classList.add('hidden');
-    document.getElementById('ai-analysis-data').classList.add('hidden');
-    
-    const errorEl = document.getElementById('ai-error');
-    errorEl.classList.remove('hidden');
-    errorEl.querySelector('span').textContent = message;
-  }
-  
-  displayAnalysis(analysis) {
-    document.getElementById('ai-loading').classList.add('hidden');
-    document.getElementById('ai-error').classList.add('hidden');
-    document.getElementById('ai-analysis-data').classList.remove('hidden');
-    
-    // Populate insights
-    this.populateList('ai-insights-list', analysis.key_insights, 'insight');
-    
-    // Populate risk factors
-    this.populateList('ai-risks-list', analysis.risk_factors, 'risk');
-    
-    // Populate recommendations  
-    this.populateList('ai-recommendations-list', analysis.recommendations, 'recommendation');
-    
-    // Set full analysis text
-    const fullTextEl = document.getElementById('ai-full-text');
-    if (fullTextEl && analysis.full_text) {
-      fullTextEl.innerHTML = this.formatAnalysisText(analysis.full_text);
-    }
-    
-    // Show/hide sections based on content
-    this.toggleSection('ai-insights', analysis.key_insights);
-    this.toggleSection('ai-risks', analysis.risk_factors);
-    this.toggleSection('ai-recommendations', analysis.recommendations);
-  }
-  
-  populateList(elementId, items, type) {
-    const listEl = document.getElementById(elementId);
-    if (!listEl || !Array.isArray(items)) return;
-    
-    listEl.innerHTML = '';
-    items.slice(0, 3).forEach(item => { // Show max 3 items
-      const itemEl = document.createElement('div');
-      itemEl.className = 'text-xs text-gray-600 flex items-start space-x-1';
-      itemEl.innerHTML = `
-        <span class="text-gray-400 mt-0.5">•</span>
-        <span>${this.escapeHtml(item)}</span>
-      `;
-      listEl.appendChild(itemEl);
-    });
-  }
-  
-  toggleSection(sectionId, items) {
-    const sectionEl = document.getElementById(sectionId);
-    if (!sectionEl) return;
-    
-    if (Array.isArray(items) && items.length > 0) {
-      sectionEl.classList.remove('hidden');
-    } else {
-      sectionEl.classList.add('hidden');
-    }
-  }
-  
-  toggleFullAnalysis() {
-    const fullAnalysisEl = document.getElementById('ai-full-analysis');
-    const toggleBtn = document.getElementById('ai-summary-toggle');
-    
-    if (fullAnalysisEl.classList.contains('hidden')) {
-      fullAnalysisEl.classList.remove('hidden');
-      toggleBtn.textContent = 'Hide full analysis';
-    } else {
-      fullAnalysisEl.classList.add('hidden');
-      toggleBtn.textContent = 'Show full analysis';
-    }
-  }
-  
-  formatAnalysisText(text) {
-    // Basic markdown-like formatting
-    return text
-      .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-      .replace(/\*(.*?)\*/g, '<em>$1</em>')
-      .replace(/\n\n/g, '</p><p>')
-      .replace(/\n/g, '<br>')
-      .replace(/^/, '<p>')
-      .replace(/$/, '</p>');
-  }
-  
-  escapeHtml(text) {
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
-  }
-}
+// End of counter functionality
 
-// Initialize AI Analysis Manager
-const aiAnalysis = new AIAnalysisManager();
-
-// Handle responsive behavior for AI analysis
-function handleAIAnalysisResize() {
-  const content = document.getElementById('ai-analysis-content');
-  
-  if (window.innerWidth >= 1280) { // xl breakpoint
-    // Desktop: always show content in left sidebar
-    content.classList.remove('hidden');
-    content.classList.add('xl:block');
-    aiAnalysis.isMobileExpanded = false; // Reset mobile state
-  } else {
-    // Mobile/tablet: content hidden by default unless toggled
-    if (!aiAnalysis.isMobileExpanded) {
-      content.classList.add('hidden');
-      content.classList.remove('xl:block');
-    }
-  }
-}
-
-// Template cleaned - debug code removed
-
-// Handle resize events
-window.addEventListener('resize', handleAIAnalysisResize);
-handleAIAnalysisResize(); // Call on page load
 </script>
 
-<!-- Mobile-First Responsive Styles -->
 <style>
-/* END DEBUG STYLES */
-
-/* Mobile-first base styles */
-.counter-value {
-  line-height: 1.2;
+/* Enhanced dropdown animation and visual polish */
+#counter-drawer {
+  overflow: hidden;
+  max-height: 0;
+  transition: max-height 0.3s ease-in-out, padding 0.3s ease-in-out;
 }
 
-/* Touch-friendly button spacing */
-.btn-group {
-  gap: 0.75rem;
-}
-
-.btn-group button {
-  min-height: 44px;
+#counter-drawer.expanded {
+  max-height: 1000px; /* Large enough for content */
 }
 
 /* Counter grid responsive adjustments */
-#counters-grid .counter-value {
-  word-break: break-word;
-}
-
-/* AI Analysis mobile enhancements */
-#ai-analysis-content {
-  transition: all 0.3s ease-in-out;
-}
-
-#ai-mobile-toggle svg {
-  transition: transform 0.2s ease-in-out;
+#counters-grid {
+  transition: grid-template-columns 0.2s ease-in-out;
 }
 
 /* Desktop layout refinements */
@@ -1212,11 +892,6 @@ handleAIAnalysisResize(); // Call on page load
   /* Desktop-specific button adjustments */
   .btn-group button {
     min-height: auto;
-  }
-  
-  /* AI analysis desktop behavior */
-  #ai-analysis-content {
-    display: block !important;
   }
 }
 
@@ -1239,5 +914,4 @@ handleAIAnalysisResize(); // Call on page load
 </style>
 
 {% endblock %}
-<!-- Force reload: Tue, Jul 29, 2025  3:35:12 PM -->
-/* Template version: 1753806658 */
+<!-- AI Analysis sidebar removed for mobile-first design -->

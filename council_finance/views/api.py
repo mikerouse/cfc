@@ -14,8 +14,7 @@ import json
 
 from council_finance.models import (
     Council, DataField, ActivityLog, CounterDefinition, 
-    FinancialYear,
-    CouncilAIAnalysis, AIAnalysisConfiguration
+    FinancialYear
 )
 from council_finance.forms import DataFieldForm
 
@@ -361,134 +360,11 @@ def user_preferences_ajax(request):
         return JsonResponse({'error': str(e)}, status=500)
 
 
-@require_GET
-def council_ai_analysis_api(request, council_slug, year_label):
-    """API endpoint to get AI analysis for a council/year combination."""
-    try:
-        council = get_object_or_404(Council, slug=council_slug)
-        
-        # Convert URL-safe year format back to database format if needed
-        actual_year_label = year_label.replace('-', '/')
-        year = get_object_or_404(FinancialYear, label=actual_year_label)
-        
-        # Check for force refresh parameter
-        force_refresh = request.GET.get('force_refresh', '').lower() == 'true'
-        
-        # Get AI analysis configuration (can be specified via parameter)
-        config_id = request.GET.get('config_id')
-        if config_id:
-            try:
-                configuration = AIAnalysisConfiguration.objects.get(
-                    id=config_id, is_active=True
-                )
-            except AIAnalysisConfiguration.DoesNotExist:
-                configuration = None
-        else:
-            configuration = AIAnalysisConfiguration.objects.filter(
-                is_active=True, is_default=True
-            ).first()
-        
-        if not configuration:
-            return JsonResponse({
-                'success': False,
-                'error': 'No active AI analysis configuration found'
-            }, status=404)
-        
-        # Import and use AI service
-        from council_finance.services.ai_analysis_service import AIAnalysisService
-        ai_service = AIAnalysisService()
-        
-        # Check if AI service is properly configured
-        if not ai_service.openai_client:
-            return JsonResponse({
-                'success': False,
-                'error': 'AI analysis service is not configured. Please contact administrator to set up OpenAI API key.'
-            }, status=503)
-        
-        # Get or create analysis
-        analysis = ai_service.get_or_create_analysis(
-            council=council,
-            year=year,
-            configuration=configuration,
-            force_refresh=force_refresh
-        )
-        
-        if not analysis:
-            return JsonResponse({
-                'success': False,
-                'error': 'Failed to generate or retrieve AI analysis'
-            }, status=500)
-        
-        # Prepare response data
-        response_data = {
-            'success': True,
-            'council': {
-                'name': council.name,
-                'slug': council.slug,
-                'type': council.council_type.name if council.council_type else None
-            },
-            'year': {
-                'label': year.label,
-            },
-            'configuration': {
-                'id': configuration.id,
-                'name': configuration.name,
-                'model': configuration.model.name
-            },
-            'analysis': {
-                'id': analysis.id,
-                'status': analysis.status,
-                'summary': analysis.analysis_summary,
-                'full_text': analysis.analysis_text,
-                'key_insights': analysis.get_formatted_insights(),
-                'risk_factors': analysis.risk_factors,
-                'recommendations': analysis.recommendations,
-                'created': analysis.created.isoformat(),
-                'expires_at': analysis.expires_at.isoformat() if analysis.expires_at else None,
-                'is_expired': analysis.is_expired,
-            },
-            'meta': {
-                'tokens_used': analysis.tokens_used,
-                'processing_time_ms': analysis.processing_time_ms,
-                'cost_estimate': float(analysis.cost_estimate) if analysis.cost_estimate else None
-            }
-        }
-        
-        return JsonResponse(response_data)
-        
-    except Exception as e:
-        return JsonResponse({
-            'success': False,
-            'error': str(e)
-        }, status=500)
+# Legacy AI analysis API removed - now using AI factoids instead
+# DEPRECATED: council_ai_analysis_api function removed - replaced by AI factoids system
 
 
-@require_GET
-def ai_analysis_status_api(request, analysis_id):
-    """API endpoint to check the status of a specific AI analysis."""
-    try:
-        analysis = get_object_or_404(CouncilAIAnalysis, id=analysis_id)
-        
-        return JsonResponse({
-            'success': True,
-            'analysis': {
-                'id': analysis.id,
-                'status': analysis.status,
-                'council': analysis.council.name,
-                'year': analysis.year.label,
-                'created': analysis.created.isoformat(),
-                'expires_at': analysis.expires_at.isoformat() if analysis.expires_at else None,
-                'is_expired': analysis.is_expired,
-                'error_message': analysis.error_message,
-                'processing_time_ms': analysis.processing_time_ms
-            }
-        })
-        
-    except Exception as e:
-        return JsonResponse({
-            'success': False,
-            'error': str(e)
-        }, status=500)
+# DEPRECATED: ai_analysis_status_api function removed - replaced by AI factoids system
 
 
 @require_GET
