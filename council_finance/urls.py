@@ -52,6 +52,14 @@ from .views.general import (
 # Import factoid instance API function
 from .api.factoid_views import factoid_instance_api, get_factoids_for_counter_frontend
 
+# Import AI factoid API functions
+from .api.ai_factoid_api import (
+    ai_council_factoids,
+    ai_batch_factoids,
+    clear_ai_factoid_cache,
+    ai_factoid_status
+)
+
 urlpatterns = [
     # Favicon redirect to avoid 404 errors
     path('favicon.ico', RedirectView.as_view(url=settings.STATIC_URL + 'favicon.ico', permanent=True)),
@@ -209,6 +217,20 @@ urlpatterns = [
     
     # Live preview for React factoid builder
     path("api/factoid-builder/preview/", factoid_builder_api.preview_factoid_api, name="factoid_builder_preview"),
+    
+    # ============================================================================
+    # AI FACTOIDS API ENDPOINTS (NEW SYSTEM)
+    # ============================================================================
+    
+    # AI-generated council factoids (replaces counter-based system)
+    path("api/factoids/ai/<slug:council_slug>/", ai_council_factoids, name="ai_council_factoids"),
+    path("api/factoids/ai/batch/", ai_batch_factoids, name="ai_batch_factoids"),
+    path("api/factoids/ai/<slug:council_slug>/cache/", clear_ai_factoid_cache, name="clear_ai_factoid_cache"),
+    path("api/factoids/ai/status/", ai_factoid_status, name="ai_factoid_status"),
+    
+    # ============================================================================
+    # LEGACY FACTOID API ENDPOINTS (DEPRECATED)
+    # ============================================================================
     
     # Enhanced Factoid API (new real-time system)
     path("api/factoid/", include("council_finance.api.factoid_urls")),

@@ -163,6 +163,18 @@
     </div>
   {% endif %}
 
+  <!-- AI Factoid Playlist - Single council-wide insights -->
+  <div class="mb-6">
+    <div class="ai-factoid-playlist transition-opacity duration-300" 
+         data-council="{{ council.slug }}">
+      <!-- Loading state -->
+      <div class="flex items-center space-x-3 py-3 px-4 bg-gray-50 border-l-4 border-gray-300 rounded-r-lg">
+        <div class="animate-spin text-lg">⏳</div>
+        <div class="text-sm text-gray-600">Loading AI insights...</div>
+      </div>
+    </div>
+  </div>
+
   <!-- Financial Data View - Mobile-First Grid Layout -->
     <div class="grid grid-cols-1 xl:grid-cols-4 gap-6 xl:gap-8">
       <!-- AI Analysis - Mobile First (Order 1), Desktop Left Sidebar (Order 1) -->
@@ -516,6 +528,7 @@
 <script src="{% static 'js/countUp.umd.js' %}"></script>
 <link rel="stylesheet" href="{% static 'css/factoid-system.css' %}">
 <script src="{% static 'js/factoid-playlist.js' %}"></script>
+<script src="{% static 'js/ai-factoids.js' %}"></script>
 
 <script>
 // All the existing JavaScript functionality from the original template
