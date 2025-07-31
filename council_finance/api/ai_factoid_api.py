@@ -105,7 +105,28 @@ def ai_council_factoids(request, council_slug):
             style='news_ticker'
         )
         
-        # Build response
+        # Check if these are fallback factoids
+        are_fallback_factoids = all(
+            f.get('insight_type') in ['basic', 'system'] for f in factoids
+        )
+        
+        if are_fallback_factoids:
+            # Don't cache fallback factoids - return error response instead
+            logger.warning(f"❌ AI generation failed for {council.name}, not caching fallback factoids")
+            return Response({
+                'success': False,
+                'error': 'AI analysis temporarily unavailable',
+                'council': council_slug,
+                'factoids': [{
+                    'text': f"AI analysis temporarily unavailable for {council.name}",
+                    'insight_type': 'error',
+                    'confidence': 1.0,
+                    'show_retry': True
+                }],
+                'cache_status': 'not_cached'
+            }, status=status.HTTP_503_SERVICE_UNAVAILABLE)
+        
+        # Build response for successful AI generation
         response_data = {
             'success': True,
             'council': council_slug,
@@ -117,7 +138,7 @@ def ai_council_factoids(request, council_slug):
             'factoid_count': len(factoids)
         }
         
-        # Cache for 6 hours (21600 seconds)
+        # Cache successful AI responses for 6 hours (21600 seconds)
         cache.set(cache_key, response_data, 21600)
         
         logger.info(f"✅ Generated {len(factoids)} AI factoids for {council.name}")

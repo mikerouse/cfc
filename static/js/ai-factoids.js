@@ -65,26 +65,46 @@ class AIFactoidPlaylist {
                 }
             });
             
+            const data = await response.json();
+            
+            // Handle AI service unavailable (503) as a special case
+            if (response.status === 503 && data.factoids) {
+                this.factoids = data.factoids;
+                this.hasError = true;
+                
+                console.log(`❌ AI UNAVAILABLE for ${this.council} - showing retry option`);
+                console.log(`📊 Error factoid:`, this.factoids);
+                return; // Don't throw error, just use the error factoid
+            }
+            
             if (!response.ok) {
                 throw new Error(`HTTP ${response.status}: ${response.statusText}`);
             }
-            
-            const data = await response.json();
             
             if (data.success && data.factoids) {
                 this.factoids = data.factoids;
                 this.hasError = false;
                 
                 // Determine if these are AI or fallback factoids
-                const hasAiFactoids = this.factoids.some(f => f.insight_type !== 'basic' && f.insight_type !== 'system');
-                const factoidType = hasAiFactoids ? '🤖 LIVE AI' : '🔄 FALLBACK';
+                const hasAiFactoids = this.factoids.some(f => 
+                    f.insight_type !== 'basic' && 
+                    f.insight_type !== 'system' && 
+                    f.insight_type !== 'error'
+                );
+                const hasErrorFactoids = this.factoids.some(f => f.insight_type === 'error');
+                const factoidType = hasAiFactoids ? '🤖 LIVE AI' : hasErrorFactoids ? '❌ AI UNAVAILABLE' : '🔄 FALLBACK';
                 
                 console.log(`✅ Loaded ${this.factoids.length} ${factoidType} factoids for ${this.council}`);
                 console.log(`📊 ${factoidType} Factoids:`, this.factoids);
                 
                 // Log individual factoids with type indicators
                 this.factoids.forEach((factoid, i) => {
-                    const typeIndicator = (factoid.insight_type === 'basic' || factoid.insight_type === 'system') ? '📋' : '🤖';
+                    let typeIndicator = '🤖';
+                    if (factoid.insight_type === 'basic' || factoid.insight_type === 'system') {
+                        typeIndicator = '📋';
+                    } else if (factoid.insight_type === 'error') {
+                        typeIndicator = '❌';
+                    }
                     console.log(`  ${typeIndicator} Factoid ${i+1} (${factoid.insight_type}): ${factoid.text}`);
                 });
                 
@@ -115,30 +135,13 @@ class AIFactoidPlaylist {
     }
     
     generateFallbackFactoids(apiResponse = null) {
-        // Generate basic fallback factoids when AI service fails
-        const fallbacks = [];
-        
-        // Use API fallback if available
-        if (apiResponse && apiResponse.factoids) {
-            return apiResponse.factoids;
-        }
-        
-        // Generate basic fallbacks
-        fallbacks.push({
-            text: `Financial insights for ${this.council} are being generated`,
-            insight_type: 'system',
-            confidence: 1.0
-        });
-        
-        if (apiResponse && apiResponse.fallback_message) {
-            fallbacks.push({
-                text: apiResponse.fallback_message,
-                insight_type: 'system',
-                confidence: 1.0
-            });
-        }
-        
-        return fallbacks;
+        // Show AI unavailable message instead of fallback factoids
+        return [{
+            text: `AI analysis temporarily unavailable for ${this.council}`,
+            insight_type: 'error',
+            confidence: 1.0,
+            show_retry: true
+        }];
     }
     
     startPlaylist() {
@@ -197,6 +200,8 @@ class AIFactoidPlaylist {
         const icon = this.getInsightIcon(factoid.insight_type);
         const colorClasses = this.getInsightColorClasses(factoid.insight_type);
         const isSystem = factoid.insight_type === 'system';
+        const isError = factoid.insight_type === 'error';
+        const showRetry = factoid.show_retry || false;
         
         return `
             <div class="flex items-center space-x-3 py-3 px-4 ${colorClasses.background} border-l-4 ${colorClasses.border} rounded-r-lg">
@@ -207,12 +212,18 @@ class AIFactoidPlaylist {
                     <div class="text-sm ${colorClasses.text} font-medium leading-relaxed">
                         ${this.escapeHTML(factoid.text)}
                     </div>
+                    ${showRetry ? `
+                        <button class="mt-2 text-xs px-2 py-1 bg-red-600 text-white rounded hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500" 
+                                onclick="window.aiFactoidManager?.retryAIGeneration('${this.council}')">
+                            Retry AI Analysis
+                        </button>
+                    ` : ''}
                 </div>
                 <div class="flex-shrink-0 flex flex-col items-end space-y-1">
                     <div class="text-xs ${colorClasses.accent} font-medium">
-                        ${isSystem ? 'System' : 'AI Insight'}
+                        ${isError ? 'Error' : isSystem ? 'System' : 'AI Insight'}
                     </div>
-                    ${this.factoids.length > 1 ? `
+                    ${this.factoids.length > 1 && !isError ? `
                         <div class="flex space-x-1">
                             ${this.buildProgressDots(index)}
                         </div>
@@ -246,6 +257,7 @@ class AIFactoidPlaylist {
             'context': '🌍',
             'basic': '📋',
             'system': '⏳',
+            'error': '⚠️',
             'general': '💡'
         };
         
@@ -284,6 +296,12 @@ class AIFactoidPlaylist {
                 border: 'border-gray-300',
                 text: 'text-gray-700',
                 accent: 'text-gray-500'
+            },
+            'error': {
+                background: 'bg-red-50',
+                border: 'border-red-400',
+                text: 'text-red-900',
+                accent: 'text-red-600'
             }
         };
         
@@ -416,19 +434,62 @@ class AIFactoidManager {
         console.log('▶️ All AI factoid playlists resumed');
     }
     
-    refreshPlaylist(council) {
-        // Refresh a specific council's playlist
+    async refreshPlaylist(council) {
+        // Refresh a specific council's playlist and clear cache
+        console.log(`🔄 Refreshing AI factoid playlist for ${council}`);
+        
         const playlist = this.playlists.get(council);
         if (playlist) {
+            // Clear AI factoid cache first
+            try {
+                const response = await fetch(`/api/factoids/ai/${council}/cache/`, {
+                    method: 'DELETE',
+                    headers: {
+                        'Accept': 'application/json',
+                        'Content-Type': 'application/json',
+                    }
+                });
+                
+                if (response.ok) {
+                    console.log(`✅ Cache cleared for ${council}`);
+                } else {
+                    console.warn(`⚠️ Failed to clear cache for ${council}: ${response.status}`);
+                }
+            } catch (error) {
+                console.warn(`⚠️ Cache clear request failed for ${council}:`, error);
+            }
+            
+            // Destroy current playlist
             playlist.destroy();
+            
             // Re-initialize after short delay
             setTimeout(() => {
                 const container = document.querySelector(`[data-council="${council}"]`);
                 if (container) {
                     const newPlaylist = new AIFactoidPlaylist(container);
                     this.playlists.set(council, newPlaylist);
+                    console.log(`🆕 Re-initialized AI factoid playlist for ${council}`);
                 }
             }, 100);
+        }
+    }
+    
+    retryAIGeneration(council) {
+        // Retry AI generation with simple playlist refresh
+        console.log(`🤖 Retrying AI generation for ${council}`);
+        
+        const playlist = this.playlists.get(council);
+        if (playlist) {
+            // Set hasError to false and retry loading
+            playlist.hasError = false;
+            playlist.factoids = [];
+            playlist.currentIndex = 0;
+            
+            // Show loading state and reload
+            playlist.showLoadingState();
+            playlist.loadFactoids();
+            
+            console.log(`🔄 Initiated AI retry for ${council}`);
         }
     }
     

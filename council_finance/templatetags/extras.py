@@ -17,3 +17,8 @@ def lookup(list_obj, index):
         return list_obj[int(index)]
     except (ValueError, TypeError, IndexError):
         return None
+
+@register.filter
+def debug_cache_key(council_slug):
+    """Generate cache key for debugging AI factoids."""
+    return f"ai_factoids:{council_slug}"
