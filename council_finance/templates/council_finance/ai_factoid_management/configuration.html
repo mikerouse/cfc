@@ -1,0 +1,187 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}{{ page_title }} - Council Finance Counters{% endblock %}
+
+{% block content %}
+<div class="mx-auto max-w-none xl:max-w-desktop">
+  <!-- Header -->
+  <div class="bg-white border border-gray-200 rounded-lg shadow-sm mb-6 -mx-3 sm:-mx-4 xl:-mx-6">
+    <div class="px-6 py-6 sm:px-8 xl:px-12 sm:py-8 xl:py-10">
+      <div class="flex items-center justify-between">
+        <div>
+          <nav class="flex items-center space-x-2 text-sm text-gray-500 mb-2">
+            <a href="{% url 'ai_factoid_management_dashboard' %}" class="hover:text-gray-700">AI Management</a>
+            <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+              <path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd"/>
+            </svg>
+            <span>Configuration</span>
+          </nav>
+          <h1 class="text-2xl sm:text-3xl font-bold text-gray-900 mb-2">{{ page_title }}</h1>
+          <p class="text-gray-600">Configure AI factoid system parameters and settings</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Current Configuration -->
+  <div class="bg-white border border-gray-200 rounded-lg mb-6">
+    <div class="px-6 py-4 border-b border-gray-200">
+      <h3 class="text-lg font-medium text-gray-900">Current Configuration</h3>
+      <p class="text-sm text-gray-600 mt-1">Current AI factoid system settings (read-only)</p>
+    </div>
+    <div class="p-6">
+      <dl class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div>
+          <dt class="text-sm font-medium text-gray-500">OpenAI Model</dt>
+          <dd class="mt-1 text-sm text-gray-900 font-mono">{{ current_config.openai_model }}</dd>
+        </div>
+        <div>
+          <dt class="text-sm font-medium text-gray-500">Default Factoid Limit</dt>
+          <dd class="mt-1 text-sm text-gray-900">{{ current_config.default_factoid_limit }} factoids</dd>
+        </div>
+        <div>
+          <dt class="text-sm font-medium text-gray-500">Cache Timeout</dt>
+          <dd class="mt-1 text-sm text-gray-900">{{ current_config.cache_timeout|floatformat:0 }} seconds ({{ current_config.cache_timeout|floatformat:0|add:0|divisibleby:3600|yesno:"6 hours,Other" }})</dd>
+        </div>
+        <div>
+          <dt class="text-sm font-medium text-gray-500">Temperature</dt>
+          <dd class="mt-1 text-sm text-gray-900">{{ current_config.temperature }} (creativity level)</dd>
+        </div>
+        <div>
+          <dt class="text-sm font-medium text-gray-500">Max Tokens</dt>
+          <dd class="mt-1 text-sm text-gray-900">{{ current_config.max_tokens }} tokens per response</dd>
+        </div>
+        <div>
+          <dt class="text-sm font-medium text-gray-500">Cache Backend</dt>
+          <dd class="mt-1 text-sm text-gray-900 font-mono">{{ cache_backend }}</dd>
+        </div>
+      </dl>
+    </div>
+  </div>
+
+  <!-- Rate Limiting -->
+  <div class="bg-white border border-gray-200 rounded-lg mb-6">
+    <div class="px-6 py-4 border-b border-gray-200">
+      <h3 class="text-lg font-medium text-gray-900">Rate Limiting</h3>
+      <p class="text-sm text-gray-600 mt-1">API request rate limits to manage costs</p>
+    </div>
+    <div class="p-6">
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+        {% for scope, rate in throttle_rates.items %}
+        <div class="bg-gray-50 rounded-lg p-4">
+          <div class="flex items-center">
+            <div class="flex-shrink-0">
+              {% if scope == 'ai_factoids' %}
+                <svg class="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/>
+                </svg>
+              {% else %}
+                <svg class="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
+                </svg>
+              {% endif %}
+            </div>
+            <div class="ml-3">
+              <p class="text-sm font-medium text-gray-900">{{ scope|title }}</p>
+              <p class="text-xs text-gray-500">{{ rate }}</p>
+            </div>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+
+  <!-- Environment Variables -->
+  <div class="bg-white border border-gray-200 rounded-lg mb-6">
+    <div class="px-6 py-4 border-b border-gray-200">
+      <h3 class="text-lg font-medium text-gray-900">Environment Variables</h3>
+      <p class="text-sm text-gray-600 mt-1">Required environment variables for AI functionality</p>
+    </div>
+    <div class="p-6">
+      <div class="space-y-4">
+        <div class="bg-gray-50 rounded-lg p-4">
+          <div class="flex items-center justify-between">
+            <div>
+              <h4 class="text-sm font-medium text-gray-900">OPENAI_API_KEY</h4>
+              <p class="text-xs text-gray-500 mt-1">OpenAI API key for GPT-4 access</p>
+            </div>
+            <div class="flex items-center">
+              <div class="w-3 h-3 rounded-full bg-green-400 mr-2"></div>
+              <span class="text-sm text-green-800">Configured</span>
+            </div>
+          </div>
+        </div>
+        
+        <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
+          <div class="flex">
+            <div class="flex-shrink-0">
+              <svg class="h-5 w-5 text-blue-400" fill="currentColor" viewBox="0 0 20 20">
+                <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"/>
+              </svg>
+            </div>
+            <div class="ml-3">
+              <h3 class="text-sm font-medium text-blue-800">Configuration Note</h3>
+              <div class="mt-2 text-sm text-blue-700">
+                <p>These settings are configured via Django settings and environment variables. To modify:</p>
+                <ul class="mt-1 list-disc list-inside">
+                  <li>Update <code>council_finance/settings.py</code> for application settings</li>
+                  <li>Update <code>.env</code> file for environment variables</li>
+                  <li>Restart the Django server after changes</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Best Practices -->
+  <div class="bg-white border border-gray-200 rounded-lg">
+    <div class="px-6 py-4 border-b border-gray-200">
+      <h3 class="text-lg font-medium text-gray-900">Best Practices</h3>
+    </div>
+    <div class="p-6">
+      <div class="space-y-6">
+        <div>
+          <h4 class="text-sm font-medium text-gray-900 mb-2">Factoid Limits</h4>
+          <ul class="text-sm text-gray-600 space-y-1">
+            <li>• <strong>1-2 factoids:</strong> Good for mobile/compact displays</li>
+            <li>• <strong>3 factoids:</strong> Default, good balance of content and readability</li>
+            <li>• <strong>4-5 factoids:</strong> For detailed analysis, may be overwhelming</li>
+          </ul>
+        </div>
+        
+        <div>
+          <h4 class="text-sm font-medium text-gray-900 mb-2">Cache Management</h4>
+          <ul class="text-sm text-gray-600 space-y-1">
+            <li>• <strong>6 hours (21600s):</strong> Current setting, balances freshness and API costs</li>
+            <li>• <strong>1 hour (3600s):</strong> More responsive to data changes, higher API usage</li>
+            <li>• <strong>24 hours (86400s):</strong> Lower API costs, less responsive to changes</li>
+          </ul>
+        </div>
+        
+        <div>
+          <h4 class="text-sm font-medium text-gray-900 mb-2">Temperature Settings</h4>
+          <ul class="text-sm text-gray-600 space-y-1">
+            <li>• <strong>0.3-0.5:</strong> More deterministic, factual responses</li>
+            <li>• <strong>0.7:</strong> Current setting, good balance of creativity and accuracy</li>
+            <li>• <strong>0.8-1.0:</strong> More creative but potentially less accurate</li>
+          </ul>
+        </div>
+        
+        <div>
+          <h4 class="text-sm font-medium text-gray-900 mb-2">Rate Limiting</h4>
+          <ul class="text-sm text-gray-600 space-y-1">
+            <li>• <strong>10/hour:</strong> Current AI factoids limit, conservative for cost control</li>
+            <li>• <strong>Consider usage patterns:</strong> Peak times may require higher limits</li>
+            <li>• <strong>Monitor costs:</strong> Each GPT-4 call costs approximately $0.01-0.03</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

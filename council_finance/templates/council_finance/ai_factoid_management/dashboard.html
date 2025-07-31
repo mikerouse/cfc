@@ -1,0 +1,440 @@
+{% extends "base.html" %}
+{% load static %}
+{% load humanize %}
+
+{% block title %}{{ page_title }} - Council Finance Counters{% endblock %}
+
+{% block content %}
+<div class="mx-auto max-w-none xl:max-w-desktop">
+  <!-- Header -->
+  <div class="bg-white border border-gray-200 rounded-lg shadow-sm mb-6 -mx-3 sm:-mx-4 xl:-mx-6">
+    <div class="px-6 py-6 sm:px-8 xl:px-12 sm:py-8 xl:py-10">
+      <div class="flex items-center justify-between">
+        <div>
+          <h1 class="text-2xl sm:text-3xl font-bold text-gray-900 mb-2">{{ page_title }}</h1>
+          <p class="text-gray-600">Manage AI factoid generation, view data sent to OpenAI, and configure parameters</p>
+        </div>
+        <div class="flex items-center space-x-2">
+          <div class="px-3 py-1 rounded-full text-sm font-medium {% if openai_available %}bg-green-100 text-green-800{% else %}bg-red-100 text-red-800{% endif %}">
+            {% if openai_available %}OpenAI Connected{% else %}OpenAI Unavailable{% endif %}
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- System Status Cards -->
+  <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+    <div class="bg-white border border-gray-200 rounded-lg p-6">
+      <div class="flex items-center">
+        <div class="flex-shrink-0">
+          <svg class="w-8 h-8 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-4m-5 0H3m2 0h3M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/>
+          </svg>
+        </div>
+        <div class="ml-5 w-0 flex-1">
+          <dl>
+            <dt class="text-sm font-medium text-gray-500 truncate">Total Councils</dt>
+            <dd class="text-lg font-medium text-gray-900">{{ dashboard_stats.councils_total|intcomma }}</dd>
+          </dl>
+        </div>
+      </div>
+    </div>
+
+    <div class="bg-white border border-gray-200 rounded-lg p-6">
+      <div class="flex items-center">
+        <div class="flex-shrink-0">
+          <svg class="w-8 h-8 {% if dashboard_stats.openai_configured %}text-green-600{% else %}text-red-600{% endif %}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/>
+          </svg>
+        </div>
+        <div class="ml-5 w-0 flex-1">
+          <dl>
+            <dt class="text-sm font-medium text-gray-500 truncate">OpenAI Status</dt>
+            <dd class="text-lg font-medium {% if dashboard_stats.openai_configured %}text-green-900{% else %}text-red-900{% endif %}">
+              {% if dashboard_stats.openai_configured %}Connected{% else %}Not Configured{% endif %}
+            </dd>
+          </dl>
+        </div>
+      </div>
+    </div>
+
+    <div class="bg-white border border-gray-200 rounded-lg p-6">
+      <div class="flex items-center">
+        <div class="flex-shrink-0">
+          <svg class="w-8 h-8 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4"/>
+          </svg>
+        </div>
+        <div class="ml-5 w-0 flex-1">
+          <dl>
+            <dt class="text-sm font-medium text-gray-500 truncate">Cache Backend</dt>
+            <dd class="text-lg font-medium text-gray-900">{{ dashboard_stats.cache_backend }}</dd>
+          </dl>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Quick Actions -->
+  <div class="bg-white border border-gray-200 rounded-lg mb-8">
+    <div class="px-6 py-4 border-b border-gray-200">
+      <h3 class="text-lg font-medium text-gray-900">Quick Actions</h3>
+    </div>
+    <div class="p-6">
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <button id="clear-all-cache-btn" class="inline-flex items-center justify-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+          <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+          </svg>
+          Clear All Cache
+        </button>
+        
+        <a href="{% url 'ai_factoid_configuration' %}" class="inline-flex items-center justify-center px-4 py-2 border border-blue-300 rounded-md shadow-sm text-sm font-medium text-blue-700 bg-blue-50 hover:bg-blue-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+          <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/>
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+          </svg>
+          Configuration
+        </a>
+        
+        <button id="test-random-council-btn" class="inline-flex items-center justify-center px-4 py-2 border border-green-300 rounded-md shadow-sm text-sm font-medium text-green-700 bg-green-50 hover:bg-green-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500">
+          <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+          </svg>
+          Test Random Council
+        </button>
+        
+        <button id="refresh-dashboard-btn" class="inline-flex items-center justify-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+          <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+          </svg>
+          Refresh
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Council Selector -->
+  <div class="bg-white border border-gray-200 rounded-lg">
+    <div class="px-6 py-4 border-b border-gray-200">
+      <h3 class="text-lg font-medium text-gray-900">Council Inspector</h3>
+      <p class="text-sm text-gray-600 mt-1">Select a council to inspect its AI data and test factoid generation</p>
+    </div>
+    <div class="p-6">
+      <!-- Search/Filter -->
+      <div class="mb-4">
+        <input type="text" id="council-search" placeholder="Search councils..." 
+               class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500">
+      </div>
+      
+      <!-- Council Grid -->
+      <div id="councils-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        {% for council in councils %}
+        <div class="council-card border border-gray-200 rounded-lg p-4 hover:border-blue-300 hover:shadow-md transition-all cursor-pointer" 
+             data-council-slug="{{ council.slug }}" 
+             data-council-name="{{ council.name }}">
+          <div class="flex items-center justify-between">
+            <div class="flex-1 min-w-0">
+              <h4 class="text-sm font-medium text-gray-900 truncate">{{ council.name }}</h4>
+              <p class="text-xs text-gray-500">{{ council.slug }}</p>
+              {% if council.latest_population %}
+                <p class="text-xs text-gray-400 mt-1">{{ council.latest_population|intcomma }} residents</p>
+              {% endif %}
+            </div>
+            <div class="flex flex-col space-y-1">
+              <button class="inspect-data-btn text-xs px-2 py-1 bg-blue-100 text-blue-700 rounded hover:bg-blue-200" 
+                      data-council-slug="{{ council.slug }}">
+                Inspect Data
+              </button>
+              <button class="test-ai-btn text-xs px-2 py-1 bg-green-100 text-green-700 rounded hover:bg-green-200" 
+                      data-council-slug="{{ council.slug }}">
+                Test AI
+              </button>
+            </div>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- AI Test Modal -->
+<div id="ai-test-modal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden z-50">
+  <div class="relative top-20 mx-auto p-5 border w-11/12 max-w-4xl shadow-lg rounded-md bg-white">
+    <div class="mt-3">
+      <div class="flex items-center justify-between mb-4">
+        <h3 class="text-lg font-medium text-gray-900" id="ai-test-title">Test AI Generation</h3>
+        <button id="close-ai-modal" class="text-gray-400 hover:text-gray-600">
+          <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+          </svg>
+        </button>
+      </div>
+      
+      <!-- Test Parameters -->
+      <div class="mb-6 p-4 bg-gray-50 rounded-lg">
+        <h4 class="text-sm font-medium text-gray-900 mb-3">Test Parameters</h4>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div>
+            <label class="block text-xs font-medium text-gray-700 mb-1">Number of Factoids</label>
+            <select id="factoid-limit" class="block w-full text-sm border-gray-300 rounded-md">
+              <option value="1">1 Factoid</option>
+              <option value="2">2 Factoids</option>
+              <option value="3" selected>3 Factoids</option>
+              <option value="4">4 Factoids</option>
+              <option value="5">5 Factoids</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-gray-700 mb-1">Style</label>
+            <select id="factoid-style" class="block w-full text-sm border-gray-300 rounded-md">
+              <option value="news_ticker" selected>News Ticker</option>
+              <option value="analytical">Analytical</option>
+              <option value="comparison">Comparison</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-gray-700 mb-1">Options</label>
+            <label class="flex items-center text-sm">
+              <input type="checkbox" id="force-refresh" class="mr-2">
+              Force Cache Refresh
+            </label>
+          </div>
+        </div>
+        <div class="mt-4">
+          <button id="run-ai-test" class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+            Run AI Test
+          </button>
+        </div>
+      </div>
+      
+      <!-- Results Area -->
+      <div id="ai-test-results" class="hidden">
+        <!-- Results will be populated by JavaScript -->
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  const modal = document.getElementById('ai-test-modal');
+  const closeBtn = document.getElementById('close-ai-modal');
+  const runTestBtn = document.getElementById('run-ai-test');
+  const resultsArea = document.getElementById('ai-test-results');
+  
+  let currentCouncilSlug = null;
+  
+  // Council search
+  document.getElementById('council-search').addEventListener('input', function(e) {
+    const searchTerm = e.target.value.toLowerCase();
+    document.querySelectorAll('.council-card').forEach(card => {
+      const name = card.dataset.councilName.toLowerCase();
+      const slug = card.dataset.councilSlug.toLowerCase();
+      const visible = name.includes(searchTerm) || slug.includes(searchTerm);
+      card.style.display = visible ? 'block' : 'none';
+    });
+  });
+  
+  // Inspect data buttons
+  document.querySelectorAll('.inspect-data-btn').forEach(btn => {
+    btn.addEventListener('click', function(e) {
+      e.preventDefault();
+      e.stopPropagation();
+      const councilSlug = this.dataset.councilSlug;
+      window.open(`/ai-factoids/inspect/${councilSlug}/`, '_blank');
+    });
+  });
+  
+  // Test AI buttons
+  document.querySelectorAll('.test-ai-btn').forEach(btn => {
+    btn.addEventListener('click', function(e) {
+      e.preventDefault();
+      e.stopPropagation();
+      currentCouncilSlug = this.dataset.councilSlug;
+      const councilName = this.closest('.council-card').dataset.councilName;
+      document.getElementById('ai-test-title').textContent = `Test AI Generation - ${councilName}`;
+      modal.classList.remove('hidden');
+    });
+  });
+  
+  // Close modal
+  closeBtn.addEventListener('click', function() {
+    modal.classList.add('hidden');
+    resultsArea.classList.add('hidden');
+    resultsArea.innerHTML = '';
+  });
+  
+  // Run AI test
+  runTestBtn.addEventListener('click', async function() {
+    if (!currentCouncilSlug) return;
+    
+    const limit = document.getElementById('factoid-limit').value;
+    const style = document.getElementById('factoid-style').value;
+    const forceRefresh = document.getElementById('force-refresh').checked;
+    
+    // Show loading
+    resultsArea.innerHTML = `
+      <div class="flex items-center justify-center py-8">
+        <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+        <span class="ml-3 text-gray-600">Running AI test...</span>
+      </div>
+    `;
+    resultsArea.classList.remove('hidden');
+    
+    try {
+      const response = await fetch('/ai-factoids/test-generation/', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          council_slug: currentCouncilSlug,
+          limit: parseInt(limit),
+          style: style,
+          force_refresh: forceRefresh
+        })
+      });
+      
+      const data = await response.json();
+      
+      if (data.success) {
+        displayTestResults(data);
+      } else {
+        resultsArea.innerHTML = `
+          <div class="bg-red-50 border border-red-200 rounded-md p-4">
+            <div class="flex">
+              <div class="flex-shrink-0">
+                <svg class="h-5 w-5 text-red-400" fill="currentColor" viewBox="0 0 20 20">
+                  <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"/>
+                </svg>
+              </div>
+              <div class="ml-3">
+                <h3 class="text-sm font-medium text-red-800">Test Failed</h3>
+                <div class="mt-2 text-sm text-red-700">
+                  <p>${data.error}</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        `;
+      }
+    } catch (error) {
+      resultsArea.innerHTML = `
+        <div class="bg-red-50 border border-red-200 rounded-md p-4">
+          <p class="text-red-700">Network error: ${error.message}</p>
+        </div>
+      `;
+    }
+  });
+  
+  function displayTestResults(data) {
+    const sourceColor = data.factoid_source === 'openai_api' ? 'green' : 'yellow';
+    const sourceLabel = data.factoid_source === 'openai_api' ? 'OpenAI API' : 'Fallback';
+    
+    resultsArea.innerHTML = `
+      <div class="space-y-6">
+        <!-- Summary -->
+        <div class="bg-${sourceColor}-50 border border-${sourceColor}-200 rounded-md p-4">
+          <div class="flex">
+            <div class="flex-shrink-0">
+              <svg class="h-5 w-5 text-${sourceColor}-400" fill="currentColor" viewBox="0 0 20 20">
+                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+              </svg>
+            </div>
+            <div class="ml-3">
+              <h3 class="text-sm font-medium text-${sourceColor}-800">Test Complete - ${sourceLabel}</h3>
+              <div class="mt-2 text-sm text-${sourceColor}-700">
+                <p>Generated ${data.factoid_count} factoids in ${data.processing_time_seconds.toFixed(2)} seconds</p>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <!-- Factoids -->
+        <div>
+          <h4 class="text-sm font-medium text-gray-900 mb-3">Generated Factoids</h4>
+          <div class="space-y-2">
+            ${data.factoids.map((factoid, i) => `
+              <div class="bg-white border border-gray-200 rounded-md p-3">
+                <div class="flex items-start">
+                  <div class="flex-shrink-0 w-6 h-6 bg-blue-100 text-blue-800 rounded-full flex items-center justify-center text-xs font-medium">
+                    ${i + 1}
+                  </div>
+                  <div class="ml-3 flex-1">
+                    <p class="text-sm text-gray-900">${factoid.text}</p>
+                    <p class="text-xs text-gray-500 mt-1">Type: ${factoid.insight_type} | Confidence: ${factoid.confidence}</p>
+                  </div>
+                </div>
+              </div>
+            `).join('')}
+          </div>
+        </div>
+        
+        <!-- AI Prompt -->
+        <div>
+          <h4 class="text-sm font-medium text-gray-900 mb-3">AI Prompt Sent to OpenAI (${data.ai_prompt_length} characters)</h4>
+          <div class="bg-gray-50 rounded-md p-3">
+            <pre class="text-xs text-gray-700 whitespace-pre-wrap">${data.ai_prompt}</pre>
+          </div>
+        </div>
+        
+        <!-- Data Summary -->
+        <div>
+          <h4 class="text-sm font-medium text-gray-900 mb-3">Council Data Summary</h4>
+          <div class="bg-white border border-gray-200 rounded-md p-3">
+            <dl class="grid grid-cols-1 md:grid-cols-2 gap-x-4 gap-y-2 text-sm">
+              <div>
+                <dt class="font-medium text-gray-900">Data Keys:</dt>
+                <dd class="text-gray-700">${data.council_data_summary.keys.join(', ')}</dd>
+              </div>
+              <div>
+                <dt class="font-medium text-gray-900">Financial Metrics:</dt>
+                <dd class="text-gray-700">${data.council_data_summary.financial_metrics.join(', ')}</dd>
+              </div>
+              <div>
+                <dt class="font-medium text-gray-900">Has Population:</dt>
+                <dd class="text-gray-700">${data.council_data_summary.has_population ? 'Yes' : 'No'}</dd>
+              </div>
+              <div>
+                <dt class="font-medium text-gray-900">Data Quality:</dt>
+                <dd class="text-gray-700">${data.council_data_summary.data_quality}</dd>
+              </div>
+            </dl>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+  
+  // Clear all cache
+  document.getElementById('clear-all-cache-btn').addEventListener('click', async function() {
+    if (!confirm('Clear all factoid caches? This will force fresh generation for all councils.')) return;
+    
+    try {
+      const response = await fetch('/ai-factoids/clear-cache/', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          clear_all: true
+        })
+      });
+      
+      const data = await response.json();
+      
+      if (data.success) {
+        alert(`Cleared ${data.count} cache entries`);
+      } else {
+        alert(`Failed to clear cache: ${data.error}`);
+      }
+    } catch (error) {
+      alert(`Network error: ${error.message}`);
+    }
+  });
+});
+</script>
+{% endblock %}

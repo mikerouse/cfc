@@ -60,6 +60,16 @@ from .api.ai_factoid_api import (
     ai_factoid_status
 )
 
+# Import AI factoid management views
+from .views.ai_factoid_management import (
+    ai_factoid_management_dashboard,
+    council_ai_data_inspector,
+    test_ai_generation,
+    clear_factoid_cache,
+    council_financial_data_viewer,
+    ai_configuration
+)
+
 urlpatterns = [
     # Favicon redirect to avoid 404 errors
     path('favicon.ico', RedirectView.as_view(url=settings.STATIC_URL + 'favicon.ico', permanent=True)),
@@ -243,8 +253,18 @@ urlpatterns = [
          factoid_instance_api, 
          name="factoid_instance_api"),
     
-    # React Factoid Builder Interface
-    path("factoid-builder/", general_views.factoid_builder_react, name="factoid_builder_react"),
+    # ============================================================================
+    # AI FACTOID MANAGEMENT INTERFACE (REPLACES OLD FACTOID BUILDER)
+    # ============================================================================
+    
+    # AI Factoid Management Dashboard (replaces /factoid-builder/)
+    path("factoid-builder/", ai_factoid_management_dashboard, name="ai_factoid_management_dashboard"),
+    path("ai-factoids/", ai_factoid_management_dashboard, name="ai_factoid_management_dashboard"),
+    path("ai-factoids/inspect/<slug:council_slug>/", council_ai_data_inspector, name="council_ai_data_inspector"),
+    path("ai-factoids/test-generation/", test_ai_generation, name="test_ai_generation"),
+    path("ai-factoids/clear-cache/", clear_factoid_cache, name="clear_factoid_cache"),
+    path("ai-factoids/financial-data/<slug:council_slug>/", council_financial_data_viewer, name="council_financial_data_viewer"),
+    path("ai-factoids/configuration/", ai_configuration, name="ai_factoid_configuration"),
     
     # AI Analysis API endpoints
     path("api/ai-analysis/<slug:council_slug>/<str:year_label>/", api_views.council_ai_analysis_api, name="council_ai_analysis_api"),

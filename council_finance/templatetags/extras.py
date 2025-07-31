@@ -9,3 +9,11 @@ def get_item(obj, key):
     if isinstance(obj, dict):
         return obj.get(key)
     return None
+
+@register.filter
+def lookup(list_obj, index):
+    """Look up an item in a list by index."""
+    try:
+        return list_obj[int(index)]
+    except (ValueError, TypeError, IndexError):
+        return None
