@@ -494,6 +494,12 @@ def council_detail(request, slug):
     council = get_object_or_404(Council, slug=slug)
     tab = request.GET.get("tab") or "view"
     focus = request.GET.get("focus", "")
+    
+    # Redirect old edit tab to new React interface
+    if tab == "edit":
+        from django.shortcuts import redirect
+        from django.urls import reverse
+        return redirect(reverse('council_edit_react', args=[slug]))
 
     share_token = request.GET.get("share")
     share_data = None

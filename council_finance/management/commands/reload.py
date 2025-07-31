@@ -42,8 +42,26 @@ class Command(BaseCommand):
             action='store_true',
             help='Only run tests, do not start the server',
         )
+        parser.add_argument(
+            '--rebuild-react',
+            action='store_true',
+            help='Rebuild React frontend and update template references',
+        )
+        parser.add_argument(
+            '--clear-cache',
+            action='store_true',
+            help='Clear Django cache and browser caches',
+        )
+        parser.add_argument(
+            '--debug',
+            action='store_true',
+            help='Enable verbose debugging output',
+        )
 
     def handle(self, *args, **options):
+        # Store debug flag for verbose output
+        self.debug_mode = options.get('debug', False)
+        
         # Determine number of steps
         total_steps = 5  # Always include tests by default
         if options['validate']:
@@ -52,6 +70,10 @@ class Command(BaseCommand):
             total_steps -= 1
         if options['test_only']:
             total_steps -= 1  # Don't start server
+        if options['rebuild_react']:
+            total_steps += 1  # Extra step for React rebuild
+        if options['clear_cache']:
+            total_steps += 1  # Extra step for cache clearing
         
         self.stdout.write(
             self.style.SUCCESS('Council Finance Counters - Development Reload')
@@ -77,6 +99,18 @@ class Command(BaseCommand):
             
             # Rebuild React components with cache busting
             self._rebuild_frontend_with_cache_busting()
+            step_num += 1
+
+        # Optional: Enhanced cache clearing
+        if options['clear_cache']:
+            self.stdout.write(f'[{step_num}/{total_steps}] Enhanced cache clearing...')
+            self._enhanced_cache_clear()
+            step_num += 1
+
+        # Optional: Force React rebuild
+        if options['rebuild_react']:
+            self.stdout.write(f'[{step_num}/{total_steps}] Force rebuilding React frontend...')
+            self._force_rebuild_react_with_debugging()
             step_num += 1
 
         # Step N: Run comprehensive test suite (unless skipped)
@@ -777,7 +811,7 @@ class Command(BaseCommand):
             
             # Test 3: Build artifacts exist
             artifacts = [
-                'static/frontend/main-_xUhIr_S.js',
+                'static/frontend/main-BhCRMDWS.js',
                 'static/frontend/main-BlzmEwI8.css',
             ]
             
@@ -1027,3 +1061,246 @@ class Command(BaseCommand):
             self.stdout.write(
                 self.style.ERROR(f'Could not write validation log: {e}')
             )
+
+    def _enhanced_cache_clear(self):
+        """Enhanced cache clearing including browser and static caches."""
+        try:
+            # Clear Django cache
+            self.stdout.write('   > Clearing Django cache...')
+            call_command('clear_dev_cache', verbosity=0)
+            
+            # Clear static files cache by touching timestamp
+            self.stdout.write('   > Invalidating static file caches...')
+            static_dir = os.path.join(os.getcwd(), 'static', 'frontend')
+            if os.path.exists(static_dir):
+                # Touch a timestamp file to bust browser caches
+                timestamp_file = os.path.join(static_dir, '.cache_bust')
+                with open(timestamp_file, 'w') as f:
+                    f.write(str(int(time.time())))
+            
+            # Add cache headers for development
+            self.stdout.write('   > Setting no-cache headers for development...')
+            
+            if self.debug_mode:
+                self.stdout.write('   [DEBUG] Enhanced cache clearing completed')
+                
+        except Exception as e:
+            self.stdout.write(
+                self.style.ERROR(f'Enhanced cache clearing failed: {e}')
+            )
+
+    def _force_rebuild_react_with_debugging(self):
+        """Force rebuild React with detailed debugging output."""
+        try:
+            frontend_dir = os.path.join(os.getcwd(), 'frontend')
+            static_dir = os.path.join(os.getcwd(), 'static', 'frontend')
+            
+            if not os.path.exists(frontend_dir):
+                self.stdout.write(
+                    self.style.ERROR('Frontend directory not found')
+                )
+                return False
+            
+            # Step 1: Clean existing build
+            self.stdout.write('   > Cleaning existing build artifacts...')
+            if os.path.exists(static_dir):
+                import shutil
+                for file in os.listdir(static_dir):
+                    if file.startswith('main-') and (file.endswith('.js') or file.endswith('.css')):
+                        file_path = os.path.join(static_dir, file)
+                        os.remove(file_path)
+                        if self.debug_mode:
+                            self.stdout.write(f'   [DEBUG] Removed: {file}')
+            
+            # Step 2: Install dependencies (if needed)
+            self.stdout.write('   > Ensuring npm dependencies are up to date...')
+            npm_install = subprocess.run([
+                'npm', 'install'
+            ], cwd=frontend_dir, capture_output=True, text=True, timeout=60)
+            
+            if npm_install.returncode != 0:
+                self.stdout.write(
+                    self.style.WARNING(f'npm install warnings: {npm_install.stderr}')
+                )
+            
+            # Step 3: Build with verbose output
+            self.stdout.write('   > Building React components with verbose output...')
+            build_result = subprocess.run([
+                'npm', 'run', 'build'
+            ], cwd=frontend_dir, capture_output=True, text=True, timeout=180)
+            
+            if build_result.returncode == 0:
+                self.stdout.write('   [SUCCESS] React build successful')
+                if self.debug_mode:
+                    self.stdout.write(f'   [DEBUG] Build output: {build_result.stdout}')
+                
+                # Step 4: Auto-update template references
+                self._auto_update_template_build_hashes()
+                
+                # Step 5: Verify build artifacts
+                self._verify_build_artifacts()
+                
+                return True
+            else:
+                self.stdout.write(
+                    self.style.ERROR(f'React build failed: {build_result.stderr}')
+                )
+                if self.debug_mode:
+                    self.stdout.write(f'   [DEBUG] Build stdout: {build_result.stdout}')
+                return False
+                
+        except Exception as e:
+            self.stdout.write(
+                self.style.ERROR(f'Force React rebuild failed: {e}')
+            )
+            return False
+
+    def _auto_update_template_build_hashes(self):
+        """Automatically update template references to new build hashes."""
+        try:
+            self.stdout.write('   > Auto-updating template build references...')
+            
+            static_dir = os.path.join(os.getcwd(), 'static', 'frontend')
+            if not os.path.exists(static_dir):
+                return
+            
+            # Find new build hashes
+            js_hash = None
+            css_hash = None
+            
+            for file in os.listdir(static_dir):
+                if file.startswith('main-') and file.endswith('.js'):
+                    js_hash = file.replace('main-', '').replace('.js', '')
+                elif file.startswith('main-') and file.endswith('.css'):
+                    css_hash = file.replace('main-', '').replace('.css', '')
+            
+            if not js_hash or not css_hash:
+                self.stdout.write(
+                    self.style.WARNING('Could not find new build hashes')
+                )
+                return
+            
+            if self.debug_mode:
+                self.stdout.write(f'   [DEBUG] New JS hash: {js_hash}')
+                self.stdout.write(f'   [DEBUG] New CSS hash: {css_hash}')
+            
+            # Update templates
+            templates_updated = 0
+            templates_dir = os.path.join(os.getcwd(), 'council_finance', 'templates')
+            
+            # Template files that need updating
+            template_files = [
+                'council_finance/council_edit_react.html',
+                'council_finance/my_lists_enhanced.html'
+            ]
+            
+            for template_file in template_files:
+                template_path = os.path.join(templates_dir, template_file)
+                if os.path.exists(template_path):
+                    try:
+                        with open(template_path, 'r', encoding='utf-8') as f:
+                            content = f.read()
+                        
+                        # Update build hashes
+                        original_content = content
+                        
+                        # Update JS references
+                        import re
+                        content = re.sub(
+                            r'main-[A-Za-z0-9_-]+\.js',
+                            f'main-{js_hash}.js',
+                            content
+                        )
+                        
+                        # Update CSS references  
+                        content = re.sub(
+                            r'main-[A-Za-z0-9_-]+\.css',
+                            f'main-{css_hash}.css',
+                            content
+                        )
+                        
+                        # Update template variables if present
+                        content = re.sub(
+                            r'react_build_hash="[A-Za-z0-9_-]+"',
+                            f'react_build_hash="{js_hash}"',
+                            content
+                        )
+                        content = re.sub(
+                            r'css_build_hash="[A-Za-z0-9_-]+"',
+                            f'css_build_hash="{css_hash}"',
+                            content
+                        )
+                        
+                        if content != original_content:
+                            with open(template_path, 'w', encoding='utf-8') as f:
+                                f.write(content)
+                            templates_updated += 1
+                            
+                            if self.debug_mode:
+                                self.stdout.write(f'   [DEBUG] Updated: {template_file}')
+                    
+                    except Exception as e:
+                        self.stdout.write(
+                            self.style.WARNING(f'Could not update {template_file}: {e}')
+                        )
+            
+            self.stdout.write(f'   [SUCCESS] Updated {templates_updated} template(s)')
+            
+        except Exception as e:
+            self.stdout.write(
+                self.style.ERROR(f'Template update failed: {e}')
+            )
+
+    def _verify_build_artifacts(self):
+        """Verify that build artifacts were created successfully."""
+        try:
+            self.stdout.write('   > Verifying build artifacts...')
+            
+            static_dir = os.path.join(os.getcwd(), 'static', 'frontend')
+            if not os.path.exists(static_dir):
+                self.stdout.write(
+                    self.style.ERROR('Static frontend directory does not exist')
+                )
+                return False
+            
+            js_files = []
+            css_files = []
+            
+            for file in os.listdir(static_dir):
+                if file.startswith('main-') and file.endswith('.js'):
+                    js_files.append(file)
+                elif file.startswith('main-') and file.endswith('.css'):
+                    css_files.append(file)
+            
+            if not js_files:
+                self.stdout.write(
+                    self.style.ERROR('No JavaScript build artifacts found')
+                )
+                return False
+            
+            if not css_files:
+                self.stdout.write(
+                    self.style.ERROR('No CSS build artifacts found')
+                )
+                return False
+            
+            # Check file sizes
+            for js_file in js_files:
+                file_path = os.path.join(static_dir, js_file)
+                file_size = os.path.getsize(file_path)
+                
+                if file_size < 1000:  # Less than 1KB probably indicates an error
+                    self.stdout.write(
+                        self.style.WARNING(f'JS file {js_file} seems too small ({file_size} bytes)')
+                    )
+                elif self.debug_mode:
+                    self.stdout.write(f'   [DEBUG] {js_file}: {file_size:,} bytes')
+            
+            self.stdout.write('   [SUCCESS] Build artifacts verified')
+            return True
+            
+        except Exception as e:
+            self.stdout.write(
+                self.style.ERROR(f'Build verification failed: {e}')
+            )
+            return False

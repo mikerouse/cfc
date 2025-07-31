@@ -67,7 +67,7 @@
         </svg>
       </div>
       <h3 class="text-lg font-semibold text-gray-900 mb-2">Loading Council Editor</h3>
-      <p class="text-sm text-gray-600">Preparing the mobile-first editing interface...</p>
+      <p class="text-sm text-gray-600">Preparing the editing interface...</p>
     </div>
   </div>
   
@@ -188,96 +188,24 @@
 </div>
 
 <!-- Include React components -->
-{% with react_build_hash="_xUhIr_S" css_build_hash="BlzmEwI8" %}
-<script type="module" src="{% static 'frontend/main-'|add:react_build_hash|add:'.js' %}"></script>
-<link rel="stylesheet" href="{% static 'frontend/main-'|add:css_build_hash|add:'.css' %}">
+{% with react_build_hash="CIQTZiVE" css_build_hash="BlzmEwI8" %}
+{% now "U" as cache_bust %}
+<script type="module" src="{% static 'frontend/main-'|add:react_build_hash|add:'.js' %}?v={{ cache_bust }}&cb=20250731"></script>
+<link rel="stylesheet" href="{% static 'frontend/main-'|add:css_build_hash|add:'.css' %}?v={{ cache_bust }}&cb=20250731">
 {% endwith %}
 {% endblock %}
 
 {% block extra_js %}
 <script>
-document.addEventListener('DOMContentLoaded', function() {
-  console.log('Council Edit: DOM loaded, checking for React...');
-  
-  // Get data from template
+// Fallback timeout - show fallback interface if React doesn't mount within 10 seconds
+setTimeout(function() {
   const councilEditRoot = document.getElementById('council-edit-react-root');
-  if (!councilEditRoot) {
-    console.error('Council Edit: Root element not found');
-    return;
-  }
   
-  // Parse data
-  let councilData, yearsData, csrfToken;
-  try {
-    councilData = JSON.parse(councilEditRoot.dataset.council || '{}');
-    yearsData = JSON.parse(councilEditRoot.dataset.years || '[]');
-    csrfToken = councilEditRoot.dataset.csrfToken || '';
+  // Check if React app mounted successfully by looking for the data-react-mounted attribute
+  if (councilEditRoot && !councilEditRoot.hasAttribute('data-react-mounted')) {
+    console.warn('⏰ Council Edit: React app timeout - showing fallback interface');
     
-    console.log('Council Edit: Data parsed successfully', {
-      council: councilData.name,
-      years: yearsData.length,
-      hasCSRF: !!csrfToken
-    });
-  } catch (error) {
-    console.error('Council Edit: Failed to parse data', error);
-    showFallback();
-    return;
-  }
-  
-  // Set up React timeout
-  const timeout = parseInt(councilEditRoot.dataset.reactTimeout) || 5000;
-  const fallbackTimer = setTimeout(() => {
-    if (!councilEditRoot.dataset.reactMounted) {
-      console.warn('Council Edit: React timeout, showing fallback');
-      showFallback();
-    }
-  }, timeout);
-  
-  // Initialize React app
-  if (typeof window.CouncilEditApp !== 'undefined') {
-    console.log('Council Edit: Initializing React app...');
-    
-    try {
-      window.CouncilEditApp.mount(councilEditRoot, {
-        councilData: councilData,
-        initialYears: yearsData,
-        csrfToken: csrfToken
-      });
-      
-      // Mark as mounted
-      councilEditRoot.dataset.reactMounted = 'true';
-      clearTimeout(fallbackTimer);
-      
-      // Hide loading fallback
-      const loadingFallback = document.getElementById('council-edit-loading-fallback');
-      if (loadingFallback) {
-        loadingFallback.style.display = 'none';
-      }
-      
-      console.log('Council Edit: React app mounted successfully');
-      
-    } catch (error) {
-      console.error('Council Edit: React mount failed', error);
-      showFallback();
-    }
-  } else {
-    console.warn('Council Edit: React app not available, waiting...');
-    
-    // Try again in a moment
-    setTimeout(() => {
-      if (typeof window.CouncilEditApp !== 'undefined') {
-        console.log('Council Edit: React app found on retry');
-        clearTimeout(fallbackTimer);
-        // Recursive call to try mounting again
-        document.dispatchEvent(new Event('DOMContentLoaded'));
-      }
-    }, 1000);
-  }
-  
-  function showFallback() {
-    console.log('Council Edit: Showing fallback interface');
-    
-    // Hide loading and React root
+    // Hide loading and show fallback
     const loadingFallback = document.getElementById('council-edit-loading-fallback');
     const fallbackInterface = document.getElementById('council-edit-fallback-interface');
     
@@ -286,11 +214,8 @@ document.addEventListener('DOMContentLoaded', function() {
       fallbackInterface.classList.remove('hidden');
       fallbackInterface.classList.add('block');
     }
-    
-    // Clear the React root
-    councilEditRoot.innerHTML = '';
   }
-});
+}, 10000);
 
 // Handle browser back/forward navigation
 window.addEventListener('popstate', function(event) {

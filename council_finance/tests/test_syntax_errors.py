@@ -244,7 +244,7 @@ class ReactComponentTests(TestCase):
         
         # Check for build artifacts
         expected_files = [
-            'main-_xUhIr_S.js',  # Current build hash
+            'main-BhCRMDWS.js',  # Current build hash
             'main-BlzmEwI8.css',
         ]
         

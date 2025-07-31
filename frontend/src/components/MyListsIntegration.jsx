@@ -8,14 +8,12 @@ import ErrorBoundary from './ErrorBoundary';
  * This bridges the Django template with React components
  */
 const MyListsIntegration = () => {
-  console.log('🎯 MyListsIntegration: Starting React integration for My Lists');
-
   // Wait for DOM to be ready and look for React container
   const initializeReactApp = () => {
     const container = document.getElementById('my-lists-react-root');
     
     if (!container) {
-      console.warn('⚠️ MyListsIntegration: React container #my-lists-react-root not found');
+      // Container not found - this is expected on other pages, so no warning needed
       return;
     }
 
@@ -85,8 +83,5 @@ const MyListsIntegration = () => {
     initializeReactApp();
   }
 };
-
-// Auto-initialize when this module loads
-MyListsIntegration();
 
 export default MyListsIntegration;

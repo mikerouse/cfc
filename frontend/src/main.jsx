@@ -12,17 +12,13 @@ console.log('🚀 Main.jsx loading - React apps initialization');
 function initializeMainApp() {
   const container = document.getElementById('root');
   if (container) {
-    console.log('✅ Main app container found, mounting React app...');
-    
     try {
       const root = createRoot(container);
       root.render(<App />);
-      console.log('🎉 Main React app mounted successfully!');
+      console.log('🎉 Factoid Builder app mounted successfully!');
     } catch (error) {
-      console.error('💥 Main React app mount failed:', error);
+      console.error('💥 Factoid Builder app mount failed:', error);
     }
-  } else {
-    console.log('⏳ Main app container not found - likely not on factoid builder page');
   }
 }
 
@@ -30,16 +26,24 @@ function initializeMainApp() {
  * Initialize all React apps based on available containers
  */
 function initializeReactApps() {
-  console.log('📍 Searching for React app containers...');
+  console.log('🔍 Checking for React app containers...');
+  
+  let initializedApps = [];
   
   // Initialize main app (Factoid Builder)
-  initializeMainApp();
+  const mainContainer = document.getElementById('root');
+  if (mainContainer) {
+    console.log('📊 Factoid Builder container found, initializing...');
+    initializeMainApp();
+    initializedApps.push('Factoid Builder');
+  }
   
   // Initialize My Lists app if container exists
   const myListsContainer = document.getElementById('my-lists-react-root');
   if (myListsContainer) {
-    console.log('🎯 My Lists container found, initializing...');
+    console.log('📋 My Lists container found, initializing...');
     MyListsIntegration();
+    initializedApps.push('My Lists');
   }
   
   // Initialize Council Edit app if container exists
@@ -47,22 +51,64 @@ function initializeReactApps() {
   if (councilEditContainer) {
     console.log('🏛️ Council Edit container found, initializing...');
     try {
-      // Make CouncilEditApp globally available for template integration
-      window.CouncilEditApp = {
-        mount: (container, props) => {
-          console.log('🚀 Mounting Council Edit React app with props:', props);
-          const root = createRoot(container);
-          root.render(<CouncilEditApp {...props} />);
-          return root;
-        }
-      };
-      console.log('✅ Council Edit app registered successfully');
+      // Parse data from template
+      let councilData, yearsData, csrfToken;
+      try {
+        councilData = JSON.parse(councilEditContainer.dataset.council || '{}');
+        yearsData = JSON.parse(councilEditContainer.dataset.years || '[]');
+        csrfToken = councilEditContainer.dataset.csrfToken || '';
+        
+        console.log('📊 Council Edit: Data parsed successfully', {
+          council: councilData.name,
+          years: yearsData.length,
+          hasCSRF: !!csrfToken
+        });
+      } catch (error) {
+        console.error('❌ Council Edit: Failed to parse data', error);
+        throw error;
+      }
+
+      // Mount React app directly
+      console.log('🚀 Council Edit: Mounting React app directly...');
+      const root = createRoot(councilEditContainer);
+      root.render(<CouncilEditApp 
+        councilData={councilData}
+        initialYears={yearsData} 
+        csrfToken={csrfToken}
+      />);
+      
+      // Mark as mounted
+      councilEditContainer.dataset.reactMounted = 'true';
+      
+      // Hide loading fallback
+      const loadingFallback = document.getElementById('council-edit-loading-fallback');
+      if (loadingFallback) {
+        loadingFallback.style.display = 'none';
+        console.log('🔍 Council Edit: Loading fallback hidden');
+      }
+      
+      initializedApps.push('Council Edit');
+      console.log('🎉 Council Edit: React app mounted successfully');
+      
     } catch (error) {
-      console.error('💥 Council Edit app registration failed:', error);
+      console.error('💥 Council Edit app initialization failed:', error);
+      
+      // Show fallback interface
+      const fallbackInterface = document.getElementById('council-edit-fallback-interface');
+      if (fallbackInterface) {
+        const loadingFallback = document.getElementById('council-edit-loading-fallback');
+        if (loadingFallback) loadingFallback.style.display = 'none';
+        fallbackInterface.classList.remove('hidden');
+        fallbackInterface.classList.add('block');
+      }
     }
   }
   
-  console.log('✅ React apps initialization completed');
+  if (initializedApps.length > 0) {
+    console.log(`✅ Initialized ${initializedApps.length} React app(s): ${initializedApps.join(', ')}`);
+  } else {
+    console.log('ℹ️ No React app containers found on this page');
+  }
 }
 
 /**
