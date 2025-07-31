@@ -5,7 +5,8 @@
   "main": "index.js",
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
+    "build": "NODE_ENV=development vite build",
+    "build:prod": "NODE_ENV=production vite build",
     "serve": "vite preview",
     "build-css": "tailwindcss -i ./static/css/input.css -o ./static/css/output.css --watch",
     "build-css-prod": "tailwindcss -i ./static/css/input.css -o ./static/css/output.css --minify",

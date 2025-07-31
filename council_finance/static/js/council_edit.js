@@ -222,7 +222,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 inputHTML = `<div class="relative"><input type="number" id="contribution-value" name="value" class="block w-full pr-8 pl-3 py-2 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="0.0" step="0.1" min="0" max="100" value="${currentVal || ''}" required><div class="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none"><span class="text-gray-500 text-sm">%</span></div></div>`;
                 break;
             case 'list':
-                inputHTML = `<div class="text-center py-4"><svg class="animate-spin -ml-1 mr-3 h-5 w-5 text-blue-600 inline" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 714 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg><span class="text-sm text-gray-600">Loading options...</span></div>`;
+                inputHTML = `<div class="text-center py-4"><svg class="animate-spin -ml-1 mr-3 h-5 w-5 text-blue-600 inline" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 04 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg><span class="text-sm text-gray-600">Loading options...</span></div>`;
                 break;
             default:
                 inputHTML = `<input type="text" id="contribution-value" name="value" class="block w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="Enter value..." value="${currentVal || ''}" required>`;
@@ -425,7 +425,7 @@ document.addEventListener('DOMContentLoaded', function() {
             
             if (!tableContainer) return;
             
-            tableContainer.innerHTML = '<div class="flex items-center justify-center py-8"><svg class="animate-spin -ml-1 mr-3 h-5 w-5 text-blue-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 818-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 714 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>Loading financial data...</div>';
+            tableContainer.innerHTML = '<div class="flex items-center justify-center py-8"><svg class="animate-spin -ml-1 mr-3 h-5 w-5 text-blue-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 04 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>Loading financial data...</div>';
               fetch(`${window.location.pathname}edit-table/?year=${encodeURIComponent(selectedYear)}`, {
                 method: 'GET',
                 headers: {
