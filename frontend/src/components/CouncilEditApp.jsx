@@ -157,8 +157,8 @@ const CouncilEditApp = ({ councilData, initialYears, csrfToken }) => {
 
     try {
       const endpoint = category === 'characteristics' 
-        ? `/api/council/${councilData.slug}/characteristics/`
-        : `/api/council/${councilData.slug}/temporal/${yearId}/`;
+        ? `/api/council/${councilData.slug}/characteristics/save/`
+        : `/api/council/${councilData.slug}/temporal/${yearId}/save/`;
 
       const response = await fetch(endpoint, {
         method: 'POST',

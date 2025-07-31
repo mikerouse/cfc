@@ -79,8 +79,10 @@ class FinancialFigure(models.Model):
     field = models.ForeignKey('DataField', on_delete=models.CASCADE)
     year = models.ForeignKey('FinancialYear', on_delete=models.CASCADE)
     
-    # The actual figure
+    # The actual figure (for numeric data)
     value = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True)
+    # Text value (for URLs, text fields, and other non-numeric data)
+    text_value = models.TextField(blank=True, null=True)
     
     # Data quality flags
     is_estimated = models.BooleanField(default=False)

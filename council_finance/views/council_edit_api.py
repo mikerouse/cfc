@@ -215,10 +215,16 @@ def council_temporal_data_api(request, council_slug, year_id):
         financial_data = {}
         
         for figure in temporal_data_qs:
+            # Get the appropriate value based on field content type
+            if figure.field.content_type in ['monetary', 'integer', 'percentage']:
+                figure_value = figure.value
+            else:
+                figure_value = figure.text_value
+            
             if figure.field.category == 'general':
-                general_data[figure.field.slug] = figure.value
+                general_data[figure.field.slug] = figure_value
             elif figure.field.category in ['balance_sheet', 'income', 'spending', 'calculated']:
-                financial_data[figure.field.slug] = figure.value
+                financial_data[figure.field.slug] = figure_value
         
         # Get available fields for this temporal data
         general_fields = DataField.objects.filter(category='general')
@@ -303,8 +309,17 @@ def save_temporal_data_api(request, council_slug, year_id):
                 'error': 'Category must be general or financial'
             }, status=400)
         
-        # Get the field
-        field = get_object_or_404(DataField, slug=field_slug, category=category)
+        # Get the field - map frontend categories to database categories
+        if category == 'financial':
+            # Frontend sends 'financial' for all balance_sheet, income, spending, calculated fields
+            field = get_object_or_404(
+                DataField, 
+                slug=field_slug, 
+                category__in=['balance_sheet', 'income', 'spending', 'calculated']
+            )
+        else:
+            # For general category, use as-is
+            field = get_object_or_404(DataField, slug=field_slug, category=category)
         
         # Validate URL fields for general category
         if category == 'general' and field.content_type == 'url' and value:
@@ -326,20 +341,58 @@ def save_temporal_data_api(request, council_slug, year_id):
                 }, status=400)
         
         with transaction.atomic():
-            # Create or update financial figure
-            figure, created = FinancialFigure.objects.get_or_create(
-                council=council,
-                year=year,
-                field=field,
-                defaults={'value': value}
-            )
+            # Determine which field to use based on content type
+            # Numeric types: monetary, integer, percentage (regardless of category)
+            # Text types: url, text, list, date, and any other non-numeric types
+            is_numeric = field.content_type in ['monetary', 'integer', 'percentage']
             
-            if not created:
-                old_value = figure.value
-                figure.value = value
-                figure.save()
+            # For numeric fields, convert value to decimal if needed
+            if is_numeric and value:
+                try:
+                    # Convert to Decimal for proper storage
+                    from decimal import Decimal
+                    numeric_value = Decimal(str(value).replace(',', ''))
+                except (ValueError, TypeError):
+                    return JsonResponse({
+                        'success': False,
+                        'error': f'Invalid numeric value: {value}'
+                    }, status=400)
             else:
-                old_value = None
+                numeric_value = None
+            
+            # Create or update financial figure
+            if is_numeric:
+                # Use decimal value field for numeric data
+                figure, created = FinancialFigure.objects.get_or_create(
+                    council=council,
+                    year=year,
+                    field=field,
+                    defaults={'value': numeric_value, 'text_value': None}
+                )
+                
+                if not created:
+                    old_value = figure.value
+                    figure.value = numeric_value
+                    figure.text_value = None  # Clear text value when saving numeric
+                    figure.save()
+                else:
+                    old_value = None
+            else:
+                # Use text value field for URLs, text, etc.
+                figure, created = FinancialFigure.objects.get_or_create(
+                    council=council,
+                    year=year,
+                    field=field,
+                    defaults={'text_value': value, 'value': None}
+                )
+                
+                if not created:
+                    old_value = figure.text_value
+                    figure.text_value = value
+                    figure.value = None  # Clear numeric value when saving text
+                    figure.save()
+                else:
+                    old_value = None
             
             # Log the activity
             ActivityLog.objects.create(
@@ -347,9 +400,14 @@ def save_temporal_data_api(request, council_slug, year_id):
                 activity_type='data_edit',
                 description=f"Updated {field.name} for {council.name} ({year.label})",
                 related_council=council,
-                field=field,
-                old_value=old_value,
-                new_value=value
+                details={
+                    'field_slug': field.slug,
+                    'field_name': field.name,
+                    'old_value': str(old_value) if old_value is not None else None,
+                    'new_value': str(value),
+                    'content_type': field.content_type,
+                    'category': field.category
+                }
             )
         
         # Calculate points based on category
