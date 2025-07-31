@@ -15,6 +15,7 @@ import FieldEditor from './FieldEditor';
  */
 const CharacteristicsTab = ({ 
   characteristics, 
+  availableFields,
   onSave, 
   onValidate, 
   errors, 
@@ -24,8 +25,58 @@ const CharacteristicsTab = ({
   const [editingField, setEditingField] = useState(null);
   const [saving, setSaving] = useState({});
 
-  // Define characteristic fields that don't change year-to-year
-  const characteristicFields = [
+  // Icon mapping for field types
+  const getFieldIcon = (slug, contentType) => {
+    const iconMap = {
+      'population': (
+        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20h10M7 20v-2c0-.656.126-1.283.356-1.857M2 16.143A3.001 3.001 0 015 14c.842 0 1.592.348 2.144.857M2 16.143A3.001 3.001 0 013 14.015c0-.315.047-.623.127-.913M2 16.143v1.714A2.143 2.143 0 004.143 20M5 14c.842 0 1.592.348 2.144.857M5 14c0-.843-.263-1.623-.711-2.267M5 14s.77-.77 1.711-.77M17.711 11.733c.955.274 1.711.77 1.711 1.267"/>
+        </svg>
+      ),
+      'households': (
+        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2H5a2 2 0 00-2 2z"/>
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 21v-4a2 2 0 012-2h4a2 2 0 012 2v4"/>
+        </svg>
+      ),
+      'postcode': (
+        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/>
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/>
+        </svg>
+      ),
+      'image': (
+        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+        </svg>
+      )
+    };
+    
+    if (iconMap[slug]) return iconMap[slug];
+    if (slug.includes('postcode') || slug.includes('post_code')) return iconMap['postcode'];
+    if (contentType === 'image') return iconMap['image'];
+    
+    // Default icon
+    return (
+      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+      </svg>
+    );
+  };
+
+  // Transform API fields into component format or use fallback
+  const characteristicFields = (availableFields && availableFields.length > 0) 
+    ? availableFields.map(field => ({
+        slug: field.slug,
+        name: field.name,
+        description: field.description || `${field.name} for this council`,
+        contentType: field.content_type,
+        required: field.required,
+        icon: getFieldIcon(field.slug, field.content_type),
+        points: field.required ? 5 : 3  // More points for required fields
+      }))
+    : [
+        // Fallback fields if no API data available
     {
       slug: 'council-type',
       name: 'Council Type',

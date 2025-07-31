@@ -15,6 +15,7 @@ import FieldEditor from './FieldEditor';
  */
 const GeneralDataTab = ({ 
   generalData, 
+  availableFields,
   selectedYear,
   onSave, 
   onValidate, 
@@ -25,8 +26,38 @@ const GeneralDataTab = ({
   const [editingField, setEditingField] = useState(null);
   const [saving, setSaving] = useState({});
 
-  // Define general data fields that change year-to-year but aren't financial
-  const generalFields = [
+  // Icon mapping for general field types
+  const getFieldIcon = (slug, contentType) => {
+    if (slug.includes('financial-statement') || slug.includes('statement')) {
+      return (
+        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+        </svg>
+      );
+    }
+    
+    // Default icon
+    return (
+      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
+      </svg>
+    );
+  };
+
+  // Transform API fields into component format or use fallback
+  const generalFields = (availableFields && availableFields.length > 0) 
+    ? availableFields.map(field => ({
+        slug: field.slug,
+        name: field.name,
+        description: field.description || `${field.name} for ${selectedYear?.label || 'this year'}`,
+        contentType: field.content_type,
+        required: field.required,
+        icon: getFieldIcon(field.slug, field.content_type),
+        points: field.required ? 5 : 3,
+        priority: field.required ? 'high' : 'medium'
+      }))
+    : [
+        // Fallback fields if no API data available
     {
       slug: 'link-to-financial-statement',
       name: 'Link to Financial Statement',

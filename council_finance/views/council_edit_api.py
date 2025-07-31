@@ -202,10 +202,12 @@ def council_temporal_data_api(request, council_slug, year_id):
         year = get_object_or_404(FinancialYear, id=year_id)
         
         # Get all temporal data for this council and year
+        # Financial categories: balance_sheet, income, spending, calculated
+        # General categories: general
         temporal_data_qs = FinancialFigure.objects.filter(
             council=council,
             year=year,
-            field__category__in=['general', 'financial']
+            field__category__in=['general', 'balance_sheet', 'income', 'spending', 'calculated']
         ).select_related('field')
         
         # Separate general and financial data
@@ -215,8 +217,12 @@ def council_temporal_data_api(request, council_slug, year_id):
         for figure in temporal_data_qs:
             if figure.field.category == 'general':
                 general_data[figure.field.slug] = figure.value
-            elif figure.field.category == 'financial':
+            elif figure.field.category in ['balance_sheet', 'income', 'spending', 'calculated']:
                 financial_data[figure.field.slug] = figure.value
+        
+        # Get available fields for this temporal data
+        general_fields = DataField.objects.filter(category='general')
+        financial_fields = DataField.objects.filter(category__in=['balance_sheet', 'income', 'spending', 'calculated'])
         
         return JsonResponse({
             'success': True,
@@ -227,7 +233,31 @@ def council_temporal_data_api(request, council_slug, year_id):
                 'is_current': getattr(year, 'is_current', False)
             },
             'general': general_data,
-            'financial': financial_data
+            'financial': financial_data,
+            'available_fields': {
+                'general': [
+                    {
+                        'slug': field.slug,
+                        'name': field.name,
+                        'content_type': field.content_type,
+                        'required': field.required,
+                        'description': field.explanation or '',
+                        'category': field.category
+                    }
+                    for field in general_fields
+                ],
+                'financial': [
+                    {
+                        'slug': field.slug,
+                        'name': field.name,
+                        'content_type': field.content_type,
+                        'required': field.required,
+                        'description': field.explanation or '',
+                        'category': field.category
+                    }
+                    for field in financial_fields
+                ]
+            }
         })
         
     except Exception as e:

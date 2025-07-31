@@ -34,6 +34,13 @@ const CouncilEditApp = ({ councilData, initialYears, csrfToken }) => {
   const [generalData, setGeneralData] = useState({});
   const [financialData, setFinancialData] = useState({});
   
+  // Available fields from the API
+  const [availableFields, setAvailableFields] = useState({
+    characteristics: [],
+    general: [],
+    financial: []
+  });
+  
   // Available years for temporal data
   const [years, setYears] = useState(initialYears || []);
 
@@ -69,6 +76,10 @@ const CouncilEditApp = ({ councilData, initialYears, csrfToken }) => {
       if (charResponse.ok) {
         const charData = await charResponse.json();
         setCharacteristics(charData.characteristics || {});
+        setAvailableFields(prev => ({
+          ...prev,
+          characteristics: charData.available_fields || []
+        }));
       }
 
       // Load available years
@@ -111,6 +122,15 @@ const CouncilEditApp = ({ councilData, initialYears, csrfToken }) => {
         const data = await response.json();
         setGeneralData(data.general || {});
         setFinancialData(data.financial || {});
+        
+        // Update available fields for temporal data
+        if (data.available_fields) {
+          setAvailableFields(prev => ({
+            ...prev,
+            general: data.available_fields.general || [],
+            financial: data.available_fields.financial || []
+          }));
+        }
       }
     } catch (error) {
       console.error('Error loading temporal data:', error);
@@ -309,6 +329,7 @@ const CouncilEditApp = ({ councilData, initialYears, csrfToken }) => {
           {activeTab === 'characteristics' && (
             <CharacteristicsTab
               characteristics={characteristics}
+              availableFields={availableFields.characteristics}
               onSave={(fieldSlug, value) => saveField('characteristics', fieldSlug, value)}
               onValidate={validateField}
               errors={errors}
@@ -320,6 +341,7 @@ const CouncilEditApp = ({ councilData, initialYears, csrfToken }) => {
           {activeTab === 'general' && selectedYear && (
             <GeneralDataTab
               generalData={generalData}
+              availableFields={availableFields.general}
               selectedYear={selectedYear}
               onSave={(fieldSlug, value) => saveField('general', fieldSlug, value, selectedYear.id)}
               onValidate={validateField}
@@ -332,6 +354,7 @@ const CouncilEditApp = ({ councilData, initialYears, csrfToken }) => {
           {activeTab === 'financial' && selectedYear && (
             <FinancialDataTab
               financialData={financialData}
+              availableFields={availableFields.financial}
               selectedYear={selectedYear}
               onSave={(fieldSlug, value) => saveField('financial', fieldSlug, value, selectedYear.id)}
               onValidate={validateField}

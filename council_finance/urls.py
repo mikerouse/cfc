@@ -134,11 +134,7 @@ urlpatterns = [
         council_views.generate_share_link,
         name="generate_share_link",
     ),
-    path(
-        "councils/<slug:slug>/edit-table/",
-        council_views.edit_figures_table,
-        name="edit_figures_table",
-    ),
+    # Legacy edit-table removed - using React edit interface only
     # API endpoints for spreadsheet interface
     path(
         "councils/<slug:slug>/financial-data/",
@@ -214,8 +210,8 @@ urlpatterns = [
     path("api/council/<slug:council_slug>/years/", council_edit_api.council_available_years_api, name="council_available_years_api"), 
     path("api/council/<slug:council_slug>/edit-context/", council_edit_api.council_edit_context_api, name="council_edit_context_api"),
     
-    # React council edit interface
-    path("councils/<slug:slug>/edit-react/", council_views.council_edit_react, name="council_edit_react"),
+    # React council edit interface (no fallback)
+    path("councils/<slug:slug>/edit/", council_views.council_edit_react, name="council_edit"),
     
     # ============================================================================
     # REACT FACTOID BUILDER API ENDPOINTS

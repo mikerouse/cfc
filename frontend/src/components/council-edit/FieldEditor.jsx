@@ -90,12 +90,14 @@ const FieldEditor = ({
    */
   const renderInput = () => {
     const baseClasses = `
-      block w-full border border-gray-300 rounded-lg px-3 py-2
-      focus:ring-2 focus:ring-blue-500 focus:border-blue-500
+      block w-full border rounded-lg px-3 py-2
       transition-all duration-200
       ${isMobile ? 'min-h-[44px] text-base' : 'min-h-[40px] text-sm'}
-      ${validationMessage.startsWith('✓') ? 'border-green-500' : 
-        validationMessage.startsWith('⚠') ? 'border-yellow-500' : ''}
+      ${disabled ? 
+        'border-gray-200 bg-gray-50 text-gray-500 cursor-not-allowed' : 
+        'border-gray-300 bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500'}
+      ${validationMessage.startsWith('✓') ? '!border-green-500' : 
+        validationMessage.startsWith('⚠') ? '!border-yellow-500' : ''}
     `;
 
     switch (field.contentType) {
@@ -170,12 +172,16 @@ const FieldEditor = ({
     if (!value) {
       return (
         <div className={`
-          text-gray-400 italic cursor-pointer rounded px-2 py-2
-          hover:bg-gray-50 transition-colors
+          text-gray-400 italic rounded px-2 py-2 transition-colors
           ${isMobile ? 'min-h-[44px]' : 'min-h-[40px]'}
           flex items-center
-        `} onClick={onEdit}>
-          Click to add {field.name.toLowerCase()}...
+          ${disabled ? 
+            'cursor-not-allowed bg-gray-50' : 
+            'cursor-pointer hover:bg-gray-50'}
+        `} onClick={disabled ? undefined : onEdit}>
+          {disabled ? 
+            `${field.name} will be calculated automatically` : 
+            `Click to add ${field.name.toLowerCase()}...`}
         </div>
       );
     }
@@ -191,17 +197,24 @@ const FieldEditor = ({
           >
             {value.length > 50 ? `${value.substring(0, 50)}...` : value}
           </a>
-          <button 
-            onClick={onEdit}
-            className={`
-              block w-full text-left text-gray-600 hover:text-gray-800
-              hover:bg-gray-50 rounded px-2 py-1 transition-colors text-xs
-              ${isMobile ? 'min-h-[44px]' : 'min-h-[36px]'}
-              flex items-center
-            `}
-          >
-            Click to edit URL
-          </button>
+          {!disabled && (
+            <button 
+              onClick={onEdit}
+              className={`
+                block w-full text-left text-gray-600 hover:text-gray-800
+                hover:bg-gray-50 rounded px-2 py-1 transition-colors text-xs
+                ${isMobile ? 'min-h-[44px]' : 'min-h-[36px]'}
+                flex items-center
+              `}
+            >
+              Click to edit URL
+            </button>
+          )}
+          {disabled && (
+            <div className="text-xs text-gray-500 bg-gray-50 rounded px-2 py-1 italic">
+              This field is calculated automatically
+            </div>
+          )}
         </div>
       );
     }
@@ -209,14 +222,23 @@ const FieldEditor = ({
     return (
       <div 
         className={`
-          text-gray-900 cursor-pointer rounded px-2 py-2
-          hover:bg-gray-50 transition-colors
+          text-gray-900 rounded px-2 py-2 transition-colors
           ${isMobile ? 'min-h-[44px]' : 'min-h-[40px]'}
-          flex items-center
+          flex items-center justify-between
+          ${disabled ? 
+            'cursor-not-allowed bg-gray-50' : 
+            'cursor-pointer hover:bg-gray-50'}
         `}
-        onClick={onEdit}
+        onClick={disabled ? undefined : onEdit}
       >
-        {field.contentType === 'integer' ? Number(value).toLocaleString() : value}
+        <span>
+          {field.contentType === 'integer' ? Number(value).toLocaleString() : value}
+        </span>
+        {disabled && (
+          <span className="text-xs text-gray-500 italic ml-2">
+            Calculated
+          </span>
+        )}
       </div>
     );
   };
