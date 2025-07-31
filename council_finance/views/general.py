@@ -499,7 +499,7 @@ def council_detail(request, slug):
     if tab == "edit":
         from django.shortcuts import redirect
         from django.urls import reverse
-        return redirect(reverse('council_edit_react', args=[slug]))
+        return redirect(reverse('council_edit', args=[slug]))
 
     share_token = request.GET.get("share")
     share_data = None

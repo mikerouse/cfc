@@ -38,10 +38,10 @@ class CouncilEditIntegrationTests(TestCase):
             end_date='2025-03-31'
         )
     
-    def test_council_edit_react_url_resolves(self):
+    def test_council_edit_url_resolves(self):
         """Test that the React edit URL resolves correctly."""
-        url = reverse('council_edit_react', args=[self.council.slug])
-        self.assertEqual(url, f'/councils/{self.council.slug}/edit-react/')
+        url = reverse('council_edit', args=[self.council.slug])
+        self.assertEqual(url, f'/councils/{self.council.slug}/edit/')
     
     def test_characteristics_api_url_resolves(self):
         """Test that characteristics API URL resolves correctly."""
@@ -110,9 +110,9 @@ class CouncilEditIntegrationTests(TestCase):
         self.assertEqual(council_data['slug'], self.council.slug)
         self.assertEqual(council_data['name'], self.council.name)
     
-    def test_council_edit_react_page_loads(self):
+    def test_council_edit_page_loads(self):
         """Test that the React edit page loads without errors."""
-        url = reverse('council_edit_react', args=[self.council.slug])
+        url = reverse('council_edit', args=[self.council.slug])
         response = self.client.get(url)
         
         # Should return the template (200) or redirect for auth (302)
@@ -169,7 +169,7 @@ class SyntaxValidationTests(TestCase):
     def test_councils_view_imports(self):
         """Test that updated councils view can be imported."""
         try:
-            from council_finance.views.councils import council_edit_react
+            from council_finance.views.councils import council_edit
         except ImportError as e:
             self.fail(f"Council edit view import failed: {e}")
         except SyntaxError as e:
@@ -182,7 +182,7 @@ class SyntaxValidationTests(TestCase):
             from django.urls import reverse
             
             # Test that key URLs can be reversed
-            reverse('council_edit_react', args=['test'])
+            reverse('council_edit', args=['test'])
             reverse('council_characteristics_api', args=['test'])
             
         except Exception as e:

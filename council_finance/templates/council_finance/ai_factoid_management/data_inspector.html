@@ -93,7 +93,7 @@
             <div class="ml-3">
               <p class="text-sm font-medium text-gray-900">{{ key|title|truncatechars:20 }}</p>
               <p class="text-xs text-gray-500">
-                {% if key == 'financial_time_series' %}{{ financial_metrics|length }} metrics{% else %}Available{% endif %}
+                {% if key == 'financial_time_series' %}{{ financial_metrics|length }} metrics (FTS: {{ council_data.financial_time_series|length }}){% else %}Available{% endif %}
               </p>
             </div>
           </div>
@@ -128,21 +128,23 @@
                 {{ metric|title }}
               </td>
               <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                {% if years_data %}
-                  {{ years_data.keys|join:", " }}
+                {% if years_data.years %}
+                  {{ years_data.years.keys|join:", " }}
                 {% else %}
                   No data
                 {% endif %}
               </td>
               <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                {% if years_data %}
-                  £{{ years_data.values|last }}M
+                {% if years_data.years %}
+                  {% for year, data in years_data.years.items %}
+                    {% if forloop.last %}{{ data.formatted|default:"N/A" }}{% endif %}
+                  {% endfor %}
                 {% else %}
                   N/A
                 {% endif %}
               </td>
               <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                {% if years_data %}{{ years_data|length }}{% else %}0{% endif %}
+                {% if years_data.years %}{{ years_data.years|length }}{% else %}0{% endif %}
               </td>
             </tr>
             {% endfor %}

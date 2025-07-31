@@ -146,7 +146,7 @@ class SyntaxErrorTests(TestCase):
             )
             
             # Test the updated councils view import
-            from council_finance.views.councils import council_edit_react
+            from council_finance.views.councils import council_edit
             
         except ImportError as e:
             self.fail(f"Import error: {str(e)}")
@@ -160,7 +160,7 @@ class SyntaxErrorTests(TestCase):
             
             # Test that our new URLs can be resolved
             test_urls = [
-                ('council_edit_react', ['test-council']),
+                ('council_edit', ['test-council']),
                 ('council_characteristics_api', ['test-council']),
                 ('council_temporal_data_api', ['test-council', 1]),
                 ('save_temporal_data_api', ['test-council', 1]),
@@ -267,16 +267,16 @@ class ReactComponentTests(TestCase):
 class TemplateTests(TestCase):
     """Test Django templates for basic syntax."""
     
-    def test_council_edit_react_template(self):
+    def test_council_edit_template(self):
         """Test the new React council edit template."""
         project_root = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
         template_path = os.path.join(
             project_root, 'council_finance', 'templates', 
-            'council_finance', 'council_edit_react.html'
+            'council_finance', 'council_edit.html'
         )
         
         if not os.path.exists(template_path):
-            self.fail("council_edit_react.html template not found")
+            self.fail("council_edit.html template not found")
         
         try:
             with open(template_path, 'r', encoding='utf-8') as f:

@@ -472,7 +472,12 @@ class CouncilDataGatherer:
             return data
             
         except Exception as e:
-            logger.error(f"❌ Failed to gather council data: {e}")
+            logger.error(f"❌ Failed to gather council data for {council.slug}: {e}")
+            logger.error(f"❌ Exception details: {type(e).__name__}: {str(e)}")
+            import traceback
+            logger.error(f"❌ Full traceback: {traceback.format_exc()}")
+            
+            # Don't cache failed data - let it retry next time
             # Return minimal data structure
             return {
                 'council': council,
@@ -508,11 +513,20 @@ class CouncilDataGatherer:
                     }
                 
                 # Store raw value (let AI decide how to interpret)
-                all_financial_data[field_slug]['years'][year_label] = {
-                    'value': float(ff.value),
-                    'value_millions': round(float(ff.value) / 1_000_000, 2),
-                    'formatted': f"£{float(ff.value) / 1_000_000:.1f}M"
-                }
+                # Handle both numeric and text values
+                if ff.value is not None:
+                    # Numeric value
+                    all_financial_data[field_slug]['years'][year_label] = {
+                        'value': float(ff.value),
+                        'value_millions': round(float(ff.value) / 1_000_000, 2),
+                        'formatted': f"£{float(ff.value) / 1_000_000:.1f}M"
+                    }
+                elif ff.text_value is not None:
+                    # Text value (URLs, etc.)
+                    all_financial_data[field_slug]['years'][year_label] = {
+                        'value': ff.text_value,
+                        'formatted': ff.text_value
+                    }
             
             # Get ALL CouncilCharacteristic data (non-temporal data like population)
             characteristics = CouncilCharacteristic.objects.filter(

@@ -65,16 +65,43 @@ def council_ai_data_inspector(request, council_slug):
     gatherer = CouncilDataGatherer()
     council_data = gatherer.gather_council_data(council)
     
+    # Debug logging
+    logger.info(f"[INSPECTOR] Council: {council.slug}")
+    logger.info(f"[INSPECTOR] Council data keys: {list(council_data.keys())}")
+    fts = council_data.get('financial_time_series', {})
+    logger.info(f"[INSPECTOR] Financial time series fields: {len(fts)}")
+    if fts:
+        logger.info(f"[INSPECTOR] First FTS field: {list(fts.keys())[0]} = {fts[list(fts.keys())[0]]}")
+    else:
+        logger.warning(f"[INSPECTOR] No financial time series data found for {council.slug}")
+    
     # Get AI generator for prompt building
     generator = AIFactoidGenerator()
     
     # Build the actual prompt that would be sent to OpenAI
     sample_prompt = generator._build_analysis_prompt(council_data, limit=3, style='news_ticker')
     
+    # More debug logging
+    if "financial_data\": {}" in sample_prompt:
+        logger.warning(f"[INSPECTOR] Empty financial_data detected in prompt for {council.slug}")
+        # Log more details when this happens
+        logger.warning(f"[INSPECTOR] Raw financial_time_series: {council_data.get('financial_time_series', 'NOT_FOUND')}")
+    else:
+        logger.info(f"[INSPECTOR] Prompt contains financial data for {council.slug}")
+    
     # Check cache status
     cache_key = f"ai_factoids:{council_slug}"
     cached_factoids = cache.get(cache_key)
     cache_status = 'cached' if cached_factoids else 'not_cached'
+    
+    # Calculate financial_metrics carefully
+    financial_metrics = []
+    if council_data and council_data.get('financial_time_series'):
+        fts = council_data.get('financial_time_series', {})
+        financial_metrics = list(fts.keys())
+        logger.info(f"[INSPECTOR] Setting financial_metrics: {len(financial_metrics)} items")
+    else:
+        logger.warning(f"[INSPECTOR] No financial_time_series data for context")
     
     context = {
         'council': council,
@@ -83,7 +110,7 @@ def council_ai_data_inspector(request, council_slug):
         'cache_status': cache_status,
         'cached_factoids': cached_factoids,
         'data_keys': list(council_data.keys()) if council_data else [],
-        'financial_metrics': list(council_data.get('financial_time_series', {}).keys()) if council_data and council_data.get('financial_time_series') else [],
+        'financial_metrics': financial_metrics,
         'page_title': f'AI Data Inspector - {council.name}'
     }
     
@@ -243,15 +270,25 @@ def council_financial_data_viewer(request, council_slug):
     
     # Format for display
     formatted_data = {}
-    for metric, years_data in financial_data.items():
-        if years_data:
-            formatted_data[metric] = {
-                'years': list(years_data.keys()),
-                'values': list(years_data.values()),
-                'year_count': len(years_data),
-                'latest_year': max(years_data.keys()) if years_data else None,
-                'latest_value': years_data.get(max(years_data.keys())) if years_data else None
-            }
+    for metric, metric_info in financial_data.items():
+        if metric_info and 'years' in metric_info:
+            years_data = metric_info['years']
+            if years_data:
+                # Convert years data to lists for easier template access
+                years_list = []
+                values_list = []
+                for year in sorted(years_data.keys()):
+                    years_list.append(year)
+                    values_list.append(years_data[year])
+                
+                formatted_data[metric] = {
+                    'field_name': metric_info.get('field_name', metric),
+                    'years': years_list,
+                    'values': values_list,
+                    'year_count': len(years_data),
+                    'latest_year': years_list[-1] if years_list else None,
+                    'latest_value': values_list[-1] if values_list else None
+                }
     
     context = {
         'council': council,
