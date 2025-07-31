@@ -112,41 +112,74 @@ class AIFactoidGenerator:
         peer_summary = self._format_peer_data(data.get('peer_comparisons', {}))
         population_info = self._format_population_data(data.get('population_data', {}))
         
+        # Build comprehensive JSON data structure for AI
+        import json
+        
+        financial_data = data.get('financial_time_series', {})
+        
+        council_json_data = {
+            "council": {
+                "name": council.name,
+                "slug": council.slug,
+                "type": str(getattr(council, 'council_type', 'Council')),
+                "nation": data.get('context', {}).get('nation', 'Unknown')
+            },
+            "population": population_info,
+            "financial_data": financial_data,
+            "data_summary": {
+                "total_fields": len(financial_data),
+                "fields_with_data": list(financial_data.keys()),
+                "available_years": sorted(list(set(
+                    year for field_data in financial_data.values() 
+                    for year in field_data.get('years', {}).keys()
+                    if year != 'latest'
+                )))
+            }
+        }
+        
+        # Convert to formatted JSON string
+        json_data_str = json.dumps(council_json_data, indent=2)
+        
         prompt = f"""
-        Analyse this UK council's financial data and generate {limit} interesting factoids in news ticker style.
-        
-        Council: {council.name}
-        Type: {getattr(council, 'council_type', 'Council')}
-        {population_info}
-        
-        Financial Data Analysis:
-        {financial_summary}
-        
-        Peer Comparisons:
-        {peer_summary}
-        
-        Requirements:
-        - Maximum 25 words per factoid
-        - Focus on trends, comparisons, notable patterns, peaks, and changes
-        - Use specific figures and years where available
-        - Write in engaging news ticker style
-        - Highlight significant financial insights
-        - Return as valid JSON array only, no other text
-        
-        Response format (JSON only):
-        [
-            {{
-                "text": "Interest payments peaked in 2023 at £3.8M, up 58% from 2019",
-                "insight_type": "trend"
-            }},
-            {{
-                "text": "Spends £205 per resident on interest - 23% above regional average",
-                "insight_type": "comparison"
-            }}
-        ]
-        
-        Insight types: trend, comparison, peak, change, ranking, efficiency, volatility
-        """
+You are a financial analyst specializing in UK local government finances. Analyze the complete financial dataset below and generate {limit} engaging factoids in news ticker style.
+
+COMPLETE FINANCIAL DATASET (JSON):
+{json_data_str}
+
+ANALYSIS REQUIREMENTS:
+- Generate exactly {limit} factoids
+- Maximum 25 words per factoid  
+- Focus on trends, comparisons, notable patterns, peaks, and significant changes
+- Use specific figures and years from the data
+- Write in engaging news ticker style (like BBC/Sky News tickers)
+- Look for year-over-year changes, multi-year trends, and notable figures
+- Prioritize the most significant financial insights
+- Use UK currency formatting (£X.XM for millions)
+
+INSIGHT TYPES TO CONSIDER:
+- "trend": Multi-year increases/decreases
+- "peak": Highest/lowest values in dataset  
+- "change": Year-over-year percentage changes
+- "comparison": Relative scale between different metrics
+- "efficiency": Per-capita or ratio-based insights
+- "volatility": Fluctuations over time
+
+RESPONSE FORMAT:
+Return ONLY a valid JSON array, no other text:
+
+[
+    {{
+        "text": "Interest paid jumped 15% to £91.5M in 2024/25, highest in dataset",
+        "insight_type": "peak",
+        "confidence": 0.95
+    }},
+    {{
+        "text": "Long-term liabilities surged £88M to £665.8M year-on-year", 
+        "insight_type": "trend",
+        "confidence": 0.9
+    }}
+]
+"""
         
         return prompt.strip()
     
@@ -450,43 +483,74 @@ class CouncilDataGatherer:
             }
     
     def _get_financial_time_series(self, council) -> Dict:
-        """Get financial data over time for trend analysis."""
+        """Get ALL available financial data over time for comprehensive AI analysis."""
         try:
-            from council_finance.models import CouncilCharacteristic, FinancialYear
+            from council_finance.models import FinancialFigure, CouncilCharacteristic
             
-            # Get key financial metrics over time
-            financial_metrics = [
-                'total-debt', 'current-liabilities', 'long-term-liabilities',
-                'interest-payments', 'total-revenue', 'total-expenditure'
-            ]
+            all_financial_data = {}
             
-            time_series = {}
+            # Get ALL FinancialFigure data (temporal financial data)
+            financial_figures = FinancialFigure.objects.filter(
+                council=council
+            ).select_related('field', 'year').order_by('field__slug', 'year__label')
             
-            for metric_slug in financial_metrics:
-                metric_data = {}
+            for ff in financial_figures:
+                field_slug = ff.field.slug
+                field_name = ff.field.name
+                year_label = ff.year.label
                 
-                # Get data for each year
-                characteristics = CouncilCharacteristic.objects.filter(
-                    council=council,
-                    field__slug=metric_slug
-                ).select_related('field')
+                if field_slug not in all_financial_data:
+                    all_financial_data[field_slug] = {
+                        'field_name': field_name,
+                        'field_slug': field_slug,
+                        'data_type': 'financial_figure',
+                        'years': {}
+                    }
                 
-                for char in characteristics:
-                    if char.year and char.value:
-                        try:
-                            # Convert to millions for consistency
-                            value_millions = float(char.value) / 1_000_000
-                            metric_data[char.year.label] = f"{value_millions:.1f}"
-                        except (ValueError, TypeError):
-                            continue
-                
-                if metric_data:
-                    time_series[metric_slug.replace('-', '_')] = metric_data
+                # Store raw value (let AI decide how to interpret)
+                all_financial_data[field_slug]['years'][year_label] = {
+                    'value': float(ff.value),
+                    'value_millions': round(float(ff.value) / 1_000_000, 2),
+                    'formatted': f"£{float(ff.value) / 1_000_000:.1f}M"
+                }
             
-            return time_series
+            # Get ALL CouncilCharacteristic data (non-temporal data like population)
+            characteristics = CouncilCharacteristic.objects.filter(
+                council=council
+            ).select_related('field')
+            
+            for char in characteristics:
+                field_slug = char.field.slug
+                field_name = char.field.name
+                
+                if field_slug not in all_financial_data:
+                    all_financial_data[field_slug] = {
+                        'field_name': field_name,
+                        'field_slug': field_slug,
+                        'data_type': 'characteristic',
+                        'years': {}
+                    }
+                
+                # CouncilCharacteristic is non-temporal, use 'current' as key
+                try:
+                    # Try to convert to number
+                    numeric_value = float(char.value)
+                    all_financial_data[field_slug]['years']['current'] = {
+                        'value': numeric_value,
+                        'formatted': f"{numeric_value:,.0f}" if numeric_value >= 1000 else str(numeric_value)
+                    }
+                except (ValueError, TypeError):
+                    # Keep as string if not numeric
+                    all_financial_data[field_slug]['years']['current'] = {
+                        'value': char.value,
+                        'formatted': str(char.value)
+                    }
+            
+            logger.info(f"✅ Gathered {len(all_financial_data)} fields with complete time series for {council.name}")
+            return all_financial_data
             
         except Exception as e:
-            logger.error(f"Error gathering financial time series: {e}")
+            logger.error(f"❌ Error gathering comprehensive financial data: {e}")
             return {}
     
     def _get_peer_council_data(self, council) -> Dict:
