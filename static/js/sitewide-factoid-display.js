@@ -165,10 +165,24 @@ class SitewideFactoidDisplay {
             this.elements.factoidContent.classList.remove('hidden');
             this.elements.factoidContent.style.opacity = '0';
             
+            // Also ensure factoid text is visible
+            if (this.elements.factoidText) {
+                this.elements.factoidText.style.opacity = '0';
+                this.elements.factoidText.style.transform = 'translateY(20px)';
+            }
+            
             // Fade in
             setTimeout(() => {
                 this.elements.factoidContent.style.transition = 'opacity 0.6s ease-in-out';
                 this.elements.factoidContent.style.opacity = '1';
+                
+                // Animate factoid text
+                if (this.elements.factoidText) {
+                    this.elements.factoidText.style.transition = 'opacity 0.6s ease-in-out, transform 0.6s ease-in-out';
+                    this.elements.factoidText.style.opacity = '1';
+                    this.elements.factoidText.style.transform = 'translateY(0)';
+                }
+                
                 this.isVisible = true;
             }, 50);
         }
@@ -194,6 +208,12 @@ class SitewideFactoidDisplay {
         // Fade out current factoid
         if (this.elements.factoidContent) {
             this.elements.factoidContent.style.opacity = '0';
+        }
+        
+        // Also fade out factoid text
+        if (this.elements.factoidText) {
+            this.elements.factoidText.style.opacity = '0';
+            this.elements.factoidText.style.transform = 'translateY(-10px)';
         }
         
         // Show next factoid after fade out
