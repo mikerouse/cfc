@@ -27,11 +27,7 @@
                data-friendly="{{ item.friendly_format|yesno:'true,false' }}"
                data-formatted="{{ item.formatted }}">0</div>
           
-          <div class="counter-factoid text-sm text-gray-600" 
-               data-counter="{{ item.counter_slug }}"
-               data-council="all-councils"
-               data-year="{% if item.year %}{{ item.year }}{% else %}{{ current_year }}{% endif %}">
-          </div>
+          <!-- Site-wide factoid will be added here -->
           
           {% if item.explanation %}
           <div class="mt-3">
@@ -45,9 +41,7 @@
           {% endif %}
         </div>
         
-        {% with script_id='factoids-'|add:item.slug %}
-        {{ item.factoids|json_script:script_id }}
-        {% endwith %}
+        <!-- Old factoid script removed -->
       </div>
       {% endfor %}
     </div>
@@ -237,8 +231,7 @@
 
 {% block extra_scripts %}
 <script src="{% static 'js/countUp.umd.js' %}"></script>
-<link rel="stylesheet" href="{% static 'css/factoid-system.css' %}">
-<script src="{% static 'js/factoid-playlist.js' %}"></script>
+<script src="{% static 'js/sitewide-factoid-display.js' %}"></script>
 
 <style>
 .financial-carousel {
@@ -258,6 +251,33 @@
 
 .carousel-item.active {
     opacity: 1;
+}
+
+/* Site-wide Factoid Display Styles */
+.sitewide-factoid-display {
+    border-top: 1px solid rgb(243 244 246);
+    padding-top: 0.75rem;
+    margin-top: 0.75rem;
+}
+
+.sitewide-factoid-display .factoid-content {
+    line-height: 1.4;
+}
+
+.sitewide-factoid-display a {
+    color: rgb(37 99 235);
+    text-decoration: none;
+    font-weight: 500;
+}
+
+.sitewide-factoid-display a:hover {
+    color: rgb(29 78 216);
+    text-decoration: underline;
+}
+
+.sitewide-factoid-display .loading-state svg {
+    width: 1rem;
+    height: 1rem;
 }
 </style>
 
