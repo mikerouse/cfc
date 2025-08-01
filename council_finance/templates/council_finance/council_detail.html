@@ -562,33 +562,70 @@ function animateCounters() {
       : parseInt(el.dataset.precision || '0', 10);
     const thousands = overrideThousands !== null ? overrideThousands === 'true'
       : showCurrency;
+    
+    // Check if friendly format is enabled for this counter
+    const baseFriendly = (el.dataset.friendly || 'false').toLowerCase() === 'true';
+    const friendly = overrideFriendly !== null ? (overrideFriendly === 'true') : baseFriendly;
 
-    const cu = new countUp.CountUp(el, end, {
-      duration: dur,
-      decimalPlaces: precision,
-      separator: thousands ? ',' : '',
-      prefix: showCurrency ? '£' : '',
-      easingFn: (t, b, c, d) => {
-        t /= d; return c * (2 - t) * t * 0.5 + b;
-      }
-    });
-    
-    if (cu.printValue) {
-      cu.printValue(0);
-    } else {
-      el.textContent = cu.formattingFn(0);
-    }
-    
-    // Counter display initialized
-    const container = el.parentElement.parentElement;
-    
-    if (!cu.error) {
-      cu.start(() => {
-        // Counter animation completed, factoid will be automatically initialized
-        // by the factoid-playlist.js system
+    // If friendly format is enabled, handle formatting manually after animation
+    if (friendly) {
+      // For friendly format, use a simplified counter without currency/separator formatting
+      // since we'll apply the friendly format manually at the end
+      const cu = new countUp.CountUp(el, end, {
+        duration: dur,
+        decimalPlaces: 0, // Use 0 decimals during animation for cleaner look
+        separator: '',     // No separators during animation
+        prefix: '',        // No prefix during animation
+        easingFn: (t, b, c, d) => {
+          t /= d; return c * (2 - t) * t * 0.5 + b;
+        }
       });
+      
+      if (cu.printValue) {
+        cu.printValue(0);
+      } else {
+        el.textContent = cu.formattingFn(0);
+      }
+      
+      if (!cu.error) {
+        cu.start(() => {
+          // Animation completed - now apply friendly format
+          const counter = {
+            showCurrency: el.dataset.showCurrency,
+            precision: el.dataset.precision,
+            friendly: el.dataset.friendly,
+          };
+          el.textContent = formatValue(end, counter);
+        });
+      } else {
+        el.textContent = display;
+      }
     } else {
-      el.textContent = display;
+      // Use standard CountUp formatting for non-friendly format
+      const cu = new countUp.CountUp(el, end, {
+        duration: dur,
+        decimalPlaces: precision,
+        separator: thousands ? ',' : '',
+        prefix: showCurrency ? '£' : '',
+        easingFn: (t, b, c, d) => {
+          t /= d; return c * (2 - t) * t * 0.5 + b;
+        }
+      });
+      
+      if (cu.printValue) {
+        cu.printValue(0);
+      } else {
+        el.textContent = cu.formattingFn(0);
+      }
+      
+      if (!cu.error) {
+        cu.start(() => {
+          // Counter animation completed, factoid will be automatically initialized
+          // by the factoid-playlist.js system
+        });
+      } else {
+        el.textContent = display;
+      }
     }
   });
 }
