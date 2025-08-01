@@ -2569,6 +2569,7 @@ def clear_compare_basket(request):
     })
 
 
+@require_POST
 def follow_council(request, slug):
     """Follow a council."""
     if not request.user.is_authenticated:
@@ -2594,6 +2595,7 @@ def follow_council(request, slug):
         return JsonResponse({"error": "Internal server error"}, status=500)
 
 
+@require_POST
 def unfollow_council(request, slug):
     """Unfollow a council."""
     if not request.user.is_authenticated:
@@ -3220,28 +3222,7 @@ def unfollow_item_api(request):
     return JsonResponse({'success': True, 'message': 'Unfollow functionality coming soon'})
 
 
-@login_required
-@require_POST
-def follow_council(request, slug):
-    """Follow a council - basic implementation."""
-    try:
-        council = get_object_or_404(Council, slug=slug)
-        # Basic following logic would go here
-        return JsonResponse({'status': 'success', 'message': f'Following {council.name}'})
-    except Exception as e:
-        return JsonResponse({'status': 'error', 'message': str(e)})
 
-
-@login_required
-@require_POST  
-def unfollow_council(request, slug):
-    """Unfollow a council - basic implementation."""
-    try:
-        council = get_object_or_404(Council, slug=slug)
-        # Basic unfollowing logic would go here
-        return JsonResponse({'status': 'success', 'message': f'Unfollowed {council.name}'})
-    except Exception as e:
-        return JsonResponse({'status': 'error', 'message': str(e)})
 
 
 # ============================================================================

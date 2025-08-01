@@ -496,9 +496,34 @@ if(followBtn){
     const slug=followBtn.dataset.slug;
     const following=followBtn.dataset.following==='true';
     const url=following?`/unfollow/${slug}/`:`/follow/${slug}/`;
-    fetch(url,{method:'POST',headers:{'X-CSRFToken':csrftoken}}).then(r=>r.json()).then(()=>{
-      followBtn.dataset.following=following?'false':'true';
-      followBtn.textContent=following?'Follow':'Unfollow';
+    fetch(url,{method:'POST',headers:{'X-CSRFToken':csrftoken}}).then(r=>r.json()).then(data=>{
+      if(data.status === 'success') {
+        // Update data attribute
+        followBtn.dataset.following=following?'false':'true';
+        
+        // Update button text
+        const span = followBtn.querySelector('span');
+        span.textContent = following ? 'Follow' : 'Unfollow';
+        
+        // Update button class
+        if(following) {
+          followBtn.classList.remove('gov-uk-button--warning');
+        } else {
+          followBtn.classList.add('gov-uk-button--warning');
+        }
+        
+        // Update SVG icon
+        const svg = followBtn.querySelector('svg path');
+        if(following) {
+          // Show plus icon for Follow
+          svg.setAttribute('d', 'M12 6v6m0 0v6m0-6h6m-6 0H6');
+        } else {
+          // Show minus icon for Unfollow  
+          svg.setAttribute('d', 'M15 12H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z');
+        }
+      }
+    }).catch(err => {
+      console.error('Follow/unfollow failed:', err);
     });
   });
 }
