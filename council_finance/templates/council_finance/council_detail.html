@@ -422,19 +422,6 @@
                         </svg>
                         <span class="financial-year-display">{{ selected_year.label }}</span>
                       </div>
-                      {% if user.is_authenticated %}
-                        <button type="button" 
-                                class="flag-content-btn inline-flex items-center px-2 py-1 text-xs border border-orange-300 text-orange-700 bg-orange-50 hover:bg-orange-100 rounded-md transition-colors opacity-70 hover:opacity-100"
-                                data-content-type="financial_counter"
-                                data-object-id="{{ item.counter.slug }}"
-                                data-content-description="{{ item.counter.name }} counter"
-                                title="Flag this financial data as incorrect">
-                          <svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 21v-4m0 0V5a2 2 0 012-2h6.5l1 1H21l-3 6 3 6h-8.5l-1-1H5a2 2 0 00-2 2zm9-13.5V9"/>
-                          </svg>
-                          Flag
-                        </button>
-                      {% endif %}
                     </div>
                   </div>
                 </div>
