@@ -181,8 +181,8 @@ STATICFILES_DIRS = [
 ]
 
 # Production static files settings (uncomment for production)
-# STATIC_ROOT = os.path.join(BASE_DIR, "staticfiles")
-# STATICFILES_STORAGE = "django.contrib.staticfiles.storage.StaticFilesStorage"
+STATIC_ROOT = os.path.join(BASE_DIR, "staticfiles")
+STATICFILES_STORAGE = "django.contrib.staticfiles.storage.StaticFilesStorage"
 
 # ============================================================================
 # REACT FACTOID BUILDER CONFIGURATION

@@ -212,7 +212,11 @@ urlpatterns = [
     path("unfollow/<slug:slug>/", unfollow_council, name="unfollow_council"),
     path("updates/<int:update_id>/like/", like_update, name="like_update"),
     path("updates/<int:update_id>/comment/", comment_update, name="comment_update"),
-    path("contribute/", contrib_views.contribute, name="contribute"),
+    
+    # CONTRIBUTE SYSTEM DISABLED - Replaced with enhanced flagging system
+    # Users should now use council edit pages and flag data issues instead
+    # Redirect to info page about the new system
+    path("contribute/", page_views.contribute_redirect, name="contribute_redirect"),
     # Enhanced editing API endpoints
     path("api/field/<slug:field_slug>/info/", api_views.field_info_api, name="field_info_api"),
     path("api/validate-url/", api_views.validate_url_api, name="validate_url_api"),
@@ -300,13 +304,16 @@ urlpatterns = [
     
     # Legacy AI Analysis endpoints removed - now using AI factoids instead
     path("api/ai-providers/<int:provider_id>/models/", api_views.provider_models_api, name="provider_models_api"),
-    path("contribute/data-issues-table/", contrib_views.data_issues_table, name="data_issues_table"),
-    path("contribute/stats/", contrib_views.contribute_stats, name="contribute_stats"),
-    path("contribute/submit/", contrib_views.contribute_submit, name="submit_contribution"),
-    path("contribute/field-options/<slug:slug>/", api_views.list_field_options, name="contribute_field_options"),
+    
+    # CONTRIBUTE SYSTEM URLS DISABLED - Replaced with enhanced flagging system
+    # path("contribute/data-issues-table/", contrib_views.data_issues_table, name="data_issues_table"),
+    # path("contribute/stats/", contrib_views.contribute_stats, name="contribute_stats"),
+    # path("contribute/submit/", contrib_views.contribute_submit, name="submit_contribution"),
+    # path("contribute/field-options/<slug:slug>/", api_views.list_field_options, name="contribute_field_options"),
+    # path("contribute/<int:pk>/<str:action>/", contrib_views.review_contribution, name="review_contribution"),
+    # path("contribute/mod-panel/", contrib_views.moderator_panel, name="moderator_panel"),
+    
     path("fields/<slug:slug>/options/", api_views.list_field_options, name="list_field_options"),
-    path("contribute/<int:pk>/<str:action>/", contrib_views.review_contribution, name="review_contribution"),
-    path("contribute/mod-panel/", contrib_views.moderator_panel, name="moderator_panel"),
     # Flagging system
     path("ajax/flag-content/", mod_views.flag_content, name="flag_content"),
     path("moderation/flagged-content/", mod_views.flagged_content_list, name="flagged_content_list"),
@@ -314,7 +321,8 @@ urlpatterns = [
     path("ajax/content-action/<int:flagged_content_id>/", mod_views.take_content_action, name="take_content_action"),
     path("ajax/user-action/<int:user_id>/", mod_views.take_user_action, name="take_user_action"),
     path("my-flags/", mod_views.my_flags, name="my_flags"),
-    path("submit/", contrib_views.contribute),
+    # CONTRIBUTE SYSTEM DISABLED - Use council edit pages and flagging instead
+    # path("submit/", contrib_views.contribute),
     path("profile/", auth_views.my_profile, name="my_profile"),
     path("about/", page_views.about, name="about"),
     path("terms/", page_views.terms_of_use, name="terms_of_use"),
@@ -395,7 +403,8 @@ urlpatterns = [
     # Formula Validation and Testing APIs
     path("api/fields/validate-formula/", admin_views.validate_formula_api, name="validate_formula_api"),
     path("api/fields/test-formula/", admin_views.test_formula_api, name="test_formula_api"),
-    path("contribute/issue/<int:issue_id>/mark-invalid/", contrib_views.mark_issue_invalid, name="mark_issue_invalid"),
+    # CONTRIBUTE SYSTEM DISABLED - Use enhanced flagging system instead
+    # path("contribute/issue/<int:issue_id>/mark-invalid/", contrib_views.mark_issue_invalid, name="mark_issue_invalid"),
     
     # Include new data architecture URLs (commented out - file doesn't exist)
     # path("", include("council_finance.urls_v2")),

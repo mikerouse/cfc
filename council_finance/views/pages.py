@@ -15,6 +15,17 @@ from council_finance.models import Council, UserProfile, ActivityLog
 from .general import log_activity, current_financial_year_label
 
 
+def contribute_redirect(request):
+    """
+    Redirect page for old contribute system.
+    Informs users about the new flagging system.
+    """
+    return render(request, 'council_finance/contribute_redirect.html', {
+        'page_title': 'Data Contribution Has Changed',
+        'show_flagging_help': True,
+    })
+
+
 def home(request):
     """Main homepage view."""
     # Get the current financial year

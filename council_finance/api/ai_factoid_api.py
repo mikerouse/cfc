@@ -33,10 +33,10 @@ class AIFactoidRateThrottle(UserRateThrottle):
     Custom throttle for AI factoid requests.
     
     Limits API calls to prevent excessive OpenAI usage costs.
-    Rate: 10 requests per hour per council.
+    Rate: 25 requests per hour per council.
     """
     scope = 'ai_factoids'
-    rate = '10/hour'
+    rate = '25/hour'
     
     def get_cache_key(self, request, view):
         """Generate cache key based on council slug rather than user."""

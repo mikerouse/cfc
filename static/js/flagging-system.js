@@ -4,11 +4,13 @@
 if (typeof FlaggingSystem === 'undefined') {
 class FlaggingSystem {
     constructor() {
+        console.log('FlaggingSystem constructor called');
         this.isInitialized = false;
         this.init();
     }
 
     init() {
+        console.log('FlaggingSystem init() called, isInitialized:', this.isInitialized);
         if (this.isInitialized) return;
         
         // Add flag modal to body if it doesn't exist
@@ -18,6 +20,7 @@ class FlaggingSystem {
         this.bindEvents();
         
         this.isInitialized = true;
+        console.log('FlaggingSystem initialization completed');
     }
 
     createFlagModal() {
@@ -49,14 +52,28 @@ class FlaggingSystem {
                                 <label for="flagType" class="block text-sm font-medium text-gray-700 mb-2">Why are you flagging this content?</label>
                                 <select class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" id="flagType" name="flag_type" required>
                                     <option value="">-- Select a reason --</option>
-                                    <option value="inappropriate">Inappropriate content</option>
-                                    <option value="spam">Spam or advertising</option>
-                                    <option value="misinformation">Misinformation or false data</option>
-                                    <option value="copyright">Copyright violation</option>
-                                    <option value="harassment">Harassment or abuse</option>
-                                    <option value="duplicate">Duplicate content</option>
-                                    <option value="off_topic">Off-topic or irrelevant</option>
-                                    <option value="other">Other (explain below)</option>
+                                    <option value="content_incorrect">Data is Incorrect</option>
+                                    <option value="content_outdated">Data is Outdated</option>
+                                    <option value="content_spam">Spam or Irrelevant</option>
+                                    <option value="content_duplicate">Duplicate Entry</option>
+                                    <option value="user_abuse">User Abuse/Harassment</option>
+                                    <option value="user_spam">User Spamming</option>
+                                    <option value="system_error">System/Technical Error</option>
+                                    <option value="other">Other (See Description)</option>
+                                </select>
+                            </div>
+                            
+                            <!-- Data Field/Counter Selection (shown when data_issue is selected) -->
+                            <div id="dataFieldContainer" class="hidden">
+                                <label for="dataFieldSelect" class="block text-sm font-medium text-gray-700 mb-2">Which data field or counter has an issue?</label>
+                                <select class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" id="dataFieldSelect" name="data_field">
+                                    <option value="">-- Select field or counter --</option>
+                                    <optgroup label="Data Fields">
+                                        <!-- These will be populated dynamically -->
+                                    </optgroup>
+                                    <optgroup label="Counters">
+                                        <!-- These will be populated dynamically -->
+                                    </optgroup>
                                 </select>
                             </div>
                             
@@ -113,9 +130,11 @@ class FlaggingSystem {
     bindEvents() {
         // Handle flag button clicks
         document.addEventListener('click', (e) => {
-            if (e.target.matches('.flag-content-btn, .flag-content-btn *')) {
+            // Check if the clicked element or any of its parents has the flag-content-btn class
+            const button = e.target.closest('.flag-content-btn');
+            if (button) {
+                console.log('Flag button clicked:', button);
                 e.preventDefault();
-                const button = e.target.closest('.flag-content-btn');
                 this.showFlagModal(button);
             }
         });
@@ -153,14 +172,35 @@ class FlaggingSystem {
                 }
             }
         });
+
+        // Handle flag type change to show/hide data field selector
+        document.addEventListener('change', (e) => {
+            if (e.target.id === 'flagType') {
+                const dataFieldContainer = document.getElementById('dataFieldContainer');
+                const dataFieldSelect = document.getElementById('dataFieldSelect');
+                
+                if (e.target.value === 'content_incorrect') {
+                    dataFieldContainer.classList.remove('hidden');
+                    dataFieldSelect.required = true;
+                } else {
+                    dataFieldContainer.classList.add('hidden');
+                    dataFieldSelect.required = false;
+                    dataFieldSelect.value = '';
+                }
+            }
+        });
     }
 
     showFlagModal(button) {
+        console.log('showFlagModal called with button:', button);
         const contentType = button.dataset.contentType;
         const objectId = button.dataset.objectId;
         const contentDescription = button.dataset.contentDescription || 'this content';
         
+        console.log('Content data:', { contentType, objectId, contentDescription });
+        
         if (!contentType || !objectId) {
+            console.error('Missing content information:', { contentType, objectId });
             this.showNotification('Error: Missing content information', 'error');
             return;
         }
@@ -176,11 +216,20 @@ class FlaggingSystem {
             </svg>
             Flag ${contentDescription}`;
         
+        // Populate data fields if we're on a council page
+        if (this.isCouncilPage()) {
+            this.populateDataFields();
+        }
+        
         // Show modal
         const modal = document.getElementById('flagModal');
+        console.log('Modal element:', modal);
         if (modal) {
             modal.classList.remove('hidden');
             modal.setAttribute('aria-hidden', 'false');
+            console.log('Modal should now be visible');
+        } else {
+            console.error('Modal element not found!');
         }
     }
 
@@ -240,9 +289,16 @@ class FlaggingSystem {
     validateFlagForm(form) {
         const flagType = form.querySelector('#flagType').value;
         const description = form.querySelector('#flagDescription').value.trim();
+        const dataFieldSelect = form.querySelector('#dataFieldSelect');
 
         if (!flagType) {
             this.showNotification('Please select a reason for flagging', 'error');
+            return false;
+        }
+
+        // If data issue is selected, ensure a field/counter is selected
+        if (flagType === 'content_incorrect' && dataFieldSelect && !dataFieldSelect.value) {
+            this.showNotification('Please select which data field or counter has an issue', 'error');
             return false;
         }
 
@@ -327,6 +383,70 @@ class FlaggingSystem {
         }, 5000);
     }
 
+    // Check if we're on a council detail page
+    isCouncilPage() {
+        return window.location.pathname.match(/^\/councils\/[^\/]+\/?$/);
+    }
+
+    // Populate data fields and counters from the page
+    populateDataFields() {
+        const dataFieldSelect = document.getElementById('dataFieldSelect');
+        if (!dataFieldSelect) return;
+
+        // Clear existing options except the first one
+        const fieldsOptgroup = dataFieldSelect.querySelector('optgroup[label="Data Fields"]');
+        const countersOptgroup = dataFieldSelect.querySelector('optgroup[label="Counters"]');
+        
+        fieldsOptgroup.innerHTML = '';
+        countersOptgroup.innerHTML = '';
+
+        // Extract data fields from meta fields on the page
+        const metaFields = document.querySelectorAll('.council-meta-item');
+        metaFields.forEach(field => {
+            const label = field.querySelector('.council-meta-label')?.textContent.trim();
+            if (label) {
+                const option = document.createElement('option');
+                option.value = `field:${label}`;
+                option.textContent = label;
+                fieldsOptgroup.appendChild(option);
+            }
+        });
+
+        // Extract counters from the page
+        const counters = document.querySelectorAll('.counter-box');
+        counters.forEach(counter => {
+            const title = counter.querySelector('.counter-title')?.textContent.trim();
+            if (title) {
+                const option = document.createElement('option');
+                option.value = `counter:${title}`;
+                option.textContent = title;
+                countersOptgroup.appendChild(option);
+            }
+        });
+
+        // Add some common fields if not found on page
+        if (fieldsOptgroup.children.length === 0) {
+            const commonFields = [
+                'Population', 'Total Spending', 'Interest Payments', 
+                'Total Debt', 'Reserves', 'Council Tax'
+            ];
+            commonFields.forEach(field => {
+                const option = document.createElement('option');
+                option.value = `field:${field}`;
+                option.textContent = field;
+                fieldsOptgroup.appendChild(option);
+            });
+        }
+
+        // Remove optgroups if they're empty
+        if (fieldsOptgroup.children.length === 0) {
+            fieldsOptgroup.remove();
+        }
+        if (countersOptgroup.children.length === 0) {
+            countersOptgroup.remove();
+        }
+    }
+
     // Static method to create flag button
     static createFlagButton(contentType, objectId, contentDescription = '', options = {}) {
         const {
@@ -360,10 +480,22 @@ class FlaggingSystem {
 
 // Initialize flagging system when DOM is ready
 document.addEventListener('DOMContentLoaded', function() {
+    console.log('DOMContentLoaded event fired for flagging system');
+    if (!window.flaggingSystem) {
+        console.log('Creating new FlaggingSystem instance');
+        window.flaggingSystem = new FlaggingSystem();
+    } else {
+        console.log('FlaggingSystem already exists');
+    }
+});
+
+// Also try to initialize immediately if DOM is already loaded
+if (document.readyState !== 'loading') {
+    console.log('DOM already loaded, initializing flagging system immediately');
     if (!window.flaggingSystem) {
         window.flaggingSystem = new FlaggingSystem();
     }
-});
+}
 
 // Export for use in other scripts
 if (typeof module !== 'undefined' && module.exports) {
