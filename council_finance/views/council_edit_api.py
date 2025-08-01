@@ -154,6 +154,15 @@ def save_council_characteristic_api(request, council_slug):
                 new_value=value
             )
         
+        # Invalidate counter cache for all years since characteristics can affect all calculations
+        # This is done outside the transaction to ensure database changes are committed first
+        from django.core.cache import cache
+        from council_finance.models import FinancialYear
+        for year in FinancialYear.objects.all():
+            cache_key = f"counter_values:{council.slug}:{year.label}"
+            cache.delete(cache_key)
+        logger.info(f"Invalidated counter cache for all years for council {council.slug}")
+        
         # Calculate points (3 points for characteristics)
         points = 3
         
@@ -409,6 +418,13 @@ def save_temporal_data_api(request, council_slug, year_id):
                     'category': field.category
                 }
             )
+        
+        # Invalidate counter cache so updated figures are immediately visible
+        # This is done outside the transaction to ensure database changes are committed first
+        from django.core.cache import cache
+        cache_key_current = f"counter_values:{council.slug}:{year.label}"
+        cache.delete(cache_key_current)
+        logger.info(f"Invalidated counter cache: {cache_key_current}")
         
         # Calculate points based on category
         if category == 'general':
