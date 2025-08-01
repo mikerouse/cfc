@@ -1,0 +1,210 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Data Contribution Has Changed - Council Finance Counters{% endblock %}
+
+{% block content %}
+<div class="min-h-screen bg-gray-50 py-8">
+    <div class="mx-auto px-4 sm:px-6 lg:px-8 max-w-none xl:max-w-desktop">
+        
+        <!-- Header Section -->
+        <div class="text-center mb-8">
+            <div class="mx-auto w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mb-4">
+                <svg class="w-8 h-8 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 21v-4m0 0V5a2 2 0 012-2h6.5l1 1H21l-3 6 3 6h-8.5l-1-1H5a2 2 0 00-2 2zm9-13.5V9"/>
+                </svg>
+            </div>
+            <h1 class="text-3xl font-bold text-gray-900 mb-2">Data Contribution Has Changed</h1>
+            <p class="text-xl text-gray-600 max-w-2xl mx-auto">
+                We've replaced the contribute queue with a more efficient system
+            </p>
+        </div>
+
+        <!-- Main Content -->
+        <div class="bg-white rounded-lg shadow-lg overflow-hidden mb-8">
+            <div class="px-6 py-8">
+                <div class="prose prose-lg max-w-none">
+                    <h2 class="text-2xl font-bold text-gray-900 mb-4">What's Changed?</h2>
+                    
+                    <p class="text-gray-700 mb-6">
+                        The old contribute queue system had several issues including outdated data, 
+                        lack of real-time updates, and conflicts when multiple users edited the same data. 
+                        We've replaced it with a better approach.
+                    </p>
+
+                    <div class="bg-blue-50 border-l-4 border-blue-400 p-4 mb-6">
+                        <div class="flex">
+                            <div class="flex-shrink-0">
+                                <svg class="h-5 w-5 text-blue-400" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"/>
+                                </svg>
+                            </div>
+                            <div class="ml-3">
+                                <h3 class="text-sm font-medium text-blue-800">
+                                    New System: Edit Directly + Flag Issues
+                                </h3>
+                                <div class="mt-2 text-sm text-blue-700">
+                                    <p>You can now edit council data directly through council pages, and flag any data issues you notice.</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <h3 class="text-xl font-semibold text-gray-900 mb-4">How to Contribute Data Now</h3>
+                    
+                    <div class="grid md:grid-cols-2 gap-6 mb-8">
+                        <div class="bg-gray-50 rounded-lg p-6">
+                            <div class="flex items-center mb-3">
+                                <div class="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center mr-3">
+                                    <span class="text-green-600 font-bold text-sm">1</span>
+                                </div>
+                                <h4 class="text-lg font-semibold text-gray-900">Direct Editing</h4>
+                            </div>
+                            <p class="text-gray-700 text-sm">
+                                Visit any council page and click "Edit Council Data" to add or update 
+                                financial figures and council information directly.
+                            </p>
+                            <a href="{% url 'council_list' %}" class="inline-flex items-center mt-3 text-blue-600 hover:text-blue-800 text-sm font-medium">
+                                Browse Councils
+                                <svg class="ml-1 w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+                                </svg>
+                            </a>
+                        </div>
+
+                        <div class="bg-gray-50 rounded-lg p-6">
+                            <div class="flex items-center mb-3">
+                                <div class="w-8 h-8 bg-orange-100 rounded-full flex items-center justify-center mr-3">
+                                    <span class="text-orange-600 font-bold text-sm">2</span>
+                                </div>
+                                <h4 class="text-lg font-semibold text-gray-900">Flag Data Issues</h4>
+                            </div>
+                            <p class="text-gray-700 text-sm">
+                                Found incorrect or suspicious data? Use the new flag system to report 
+                                issues directly to our moderation team for review.
+                            </p>
+                            <button id="demo-flag-btn" class="inline-flex items-center mt-3 text-orange-600 hover:text-orange-800 text-sm font-medium">
+                                See How Flagging Works
+                                <svg class="ml-1 w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 21v-4m0 0V5a2 2 0 012-2h6.5l1 1H21l-3 6 3 6h-8.5l-1-1H5a2 2 0 00-2 2zm9-13.5V9"/>
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+
+                    <h3 class="text-xl font-semibold text-gray-900 mb-4">Benefits of the New System</h3>
+                    
+                    <ul class="space-y-3 text-gray-700">
+                        <li class="flex items-start">
+                            <svg class="flex-shrink-0 h-5 w-5 text-green-500 mr-2 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+                            </svg>
+                            <span><strong>Real-Time Updates:</strong> Changes appear immediately without waiting in a queue</span>
+                        </li>
+                        <li class="flex items-start">
+                            <svg class="flex-shrink-0 h-5 w-5 text-green-500 mr-2 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+                            </svg>
+                            <span><strong>Conflict Resolution:</strong> No more issues with multiple people editing the same data</span>
+                        </li>
+                        <li class="flex items-start">
+                            <svg class="flex-shrink-0 h-5 w-5 text-green-500 mr-2 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+                            </svg>
+                            <span><strong>Better Quality Control:</strong> Flag system allows targeted reporting of data issues</span>
+                        </li>
+                        <li class="flex items-start">
+                            <svg class="flex-shrink-0 h-5 w-5 text-green-500 mr-2 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+                            </svg>
+                            <span><strong>Universal Availability:</strong> Flagging works across all content types and pages</span>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <!-- Call to Action -->
+        <div class="text-center">
+            <a href="{% url 'council_list' %}" 
+               class="inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 transition-colors">
+                Start Contributing Data
+                <svg class="ml-2 -mr-1 w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd" d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z" clip-rule="evenodd"/>
+                </svg>
+            </a>
+        </div>
+    </div>
+</div>
+
+<!-- Demo Flagging Modal -->
+<div id="demo-flag-modal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden z-50">
+    <div class="relative top-20 mx-auto p-5 border w-11/12 max-w-md shadow-lg rounded-md bg-white">
+        <div class="mt-3">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="text-lg font-medium text-gray-900">Flag Data Issue (Demo)</h3>
+                <button id="close-demo-modal" class="text-gray-400 hover:text-gray-600">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6L18 18"/>
+                    </svg>
+                </button>
+            </div>
+            
+            <div class="mb-4">
+                <label class="block text-sm font-medium text-gray-700 mb-2">Issue Type</label>
+                <select class="w-full p-2 border border-gray-300 rounded-md">
+                    <option>Data is Incorrect</option>
+                    <option>Data is Outdated</option>
+                    <option>Duplicate Entry</option>
+                    <option>System Error</option>
+                    <option>Other</option>
+                </select>
+            </div>
+            
+            <div class="mb-4">
+                <label class="block text-sm font-medium text-gray-700 mb-2">Description</label>
+                <textarea class="w-full p-2 border border-gray-300 rounded-md h-20" 
+                          placeholder="Please describe the issue you've found..."></textarea>
+            </div>
+            
+            <div class="flex justify-end space-x-3">
+                <button id="cancel-demo" class="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-md transition-colors">
+                    Cancel
+                </button>
+                <button class="px-4 py-2 text-sm font-medium text-white bg-orange-600 hover:bg-orange-700 rounded-md transition-colors">
+                    Submit Flag (Demo)
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Demo flagging modal functionality
+document.addEventListener('DOMContentLoaded', function() {
+    const demoBtn = document.getElementById('demo-flag-btn');
+    const modal = document.getElementById('demo-flag-modal');
+    const closeBtn = document.getElementById('close-demo-modal');
+    const cancelBtn = document.getElementById('cancel-demo');
+    
+    demoBtn.addEventListener('click', function() {
+        modal.classList.remove('hidden');
+    });
+    
+    closeBtn.addEventListener('click', function() {
+        modal.classList.add('hidden');
+    });
+    
+    cancelBtn.addEventListener('click', function() {
+        modal.classList.add('hidden');
+    });
+    
+    // Close modal when clicking outside
+    modal.addEventListener('click', function(e) {
+        if (e.target === modal) {
+            modal.classList.add('hidden');
+        }
+    });
+});
+</script>
+{% endblock %}

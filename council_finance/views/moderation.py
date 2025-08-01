@@ -30,45 +30,188 @@ def flag_content(request):
         data = json.loads(request.body)
         content_type = data.get('content_type')
         content_id = data.get('content_id')
-        reason = data.get('reason', '').strip()
+        flag_type = data.get('flag_type', '')
+        description = data.get('description', '').strip()
+        priority = data.get('priority', 'medium')
+        field_name = data.get('field_name', '')
         
-        if not all([content_type, content_id, reason]):
+        if not all([content_type, content_id, flag_type, description]):
             return JsonResponse({
-                'error': 'Content type, content ID, and reason are required'
+                'error': 'Content type, content ID, flag type, and description are required'
             }, status=400)
         
-        # Use the flagging service
-        flagging_service = FlaggingService()
+        # Map content types to actual objects/data for flagging
+        content_object = None
+        flag_context = {}
         
-        try:
-            flag = flagging_service.flag_content(
-                user=request.user,
-                content_type=content_type,
-                content_id=content_id,
-                reason=reason
-            )
+        if content_type == 'financial_counter':
+            # For financial counters, we'll create a virtual flag entry
+            # using the counter slug as identifier
+            flag_context = {
+                'counter_slug': content_id,
+                'field_name': field_name,
+                'content_description': f'Financial counter: {content_id}'
+            }
             
+        elif content_type == 'council_financial_data':
+            # For general council financial data
+            try:
+                council = Council.objects.get(slug=content_id)
+                content_object = council
+                flag_context = {
+                    'data_type': 'financial_overview',
+                    'council_slug': content_id
+                }
+            except Council.DoesNotExist:
+                return JsonResponse({'error': 'Council not found'}, status=404)
+                
+        elif content_type == 'council_characteristic':
+            # For council characteristics/meta data
+            try:
+                council = Council.objects.get(slug=content_id)
+                content_object = council
+                flag_context = {
+                    'data_type': 'characteristic',
+                    'field_name': field_name,
+                    'council_slug': content_id
+                }
+            except Council.DoesNotExist:
+                return JsonResponse({'error': 'Council not found'}, status=404)
+                
+        else:
+            return JsonResponse({'error': 'Unsupported content type'}, status=400)
+        
+        # Create the flag
+        try:
+            # Check if user has already flagged this specific content
+            existing_flag = Flag.objects.filter(
+                flagged_by=request.user,
+                content_type=ContentType.objects.get_for_model(Council) if content_object else None,
+                object_id=content_object.id if content_object else None
+            ).first()
+            
+            # For virtual flags (financial counters), check by content type string
+            if not content_object:
+                existing_flag = Flag.objects.filter(
+                    flagged_by=request.user,
+                    content_type=None,  # We'll use None for virtual content
+                    object_id=hash(f"{content_type}:{content_id}")  # Create a hash for consistency
+                ).first()
+            
+            if existing_flag:
+                return JsonResponse({
+                    'error': 'You have already flagged this content'
+                }, status=400)
+            
+            # Create new flag
+            flag_data = {
+                'flagged_by': request.user,
+                'flag_type': flag_type,
+                'priority': priority,
+                'description': description,
+                'ip_address': request.META.get('REMOTE_ADDR'),
+            }
+            
+            if content_object:
+                # Standard content flagging
+                flag_data.update({
+                    'content_type': ContentType.objects.get_for_model(content_object),
+                    'object_id': content_object.id
+                })
+            else:
+                # Virtual content flagging (e.g., financial counters)
+                flag_data.update({
+                    'content_type': None,
+                    'object_id': hash(f"{content_type}:{content_id}")
+                })
+            
+            flag = Flag.objects.create(**flag_data)
+            
+            # Store additional context in the flag description
+            if flag_context:
+                context_str = "; ".join([f"{k}: {v}" for k, v in flag_context.items()])
+                flag.description = f"{description}\n\nContext: {context_str}"
+                flag.save()
+            
+            # Log the activity
             log_activity(
                 request,
-                activity=f"Content flagged: {content_type} #{content_id}",
-                details=f"Reason: {reason}"
+                activity=f"Content flagged: {content_type}",
+                details=f"Flag ID: {flag.id}, Content: {content_id}, Reason: {flag_type}"
             )
+            
+            # Send email notification to admins
+            self.send_flag_notification_email(flag, flag_context)
             
             return JsonResponse({
                 'success': True,
-                'message': 'Content flagged successfully. Thank you for helping keep our community safe.',
+                'message': 'Content flagged successfully. Thank you for helping improve data quality.',
                 'flag_id': flag.id
             })
             
         except Exception as e:
+            logger.error(f"Error creating flag: {str(e)}")
             return JsonResponse({
-                'error': f'Failed to flag content: {str(e)}'
+                'error': 'Failed to create flag. Please try again.'
             }, status=500)
             
     except json.JSONDecodeError:
         return JsonResponse({'error': 'Invalid JSON data'}, status=400)
     except Exception as e:
-        return JsonResponse({'error': str(e)}, status=500)
+        logger.error(f"Error in flag_content: {str(e)}")
+        return JsonResponse({'error': 'An error occurred while processing your request'}, status=500)
+
+def send_flag_notification_email(flag, context=None):
+    """Send email notification to admins when content is flagged."""
+    try:
+        from django.core.mail import send_mail
+        from django.conf import settings
+        from django.contrib.auth.models import User
+        
+        # Get admin users
+        admin_users = User.objects.filter(is_staff=True, is_active=True)
+        admin_emails = [user.email for user in admin_users if user.email]
+        
+        if not admin_emails:
+            return
+        
+        # Prepare email content
+        subject = f"[CFC] New Content Flag: {flag.get_flag_type_display()}"
+        
+        context_info = ""
+        if context:
+            context_info = "\n\nAdditional Context:\n" + "\n".join([f"- {k}: {v}" for k, v in context.items()])
+        
+        message = f"""
+A user has flagged content for review on Council Finance Counters.
+
+Flag Details:
+- Flag Type: {flag.get_flag_type_display()}
+- Priority: {flag.get_priority_display()}
+- Flagged by: {flag.flagged_by.username} ({flag.flagged_by.email})
+- Date: {flag.created_at.strftime('%Y-%m-%d %H:%M:%S')}
+
+Description:
+{flag.description}
+{context_info}
+
+Please review this flag in the admin interface:
+{settings.SITE_URL if hasattr(settings, 'SITE_URL') else 'http://localhost:8000'}/moderation/flagged-content/
+
+---
+This is an automated notification from Council Finance Counters.
+        """
+        
+        send_mail(
+            subject=subject,
+            message=message,
+            from_email=getattr(settings, 'DEFAULT_FROM_EMAIL', 'noreply@councilfinancecounters.com'),
+            recipient_list=admin_emails,
+            fail_silently=True  # Don't break the flagging process if email fails
+        )
+        
+    except Exception as e:
+        logger.error(f"Failed to send flag notification email: {str(e)}")
 
 
 @login_required

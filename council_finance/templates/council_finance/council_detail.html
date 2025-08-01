@@ -7,6 +7,7 @@
 {% block extra_js %}
 <script src="{% static 'js/favourites.js' %}"></script>
 <script src="{% static 'js/ai-factoids.js' %}"></script>
+<script src="{% static 'js/flagging-system.js' %}"></script>
 {% endblock %}
 
 {% block content %}
@@ -258,6 +259,21 @@
                   </svg>
                   Customise
                 </button>
+                
+                {% if user.is_authenticated %}
+                  <!-- Flag Data Issue Button -->
+                  <button type="button"
+                          class="flag-content-btn inline-flex items-center justify-center px-4 py-3 border border-orange-300 text-sm font-medium rounded-md text-orange-700 bg-orange-50 hover:bg-orange-100 active:bg-orange-200 transition-colors min-h-[44px]"
+                          data-content-type="council_financial_data"
+                          data-object-id="{{ council.slug }}"
+                          data-content-description="{{ council.name }} financial data"
+                          title="Report an issue with this council's financial data">
+                    <svg class="w-4 h-4 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 21v-4m0 0V5a2 2 0 012-2h6.5l1 1H21l-3 6 3 6h-8.5l-1-1H5a2 2 0 00-2 2zm9-13.5V9"/>
+                    </svg>
+                    Flag Data Issue
+                  </button>
+                {% endif %}
               </div>
             </div>
           </div>
@@ -399,11 +415,26 @@
                 <div class="px-6 py-4 bg-gray-50 border-b border-gray-200">
                   <div class="flex items-center justify-between">
                     <h4 class="text-sm font-semibold text-gray-900">{{ item.counter.name }}</h4>
-                    <div class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-50 text-gray-600 opacity-60">
-                      <svg class="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 20 20">
-                        <path fill-rule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clip-rule="evenodd"/>
-                      </svg>
-                      <span class="financial-year-display">{{ selected_year.label }}</span>
+                    <div class="flex items-center gap-2">
+                      <div class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-50 text-gray-600 opacity-60">
+                        <svg class="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                          <path fill-rule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clip-rule="evenodd"/>
+                        </svg>
+                        <span class="financial-year-display">{{ selected_year.label }}</span>
+                      </div>
+                      {% if user.is_authenticated %}
+                        <button type="button" 
+                                class="flag-content-btn inline-flex items-center px-2 py-1 text-xs border border-orange-300 text-orange-700 bg-orange-50 hover:bg-orange-100 rounded-md transition-colors opacity-70 hover:opacity-100"
+                                data-content-type="financial_counter"
+                                data-object-id="{{ item.counter.slug }}"
+                                data-content-description="{{ item.counter.name }} counter"
+                                title="Flag this financial data as incorrect">
+                          <svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 21v-4m0 0V5a2 2 0 012-2h6.5l1 1H21l-3 6 3 6h-8.5l-1-1H5a2 2 0 00-2 2zm9-13.5V9"/>
+                          </svg>
+                          Flag
+                        </button>
+                      {% endif %}
                     </div>
                   </div>
                 </div>
