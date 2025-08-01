@@ -22,6 +22,7 @@ class SitewideFactoidDisplay {
         this.refreshTimeoutId = null;
         this.retryCount = 0;
         this.isVisible = false;
+        this.displayContainers = [];
         
         this.init();
     }
@@ -56,13 +57,22 @@ class SitewideFactoidDisplay {
     /**
      * Create HTML containers for factoid display
      */
-    createDisplayContainers() {
-        // Find all counter containers on homepage
-        const counterContainers = document.querySelectorAll('#homepage-counters .counter-value');
-        
-        counterContainers.forEach(counterEl => {
-            const container = counterEl.closest('[id^="counter-"]');
-            if (!container) return;
+    createDisplayContainers() {  
+        try {
+            // Find all counter containers on homepage
+            const counterContainers = document.querySelectorAll('#homepage-counters .counter-value');
+            
+            if (counterContainers.length === 0) {
+                console.warn('⚠️ No counter containers found on homepage');
+                return;
+            }
+            
+            counterContainers.forEach(counterEl => {
+                const container = counterEl.closest('[id^="counter-"]');
+                if (!container) {
+                    console.warn('⚠️ Counter element has no container parent');
+                    return;
+                }
             
             // Create factoid display area below the counter
             const factoidDisplay = document.createElement('div');
@@ -85,17 +95,29 @@ class SitewideFactoidDisplay {
                 </div>
             `;
             
-            // Insert after the counter value
-            const insertAfter = container.querySelector('.counter-value').nextElementSibling;
-            if (insertAfter) {
-                container.insertBefore(factoidDisplay, insertAfter);
+            // Insert after the counter value - find a good insertion point
+            const counterValue = container.querySelector('.counter-value');
+            if (counterValue && counterValue.parentNode === container) {
+                // Insert after the counter value element
+                const nextSibling = counterValue.nextElementSibling;
+                if (nextSibling && nextSibling.parentNode === container) {
+                    container.insertBefore(factoidDisplay, nextSibling);
+                } else {
+                    container.appendChild(factoidDisplay);
+                }
             } else {
+                // Fallback: just append to container
                 container.appendChild(factoidDisplay);
             }
-        });
-        
-        this.displayContainers = document.querySelectorAll('.sitewide-factoid-display');
-        console.log(`✅ Created ${this.displayContainers.length} factoid display containers`);
+            });
+            
+            this.displayContainers = document.querySelectorAll('.sitewide-factoid-display');
+            console.log(`✅ Created ${this.displayContainers.length} factoid display containers`);
+            
+        } catch (error) {
+            console.error('❌ Error creating factoid display containers:', error);
+            this.displayContainers = [];
+        }
     }
 
     /**
@@ -146,9 +168,12 @@ class SitewideFactoidDisplay {
         if (this.factoids.length === 0) return;
         
         // Hide loading states
-        this.displayContainers.forEach(container => {
-            container.querySelector('.loading-state').classList.add('hidden');
-        });
+        if (this.displayContainers && this.displayContainers.length > 0) {
+            this.displayContainers.forEach(container => {
+                const loadingState = container.querySelector('.loading-state');
+                if (loadingState) loadingState.classList.add('hidden');
+            });
+        }
         
         // Show first factoid
         this.showFactoid(0);
@@ -167,7 +192,7 @@ class SitewideFactoidDisplay {
      * Display a specific factoid
      */
     showFactoid(index) {
-        if (!this.factoids[index]) return;
+        if (!this.factoids[index] || !this.displayContainers || this.displayContainers.length === 0) return;
         
         const factoid = this.factoids[index];
         this.currentIndex = index;
@@ -175,6 +200,8 @@ class SitewideFactoidDisplay {
         this.displayContainers.forEach(container => {
             const contentEl = container.querySelector('.factoid-content');
             const textEl = container.querySelector('.factoid-text');
+            
+            if (!contentEl || !textEl) return;
             
             // Hide current content
             contentEl.classList.add('opacity-0');
@@ -211,9 +238,12 @@ class SitewideFactoidDisplay {
         }
         
         // Hide current factoid with animation
-        this.displayContainers.forEach(container => {
-            container.querySelector('.factoid-content').classList.add('opacity-0');
-        });
+        if (this.displayContainers && this.displayContainers.length > 0) {
+            this.displayContainers.forEach(container => {
+                const contentEl = container.querySelector('.factoid-content');
+                if (contentEl) contentEl.classList.add('opacity-0');
+            });
+        }
         
         // Show next factoid after animation
         setTimeout(() => {
@@ -248,11 +278,20 @@ class SitewideFactoidDisplay {
      * Show loading state
      */
     showLoadingState() {
+        if (!this.displayContainers || this.displayContainers.length === 0) {
+            return;
+        }
+        
         this.displayContainers.forEach(container => {
-            container.querySelector('.factoid-content').classList.add('hidden');
-            container.querySelector('.error-state').classList.add('hidden');
-            container.querySelector('.empty-state').classList.add('hidden');
-            container.querySelector('.loading-state').classList.remove('hidden');
+            const factoidContent = container.querySelector('.factoid-content');
+            const loadingState = container.querySelector('.loading-state');
+            const emptyState = container.querySelector('.empty-state');
+            const errorState = container.querySelector('.error-state');
+            
+            if (factoidContent) factoidContent.classList.add('hidden');
+            if (errorState) errorState.classList.add('hidden');
+            if (emptyState) emptyState.classList.add('hidden');
+            if (loadingState) loadingState.classList.remove('hidden');
         });
     }
 
@@ -260,11 +299,21 @@ class SitewideFactoidDisplay {
      * Show error state
      */
     showErrorState() {
+        if (!this.displayContainers || this.displayContainers.length === 0) {
+            console.warn('⚠️ No display containers available for error state');
+            return;
+        }
+        
         this.displayContainers.forEach(container => {
-            container.querySelector('.factoid-content').classList.add('hidden');
-            container.querySelector('.loading-state').classList.add('hidden');
-            container.querySelector('.empty-state').classList.add('hidden');
-            container.querySelector('.error-state').classList.remove('hidden');
+            const factoidContent = container.querySelector('.factoid-content');
+            const loadingState = container.querySelector('.loading-state');
+            const emptyState = container.querySelector('.empty-state');
+            const errorState = container.querySelector('.error-state');
+            
+            if (factoidContent) factoidContent.classList.add('hidden');
+            if (loadingState) loadingState.classList.add('hidden');
+            if (emptyState) emptyState.classList.add('hidden');
+            if (errorState) errorState.classList.remove('hidden');
         });
     }
 
@@ -272,11 +321,20 @@ class SitewideFactoidDisplay {
      * Show empty state
      */
     showEmptyState() {
+        if (!this.displayContainers || this.displayContainers.length === 0) {
+            return;
+        }
+        
         this.displayContainers.forEach(container => {
-            container.querySelector('.factoid-content').classList.add('hidden');
-            container.querySelector('.loading-state').classList.add('hidden');
-            container.querySelector('.error-state').classList.add('hidden');
-            container.querySelector('.empty-state').classList.remove('hidden');
+            const factoidContent = container.querySelector('.factoid-content');
+            const loadingState = container.querySelector('.loading-state');
+            const errorState = container.querySelector('.error-state');
+            const emptyState = container.querySelector('.empty-state');
+            
+            if (factoidContent) factoidContent.classList.add('hidden');
+            if (loadingState) loadingState.classList.add('hidden');
+            if (errorState) errorState.classList.add('hidden');
+            if (emptyState) emptyState.classList.remove('hidden');
         });
     }
 
@@ -295,9 +353,13 @@ class SitewideFactoidDisplay {
         }
         
         // Remove display containers
-        this.displayContainers.forEach(container => {
-            container.remove();
-        });
+        if (this.displayContainers && this.displayContainers.length > 0) {
+            this.displayContainers.forEach(container => {
+                if (container && container.remove) {
+                    container.remove();
+                }
+            });
+        }
         
         console.log('🗑️ Site-wide factoid display destroyed');
     }
