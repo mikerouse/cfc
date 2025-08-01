@@ -1,0 +1,45 @@
+{% extends "council_finance/base.html" %}
+{% load static %}
+
+{% block title %}Test Flagging System{% endblock %}
+
+{% block content %}
+<div class="container mx-auto p-8">
+    <h1 class="text-2xl font-bold mb-4">Flagging System Test Page</h1>
+    
+    <p class="mb-4">This page tests if the flagging system JavaScript is loading correctly.</p>
+    
+    <div class="bg-gray-100 p-4 rounded mb-4">
+        <p class="font-mono text-sm">Check browser console for:</p>
+        <ul class="list-disc ml-6 font-mono text-sm">
+            <li>FlaggingSystem constructor called</li>
+            <li>FlaggingSystem init() called</li>
+            <li>FlaggingSystem initialization completed</li>
+        </ul>
+    </div>
+    
+    <div class="mb-4">
+        <button type="button" 
+                class="flag-content-btn inline-flex items-center px-4 py-2 border border-yellow-300 text-yellow-700 bg-yellow-50 hover:bg-yellow-100 rounded-lg font-medium transition-colors"
+                data-content-type="21"
+                data-object-id="1" 
+                data-content-description="Test Content">
+            <svg class="w-4 h-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 21v-4m0 0V5a2 2 0 012-2h6.5l1 1H21l-3 6 3 6h-8.5l-1-1H5a2 2 0 00-2 2zm9-13.5V9"/>
+            </svg>
+            Test Flag Button
+        </button>
+    </div>
+    
+    <div class="bg-blue-50 p-4 rounded">
+        <p class="text-sm">If clicking the button above opens a modal, the flagging system is working!</p>
+    </div>
+</div>
+
+<script>
+// Test script to verify loading
+console.log('Test page loaded');
+console.log('window.flaggingSystem:', window.flaggingSystem);
+console.log('FlaggingSystem class defined:', typeof FlaggingSystem !== 'undefined');
+</script>
+{% endblock %}

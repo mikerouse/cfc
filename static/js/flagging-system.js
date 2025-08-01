@@ -52,6 +52,7 @@ class FlaggingSystem {
                                 <label for="flagType" class="block text-sm font-medium text-gray-700 mb-2">Why are you flagging this content?</label>
                                 <select class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" id="flagType" name="flag_type" required>
                                     <option value="">-- Select a reason --</option>
+                                    <option value="data_issue">Data Issue</option>
                                     <option value="inappropriate">Inappropriate content</option>
                                     <option value="spam">Spam or advertising</option>
                                     <option value="misinformation">Misinformation or false data</option>
@@ -60,6 +61,20 @@ class FlaggingSystem {
                                     <option value="duplicate">Duplicate content</option>
                                     <option value="off_topic">Off-topic or irrelevant</option>
                                     <option value="other">Other (explain below)</option>
+                                </select>
+                            </div>
+                            
+                            <!-- Data Field/Counter Selection (shown when data_issue is selected) -->
+                            <div id="dataFieldContainer" class="hidden">
+                                <label for="dataFieldSelect" class="block text-sm font-medium text-gray-700 mb-2">Which data field or counter has an issue?</label>
+                                <select class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" id="dataFieldSelect" name="data_field">
+                                    <option value="">-- Select field or counter --</option>
+                                    <optgroup label="Data Fields">
+                                        <!-- These will be populated dynamically -->
+                                    </optgroup>
+                                    <optgroup label="Counters">
+                                        <!-- These will be populated dynamically -->
+                                    </optgroup>
                                 </select>
                             </div>
                             
@@ -158,6 +173,23 @@ class FlaggingSystem {
                 }
             }
         });
+
+        // Handle flag type change to show/hide data field selector
+        document.addEventListener('change', (e) => {
+            if (e.target.id === 'flagType') {
+                const dataFieldContainer = document.getElementById('dataFieldContainer');
+                const dataFieldSelect = document.getElementById('dataFieldSelect');
+                
+                if (e.target.value === 'data_issue') {
+                    dataFieldContainer.classList.remove('hidden');
+                    dataFieldSelect.required = true;
+                } else {
+                    dataFieldContainer.classList.add('hidden');
+                    dataFieldSelect.required = false;
+                    dataFieldSelect.value = '';
+                }
+            }
+        });
     }
 
     showFlagModal(button) {
@@ -184,6 +216,11 @@ class FlaggingSystem {
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 21v-4m0 0V5a2 2 0 012-2h6.5l1 1H21l-3 6 3 6h-8.5l-1-1H5a2 2 0 00-2 2zm9-13.5V9"/>
             </svg>
             Flag ${contentDescription}`;
+        
+        // Populate data fields if we're on a council page
+        if (this.isCouncilPage()) {
+            this.populateDataFields();
+        }
         
         // Show modal
         const modal = document.getElementById('flagModal');
@@ -253,9 +290,16 @@ class FlaggingSystem {
     validateFlagForm(form) {
         const flagType = form.querySelector('#flagType').value;
         const description = form.querySelector('#flagDescription').value.trim();
+        const dataFieldSelect = form.querySelector('#dataFieldSelect');
 
         if (!flagType) {
             this.showNotification('Please select a reason for flagging', 'error');
+            return false;
+        }
+
+        // If data issue is selected, ensure a field/counter is selected
+        if (flagType === 'data_issue' && dataFieldSelect && !dataFieldSelect.value) {
+            this.showNotification('Please select which data field or counter has an issue', 'error');
             return false;
         }
 
@@ -338,6 +382,70 @@ class FlaggingSystem {
                 notification.parentNode.removeChild(notification);
             }
         }, 5000);
+    }
+
+    // Check if we're on a council detail page
+    isCouncilPage() {
+        return window.location.pathname.match(/^\/councils\/[^\/]+\/?$/);
+    }
+
+    // Populate data fields and counters from the page
+    populateDataFields() {
+        const dataFieldSelect = document.getElementById('dataFieldSelect');
+        if (!dataFieldSelect) return;
+
+        // Clear existing options except the first one
+        const fieldsOptgroup = dataFieldSelect.querySelector('optgroup[label="Data Fields"]');
+        const countersOptgroup = dataFieldSelect.querySelector('optgroup[label="Counters"]');
+        
+        fieldsOptgroup.innerHTML = '';
+        countersOptgroup.innerHTML = '';
+
+        // Extract data fields from meta fields on the page
+        const metaFields = document.querySelectorAll('.council-meta-item');
+        metaFields.forEach(field => {
+            const label = field.querySelector('.council-meta-label')?.textContent.trim();
+            if (label) {
+                const option = document.createElement('option');
+                option.value = `field:${label}`;
+                option.textContent = label;
+                fieldsOptgroup.appendChild(option);
+            }
+        });
+
+        // Extract counters from the page
+        const counters = document.querySelectorAll('.counter-box');
+        counters.forEach(counter => {
+            const title = counter.querySelector('.counter-title')?.textContent.trim();
+            if (title) {
+                const option = document.createElement('option');
+                option.value = `counter:${title}`;
+                option.textContent = title;
+                countersOptgroup.appendChild(option);
+            }
+        });
+
+        // Add some common fields if not found on page
+        if (fieldsOptgroup.children.length === 0) {
+            const commonFields = [
+                'Population', 'Total Spending', 'Interest Payments', 
+                'Total Debt', 'Reserves', 'Council Tax'
+            ];
+            commonFields.forEach(field => {
+                const option = document.createElement('option');
+                option.value = `field:${field}`;
+                option.textContent = field;
+                fieldsOptgroup.appendChild(option);
+            });
+        }
+
+        // Remove optgroups if they're empty
+        if (fieldsOptgroup.children.length === 0) {
+            fieldsOptgroup.remove();
+        }
+        if (countersOptgroup.children.length === 0) {
+            countersOptgroup.remove();
+        }
     }
 
     // Static method to create flag button

@@ -13,7 +13,7 @@ app-specific navigation, styling, or functionality if needed.
     {% load static %}
     
     <!-- Flagging System -->
-    <script src="{% static 'js/flagging-system.js' %}"></script>
+    <script src="{% static 'js/flagging-system.js' %}?v={% now 'U' %}"></script>
     
     <!-- Include any council finance specific JavaScript -->
     <!-- <script src="{% static 'council_finance/js/app.js' %}"></script> -->

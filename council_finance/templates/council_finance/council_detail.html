@@ -1,4 +1,4 @@
-{% extends "base.html" %}
+{% extends "council_finance/base.html" %}
 {% load static %}
 {% load logo_tags %}
 {% load humanize %}
@@ -7,7 +7,7 @@
 {% block extra_js %}
 <script src="{% static 'js/favourites.js' %}"></script>
 <script src="{% static 'js/ai-factoids.js' %}"></script>
-<script src="{% static 'js/flagging-system.js' %}"></script>
+<!-- Flagging system is loaded globally in base.html -->
 {% endblock %}
 
 {% block content %}
