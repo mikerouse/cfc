@@ -74,7 +74,10 @@ from .views.ai_factoid_management import (
     test_ai_generation,
     clear_factoid_cache,
     council_financial_data_viewer,
-    ai_configuration
+    ai_configuration,
+    sitewide_factoid_inspector,
+    test_sitewide_generation,
+    clear_sitewide_cache
 )
 
 # Import comparison API views
@@ -289,6 +292,11 @@ urlpatterns = [
     path("ai-factoids/clear-cache/", clear_factoid_cache, name="clear_factoid_cache"),
     path("ai-factoids/financial-data/<slug:council_slug>/", council_financial_data_viewer, name="council_financial_data_viewer"),
     path("ai-factoids/configuration/", ai_configuration, name="ai_factoid_configuration"),
+    
+    # Site-wide factoid inspector
+    path("ai-factoids/sitewide/", sitewide_factoid_inspector, name="sitewide_factoid_inspector"),
+    path("ai-factoids/sitewide/test-generation/", test_sitewide_generation, name="test_sitewide_generation"),
+    path("ai-factoids/sitewide/clear-cache/", clear_sitewide_cache, name="clear_sitewide_cache"),
     
     # Legacy AI Analysis endpoints removed - now using AI factoids instead
     path("api/ai-providers/<int:provider_id>/models/", api_views.provider_models_api, name="provider_models_api"),

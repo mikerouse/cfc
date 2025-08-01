@@ -1,0 +1,488 @@
+{% extends "base.html" %}
+{% load static %}
+{% load humanize %}
+
+{% block title %}{{ page_title }} - Council Finance Counters{% endblock %}
+
+{% block content %}
+<div class="mx-auto max-w-none xl:max-w-desktop">
+  <!-- Header -->
+  <div class="bg-white border border-gray-200 rounded-lg shadow-sm mb-6 -mx-3 sm:-mx-4 xl:-mx-6">
+    <div class="px-6 py-6 sm:px-8 xl:px-12 sm:py-8 xl:py-10">
+      <div class="flex items-center justify-between">
+        <div>
+          <h1 class="text-2xl sm:text-3xl font-bold text-gray-900 mb-2">{{ page_title }}</h1>
+          <p class="text-gray-600">Inspect cross-council data, AI prompts, and generated factoids for the homepage display</p>
+        </div>
+        <div class="flex items-center space-x-4">
+          <div class="px-3 py-1 rounded-full text-sm font-medium bg-purple-100 text-purple-800">
+            Site-wide Analysis
+          </div>
+          <a href="{% url 'ai_factoid_management_dashboard' %}" class="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+            <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/>
+            </svg>
+            Back to Dashboard
+          </a>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- System Overview -->
+  <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+    <div class="bg-white border border-gray-200 rounded-lg p-6">
+      <div class="flex items-center">
+        <div class="flex-shrink-0">
+          <svg class="w-8 h-8 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-4m-5 0H3m2 0h3M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/>
+          </svg>
+        </div>
+        <div class="ml-5 w-0 flex-1">
+          <dl>
+            <dt class="text-sm font-medium text-gray-500 truncate">Councils Analysed</dt>
+            <dd class="text-lg font-medium text-gray-900">{{ total_councils|intcomma }}</dd>
+          </dl>
+        </div>
+      </div>
+    </div>
+
+    <div class="bg-white border border-gray-200 rounded-lg p-6">
+      <div class="flex items-center">
+        <div class="flex-shrink-0">
+          <svg class="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
+          </svg>
+        </div>
+        <div class="ml-5 w-0 flex-1">
+          <dl>
+            <dt class="text-sm font-medium text-gray-500 truncate">Analysis Year</dt>
+            <dd class="text-lg font-medium text-gray-900">{{ analysis_year }}</dd>
+          </dl>
+        </div>
+      </div>
+    </div>
+
+    <div class="bg-white border border-gray-200 rounded-lg p-6">
+      <div class="flex items-center">
+        <div class="flex-shrink-0">
+          <svg class="w-8 h-8 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4"/>
+          </svg>
+        </div>
+        <div class="ml-5 w-0 flex-1">
+          <dl>
+            <dt class="text-sm font-medium text-gray-500 truncate">Cache Status</dt>
+            <dd class="text-lg font-medium {% if cache_status == 'cached' %}text-green-900{% else %}text-red-900{% endif %}">
+              {% if cache_status == 'cached' %}Cached{% else %}Not Cached{% endif %}
+            </dd>
+          </dl>
+        </div>
+      </div>
+    </div>
+
+    <div class="bg-white border border-gray-200 rounded-lg p-6">
+      <div class="flex items-center">
+        <div class="flex-shrink-0">
+          <svg class="w-8 h-8 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/>
+          </svg>
+        </div>
+        <div class="ml-5 w-0 flex-1">
+          <dl>
+            <dt class="text-sm font-medium text-gray-500 truncate">Comparison Fields</dt>
+            <dd class="text-lg font-medium text-gray-900">{{ comparison_fields|length }}</dd>
+          </dl>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Quick Actions -->
+  <div class="bg-white border border-gray-200 rounded-lg mb-8">
+    <div class="px-6 py-4 border-b border-gray-200">
+      <h3 class="text-lg font-medium text-gray-900">Site-wide Factoid Actions</h3>
+    </div>
+    <div class="p-6">
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <button id="test-sitewide-btn" class="inline-flex items-center justify-center px-4 py-2 border border-green-300 rounded-md shadow-sm text-sm font-medium text-green-700 bg-green-50 hover:bg-green-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500">
+          <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+          </svg>
+          Test Site-wide Generation
+        </button>
+        
+        <button id="clear-sitewide-cache-btn" class="inline-flex items-center justify-center px-4 py-2 border border-red-300 rounded-md shadow-sm text-sm font-medium text-red-700 bg-red-50 hover:bg-red-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500">
+          <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+          </svg>
+          Clear Site-wide Cache
+        </button>
+        
+        <a href="/" target="_blank" class="inline-flex items-center justify-center px-4 py-2 border border-blue-300 rounded-md shadow-sm text-sm font-medium text-blue-700 bg-blue-50 hover:bg-blue-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+          <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/>
+          </svg>
+          View Homepage
+        </a>
+      </div>
+    </div>
+  </div>
+
+  <!-- Current Cached Factoids -->
+  {% if cached_factoids %}
+  <div class="bg-white border border-gray-200 rounded-lg mb-8">
+    <div class="px-6 py-4 border-b border-gray-200">
+      <h3 class="text-lg font-medium text-gray-900">Current Cached Factoids</h3>
+      <p class="text-sm text-gray-600 mt-1">These are the factoids currently displayed on the homepage</p>
+    </div>
+    <div class="p-6">
+      <div class="space-y-4">
+        {% for factoid in cached_factoids %}
+        <div class="bg-gray-50 border border-gray-200 rounded-md p-4">
+          <div class="flex items-start">
+            <div class="flex-shrink-0 w-8 h-8 bg-purple-100 text-purple-800 rounded-full flex items-center justify-center text-sm font-medium">
+              {{ forloop.counter }}
+            </div>
+            <div class="ml-4 flex-1">
+              <div class="text-gray-900 mb-2">{{ factoid.text|safe }}</div>
+              <div class="flex items-center space-x-4 text-sm text-gray-500">
+                <span>Type: {{ factoid.insight_type }}</span>
+                {% if factoid.councils_mentioned %}
+                <span>Councils: {{ factoid.councils_mentioned|join:", " }}</span>
+                {% endif %}
+                <span>Field: {{ factoid.field }}</span>
+                <span>Generated: {{ factoid.generated_at }}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- Cross-council Data Summary -->
+  {% if cross_council_data %}
+  <div class="bg-white border border-gray-200 rounded-lg mb-8">
+    <div class="px-6 py-4 border-b border-gray-200">
+      <h3 class="text-lg font-medium text-gray-900">Cross-council Data Summary</h3>
+      <p class="text-sm text-gray-600 mt-1">Data gathered from all councils for AI analysis</p>
+    </div>
+    <div class="p-6">
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <!-- Fields Data -->
+        <div>
+          <h4 class="text-sm font-medium text-gray-900 mb-3">Financial Fields Analysed</h4>
+          {% if cross_council_data.fields_data %}
+          <div class="space-y-2">
+            {% for field_slug, field_data in cross_council_data.fields_data.items %}
+            <div class="flex items-center justify-between p-2 bg-gray-50 rounded">
+              <span class="text-sm text-gray-900">{{ field_slug|title }}</span>
+              <span class="text-sm text-gray-500">{{ field_data.count }} councils</span>
+            </div>
+            {% endfor %}
+          </div>
+          {% else %}
+          <p class="text-sm text-gray-500">No field data available</p>
+          {% endif %}
+        </div>
+
+        <!-- Type & Nation Comparisons -->
+        <div>
+          <h4 class="text-sm font-medium text-gray-900 mb-3">Comparison Analysis</h4>
+          <div class="space-y-2">
+            <div class="flex items-center justify-between p-2 bg-gray-50 rounded">
+              <span class="text-sm text-gray-900">Council Type Comparisons</span>
+              <span class="text-sm text-gray-500">
+                {% if cross_council_data.type_comparisons %}{{ cross_council_data.type_comparisons|length }} fields{% else %}None{% endif %}
+              </span>
+            </div>
+            <div class="flex items-center justify-between p-2 bg-gray-50 rounded">
+              <span class="text-sm text-gray-900">Nation Comparisons</span>
+              <span class="text-sm text-gray-500">
+                {% if cross_council_data.nation_comparisons %}{{ cross_council_data.nation_comparisons|length }} fields{% else %}None{% endif %}
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- AI Prompt -->
+  {% if ai_prompt %}
+  <div class="bg-white border border-gray-200 rounded-lg">
+    <div class="px-6 py-4 border-b border-gray-200">
+      <h3 class="text-lg font-medium text-gray-900">AI Prompt Sent to OpenAI</h3>
+      <p class="text-sm text-gray-600 mt-1">Complete prompt with cross-council data ({{ ai_prompt|length }} characters)</p>
+    </div>
+    <div class="p-6">
+      <div class="bg-gray-50 rounded-md p-4 max-h-96 overflow-y-auto">
+        <pre class="text-xs text-gray-700 whitespace-pre-wrap">{{ ai_prompt }}</pre>
+      </div>
+    </div>
+  </div>
+  {% else %}
+  <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-6">
+    <div class="flex">
+      <div class="flex-shrink-0">
+        <svg class="h-5 w-5 text-yellow-400" fill="currentColor" viewBox="0 0 20 20">
+          <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/>
+        </svg>
+      </div>
+      <div class="ml-3">
+        <h3 class="text-sm font-medium text-yellow-800">Limited Data Available</h3>
+        <div class="mt-2 text-sm text-yellow-700">
+          <p>Insufficient cross-council data (need at least 2 councils with financial data). Site-wide factoids are using fallback mode.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+</div>
+
+<!-- Test Modal -->
+<div id="sitewide-test-modal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden z-50">
+  <div class="relative top-20 mx-auto p-5 border w-11/12 max-w-5xl shadow-lg rounded-md bg-white">
+    <div class="mt-3">
+      <div class="flex items-center justify-between mb-4">
+        <h3 class="text-lg font-medium text-gray-900">Test Site-wide AI Generation</h3>
+        <button id="close-sitewide-modal" class="text-gray-400 hover:text-gray-600">
+          <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+          </svg>
+        </button>
+      </div>
+      
+      <!-- Test Parameters -->
+      <div class="mb-6 p-4 bg-gray-50 rounded-lg">
+        <h4 class="text-sm font-medium text-gray-900 mb-3">Test Parameters</h4>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label class="block text-xs font-medium text-gray-700 mb-1">Number of Factoids</label>
+            <select id="sitewide-factoid-limit" class="block w-full text-sm border-gray-300 rounded-md">
+              <option value="1">1 Factoid</option>
+              <option value="2">2 Factoids</option>
+              <option value="3" selected>3 Factoids</option>
+              <option value="4">4 Factoids</option>
+              <option value="5">5 Factoids</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-gray-700 mb-1">Options</label>
+            <label class="flex items-center text-sm">
+              <input type="checkbox" id="sitewide-force-refresh" class="mr-2">
+              Force Cache Refresh
+            </label>
+          </div>
+        </div>
+        <div class="mt-4">
+          <button id="run-sitewide-test" class="px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500">
+            Run Site-wide Test
+          </button>
+        </div>
+      </div>
+      
+      <!-- Results Area -->
+      <div id="sitewide-test-results" class="hidden">
+        <!-- Results will be populated by JavaScript -->
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  const modal = document.getElementById('sitewide-test-modal');
+  const closeBtn = document.getElementById('close-sitewide-modal');
+  const testBtn = document.getElementById('test-sitewide-btn');
+  const runTestBtn = document.getElementById('run-sitewide-test');
+  const resultsArea = document.getElementById('sitewide-test-results');
+  const clearCacheBtn = document.getElementById('clear-sitewide-cache-btn');
+  
+  // Test site-wide generation
+  testBtn.addEventListener('click', function() {
+    modal.classList.remove('hidden');
+  });
+  
+  // Close modal
+  closeBtn.addEventListener('click', function() {
+    modal.classList.add('hidden');
+    resultsArea.classList.add('hidden');
+    resultsArea.innerHTML = '';
+  });
+  
+  // Run site-wide test
+  runTestBtn.addEventListener('click', async function() {
+    const limit = document.getElementById('sitewide-factoid-limit').value;
+    const forceRefresh = document.getElementById('sitewide-force-refresh').checked;
+    
+    // Show loading
+    resultsArea.innerHTML = `
+      <div class="flex items-center justify-center py-8">
+        <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600"></div>
+        <span class="ml-3 text-gray-600">Running site-wide AI test...</span>
+      </div>
+    `;
+    resultsArea.classList.remove('hidden');
+    
+    try {
+      const response = await fetch('/ai-factoids/sitewide/test-generation/', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          limit: parseInt(limit),
+          force_refresh: forceRefresh
+        })
+      });
+      
+      const data = await response.json();
+      
+      if (data.success) {
+        displaySitewideTestResults(data);
+      } else {
+        resultsArea.innerHTML = `
+          <div class="bg-red-50 border border-red-200 rounded-md p-4">
+            <div class="flex">
+              <div class="flex-shrink-0">
+                <svg class="h-5 w-5 text-red-400" fill="currentColor" viewBox="0 0 20 20">
+                  <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"/>
+                </svg>
+              </div>
+              <div class="ml-3">
+                <h3 class="text-sm font-medium text-red-800">Test Failed</h3>
+                <div class="mt-2 text-sm text-red-700">
+                  <p>${data.error}</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        `;
+      }
+    } catch (error) {
+      resultsArea.innerHTML = `
+        <div class="bg-red-50 border border-red-200 rounded-md p-4">
+          <p class="text-red-700">Network error: ${error.message}</p>
+        </div>
+      `;
+    }
+  });
+  
+  function displaySitewideTestResults(data) {
+    const sourceColor = data.factoid_source === 'openai_api' ? 'green' : 'yellow';
+    const sourceLabel = data.factoid_source === 'openai_api' ? 'OpenAI API' : 'Fallback';
+    
+    resultsArea.innerHTML = `
+      <div class="space-y-6">
+        <!-- Summary -->
+        <div class="bg-${sourceColor}-50 border border-${sourceColor}-200 rounded-md p-4">
+          <div class="flex">
+            <div class="flex-shrink-0">
+              <svg class="h-5 w-5 text-${sourceColor}-400" fill="currentColor" viewBox="0 0 20 20">
+                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+              </svg>
+            </div>
+            <div class="ml-3">
+              <h3 class="text-sm font-medium text-${sourceColor}-800">Site-wide Test Complete - ${sourceLabel}</h3>
+              <div class="mt-2 text-sm text-${sourceColor}-700">
+                <p>Generated ${data.factoid_count} factoids in ${data.processing_time_seconds.toFixed(2)} seconds</p>
+                <p>Analysed ${data.cross_council_data_summary.total_councils} councils for ${data.cross_council_data_summary.analysis_year}</p>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <!-- Factoids -->
+        <div>
+          <h4 class="text-sm font-medium text-gray-900 mb-3">Generated Site-wide Factoids</h4>
+          <div class="space-y-2">
+            ${data.factoids.map((factoid, i) => `
+              <div class="bg-white border border-gray-200 rounded-md p-3">
+                <div class="flex items-start">
+                  <div class="flex-shrink-0 w-6 h-6 bg-purple-100 text-purple-800 rounded-full flex items-center justify-center text-xs font-medium">
+                    ${i + 1}
+                  </div>
+                  <div class="ml-3 flex-1">
+                    <div class="text-sm text-gray-900">${factoid.text}</div>
+                    <div class="text-xs text-gray-500 mt-1">
+                      Type: ${factoid.insight_type} | Field: ${factoid.field}
+                      ${factoid.councils_mentioned && factoid.councils_mentioned.length > 0 ? ` | Councils: ${factoid.councils_mentioned.join(', ')}` : ''}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            `).join('')}
+          </div>
+        </div>
+        
+        <!-- AI Prompt -->
+        ${data.ai_prompt ? `
+        <div>
+          <h4 class="text-sm font-medium text-gray-900 mb-3">AI Prompt Sent to OpenAI (${data.ai_prompt_length} characters)</h4>
+          <div class="bg-gray-50 rounded-md p-3 max-h-64 overflow-y-auto">
+            <pre class="text-xs text-gray-700 whitespace-pre-wrap">${data.ai_prompt}</pre>
+          </div>
+        </div>
+        ` : ''}
+        
+        <!-- Data Summary -->
+        <div>
+          <h4 class="text-sm font-medium text-gray-900 mb-3">Cross-council Data Summary</h4>
+          <div class="bg-white border border-gray-200 rounded-md p-3">
+            <dl class="grid grid-cols-1 md:grid-cols-2 gap-x-4 gap-y-2 text-sm">
+              <div>
+                <dt class="font-medium text-gray-900">Total Councils:</dt>
+                <dd class="text-gray-700">${data.cross_council_data_summary.total_councils}</dd>
+              </div>
+              <div>
+                <dt class="font-medium text-gray-900">Analysis Year:</dt>
+                <dd class="text-gray-700">${data.cross_council_data_summary.analysis_year}</dd>
+              </div>
+              <div>
+                <dt class="font-medium text-gray-900">Fields Analysed:</dt>
+                <dd class="text-gray-700">${data.cross_council_data_summary.fields_analysed.join(', ')}</dd>
+              </div>
+              <div>
+                <dt class="font-medium text-gray-900">Data Quality:</dt>
+                <dd class="text-gray-700">${data.cross_council_data_summary.data_quality}</dd>
+              </div>
+            </dl>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+  
+  // Clear site-wide cache
+  clearCacheBtn.addEventListener('click', async function() {
+    if (!confirm('Clear site-wide factoid cache? This will force fresh generation.')) return;
+    
+    try {
+      const response = await fetch('/ai-factoids/sitewide/clear-cache/', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({})
+      });
+      
+      const data = await response.json();
+      
+      if (data.success) {
+        alert(`Cleared ${data.count} site-wide cache entries`);
+        location.reload();
+      } else {
+        alert(`Failed to clear cache: ${data.error}`);
+      }
+    } catch (error) {
+      alert(`Network error: ${error.message}`);
+    }
+  });
+});
+</script>
+{% endblock %}

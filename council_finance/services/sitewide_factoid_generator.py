@@ -178,17 +178,32 @@ class SitewideFactoidGenerator(AIFactoidGenerator):
     def _get_latest_analysis_year(self) -> FinancialYear:
         """Get the latest year with good data coverage across councils."""
         # Get the most recent year that has data for multiple councils
+        # Adjust the minimum council count based on total councils in system
+        total_councils = Council.objects.count()
+        min_councils = max(2, min(10, int(total_councils * 0.5)))  # At least 2, or 50% of councils, max 10
+        
         recent_years = FinancialFigure.objects.values('year').annotate(
             council_count=Count('council', distinct=True)
         ).filter(
-            council_count__gte=10  # At least 10 councils have data
+            council_count__gte=min_councils
         ).order_by('-year__start_date')[:1]
         
         if recent_years:
             year_id = recent_years[0]['year']
             return FinancialYear.objects.get(id=year_id)
         
-        # Fallback to most recent financial year
+        # Fallback: get the year with the most council data
+        best_year = FinancialFigure.objects.values('year').annotate(
+            council_count=Count('council', distinct=True)
+        ).filter(
+            council_count__gte=1  # At least 1 council has data
+        ).order_by('-council_count', '-year__start_date')[:1]
+        
+        if best_year:
+            year_id = best_year[0]['year']
+            return FinancialYear.objects.get(id=year_id)
+        
+        # Final fallback to most recent financial year
         return FinancialYear.objects.order_by('-start_date').first()
     
     def _generate_type_comparisons(self, fields_data: Dict) -> Dict[str, Any]:

@@ -18,6 +18,7 @@ from django.utils import timezone
 
 from council_finance.models import Council
 from council_finance.services.ai_factoid_generator import AIFactoidGenerator, CouncilDataGatherer
+from council_finance.services.sitewide_factoid_generator import SitewideFactoidGenerator
 
 logger = logging.getLogger(__name__)
 
@@ -332,3 +333,158 @@ def ai_configuration(request):
     }
     
     return render(request, 'council_finance/ai_factoid_management/configuration.html', context)
+
+
+@staff_member_required
+def sitewide_factoid_inspector(request):
+    """
+    Inspector for site-wide factoids system.
+    
+    Shows the cross-council data gathered, AI prompts sent, and generated factoids
+    for the homepage site-wide factoid display.
+    """
+    generator = SitewideFactoidGenerator()
+    
+    # Gather the same cross-council data that would be sent to AI
+    cross_council_data = generator._gather_cross_council_data()
+    
+    # Build the actual prompt that would be sent to OpenAI
+    sample_prompt = None
+    if cross_council_data and cross_council_data.get('total_councils', 0) >= 2:
+        sample_prompt = generator._build_sitewide_analysis_prompt(cross_council_data, limit=3)
+    
+    # Get current cached factoids
+    cache_key = "sitewide_factoids_3"
+    cached_factoids = cache.get(cache_key)
+    cache_status = 'cached' if cached_factoids else 'not_cached'
+    
+    # Debug logging
+    logger.info(f"[SITEWIDE_INSPECTOR] Cross-council data keys: {list(cross_council_data.keys()) if cross_council_data else 'None'}")
+    if cross_council_data:
+        logger.info(f"[SITEWIDE_INSPECTOR] Total councils: {cross_council_data.get('total_councils', 0)}")
+        logger.info(f"[SITEWIDE_INSPECTOR] Fields data: {len(cross_council_data.get('fields_data', {}))}")
+    
+    context = {
+        'cross_council_data': cross_council_data,
+        'ai_prompt': sample_prompt,
+        'cache_status': cache_status,
+        'cached_factoids': cached_factoids,
+        'data_keys': list(cross_council_data.keys()) if cross_council_data else [],
+        'total_councils': cross_council_data.get('total_councils', 0) if cross_council_data else 0,
+        'analysis_year': cross_council_data.get('year', 'Unknown') if cross_council_data else 'Unknown',
+        'comparison_fields': generator.comparison_fields,
+        'page_title': 'Site-wide AI Factoids Inspector'
+    }
+    
+    return render(request, 'council_finance/ai_factoid_management/sitewide_inspector.html', context)
+
+
+@staff_member_required
+@require_http_methods(["POST"])
+@csrf_exempt
+def test_sitewide_generation(request):
+    """
+    Test site-wide AI factoid generation with custom parameters.
+    
+    Allows testing different numbers of factoids and viewing
+    the complete request/response cycle for site-wide factoids.
+    """
+    try:
+        # Parse request data
+        data = json.loads(request.body)
+        limit = int(data.get('limit', 3))
+        force_refresh = data.get('force_refresh', False)
+        
+        # Clear cache if requested
+        if force_refresh:
+            cache_key = f"sitewide_factoids_{limit}"
+            cache.delete(cache_key)
+        
+        # Gather cross-council data
+        generator = SitewideFactoidGenerator()
+        cross_council_data = generator._gather_cross_council_data()
+        
+        # Generate AI prompt
+        ai_prompt = None
+        if cross_council_data and cross_council_data.get('total_councils', 0) >= 2:
+            ai_prompt = generator._build_sitewide_analysis_prompt(cross_council_data, limit=limit)
+        
+        # Track start time
+        start_time = timezone.now()
+        
+        # Generate factoids
+        factoids = generator.generate_sitewide_factoids(limit=limit)
+        
+        # Calculate processing time
+        end_time = timezone.now()
+        processing_time = (end_time - start_time).total_seconds()
+        
+        # Determine factoid source
+        has_ai_factoids = any(f.get('insight_type') not in ['basic', 'system'] for f in factoids)
+        factoid_source = 'openai_api' if has_ai_factoids else 'fallback'
+        
+        response_data = {
+            'success': True,
+            'request_params': {
+                'limit': limit,
+                'force_refresh': force_refresh
+            },
+            'cross_council_data_summary': {
+                'total_councils': cross_council_data.get('total_councils', 0) if cross_council_data else 0,
+                'analysis_year': cross_council_data.get('year', 'Unknown') if cross_council_data else 'Unknown',
+                'fields_analysed': list(cross_council_data.get('fields_data', {}).keys()) if cross_council_data else [],
+                'has_type_comparisons': bool(cross_council_data.get('type_comparisons')) if cross_council_data else False,
+                'has_nation_comparisons': bool(cross_council_data.get('nation_comparisons')) if cross_council_data else False,
+                'data_quality': 'good' if cross_council_data and cross_council_data.get('total_councils', 0) >= 10 else 'limited'
+            },
+            'ai_prompt': ai_prompt,
+            'ai_prompt_length': len(ai_prompt) if ai_prompt else 0,
+            'factoids': factoids,
+            'factoid_count': len(factoids),
+            'factoid_source': factoid_source,
+            'processing_time_seconds': processing_time,
+            'generated_at': timezone.now().isoformat(),
+            'openai_available': generator.client is not None
+        }
+        
+        return JsonResponse(response_data)
+        
+    except Exception as e:
+        logger.error(f"Site-wide AI generation test failed: {e}")
+        return JsonResponse({
+            'success': False,
+            'error': str(e),
+            'error_type': type(e).__name__
+        }, status=500)
+
+
+@staff_member_required
+@require_http_methods(["POST"])
+@csrf_exempt
+def clear_sitewide_cache(request):
+    """
+    Clear site-wide factoid cache.
+    """
+    try:
+        data = json.loads(request.body)
+        
+        cleared_keys = []
+        
+        # Clear site-wide factoid caches for different limits
+        for limit in [1, 2, 3, 4, 5]:
+            cache_key = f"sitewide_factoids_{limit}"
+            if cache.delete(cache_key):
+                cleared_keys.append(cache_key)
+        
+        return JsonResponse({
+            'success': True,
+            'cleared_keys': cleared_keys,
+            'count': len(cleared_keys),
+            'cleared_at': timezone.now().isoformat()
+        })
+        
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'error': str(e)
+        }, status=500)
