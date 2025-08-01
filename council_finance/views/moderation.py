@@ -55,45 +55,44 @@ def flag_content(request):
             }, status=400)
         
         # Map content types to actual objects/data for flagging
-        content_object = None
-        flag_context = {}
+        # For all financial data flagging, we'll use the Council as the content object
+        # and store specific field/counter information in the flag context
+        try:
+            council = Council.objects.get(slug=content_id)
+            content_object = council
+        except Council.DoesNotExist:
+            return JsonResponse({'error': 'Council not found'}, status=404)
+        
+        flag_context = {
+            'council_slug': content_id
+        }
         
         if content_type == 'financial_counter':
-            # For financial counters, we'll create a virtual flag entry
-            # using the counter slug as identifier
-            flag_context = {
+            # For financial counters, store counter information
+            flag_context.update({
+                'flagged_content_type': 'financial_counter',
                 'counter_slug': content_id,
                 'field_name': field_name,
                 'content_description': f'Financial counter: {content_id}'
-            }
+            })
             
         elif content_type == 'council_financial_data':
             # For general council financial data
-            try:
-                council = Council.objects.get(slug=content_id)
-                content_object = council
-                flag_context = {
-                    'data_type': 'financial_overview',
-                    'council_slug': content_id
-                }
-                # Add field information if provided
-                if field_name:
-                    flag_context['field_name'] = field_name
-            except Council.DoesNotExist:
-                return JsonResponse({'error': 'Council not found'}, status=404)
+            flag_context.update({
+                'flagged_content_type': 'council_financial_data',
+                'data_type': 'financial_overview'
+            })
+            # Add field information if provided
+            if field_name:
+                flag_context['field_name'] = field_name
                 
         elif content_type == 'council_characteristic':
             # For council characteristics/meta data
-            try:
-                council = Council.objects.get(slug=content_id)
-                content_object = council
-                flag_context = {
-                    'data_type': 'characteristic',
-                    'field_name': field_name,
-                    'council_slug': content_id
-                }
-            except Council.DoesNotExist:
-                return JsonResponse({'error': 'Council not found'}, status=404)
+            flag_context.update({
+                'flagged_content_type': 'council_characteristic',
+                'data_type': 'characteristic',
+                'field_name': field_name
+            })
                 
         else:
             return JsonResponse({'error': 'Unsupported content type'}, status=400)
@@ -101,19 +100,15 @@ def flag_content(request):
         # Create the flag
         try:
             # Check if user has already flagged this specific content
+            # For duplicate prevention, we need to consider both the council and the specific field/counter
+            content_key = f"{flag_context.get('flagged_content_type', 'general')}:{flag_context.get('field_name', 'general')}"
+            
             existing_flag = Flag.objects.filter(
                 flagged_by=request.user,
-                content_type=ContentType.objects.get_for_model(Council) if content_object else None,
-                object_id=content_object.id if content_object else None
+                content_type=ContentType.objects.get_for_model(content_object),
+                object_id=content_object.id,
+                description__contains=content_key  # Check if we've already flagged this specific field/counter
             ).first()
-            
-            # For virtual flags (financial counters), check by content type string
-            if not content_object:
-                existing_flag = Flag.objects.filter(
-                    flagged_by=request.user,
-                    content_type=None,  # We'll use None for virtual content
-                    object_id=hash(f"{content_type}:{content_id}")  # Create a hash for consistency
-                ).first()
             
             if existing_flag:
                 return JsonResponse({
@@ -127,27 +122,16 @@ def flag_content(request):
                 'priority': priority,
                 'description': description,
                 'ip_address': request.META.get('REMOTE_ADDR'),
+                'content_type': ContentType.objects.get_for_model(content_object),
+                'object_id': content_object.id
             }
-            
-            if content_object:
-                # Standard content flagging
-                flag_data.update({
-                    'content_type': ContentType.objects.get_for_model(content_object),
-                    'object_id': content_object.id
-                })
-            else:
-                # Virtual content flagging (e.g., financial counters)
-                flag_data.update({
-                    'content_type': None,
-                    'object_id': hash(f"{content_type}:{content_id}")
-                })
             
             flag = Flag.objects.create(**flag_data)
             
             # Store additional context in the flag description
             if flag_context:
                 context_str = "; ".join([f"{k}: {v}" for k, v in flag_context.items()])
-                flag.description = f"{description}\n\nContext: {context_str}"
+                flag.description = f"{description}\n\nContext: {context_str}\nContent Key: {content_key}"
                 flag.save()
             
             # Log the activity
