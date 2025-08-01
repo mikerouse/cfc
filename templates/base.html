@@ -601,11 +601,16 @@
 
     // Comparison basket function
     function openComparisonBasket() {
-        // Check if we're on comparison page and React app is available
+        // Check if we're on the compare page with dedicated app
         if (typeof window.openComparison === 'function') {
             window.openComparison();
-        } else {
-            // Fallback: navigate to comparison page
+        } 
+        // Otherwise use global comparison
+        else if (typeof window.openGlobalComparison === 'function') {
+            window.openGlobalComparison();
+        } 
+        // Fallback: navigate to comparison page
+        else {
             window.location.href = '/compare/';
         }
     }

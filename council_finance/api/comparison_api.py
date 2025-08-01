@@ -43,7 +43,7 @@ def get_basket_data(request):
 					'name': council.council_nation.name if council.council_nation else None
 				},
 				'population': council.latest_population,
-				'latest_year': council.latest_year_label,
+				'latest_year': getattr(council, 'latest_year_label', None),
 			})
 		
 		return JsonResponse({

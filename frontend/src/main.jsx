@@ -5,6 +5,7 @@ import MyListsIntegration from './components/MyListsIntegration';
 import CouncilEditApp from './components/CouncilEditApp';
 import ComparisonBasketApp from './components/ComparisonBasketApp';
 import AddToBasketButton from './components/comparison/AddToBasketButton';
+import GlobalComparison from './components/comparison/GlobalComparison';
 import LegacyFactoidBuilder from './components/legacy/LegacyFactoidBuilder';
 
 console.log('🚀 Main.jsx loading - React apps initialization');
@@ -214,6 +215,28 @@ function initializeReactApps() {
       }
     });
     initializedApps.push(`${basketButtons.length} Add to Basket Button(s)`);
+  }
+
+  // Initialize Global Comparison (skip if already on compare page)
+  const isComparePage = window.location.pathname === '/compare/' || window.location.pathname.startsWith('/compare/');
+  if (!isComparePage || !comparisonBasketContainer) {
+    console.log('🌐 Initializing Global Comparison overlay...');
+    try {
+      // Create a container for the global comparison
+      const globalComparisonContainer = document.createElement('div');
+      globalComparisonContainer.id = 'global-comparison-root';
+      document.body.appendChild(globalComparisonContainer);
+      
+      const root = createRoot(globalComparisonContainer);
+      root.render(<GlobalComparison />);
+      
+      initializedApps.push('Global Comparison Overlay');
+      console.log('✅ Global Comparison overlay mounted successfully');
+    } catch (error) {
+      console.error('💥 Global Comparison initialization failed:', error);
+    }
+  } else {
+    console.log('ℹ️ Skipping Global Comparison on compare page (using dedicated app instead)');
   }
   
   if (initializedApps.length > 0) {
