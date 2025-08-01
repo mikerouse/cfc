@@ -8,6 +8,41 @@
 <!-- Main Content -->
 <div class="max-w-7xl mx-auto px-4 py-8">
 
+  <!-- Site-wide AI Financial Insights -->
+  <div class="mb-8">
+    <div class="sitewide-ai-factoid-playlist gov-uk-notification-banner" 
+         role="region" 
+         aria-label="Cross-Council Financial Insights">
+      <!-- Loading state -->
+      <div class="gov-uk-notification-banner__header">
+        <h2 class="gov-uk-notification-banner__title" id="sitewide-insights-title">
+          <svg class="w-5 h-5 inline-block mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
+          </svg>
+          Cross-Council Financial Insights
+        </h2>
+      </div>
+      <div class="gov-uk-notification-banner__content">
+        <div class="flex items-center space-x-3">
+          <div class="animate-spin w-5 h-5 border-2 border-blue-600 border-t-transparent rounded-full loading-spinner"></div>
+          <div class="loading-text text-gray-600">Loading cross-council comparisons...</div>
+          <div class="factoid-content hidden">
+            <div class="factoid-text text-gray-900"></div>
+          </div>
+          <div class="error-state hidden text-red-600">
+            <svg class="w-5 h-5 inline-block mr-2" fill="currentColor" viewBox="0 0 20 20">
+              <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"/>
+            </svg>
+            Cross-council insights temporarily unavailable
+          </div>
+          <div class="empty-state hidden text-gray-500">
+            Preparing cross-council analysis...
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- Live Financial Data -->
   <section class="mb-12">
     {% if promoted_counters %}
@@ -27,7 +62,6 @@
                data-friendly="{{ item.friendly_format|yesno:'true,false' }}"
                data-formatted="{{ item.formatted }}">0</div>
           
-          <!-- Site-wide factoid will be added here -->
           
           {% if item.explanation %}
           <div class="mt-3">
@@ -41,7 +75,6 @@
           {% endif %}
         </div>
         
-        <!-- Old factoid script removed -->
       </div>
       {% endfor %}
     </div>
@@ -231,6 +264,7 @@
 
 {% block extra_scripts %}
 <script src="{% static 'js/countUp.umd.js' %}"></script>
+<link rel="stylesheet" href="{% static 'css/factoid-system.css' %}">
 <script src="{% static 'js/sitewide-factoid-display.js' %}"></script>
 
 <style>
@@ -253,31 +287,25 @@
     opacity: 1;
 }
 
-/* Site-wide Factoid Display Styles */
-.sitewide-factoid-display {
-    border-top: 1px solid rgb(243 244 246);
-    padding-top: 0.75rem;
-    margin-top: 0.75rem;
-}
-
-.sitewide-factoid-display .factoid-content {
+/* Site-wide Factoid Banner Styles */
+.sitewide-ai-factoid-playlist .factoid-content {
     line-height: 1.4;
+    transition: opacity 0.6s ease-in-out;
 }
 
-.sitewide-factoid-display a {
+.sitewide-ai-factoid-playlist .factoid-text a {
     color: rgb(37 99 235);
     text-decoration: none;
     font-weight: 500;
 }
 
-.sitewide-factoid-display a:hover {
+.sitewide-ai-factoid-playlist .factoid-text a:hover {
     color: rgb(29 78 216);
     text-decoration: underline;
 }
 
-.sitewide-factoid-display .loading-state svg {
-    width: 1rem;
-    height: 1rem;
+.sitewide-ai-factoid-playlist .loading-spinner {
+    flex-shrink: 0;
 }
 </style>
 
@@ -336,9 +364,7 @@ document.addEventListener('DOMContentLoaded', () => {
             el.textContent = cu.formattingFn(0);
         }
         
-        // Initialize enhanced factoid system
-        const container = el.closest('[data-slug]');
-        const factoidContainer = container ? container.querySelector('.counter-factoid') : null;
+        // Counter display initialized
         
         if (!cu.error) {
             cu.start(() => {

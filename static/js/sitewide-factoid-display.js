@@ -1,8 +1,8 @@
 /**
  * Site-wide Factoid Display System
  * 
- * Displays AI-generated cross-council comparisons on the homepage.
- * Integrates with existing counter display but shows site-wide insights.
+ * Displays AI-generated cross-council comparisons at the top of the homepage.
+ * Uses GOV.UK notification banner style similar to council detail pages.
  */
 
 class SitewideFactoidDisplay {
@@ -10,9 +10,9 @@ class SitewideFactoidDisplay {
         this.options = {
             apiEndpoint: '/api/factoids/sitewide/',
             refreshInterval: 300000, // 5 minutes
-            displayDuration: 10000, // 10 seconds per factoid
+            displayDuration: 12000, // 12 seconds per factoid
             maxRetries: 3,
-            animationDuration: 500,
+            animationDuration: 600,
             ...options
         };
         
@@ -22,7 +22,7 @@ class SitewideFactoidDisplay {
         this.refreshTimeoutId = null;
         this.retryCount = 0;
         this.isVisible = false;
-        this.displayContainers = [];
+        this.container = null;
         
         this.init();
     }
@@ -34,8 +34,16 @@ class SitewideFactoidDisplay {
         try {
             console.log('🔍 Initializing site-wide factoid display');
             
-            // Create display containers
-            this.createDisplayContainers();
+            // Find the factoid container
+            this.container = document.querySelector('.sitewide-ai-factoid-playlist');
+            
+            if (!this.container) {
+                console.warn('⚠️ Site-wide factoid container not found on this page');
+                return;
+            }
+            
+            // Get references to state elements
+            this.setupStateElements();
             
             // Load initial factoids
             await this.loadFactoids();
@@ -55,69 +63,21 @@ class SitewideFactoidDisplay {
     }
 
     /**
-     * Create HTML containers for factoid display
+     * Setup references to state elements within the container
      */
-    createDisplayContainers() {  
-        try {
-            // Find all counter containers on homepage
-            const counterContainers = document.querySelectorAll('#homepage-counters .counter-value');
-            
-            if (counterContainers.length === 0) {
-                console.warn('⚠️ No counter containers found on homepage');
-                return;
-            }
-            
-            counterContainers.forEach(counterEl => {
-                const container = counterEl.closest('[id^="counter-"]');
-                if (!container) {
-                    console.warn('⚠️ Counter element has no container parent');
-                    return;
-                }
-            
-            // Create factoid display area below the counter
-            const factoidDisplay = document.createElement('div');
-            factoidDisplay.className = 'sitewide-factoid-display mt-3 text-sm text-gray-600 min-h-[2.5rem] flex items-center justify-center';
-            factoidDisplay.innerHTML = `
-                <div class="factoid-content hidden opacity-0 transition-all duration-500 text-center">
-                    <div class="factoid-text"></div>
-                </div>
-                <div class="loading-state text-gray-400">
-                    <svg class="animate-spin h-4 w-4 mx-auto" viewBox="0 0 24 24">
-                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none"/>
-                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"/>
-                    </svg>
-                </div>
-                <div class="error-state hidden text-red-500 text-xs">
-                    Cross-council insights temporarily unavailable
-                </div>
-                <div class="empty-state hidden text-gray-400 text-xs">
-                    Preparing cross-council comparisons...
-                </div>
-            `;
-            
-            // Insert after the counter value - find a good insertion point
-            const counterValue = container.querySelector('.counter-value');
-            if (counterValue && counterValue.parentNode === container) {
-                // Insert after the counter value element
-                const nextSibling = counterValue.nextElementSibling;
-                if (nextSibling && nextSibling.parentNode === container) {
-                    container.insertBefore(factoidDisplay, nextSibling);
-                } else {
-                    container.appendChild(factoidDisplay);
-                }
-            } else {
-                // Fallback: just append to container
-                container.appendChild(factoidDisplay);
-            }
-            });
-            
-            this.displayContainers = document.querySelectorAll('.sitewide-factoid-display');
-            console.log(`✅ Created ${this.displayContainers.length} factoid display containers`);
-            
-        } catch (error) {
-            console.error('❌ Error creating factoid display containers:', error);
-            this.displayContainers = [];
-        }
+    setupStateElements() {
+        if (!this.container) return;
+        
+        this.elements = {
+            loadingSpinner: this.container.querySelector('.loading-spinner'),
+            loadingText: this.container.querySelector('.loading-text'),
+            factoidContent: this.container.querySelector('.factoid-content'),
+            factoidText: this.container.querySelector('.factoid-text'),
+            errorState: this.container.querySelector('.error-state'),
+            emptyState: this.container.querySelector('.empty-state')
+        };
+        
+        console.log('✅ State elements setup complete');
     }
 
     /**
@@ -165,15 +125,10 @@ class SitewideFactoidDisplay {
      * Start the factoid display cycle
      */
     startDisplayCycle() {
-        if (this.factoids.length === 0) return;
+        if (this.factoids.length === 0 || !this.container) return;
         
-        // Hide loading states
-        if (this.displayContainers && this.displayContainers.length > 0) {
-            this.displayContainers.forEach(container => {
-                const loadingState = container.querySelector('.loading-state');
-                if (loadingState) loadingState.classList.add('hidden');
-            });
-        }
+        // Hide loading state
+        this.hideLoadingState();
         
         // Show first factoid
         this.showFactoid(0);
@@ -192,32 +147,31 @@ class SitewideFactoidDisplay {
      * Display a specific factoid
      */
     showFactoid(index) {
-        if (!this.factoids[index] || !this.displayContainers || this.displayContainers.length === 0) return;
+        if (!this.factoids[index] || !this.elements) return;
         
         const factoid = this.factoids[index];
         this.currentIndex = index;
         
-        this.displayContainers.forEach(container => {
-            const contentEl = container.querySelector('.factoid-content');
-            const textEl = container.querySelector('.factoid-text');
+        // Hide all states first
+        this.hideAllStates();
+        
+        // Update content
+        if (this.elements.factoidText) {
+            this.elements.factoidText.innerHTML = factoid.text;
+        }
+        
+        // Show factoid content with fade-in effect
+        if (this.elements.factoidContent) {
+            this.elements.factoidContent.classList.remove('hidden');
+            this.elements.factoidContent.style.opacity = '0';
             
-            if (!contentEl || !textEl) return;
-            
-            // Hide current content
-            contentEl.classList.add('opacity-0');
-            
+            // Fade in
             setTimeout(() => {
-                // Update content
-                textEl.innerHTML = factoid.text;
-                
-                // Show new content
-                contentEl.classList.remove('hidden');
-                contentEl.classList.remove('opacity-0');
-                contentEl.classList.add('opacity-100');
-                
+                this.elements.factoidContent.style.transition = 'opacity 0.6s ease-in-out';
+                this.elements.factoidContent.style.opacity = '1';
                 this.isVisible = true;
-            }, this.options.animationDuration / 2);
-        });
+            }, 50);
+        }
         
         console.log(`📰 Displaying factoid ${index + 1}/${this.factoids.length}: ${factoid.insight_type}`);
     }
@@ -237,15 +191,12 @@ class SitewideFactoidDisplay {
             this.timeoutId = null;
         }
         
-        // Hide current factoid with animation
-        if (this.displayContainers && this.displayContainers.length > 0) {
-            this.displayContainers.forEach(container => {
-                const contentEl = container.querySelector('.factoid-content');
-                if (contentEl) contentEl.classList.add('opacity-0');
-            });
+        // Fade out current factoid
+        if (this.elements.factoidContent) {
+            this.elements.factoidContent.style.opacity = '0';
         }
         
-        // Show next factoid after animation
+        // Show next factoid after fade out
         setTimeout(() => {
             this.showFactoid(index);
             
@@ -275,67 +226,56 @@ class SitewideFactoidDisplay {
     }
 
     /**
-     * Show loading state
+     * Hide loading state
      */
-    showLoadingState() {
-        if (!this.displayContainers || this.displayContainers.length === 0) {
-            return;
+    hideLoadingState() {
+        if (this.elements.loadingSpinner) {
+            this.elements.loadingSpinner.classList.add('hidden');
         }
-        
-        this.displayContainers.forEach(container => {
-            const factoidContent = container.querySelector('.factoid-content');
-            const loadingState = container.querySelector('.loading-state');
-            const emptyState = container.querySelector('.empty-state');
-            const errorState = container.querySelector('.error-state');
-            
-            if (factoidContent) factoidContent.classList.add('hidden');
-            if (errorState) errorState.classList.add('hidden');
-            if (emptyState) emptyState.classList.add('hidden');
-            if (loadingState) loadingState.classList.remove('hidden');
-        });
+        if (this.elements.loadingText) {
+            this.elements.loadingText.classList.add('hidden');
+        }
+    }
+
+    /**
+     * Hide all states
+     */
+    hideAllStates() {
+        if (this.elements.loadingSpinner) this.elements.loadingSpinner.classList.add('hidden');
+        if (this.elements.loadingText) this.elements.loadingText.classList.add('hidden');
+        if (this.elements.errorState) this.elements.errorState.classList.add('hidden');
+        if (this.elements.emptyState) this.elements.emptyState.classList.add('hidden');
+        if (this.elements.factoidContent) this.elements.factoidContent.classList.add('hidden');
     }
 
     /**
      * Show error state
      */
     showErrorState() {
-        if (!this.displayContainers || this.displayContainers.length === 0) {
-            console.warn('⚠️ No display containers available for error state');
-            return;
+        if (!this.elements) return;
+        
+        this.hideAllStates();
+        
+        if (this.elements.errorState) {
+            this.elements.errorState.classList.remove('hidden');
         }
         
-        this.displayContainers.forEach(container => {
-            const factoidContent = container.querySelector('.factoid-content');
-            const loadingState = container.querySelector('.loading-state');
-            const emptyState = container.querySelector('.empty-state');
-            const errorState = container.querySelector('.error-state');
-            
-            if (factoidContent) factoidContent.classList.add('hidden');
-            if (loadingState) loadingState.classList.add('hidden');
-            if (emptyState) emptyState.classList.add('hidden');
-            if (errorState) errorState.classList.remove('hidden');
-        });
+        console.log('❌ Showing error state');
     }
 
     /**
      * Show empty state
      */
     showEmptyState() {
-        if (!this.displayContainers || this.displayContainers.length === 0) {
-            return;
+        if (!this.elements) return;
+        
+        this.hideAllStates();
+        
+        if (this.elements.emptyState) {
+            this.elements.emptyState.classList.remove('hidden');
         }
         
-        this.displayContainers.forEach(container => {
-            const factoidContent = container.querySelector('.factoid-content');
-            const loadingState = container.querySelector('.loading-state');
-            const errorState = container.querySelector('.error-state');
-            const emptyState = container.querySelector('.empty-state');
-            
-            if (factoidContent) factoidContent.classList.add('hidden');
-            if (loadingState) loadingState.classList.add('hidden');
-            if (errorState) errorState.classList.add('hidden');
-            if (emptyState) emptyState.classList.remove('hidden');
-        });
+        console.log('📭 Showing empty state');
     }
 
     /**
@@ -352,23 +292,14 @@ class SitewideFactoidDisplay {
             this.refreshTimeoutId = null;
         }
         
-        // Remove display containers
-        if (this.displayContainers && this.displayContainers.length > 0) {
-            this.displayContainers.forEach(container => {
-                if (container && container.remove) {
-                    container.remove();
-                }
-            });
-        }
-        
         console.log('🗑️ Site-wide factoid display destroyed');
     }
 }
 
 // Initialize when DOM is ready
 document.addEventListener('DOMContentLoaded', () => {
-    // Only initialize on homepage with counters
-    if (document.getElementById('homepage-counters')) {
+    // Only initialize if the site-wide factoid container is present
+    if (document.querySelector('.sitewide-ai-factoid-playlist')) {
         window.sitewideFactoidDisplay = new SitewideFactoidDisplay();
     }
 });
