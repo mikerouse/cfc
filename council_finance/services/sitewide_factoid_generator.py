@@ -43,7 +43,11 @@ class SitewideFactoidGenerator(AIFactoidGenerator):
             'long-term-liabilities',
             'business-rates-income',
             'council-tax-income',
-            'population'
+            'population',
+            # New fields for enhanced analysis
+            'reserves-and-balances',
+            'employee-costs',
+            'housing-benefit-payments'
         ]
         
     def generate_sitewide_factoids(self, limit: int = 3) -> List[Dict[str, Any]]:
@@ -159,11 +163,17 @@ class SitewideFactoidGenerator(AIFactoidGenerator):
             type_comparisons = self._generate_type_comparisons(aggregated_stats)
             nation_comparisons = self._generate_nation_comparisons(aggregated_stats)
             
+            # Generate outlier analysis for interesting insights
+            outlier_analysis = self._detect_interesting_outliers(aggregated_stats)
+            efficiency_analysis = self._analyze_efficiency_patterns(aggregated_stats)
+            
             return {
                 'year': latest_year.label,
                 'fields_data': aggregated_stats,
                 'type_comparisons': type_comparisons,
                 'nation_comparisons': nation_comparisons,
+                'outlier_analysis': outlier_analysis,
+                'efficiency_analysis': efficiency_analysis,
                 'total_councils': len(set(
                     council['council_slug'] 
                     for field_data in aggregated_stats.values() 
@@ -264,6 +274,246 @@ class SitewideFactoidGenerator(AIFactoidGenerator):
         
         return nation_stats
     
+    def _detect_interesting_outliers(self, fields_data: Dict) -> Dict[str, Any]:
+        """
+        Detect interesting outliers - councils that punch above/below their weight.
+        
+        Identifies patterns like:
+        - Small councils with surprisingly high reserves
+        - Large councils with unusually low costs
+        - Councils performing opposite to expectations
+        """
+        outliers = {
+            'size_vs_performance': [],
+            'unexpected_efficiency': [],
+            'contrarian_patterns': []
+        }
+        
+        try:
+            # Get population data for size analysis
+            population_data = fields_data.get('population', {})
+            if not population_data or not population_data.get('councils'):
+                logger.info("No population data available for outlier detection")
+                return outliers
+                
+            population_councils = {c['council_slug']: c['value'] for c in population_data['councils']}
+            
+            # Analyze each financial field for outliers
+            for field_slug, field_data in fields_data.items():
+                if field_slug == 'population' or not field_data.get('councils'):
+                    continue
+                    
+                outliers_found = self._find_field_outliers(
+                    field_slug, field_data, population_councils
+                )
+                
+                # Categorize outliers
+                for outlier in outliers_found:
+                    outlier_type = outlier.get('type', 'unknown')
+                    if outlier_type == 'size_mismatch':
+                        outliers['size_vs_performance'].append(outlier)
+                    elif outlier_type == 'efficiency_surprise':
+                        outliers['unexpected_efficiency'].append(outlier)
+                    elif outlier_type == 'contrarian':
+                        outliers['contrarian_patterns'].append(outlier)
+                        
+        except Exception as e:
+            logger.error(f"Error in outlier detection: {e}")
+            
+        return outliers
+    
+    def _find_field_outliers(self, field_slug: str, field_data: Dict, population_data: Dict) -> List[Dict]:
+        """Find outliers for a specific field."""
+        outliers = []
+        councils = field_data.get('councils', [])
+        
+        if len(councils) < 2:
+            return outliers
+            
+        try:
+            # Calculate per-capita values where population data exists
+            per_capita_data = []
+            for council in councils:
+                slug = council['council_slug']
+                if slug in population_data and population_data[slug] > 0:
+                    per_capita = council['value'] / population_data[slug]
+                    per_capita_data.append({
+                        'council_slug': slug,
+                        'council_name': council['council_name'],
+                        'absolute_value': council['value'],
+                        'population': population_data[slug],
+                        'per_capita_value': per_capita,
+                        'council_type': council.get('council_type', 'Unknown'),
+                        'council_nation': council.get('council_nation', 'Unknown')
+                    })
+            
+            if len(per_capita_data) < 2:
+                return outliers
+                
+            # Sort by population to identify size categories
+            per_capita_data.sort(key=lambda x: x['population'])
+            
+            # Find size vs performance mismatches
+            smallest = per_capita_data[0]
+            largest = per_capita_data[-1]
+            
+            # Calculate ratios and differences
+            pop_ratio = largest['population'] / smallest['population']
+            per_capita_ratio = largest['per_capita_value'] / smallest['per_capita_value'] if smallest['per_capita_value'] > 0 else float('inf')
+            
+            # Detect interesting patterns
+            if pop_ratio > 2:  # Significant size difference
+                if field_slug in ['interest-paid', 'employee-costs'] and per_capita_ratio < 0.5:
+                    # Large council surprisingly efficient
+                    outliers.append({
+                        'type': 'efficiency_surprise',
+                        'field': field_slug,
+                        'pattern': 'large_council_efficient',
+                        'large_council': largest,
+                        'small_council': smallest,
+                        'population_ratio': pop_ratio,
+                        'efficiency_ratio': per_capita_ratio,
+                        'insight': f"Despite being {pop_ratio:.1f}x larger, {largest['council_name']} spends {(1/per_capita_ratio):.1f}x less per capita on {field_slug.replace('-', ' ')}"
+                    })
+                elif field_slug in ['reserves-and-balances'] and per_capita_ratio < 0.7:
+                    # Small council surprisingly well-reserved
+                    outliers.append({
+                        'type': 'size_mismatch',
+                        'field': field_slug,
+                        'pattern': 'small_council_well_reserved',
+                        'small_council': smallest,
+                        'large_council': largest,
+                        'population_ratio': pop_ratio,
+                        'reserves_ratio': 1/per_capita_ratio,
+                        'insight': f"{smallest['council_name']} maintains {(1/per_capita_ratio):.1f}x higher reserves per capita than {largest['council_name']} despite being {pop_ratio:.1f}x smaller"
+                    })
+                elif per_capita_ratio > 2:
+                    # Small council disproportionately high spending
+                    outliers.append({
+                        'type': 'contrarian',
+                        'field': field_slug,
+                        'pattern': 'small_council_high_spending',
+                        'small_council': smallest,
+                        'large_council': largest,
+                        'population_ratio': pop_ratio,
+                        'spending_ratio': per_capita_ratio,
+                        'insight': f"{smallest['council_name']} spends {per_capita_ratio:.1f}x more per capita on {field_slug.replace('-', ' ')} than {largest['council_name']}"
+                    })
+                    
+        except Exception as e:
+            logger.error(f"Error finding outliers for {field_slug}: {e}")
+            
+        return outliers
+    
+    def _analyze_efficiency_patterns(self, fields_data: Dict) -> Dict[str, Any]:
+        """
+        Analyze efficiency patterns across councils.
+        
+        Looks for councils that consistently outperform or underperform
+        across multiple metrics.
+        """
+        efficiency_patterns = {
+            'consistent_performers': [],
+            'mixed_performers': [],
+            'efficiency_leaders': [],
+            'areas_for_improvement': []
+        }
+        
+        try:
+            population_data = fields_data.get('population', {})
+            if not population_data or not population_data.get('councils'):
+                return efficiency_patterns
+                
+            population_map = {c['council_slug']: c['value'] for c in population_data['councils']}
+            
+            # Track performance across multiple fields
+            council_scores = {}
+            
+            cost_fields = ['interest-paid', 'employee-costs', 'current-liabilities']
+            efficiency_fields = ['reserves-and-balances', 'business-rates-income']
+            
+            for field_slug in cost_fields + efficiency_fields:
+                field_data = fields_data.get(field_slug, {})
+                if not field_data or not field_data.get('councils'):
+                    continue
+                    
+                # Calculate efficiency scores (lower is better for costs, higher for reserves/income)
+                councils_with_per_capita = []
+                for council in field_data['councils']:
+                    slug = council['council_slug']
+                    if slug in population_map and population_map[slug] > 0:
+                        per_capita = council['value'] / population_map[slug]
+                        councils_with_per_capita.append({
+                            'slug': slug,
+                            'name': council['council_name'],
+                            'per_capita': per_capita
+                        })
+                
+                if len(councils_with_per_capita) < 2:
+                    continue
+                    
+                # Rank councils (1 = best, higher = worse)
+                if field_slug in cost_fields:
+                    # For costs, lower per capita is better
+                    councils_with_per_capita.sort(key=lambda x: x['per_capita'])
+                else:
+                    # For reserves/income, higher per capita is better  
+                    councils_with_per_capita.sort(key=lambda x: x['per_capita'], reverse=True)
+                
+                # Record rankings
+                for rank, council in enumerate(councils_with_per_capita, 1):
+                    slug = council['slug']
+                    if slug not in council_scores:
+                        council_scores[slug] = {
+                            'name': council['name'],
+                            'field_scores': {},
+                            'total_rank': 0,
+                            'fields_analyzed': 0
+                        }
+                    
+                    council_scores[slug]['field_scores'][field_slug] = {
+                        'rank': rank,
+                        'per_capita': council['per_capita'],
+                        'total_councils': len(councils_with_per_capita)
+                    }
+                    council_scores[slug]['total_rank'] += rank
+                    council_scores[slug]['fields_analyzed'] += 1
+            
+            # Analyze patterns
+            for slug, data in council_scores.items():
+                if data['fields_analyzed'] >= 2:  # Need at least 2 fields for pattern
+                    avg_rank = data['total_rank'] / data['fields_analyzed']
+                    
+                    if avg_rank <= 1.5:
+                        efficiency_patterns['efficiency_leaders'].append({
+                            'council_slug': slug,
+                            'council_name': data['name'],
+                            'average_rank': avg_rank,
+                            'fields_analyzed': data['fields_analyzed'],
+                            'performance': 'consistently_excellent'
+                        })
+                    elif avg_rank >= (len(council_scores) - 0.5):
+                        efficiency_patterns['areas_for_improvement'].append({
+                            'council_slug': slug,
+                            'council_name': data['name'],
+                            'average_rank': avg_rank,
+                            'fields_analyzed': data['fields_analyzed'],
+                            'performance': 'needs_attention'
+                        })
+                    else:
+                        efficiency_patterns['mixed_performers'].append({
+                            'council_slug': slug,
+                            'council_name': data['name'],
+                            'average_rank': avg_rank,
+                            'fields_analyzed': data['fields_analyzed'],
+                            'performance': 'mixed_results'
+                        })
+                        
+        except Exception as e:
+            logger.error(f"Error in efficiency pattern analysis: {e}")
+            
+        return efficiency_patterns
+    
     def _generate_ai_sitewide_factoids(self, data: Dict, limit: int) -> List[Dict[str, Any]]:
         """Generate AI-powered site-wide factoids from cross-council data."""
         if not self.client:
@@ -305,7 +555,9 @@ class SitewideFactoidGenerator(AIFactoidGenerator):
             'total_councils_analysed': data['total_councils'],
             'field_comparisons': data['fields_data'],
             'council_type_comparisons': data['type_comparisons'],
-            'nation_comparisons': data['nation_comparisons']
+            'nation_comparisons': data['nation_comparisons'],
+            'outlier_analysis': data.get('outlier_analysis', {}),
+            'efficiency_patterns': data.get('efficiency_analysis', {})
         }, indent=2)
         
         return f"""
@@ -316,15 +568,19 @@ CROSS-COUNCIL DATASET (JSON):
 
 ANALYSIS REQUIREMENTS:
 1. Generate {limit} engaging factoids that compare councils against each other
-2. Focus on interesting contrasts, surprises, or patterns across councils
+2. **PRIORITIZE OUTLIERS & SURPRISES**: Use the outlier_analysis and efficiency_patterns data to find the most interesting insights
 3. Always mention specific council names when making comparisons
 4. Include both council names as hyperlinks in your response
 5. Use formats like: "[Council A] paid 30% more than [Council B] despite having lower population"
 6. Make council names clickable links using format: <a href="/councils/SLUG/">COUNCIL NAME</a>
 7. Keep each factoid to 1-2 sentences maximum
-8. Focus on financial metrics like interest payments, debt levels, reserves
-9. Highlight unexpected patterns (small councils outperforming large ones, etc.)
-10. Use UK English spelling and terminology
+8. Focus on unexpected patterns that challenge assumptions:
+   - Small councils outperforming large ones
+   - Efficiency surprises (large councils being surprisingly lean)
+   - Contrarian patterns (opposite of what you'd expect)
+   - Cross-metric efficiency patterns
+9. Use UK English spelling and terminology
+10. Prefer insights that reveal genuine surprises over obvious comparisons
 
 RESPONSE FORMAT:
 Return exactly {limit} factoids as a JSON array:
@@ -342,6 +598,10 @@ INSIGHT TYPES:
 - "type_comparison": Council types compared (metropolitan vs unitary)
 - "nation_comparison": Nations compared (England vs Scotland)
 - "outlier_analysis": Unusual patterns or outliers identified
+- "efficiency_surprise": Large council surprisingly efficient or small council surprisingly inefficient
+- "size_mismatch": Performance that contradicts council size expectations
+- "contrarian_pattern": Council behaving opposite to what size/type would suggest
+- "efficiency_leader": Council consistently outperforming across multiple metrics
 
 Generate insights that would engage users and encourage them to explore specific councils.
 """
