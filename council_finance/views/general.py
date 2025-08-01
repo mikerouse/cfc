@@ -1017,174 +1017,67 @@ def leaderboards(request):
 
 def following(request):
     """
-    Enhanced Following page with comprehensive social features.
+    Following page showing councils the user follows.
     
-    Shows personalized feed based on user's follows including councils, lists, 
-    contributors, and financial figures. Supports filtering, prioritization,
-    and real-time interactions.
+    Shows a simplified feed of followed councils with basic statistics.
+    Uses the existing CouncilFollow model for now.
     """
     if not request.user.is_authenticated:
         from django.shortcuts import redirect
         return redirect("login")
     
-    from council_finance.models import (
-        FollowableItem, FeedUpdate, UserFeedPreferences, TrendingContent,
-        Council, CouncilList, 
-    )
-    from council_finance.services.following_services import FeedService, FollowService, TrendingService
-    from django.contrib.contenttypes.models import ContentType
-    from django.db.models import Count, Q
+    from django.db.models import Count
     import json
     
-    # Get or create user feed preferences
-    preferences, created = UserFeedPreferences.objects.get_or_create(
-        user=request.user,
-        defaults={
-            'algorithm': 'mixed',
-            'show_financial_updates': True,
-            'show_contributions': True,
-            'show_council_news': True,
-            'show_list_changes': True,
-            'show_system_updates': False,
-            'show_achievements': True,
-        }
-    )
+    # Get user's followed councils using the existing CouncilFollow model
+    followed_councils = CouncilFollow.objects.filter(user=request.user).select_related('council')
     
-    # Get algorithm preference from request or user preferences
-    algorithm = request.GET.get('algorithm', preferences.algorithm)
-    feed_filter = request.GET.get('filter', 'all')
+    # Group follows by type (only councils for now)
+    follows_by_type = {
+        'council': [
+            {
+                'id': follow.id,
+                'object': follow.council,
+                'created_at': follow.created_at,
+            }
+            for follow in followed_councils
+        ]
+    }
     
-    # Build content type filters based on preferences
-    content_filters = Q()
-    if not preferences.show_financial_updates:
-        content_filters &= ~Q(update_type='financial')
-    if not preferences.show_contributions:
-        content_filters &= ~Q(update_type='contribution')
-    if not preferences.show_council_news:
-        content_filters &= ~Q(update_type='council_news')
-    if not preferences.show_list_changes:
-        content_filters &= ~Q(update_type='list_change')
-    if not preferences.show_system_updates:
-        content_filters &= ~Q(update_type='system')
-    if not preferences.show_achievements:
-        content_filters &= ~Q(update_type='achievement')
-
-    # Get personalized feed with filters applied
-    feed_updates = FeedService.get_personalized_feed(
-        user=request.user,
-        limit=50,
-        algorithm=algorithm,
-        content_filters=content_filters,
-        feed_filter=feed_filter
-    )
+    # Get basic statistics
+    total_follows = followed_councils.count()
     
-    # Get user's follows categorized
-    user_follows = FollowService.get_user_follows(request.user)
-    follows_by_type = {}
-    for follow in user_follows:
-        content_type = follow.content_type.model
-        if content_type not in follows_by_type:
-            follows_by_type[content_type] = []
-        follows_by_type[content_type].append({
-            'id': follow.id,
-            'object': follow.content_object,
-            'priority': follow.priority,
-            'created_at': follow.created_at,
-            'interaction_count': follow.interaction_count
-        })
+    # Get suggested councils (active councils user doesn't follow, ordered by most followed)
+    followed_council_ids = followed_councils.values_list('council_id', flat=True)
+    suggested_councils = Council.objects.filter(
+        status='active'
+    ).exclude(
+        id__in=followed_council_ids
+    ).annotate(
+        follower_count=Count('followed_by')
+    ).order_by('-follower_count')[:5]
     
-    # Get trending content for recommendations (with fallbacks)
-    try:
-        trending_councils = TrendingService.get_trending_content('council', limit=5)
-    except Exception as e:
-        trending_councils = []
-        logger.warning(f"Could not get trending councils: {e}")
+    # Create empty/placeholder data for template compatibility
+    feed_updates = []  # No feed updates yet
+    trending_councils = []  # No trending system yet
+    trending_lists = []  # No trending system yet
+    priority_stats = {'high': 0, 'medium': 0, 'low': 0}  # No priority system yet
+    recent_updates_count = 0  # No feed system yet
     
-    try:
-        trending_lists = TrendingService.get_trending_content('councillist', limit=3)
-    except Exception as e:
-        trending_lists = []
-        logger.warning(f"Could not get trending lists: {e}")
-    
-    # Get follower statistics
-    total_follows = user_follows.count()
-    follows_by_priority = user_follows.values('priority').annotate(count=Count('id'))
-    priority_stats = {stat['priority']: stat['count'] for stat in follows_by_priority}
-    
-    # Get recent activity stats
-    from datetime import timedelta
-    from django.utils import timezone
-    import logging
-    
-    logger = logging.getLogger(__name__)
-    
-    recent_cutoff = timezone.now() - timedelta(days=7)
-    try:
-        recent_updates_count = FeedService.get_recent_updates_count(
-            user=request.user,
-            days=7,
-            content_filters=content_filters,
-            feed_filter=feed_filter
-        )
-    except Exception as e:
-        recent_updates_count = 0
-        logger.warning(f"Could not get recent updates count: {e}")
-    
-    # Get suggested follows (councils with high activity that user doesn't follow)
-    try:
-        followed_council_ids = FollowableItem.objects.filter(
-            user=request.user,
-            content_type=ContentType.objects.get_for_model(Council)
-        ).values_list('object_id', flat=True)
-        
-        # Get councils with recent updates by querying FeedUpdate directly
-        council_content_type = ContentType.objects.get_for_model(Council)
-        councils_with_recent_updates = FeedUpdate.objects.filter(
-            content_type=council_content_type,
-            created_at__gte=recent_cutoff,
-            is_public=True
-        ).values_list('object_id', flat=True).distinct()
-        
-        # Get follower counts for councils using the new FollowableItem system
-        councils_with_followers = FollowableItem.objects.filter(
-            content_type=council_content_type
-        ).values('object_id').annotate(
-            follower_count=Count('id')
-        ).filter(follower_count__gt=2)  # Lower threshold for testing
-        
-        high_follower_council_ids = [item['object_id'] for item in councils_with_followers]
-        
-        # Combine councils with high followers or recent updates
-        suggested_council_ids = set(councils_with_recent_updates) | set(high_follower_council_ids)
-        
-        # Exclude already followed councils
-        suggested_council_ids -= set(followed_council_ids)
-        
-        # Get the actual council objects with follower count from the old system for display
-        # (since we might not have enough data in the new system yet)
-        if suggested_council_ids:
-            suggested_councils = Council.objects.filter(
-                id__in=list(suggested_council_ids)
-            ).annotate(
-                # Use the existing followed_by relationship from the old CouncilFollow system
-                follower_count=Count('followed_by')
-            ).order_by('-follower_count')[:5]
-        else:
-            # Fallback: suggest some active councils if no specific suggestions
-            suggested_councils = Council.objects.filter(
-                status='active'
-            ).annotate(
-                follower_count=Count('followed_by')
-            ).order_by('-follower_count')[:5]
-            
-    except Exception as e:
-        logger.warning(f"Could not get suggested councils: {e}")
-        suggested_councils = []
+    # Create minimal preferences for JavaScript
+    preferences_data = {
+        'algorithm': 'chronological',
+        'show_financial_updates': True,
+        'show_contributions': True,
+        'show_council_news': True,
+        'show_list_changes': True,
+        'show_system_updates': False,
+        'show_achievements': True,
+    }
     
     # Prepare context
     context = {
         'feed_updates': feed_updates,
-        'preferences': preferences,
         'follows_by_type': follows_by_type,
         'trending_councils': trending_councils,
         'trending_lists': trending_lists,
@@ -1192,8 +1085,8 @@ def following(request):
         'total_follows': total_follows,
         'priority_stats': priority_stats,
         'recent_updates_count': recent_updates_count,
-        'current_algorithm': algorithm,
-        'current_filter': feed_filter,
+        'current_algorithm': 'chronological',
+        'current_filter': 'all',
         'algorithm_choices': [
             ('chronological', 'Chronological (Newest First)'),
             ('engagement', 'High Engagement First'),
@@ -1207,16 +1100,8 @@ def following(request):
             ('councils', 'Council Updates'),
             ('lists', 'List Updates'),
         ],
-        # For JavaScript
-        'preferences_json': json.dumps({
-            'algorithm': preferences.algorithm,
-            'show_financial_updates': preferences.show_financial_updates,
-            'show_contributions': preferences.show_contributions,
-            'show_council_news': preferences.show_council_news,
-            'show_list_changes': preferences.show_list_changes,
-            'show_system_updates': preferences.show_system_updates,
-            'show_achievements': preferences.show_achievements,
-        }),
+        # For JavaScript compatibility
+        'preferences_json': json.dumps(preferences_data),
     }
     
     return render(request, "council_finance/following.html", context)
@@ -3199,13 +3084,7 @@ def create_list_api(request):
 # ============================================================================
 
 @login_required
-def following(request):
-    """Following page placeholder - to be enhanced in future phases."""
-    context = {
-        'page_title': 'Following',
-        'message': 'Following functionality will be enhanced in Phase 2'
-    }
-    return render(request, 'council_finance/following.html', context)
+
 
 
 @login_required
