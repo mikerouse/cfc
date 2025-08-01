@@ -9,9 +9,17 @@ import sys
 import json
 import requests
 from urllib.parse import urljoin
+import argparse
 
 # Test configuration
-BASE_URL = "http://localhost:8000"
+parser = argparse.ArgumentParser(description="Test the enhanced flagging system")
+parser.add_argument("--base-url", type=str, default=None, help="Base URL of the server to test (can also set BASE_URL env var)")
+args, unknown = parser.parse_known_args()
+BASE_URL = (
+    args.base_url
+    or os.environ.get("BASE_URL")
+    or "http://localhost:8000"
+)
 TEST_USERNAME = "testuser"
 TEST_PASSWORD = "testpass123"
 
