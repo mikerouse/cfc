@@ -10,8 +10,10 @@ from django.http import JsonResponse
 from django.views.decorators.http import require_POST
 from django.views.decorators.csrf import csrf_exempt
 from django.core.paginator import Paginator
+from django.contrib.contenttypes.models import ContentType
 from django.db.models import Q
 import json
+import logging
 
 from council_finance.models import (
     Flag, FlaggedContent, UserProfile, Council, Contribution
@@ -20,6 +22,8 @@ from council_finance.services.flagging_services import FlaggingService
 
 # Import utility functions we'll need
 from .general import log_activity
+
+logger = logging.getLogger(__name__)
 
 
 @login_required
@@ -141,7 +145,7 @@ def flag_content(request):
             )
             
             # Send email notification to admins
-            self.send_flag_notification_email(flag, flag_context)
+            send_flag_notification_email(flag, flag_context)
             
             return JsonResponse({
                 'success': True,
@@ -223,31 +227,87 @@ def flagged_content_list(request):
         messages.error(request, 'You do not have permission to access this page.')
         return redirect('home')
     
-    flagging_service = FlaggingService()
-    
     # Get filter parameters
-    status_filter = request.GET.get('status', 'pending')
+    status_filter = request.GET.get('status', '')
+    priority_filter = request.GET.get('priority', '')
     content_type_filter = request.GET.get('content_type', '')
+    search_query = request.GET.get('search', '')
     
-    # Get flagged content
-    flagged_items = flagging_service.get_flagged_content(
-        status=status_filter,
-        content_type=content_type_filter
-    )
+    # Build base queryset for flags
+    flags_qs = Flag.objects.all().select_related('flagged_by', 'content_type').order_by('-created_at')
+    
+    # Apply filters
+    if status_filter:
+        flags_qs = flags_qs.filter(status=status_filter)
+    
+    if priority_filter:
+        flags_qs = flags_qs.filter(priority=priority_filter)
+    
+    if content_type_filter:
+        if content_type_filter == 'financial_counter':
+            # For virtual financial counter flags
+            flags_qs = flags_qs.filter(content_type=None)
+        else:
+            # For actual model-based flags
+            try:
+                ct = ContentType.objects.get(model=content_type_filter)
+                flags_qs = flags_qs.filter(content_type=ct)
+            except ContentType.DoesNotExist:
+                pass
+    
+    if search_query:
+        flags_qs = flags_qs.filter(description__icontains=search_query)
+    
+    # Get statistics
+    all_flags = Flag.objects.all()
+    stats = {
+        'total_count': all_flags.count(),
+        'open_count': all_flags.filter(status='open').count(),
+        'resolved_count': all_flags.filter(status='resolved').count(),
+        'critical_count': all_flags.filter(priority='critical').count(),
+    }
+    
+    # Convert flags to flagged content format for template compatibility
+    flagged_content = []
+    for flag in flags_qs[:50]:  # Limit to 50 for performance
+        # Create a pseudo-flagged content object
+        flagged_item = type('FlaggedContent', (), {
+            'id': flag.id,
+            'status': flag.status,
+            'priority': flag.priority,
+            'first_flagged': flag.created_at,
+            'last_flagged': flag.resolved_at or flag.created_at,
+            'flag_count': 1,  # Individual flags, not aggregated
+            'is_under_review': flag.status == 'under_review',
+            'content_type': flag.content_type or type('VirtualContentType', (), {
+                'model': 'financial_counter' if flag.content_type is None else flag.content_type.model
+            })(),
+            'content_object': flag.flagged_object if flag.flagged_object else f"Financial Counter (ID: {flag.object_id})",
+            'flags': type('FlagQuerySet', (), {
+                'first': lambda: flag,
+                'count': lambda: 1,
+                'all': lambda: [flag]
+            })()
+        })()
+        
+        flagged_content.append(flagged_item)
     
     # Paginate results
-    paginator = Paginator(flagged_items, 20)
+    paginator = Paginator(flagged_content, 20)
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
     
     context = {
+        'flagged_content': page_obj,
         'page_obj': page_obj,
         'status_filter': status_filter,
+        'priority_filter': priority_filter,
         'content_type_filter': content_type_filter,
-        'total_pending': flagging_service.get_pending_count(),
+        'search_query': search_query,
+        **stats
     }
     
-    return render(request, 'moderation/flagged_content_list.html', context)
+    return render(request, 'council_finance/flagged_content.html', context)
 
 
 @login_required
