@@ -12,6 +12,7 @@ from django.views.decorators.csrf import csrf_exempt
 from django.core.paginator import Paginator
 from django.contrib.contenttypes.models import ContentType
 from django.db.models import Q
+from django.db import IntegrityError
 import json
 import logging
 
@@ -107,13 +108,24 @@ def flag_content(request):
                 flagged_by=request.user,
                 content_type=ContentType.objects.get_for_model(content_object),
                 object_id=content_object.id,
-                description__contains=content_key  # Check if we've already flagged this specific field/counter
+                status__in=['pending', 'under_review']  # Only check active flags
             ).first()
             
             if existing_flag:
+                # Check if this is for the same specific field/counter
+                if content_key in existing_flag.description:
+                    return JsonResponse({
+                        'error': 'You have already flagged this specific content. Please wait for review.'
+                    }, status=400)
+                # If it's for a different field/counter, allow it but update the existing flag
+                existing_flag.description = f"{existing_flag.description}\n\nADDITIONAL FLAG: {description}\nContext: {'; '.join([f'{k}: {v}' for k, v in flag_context.items()])}"
+                existing_flag.save()
+                
                 return JsonResponse({
-                    'error': 'You have already flagged this content'
-                }, status=400)
+                    'success': True,
+                    'message': 'Additional flag details added to your existing report.',
+                    'flag_id': existing_flag.id
+                })
             
             # Create new flag
             flag_data = {
@@ -126,7 +138,23 @@ def flag_content(request):
                 'object_id': content_object.id
             }
             
-            flag = Flag.objects.create(**flag_data)
+            try:
+                flag = Flag.objects.create(**flag_data)
+            except IntegrityError:
+                # Handle duplicate flag - update existing one instead
+                existing_flag = Flag.objects.get(
+                    flagged_by=request.user,
+                    content_type=ContentType.objects.get_for_model(content_object),
+                    object_id=content_object.id
+                )
+                existing_flag.description = f"{existing_flag.description}\n\nADDITIONAL FLAG: {description}\nContext: {'; '.join([f'{k}: {v}' for k, v in flag_context.items()])}"
+                existing_flag.save()
+                
+                return JsonResponse({
+                    'success': True,
+                    'message': 'Additional flag details added to your existing report.',
+                    'flag_id': existing_flag.id
+                })
             
             # Store additional context in the flag description
             if flag_context:
@@ -138,7 +166,7 @@ def flag_content(request):
             log_activity(
                 request,
                 activity=f"Content flagged: {content_type}",
-                details=f"Flag ID: {flag.id}, Content: {content_id}, Reason: {flag_type}"
+                extra=f"Flag ID: {flag.id}, Content: {content_id}, Reason: {flag_type}"
             )
             
             # Send email notification to admins
