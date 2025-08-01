@@ -956,6 +956,24 @@ def council_detail(request, slug):
                     except Exception as e:
                         errors.append(f"Error saving {field_slug}: {str(e)}")
                 
+                # Invalidate counter cache for this council and year if any changes were saved
+                if saved_count > 0:
+                    from django.core.cache import cache
+                    cache_key = f"counter_values:{council.slug}:{year.label}"
+                    cache.delete(cache_key)
+                    
+                    # Also invalidate cache for characteristics changes (affects all years)
+                    # Check if any characteristics were changed by looking at the changes
+                    characteristic_changes = any(
+                        DataField.objects.filter(slug=change.get('field')).first() and 
+                        DataField.objects.filter(slug=change.get('field')).first().category == 'characteristic'
+                        for change in changes
+                    )
+                    if characteristic_changes:
+                        for year_obj in FinancialYear.objects.all():
+                            cache_key_all = f"counter_values:{council.slug}:{year_obj.label}"
+                            cache.delete(cache_key_all)
+                
                 return JsonResponse({
                     'success': len(errors) == 0,
                     'saved_count': saved_count,
