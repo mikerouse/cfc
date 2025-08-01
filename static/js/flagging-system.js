@@ -4,11 +4,13 @@
 if (typeof FlaggingSystem === 'undefined') {
 class FlaggingSystem {
     constructor() {
+        console.log('FlaggingSystem constructor called');
         this.isInitialized = false;
         this.init();
     }
 
     init() {
+        console.log('FlaggingSystem init() called, isInitialized:', this.isInitialized);
         if (this.isInitialized) return;
         
         // Add flag modal to body if it doesn't exist
@@ -18,6 +20,7 @@ class FlaggingSystem {
         this.bindEvents();
         
         this.isInitialized = true;
+        console.log('FlaggingSystem initialization completed');
     }
 
     createFlagModal() {
@@ -113,9 +116,11 @@ class FlaggingSystem {
     bindEvents() {
         // Handle flag button clicks
         document.addEventListener('click', (e) => {
-            if (e.target.matches('.flag-content-btn, .flag-content-btn *')) {
+            // Check if the clicked element or any of its parents has the flag-content-btn class
+            const button = e.target.closest('.flag-content-btn');
+            if (button) {
+                console.log('Flag button clicked:', button);
                 e.preventDefault();
-                const button = e.target.closest('.flag-content-btn');
                 this.showFlagModal(button);
             }
         });
@@ -156,11 +161,15 @@ class FlaggingSystem {
     }
 
     showFlagModal(button) {
+        console.log('showFlagModal called with button:', button);
         const contentType = button.dataset.contentType;
         const objectId = button.dataset.objectId;
         const contentDescription = button.dataset.contentDescription || 'this content';
         
+        console.log('Content data:', { contentType, objectId, contentDescription });
+        
         if (!contentType || !objectId) {
+            console.error('Missing content information:', { contentType, objectId });
             this.showNotification('Error: Missing content information', 'error');
             return;
         }
@@ -178,9 +187,13 @@ class FlaggingSystem {
         
         // Show modal
         const modal = document.getElementById('flagModal');
+        console.log('Modal element:', modal);
         if (modal) {
             modal.classList.remove('hidden');
             modal.setAttribute('aria-hidden', 'false');
+            console.log('Modal should now be visible');
+        } else {
+            console.error('Modal element not found!');
         }
     }
 
@@ -360,10 +373,22 @@ class FlaggingSystem {
 
 // Initialize flagging system when DOM is ready
 document.addEventListener('DOMContentLoaded', function() {
+    console.log('DOMContentLoaded event fired for flagging system');
+    if (!window.flaggingSystem) {
+        console.log('Creating new FlaggingSystem instance');
+        window.flaggingSystem = new FlaggingSystem();
+    } else {
+        console.log('FlaggingSystem already exists');
+    }
+});
+
+// Also try to initialize immediately if DOM is already loaded
+if (document.readyState !== 'loading') {
+    console.log('DOM already loaded, initializing flagging system immediately');
     if (!window.flaggingSystem) {
         window.flaggingSystem = new FlaggingSystem();
     }
-});
+}
 
 // Export for use in other scripts
 if (typeof module !== 'undefined' && module.exports) {
