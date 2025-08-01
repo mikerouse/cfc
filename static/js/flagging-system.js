@@ -52,15 +52,14 @@ class FlaggingSystem {
                                 <label for="flagType" class="block text-sm font-medium text-gray-700 mb-2">Why are you flagging this content?</label>
                                 <select class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" id="flagType" name="flag_type" required>
                                     <option value="">-- Select a reason --</option>
-                                    <option value="data_issue">Data Issue</option>
-                                    <option value="inappropriate">Inappropriate content</option>
-                                    <option value="spam">Spam or advertising</option>
-                                    <option value="misinformation">Misinformation or false data</option>
-                                    <option value="copyright">Copyright violation</option>
-                                    <option value="harassment">Harassment or abuse</option>
-                                    <option value="duplicate">Duplicate content</option>
-                                    <option value="off_topic">Off-topic or irrelevant</option>
-                                    <option value="other">Other (explain below)</option>
+                                    <option value="content_incorrect">Data is Incorrect</option>
+                                    <option value="content_outdated">Data is Outdated</option>
+                                    <option value="content_spam">Spam or Irrelevant</option>
+                                    <option value="content_duplicate">Duplicate Entry</option>
+                                    <option value="user_abuse">User Abuse/Harassment</option>
+                                    <option value="user_spam">User Spamming</option>
+                                    <option value="system_error">System/Technical Error</option>
+                                    <option value="other">Other (See Description)</option>
                                 </select>
                             </div>
                             
@@ -180,7 +179,7 @@ class FlaggingSystem {
                 const dataFieldContainer = document.getElementById('dataFieldContainer');
                 const dataFieldSelect = document.getElementById('dataFieldSelect');
                 
-                if (e.target.value === 'data_issue') {
+                if (e.target.value === 'content_incorrect') {
                     dataFieldContainer.classList.remove('hidden');
                     dataFieldSelect.required = true;
                 } else {
@@ -298,7 +297,7 @@ class FlaggingSystem {
         }
 
         // If data issue is selected, ensure a field/counter is selected
-        if (flagType === 'data_issue' && dataFieldSelect && !dataFieldSelect.value) {
+        if (flagType === 'content_incorrect' && dataFieldSelect && !dataFieldSelect.value) {
             this.showNotification('Please select which data field or counter has an issue', 'error');
             return false;
         }

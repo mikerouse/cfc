@@ -31,13 +31,23 @@ logger = logging.getLogger(__name__)
 def flag_content(request):
     """Handle content flagging requests."""
     try:
-        data = json.loads(request.body)
-        content_type = data.get('content_type')
-        content_id = data.get('content_id')
-        flag_type = data.get('flag_type', '')
-        description = data.get('description', '').strip()
-        priority = data.get('priority', 'medium')
-        field_name = data.get('field_name', '')
+        # Handle both JSON and form data submissions
+        if request.content_type and 'application/json' in request.content_type:
+            data = json.loads(request.body)
+            content_type = data.get('content_type')
+            content_id = data.get('content_id')
+            flag_type = data.get('flag_type', '')
+            description = data.get('description', '').strip()
+            priority = data.get('priority', 'medium')
+            field_name = data.get('field_name', '')
+        else:
+            # Handle form data (multipart/form-data or application/x-www-form-urlencoded)
+            content_type = request.POST.get('content_type')
+            content_id = request.POST.get('object_id')  # Form sends 'object_id', not 'content_id'
+            flag_type = request.POST.get('flag_type', '')
+            description = request.POST.get('description', '').strip()
+            priority = request.POST.get('priority', 'medium')
+            field_name = request.POST.get('data_field', '')  # Form sends 'data_field', not 'field_name'
         
         if not all([content_type, content_id, flag_type, description]):
             return JsonResponse({
@@ -66,6 +76,9 @@ def flag_content(request):
                     'data_type': 'financial_overview',
                     'council_slug': content_id
                 }
+                # Add field information if provided
+                if field_name:
+                    flag_context['field_name'] = field_name
             except Council.DoesNotExist:
                 return JsonResponse({'error': 'Council not found'}, status=404)
                 
@@ -159,8 +172,6 @@ def flag_content(request):
                 'error': 'Failed to create flag. Please try again.'
             }, status=500)
             
-    except json.JSONDecodeError:
-        return JsonResponse({'error': 'Invalid JSON data'}, status=400)
     except Exception as e:
         logger.error(f"Error in flag_content: {str(e)}")
         return JsonResponse({'error': 'An error occurred while processing your request'}, status=500)
