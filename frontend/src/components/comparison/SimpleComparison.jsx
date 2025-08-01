@@ -19,6 +19,7 @@ const SimpleComparison = ({
 	const [comparisonData, setComparisonData] = useState({});
 	const [loading, setLoading] = useState(false);
 	const [showFieldSelector, setShowFieldSelector] = useState(false);
+	const [showYearSelector, setShowYearSelector] = useState(false);
 
 	// Load comparison data when fields/years change
 	useEffect(() => {
@@ -65,6 +66,17 @@ const SimpleComparison = ({
 		onFieldsChange(selectedFields.filter(f => f.slug !== fieldSlug));
 	};
 
+	const addYear = (year) => {
+		if (!selectedYears.find(y => (y.id || y) === (year.id || year))) {
+			onYearsChange([...selectedYears, year]);
+		}
+		setShowYearSelector(false);
+	};
+
+	const removeYear = (yearId) => {
+		onYearsChange(selectedYears.filter(y => (y.id || y) !== yearId));
+	};
+
 	const formatValue = (value) => {
 		if (value === null || value === undefined || value === '') return 'No data';
 		if (typeof value === 'number') {
@@ -96,40 +108,77 @@ const SimpleComparison = ({
 				</button>
 			</div>
 
-			{/* Field Controls */}
+			{/* Field and Year Controls */}
 			<div className="bg-gray-50 border-b border-gray-200 px-6 py-3">
-				<div className="flex items-center space-x-4">
-					<button
-						onClick={() => setShowFieldSelector(!showFieldSelector)}
-						className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-					>
-						<svg className="w-4 h-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-							<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-						</svg>
-						Add Field
-					</button>
+				<div className="flex items-center justify-between">
+					<div className="flex items-center space-x-4">
+						<button
+							onClick={() => setShowFieldSelector(!showFieldSelector)}
+							className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+						>
+							<svg className="w-4 h-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+								<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+							</svg>
+							Add Field
+						</button>
 					
-					{selectedFields.length > 0 && (
-						<div className="flex items-center space-x-2">
-							<span className="text-sm text-gray-600">Selected:</span>
-							{selectedFields.map(field => (
-								<span
-									key={field.slug}
-									className="inline-flex items-center bg-white border border-gray-200 rounded-full px-3 py-1 text-sm"
-								>
-									{field.name}
-									<button
-										onClick={() => removeField(field.slug)}
-										className="ml-2 text-gray-400 hover:text-red-600 transition-colors"
+						{selectedFields.length > 0 && (
+							<div className="flex items-center space-x-2">
+								<span className="text-sm text-gray-600">Fields:</span>
+								{selectedFields.map(field => (
+									<span
+										key={field.slug}
+										className="inline-flex items-center bg-white border border-gray-200 rounded-full px-3 py-1 text-sm"
 									>
-										<svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-											<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-										</svg>
-									</button>
-								</span>
-							))}
-						</div>
-					)}
+										{field.name}
+										<button
+											onClick={() => removeField(field.slug)}
+											className="ml-2 text-gray-400 hover:text-red-600 transition-colors"
+										>
+											<svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+												<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+											</svg>
+										</button>
+									</span>
+								))}
+							</div>
+						)}
+					</div>
+
+					{/* Year Controls */}
+					<div className="flex items-center space-x-4">
+						<button
+							onClick={() => setShowYearSelector(!showYearSelector)}
+							className="inline-flex items-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+						>
+							<svg className="w-4 h-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+								<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+							</svg>
+							{selectedYears.length > 0 ? `${selectedYears.length} Year${selectedYears.length === 1 ? '' : 's'}` : 'Add Year'}
+						</button>
+
+						{selectedYears.length > 0 && (
+							<div className="flex items-center space-x-2">
+								<span className="text-sm text-gray-600">Years:</span>
+								{selectedYears.map(year => (
+									<span
+										key={year.id || year}
+										className="inline-flex items-center bg-white border border-gray-200 rounded-full px-3 py-1 text-sm"
+									>
+										{year.label || year}
+										<button
+											onClick={() => removeYear(year.id || year)}
+											className="ml-2 text-gray-400 hover:text-red-600 transition-colors"
+										>
+											<svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+												<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+											</svg>
+										</button>
+									</span>
+								))}
+							</div>
+						)}
+					</div>
 				</div>
 
 				{/* Field Selector Dropdown */}
@@ -150,6 +199,34 @@ const SimpleComparison = ({
 										<div className="font-medium text-gray-900">{field.name}</div>
 										{field.description && (
 											<div className="text-sm text-gray-600 mt-1">{field.description}</div>
+										)}
+									</button>
+								))
+							}
+						</div>
+					</div>
+				)}
+
+				{/* Year Selector Dropdown */}
+				{showYearSelector && (
+					<div className="absolute right-6 mt-2 w-64 bg-white border border-gray-200 rounded-lg shadow-lg z-50">
+						<div className="p-3 border-b border-gray-200">
+							<h3 className="font-medium text-gray-900">Choose years to compare</h3>
+						</div>
+						<div className="max-h-60 overflow-y-auto">
+							{availableYears
+								.filter(year => !selectedYears.find(y => (y.id || y) === (year.id || year)))
+								.map(year => (
+									<button
+										key={year.id || year}
+										onClick={() => addYear(year)}
+										className="w-full text-left px-3 py-2 hover:bg-green-50 transition-colors border-b border-gray-100 last:border-b-0"
+									>
+										<div className="font-medium text-gray-900">{year.label || year}</div>
+										{year.start_date && year.end_date && (
+											<div className="text-sm text-gray-600 mt-1">
+												{new Date(year.start_date).toLocaleDateString()} - {new Date(year.end_date).toLocaleDateString()}
+											</div>
 										)}
 									</button>
 								))

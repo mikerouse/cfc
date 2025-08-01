@@ -3,7 +3,6 @@ import { DndProvider } from 'react-dnd';
 import { HTML5Backend } from 'react-dnd-html5-backend';
 import { TouchBackend } from 'react-dnd-touch-backend';
 import { isMobile } from 'react-device-detect';
-import FloatingBasket from './comparison/FloatingBasket';
 import SimpleComparison from './comparison/SimpleComparison';
 import LoadingSpinner from './LoadingSpinner';
 import ErrorBoundary from './ErrorBoundary';
@@ -18,7 +17,7 @@ import ErrorBoundary from './ErrorBoundary';
  * - CSV/JSON export
  * - Responsive mobile-first design
  */
-const ComparisonBasketApp = ({ initialData = {} }) => {
+const ComparisonBasketApp = ({ initialData = {}, onComparisonToggle }) => {
 	// State management
 	const [councils, setCouncils] = useState(initialData.councils || []);
 	const [selectedFields, setSelectedFields] = useState(initialData.selectedFields || []);
@@ -284,6 +283,23 @@ const ComparisonBasketApp = ({ initialData = {} }) => {
 		}
 	}, [config.apiUrls.exportData, config.csrfToken, councils, selectedFields, selectedYears, showNotification]);
 
+	// Expose function to open comparison (called from header basket)
+	useEffect(() => {
+		if (onComparisonToggle) {
+			// Make toggle function available globally
+			window.openComparison = () => {
+				if (councils.length > 0) {
+					setShowComparison(true);
+				}
+			};
+		}
+		return () => {
+			if (window.openComparison) {
+				delete window.openComparison;
+			}
+		};
+	}, [councils.length, onComparisonToggle]);
+
 	// Choose drag & drop backend based on device
 	const dndBackend = isMobile ? TouchBackend : HTML5Backend;
 	const dndOptions = isMobile ? { enableMouseEvents: true } : {};
@@ -375,13 +391,6 @@ const ComparisonBasketApp = ({ initialData = {} }) => {
 					</div>
 				) : (
 					<>
-						{/* Floating Basket Button */}
-						<FloatingBasket 
-							councilCount={councils.length}
-							onClick={() => setShowComparison(true)}
-							isActive={showComparison}
-						/>
-
 						{/* Comparison Interface */}
 						{showComparison && (
 							<SimpleComparison 

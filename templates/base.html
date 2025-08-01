@@ -203,9 +203,9 @@
 
                     <!-- Comparison Basket -->
                     <div class="relative flex-shrink-0">
-                        <a href="{% url 'compare_basket' %}" 
-                           class="relative p-2 xl:p-3 bg-gray-700 hover:bg-gray-600 rounded-lg transition-all duration-200 group focus:outline-none focus:ring-2 focus:ring-blue-500 block min-h-[44px] min-w-[44px] sm:min-h-0 sm:min-w-0 flex items-center justify-center"
-                           aria-label="Comparison basket">
+                        <button onclick="openComparisonBasket()" 
+                                class="relative p-2 xl:p-3 bg-gray-700 hover:bg-gray-600 rounded-lg transition-all duration-200 group focus:outline-none focus:ring-2 focus:ring-blue-500 block min-h-[44px] min-w-[44px] sm:min-h-0 sm:min-w-0 flex items-center justify-center"
+                                aria-label="Open comparison basket">
                             <svg class="w-5 h-5 xl:w-6 xl:h-6 text-gray-300 group-hover:text-white transition-colors flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4m0 0L7 13m0 0l-2.293 2.293a1 1 0 000 1.414L6 18h12M7 13v8a2 2 0 002 2h6a2 2 0 002-2v-8"/>
                             </svg>
@@ -216,7 +216,7 @@
                             {% else %}
                             <span id="basket-count" class="hidden absolute -top-1 -right-1 h-5 w-5 bg-green-500 rounded-full flex items-center justify-center text-xs font-bold text-white"></span>
                             {% endif %}
-                        </a>
+                        </button>
                     </div>
 
                     <!-- User Menu -->
@@ -597,6 +597,17 @@
             mobileSearchInput,
             document.getElementById('mobile-search-results')
         );
+    }
+
+    // Comparison basket function
+    function openComparisonBasket() {
+        // Check if we're on comparison page and React app is available
+        if (typeof window.openComparison === 'function') {
+            window.openComparison();
+        } else {
+            // Fallback: navigate to comparison page
+            window.location.href = '/compare/';
+        }
     }
 
     </script>

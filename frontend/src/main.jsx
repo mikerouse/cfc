@@ -160,6 +160,7 @@ function initializeReactApps() {
       root.render(<ComparisonBasketApp 
         initialData={initialData}
         csrfToken={csrfToken}
+        onComparisonToggle={true}
       />);
       
       // Mark as mounted
