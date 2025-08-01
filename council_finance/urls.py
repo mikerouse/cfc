@@ -60,6 +60,13 @@ from .api.ai_factoid_api import (
     ai_factoid_status
 )
 
+# Import site-wide factoid API functions
+from .api.sitewide_factoid_api import (
+    get_sitewide_factoids,
+    get_sitewide_factoids_health,
+    sitewide_factoids_view
+)
+
 # Import AI factoid management views
 from .views.ai_factoid_management import (
     ai_factoid_management_dashboard,
@@ -249,6 +256,11 @@ urlpatterns = [
     path("api/factoids/ai/batch/", ai_batch_factoids, name="ai_batch_factoids"),
     path("api/factoids/ai/<slug:council_slug>/cache/", clear_ai_factoid_cache, name="clear_ai_factoid_cache"),
     path("api/factoids/ai/status/", ai_factoid_status, name="ai_factoid_status"),
+    
+    # Site-wide cross-council factoids for homepage
+    path("api/factoids/sitewide/", get_sitewide_factoids, name="sitewide_factoids"),
+    path("api/factoids/sitewide/health/", get_sitewide_factoids_health, name="sitewide_factoids_health"),
+    path("api/factoids/sitewide/legacy/", sitewide_factoids_view, name="sitewide_factoids_legacy"),
     
     # ============================================================================
     # LEGACY FACTOID API ENDPOINTS (DEPRECATED)

@@ -3,10 +3,8 @@ import { DndProvider } from 'react-dnd';
 import { HTML5Backend } from 'react-dnd-html5-backend';
 import { TouchBackend } from 'react-dnd-touch-backend';
 import { isMobile } from 'react-device-detect';
-import BasketHeader from './comparison/BasketHeader';
-import CouncilBasket from './comparison/CouncilBasket';
-import ComparisonTable from './comparison/ComparisonTable';
-import ExportControls from './comparison/ExportControls';
+import FloatingBasket from './comparison/FloatingBasket';
+import SimpleComparison from './comparison/SimpleComparison';
 import LoadingSpinner from './LoadingSpinner';
 import ErrorBoundary from './ErrorBoundary';
 
@@ -28,7 +26,7 @@ const ComparisonBasketApp = ({ initialData = {} }) => {
 	const [loading, setLoading] = useState(false);
 	const [error, setError] = useState(null);
 	const [notification, setNotification] = useState(null);
-	const [viewMode, setViewMode] = useState('basket'); // 'basket' or 'compare'
+	const [showComparison, setShowComparison] = useState(false);
 
 	// Configuration
 	const [config] = useState({
@@ -172,7 +170,7 @@ const ComparisonBasketApp = ({ initialData = {} }) => {
 			if (data.success) {
 				setCouncils([]);
 				setSelectedFields([]);
-				setViewMode('basket');
+				setShowComparison(false);
 				showNotification('Comparison basket cleared', 'success');
 			}
 		} catch (err) {
@@ -292,88 +290,101 @@ const ComparisonBasketApp = ({ initialData = {} }) => {
 
 	return (
 		<ErrorBoundary>
-			<DndProvider backend={dndBackend} options={dndOptions}>
-				<div id="comparison-basket-app" className="comparison-basket-app min-h-screen bg-gray-50">
-					{/* Notification Display */}
-					{notification && (
-						<div id="comparison-notification" className={`fixed top-4 right-4 z-50 max-w-sm p-4 rounded-lg shadow-lg animate-slide-in ${
-							notification.type === 'success' 
-								? 'bg-green-50 border border-green-200 text-green-800'
-								: notification.type === 'warning'
-								? 'bg-yellow-50 border border-yellow-200 text-yellow-800'
-								: 'bg-red-50 border border-red-200 text-red-800'
-						}`}>
-							<div className="flex items-start">
-								<div className="flex-shrink-0 mr-3">
-									{notification.type === 'success' && (
-										<svg className="w-5 h-5 text-green-500" fill="currentColor" viewBox="0 0 20 20">
-											<path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd"/>
-										</svg>
-									)}
-									{notification.type === 'warning' && (
-										<svg className="w-5 h-5 text-yellow-500" fill="currentColor" viewBox="0 0 20 20">
-											<path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd"/>
-										</svg>
-									)}
-									{notification.type === 'error' && (
-										<svg className="w-5 h-5 text-red-500" fill="currentColor" viewBox="0 0 20 20">
-											<path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd"/>
-										</svg>
-									)}
-								</div>
-								<div className="flex-1 text-sm">
-									{notification.message}
-								</div>
-								<button 
-									onClick={() => setNotification(null)}
-									className="ml-3 text-gray-400 hover:text-gray-600 transition-colors"
-								>
-									<svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-										<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+			<div id="comparison-basket-app" className="comparison-basket-app">
+				{/* Notification Display */}
+				{notification && (
+					<div id="comparison-notification" className={`fixed top-4 right-4 z-50 max-w-sm p-4 rounded-lg shadow-lg animate-slide-in ${
+						notification.type === 'success' 
+							? 'bg-green-50 border border-green-200 text-green-800'
+							: notification.type === 'warning'
+							? 'bg-yellow-50 border border-yellow-200 text-yellow-800'
+							: 'bg-red-50 border border-red-200 text-red-800'
+					}`}>
+						<div className="flex items-start">
+							<div className="flex-shrink-0 mr-3">
+								{notification.type === 'success' && (
+									<svg className="w-5 h-5 text-green-500" fill="currentColor" viewBox="0 0 20 20">
+										<path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd"/>
 									</svg>
-								</button>
+								)}
+								{notification.type === 'warning' && (
+									<svg className="w-5 h-5 text-yellow-500" fill="currentColor" viewBox="0 0 20 20">
+										<path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd"/>
+									</svg>
+								)}
+								{notification.type === 'error' && (
+									<svg className="w-5 h-5 text-red-500" fill="currentColor" viewBox="0 0 20 20">
+										<path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd"/>
+									</svg>
+								)}
+							</div>
+							<div className="flex-1 text-sm">
+								{notification.message}
+							</div>
+							<button 
+								onClick={() => setNotification(null)}
+								className="ml-3 text-gray-400 hover:text-gray-600 transition-colors"
+							>
+								<svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+									<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+								</svg>
+							</button>
+						</div>
+					</div>
+				)}
+
+				{/* Loading Overlay */}
+				{loading && <LoadingSpinner />}
+
+				{/* Error Display */}
+				{error && (
+					<div id="comparison-error-display" className="bg-red-50 border border-red-200 rounded-lg p-4 m-6">
+						<div className="flex items-start">
+							<svg className="w-5 h-5 text-red-500 mt-0.5 mr-3 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+								<path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd"/>
+							</svg>
+							<div className="text-sm text-red-800">
+								<strong>Error:</strong> {error}
 							</div>
 						</div>
-					)}
+					</div>
+				)}
 
-					{/* Loading Overlay */}
-					{loading && <LoadingSpinner />}
-
-					{/* Error Display */}
-					{error && (
-						<div id="comparison-error-display" className="bg-red-50 border border-red-200 rounded-lg p-4 m-6">
-							<div className="flex items-start">
-								<svg className="w-5 h-5 text-red-500 mt-0.5 mr-3 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-									<path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd"/>
-								</svg>
-								<div className="text-sm text-red-800">
-									<strong>Error:</strong> {error}
+				{/* Simple Clean Interface */}
+				{councils.length === 0 ? (
+					<div className="min-h-screen flex items-center justify-center bg-gray-50">
+						<div className="text-center max-w-md mx-auto px-6">
+							<svg className="w-20 h-20 text-gray-300 mx-auto mb-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+								<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M3 3h2l.4 2M7 13h10l4-8H5.4m0 0L7 13m0 0l-2.5 5M7 13v6a2 2 0 002 2h6a2 2 0 002-2v-6M7 13H5.4" />
+							</svg>
+							<h1 className="text-2xl font-bold text-gray-900 mb-4">Council Comparison</h1>
+							<p className="text-lg text-gray-600 mb-8">
+								Add councils to your comparison basket to get started. You can compare up to {config.maxCouncils} councils side-by-side.
+							</p>
+							<div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+								<div className="flex items-start">
+									<svg className="w-5 h-5 text-blue-500 mt-0.5 mr-3 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+										<path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd"/>
+									</svg>
+									<div className="text-sm text-blue-800">
+										<strong>How to get started:</strong> Go to any council page and click "Add to comparison" to build your basket.
+									</div>
 								</div>
 							</div>
 						</div>
-					)}
-
-					<div className="max-w-none xl:max-w-desktop mx-auto">
-						{/* Header */}
-						<BasketHeader 
+					</div>
+				) : (
+					<>
+						{/* Floating Basket Button */}
+						<FloatingBasket 
 							councilCount={councils.length}
-							maxCouncils={config.maxCouncils}
-							viewMode={viewMode}
-							onViewModeChange={setViewMode}
-							onClearBasket={clearBasket}
+							onClick={() => setShowComparison(true)}
+							isActive={showComparison}
 						/>
 
-						{/* Main Content */}
-						{viewMode === 'basket' ? (
-							<CouncilBasket 
-								councils={councils}
-								onRemoveCouncil={removeCouncilFromBasket}
-								onReorderCouncils={reorderCouncils}
-								onSaveAsList={saveAsListApi}
-								maxCouncils={config.maxCouncils}
-							/>
-						) : (
-							<ComparisonTable 
+						{/* Comparison Interface */}
+						{showComparison && (
+							<SimpleComparison 
 								councils={councils}
 								selectedFields={selectedFields}
 								selectedYears={selectedYears}
@@ -381,26 +392,14 @@ const ComparisonBasketApp = ({ initialData = {} }) => {
 								availableYears={config.availableYears}
 								onFieldsChange={setSelectedFields}
 								onYearsChange={setSelectedYears}
-								onReorderCouncils={reorderCouncils}
-								onReorderFields={reorderFields}
+								onClose={() => setShowComparison(false)}
 								apiUrls={config.apiUrls}
 								csrfToken={config.csrfToken}
 							/>
 						)}
-
-						{/* Export Controls */}
-						{councils.length > 0 && (
-							<ExportControls 
-								councils={councils}
-								selectedFields={selectedFields}
-								selectedYears={selectedYears}
-								onExport={exportData}
-								onSaveAsList={saveAsListApi}
-							/>
-						)}
-					</div>
-				</div>
-			</DndProvider>
+					</>
+				)}
+			</div>
 		</ErrorBoundary>
 	);
 };

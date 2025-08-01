@@ -4,6 +4,7 @@ import App from './App';
 import MyListsIntegration from './components/MyListsIntegration';
 import CouncilEditApp from './components/CouncilEditApp';
 import ComparisonBasketApp from './components/ComparisonBasketApp';
+import AddToBasketButton from './components/comparison/AddToBasketButton';
 import LegacyFactoidBuilder from './components/legacy/LegacyFactoidBuilder';
 
 console.log('🚀 Main.jsx loading - React apps initialization');
@@ -186,6 +187,32 @@ function initializeReactApps() {
         fallbackInterface.classList.add('block');
       }
     }
+  }
+
+  // Initialize Add to Basket buttons if they exist
+  const basketButtons = document.querySelectorAll('[data-add-to-basket]');
+  if (basketButtons.length > 0) {
+    console.log(`🛒 Found ${basketButtons.length} Add to Basket button(s), initializing...`);
+    basketButtons.forEach((button, index) => {
+      try {
+        const councilSlug = button.dataset.councilSlug;
+        const councilName = button.dataset.councilName;
+        
+        if (councilSlug && councilName) {
+          const root = createRoot(button);
+          root.render(<AddToBasketButton 
+            councilSlug={councilSlug}
+            councilName={councilName}
+          />);
+          console.log(`🎯 Add to Basket button ${index + 1} mounted for: ${councilName}`);
+        } else {
+          console.warn(`⚠️ Add to Basket button ${index + 1} missing data attributes`);
+        }
+      } catch (error) {
+        console.error(`💥 Add to Basket button ${index + 1} initialization failed:`, error);
+      }
+    });
+    initializedApps.push(`${basketButtons.length} Add to Basket Button(s)`);
   }
   
   if (initializedApps.length > 0) {
