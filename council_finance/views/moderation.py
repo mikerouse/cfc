@@ -267,9 +267,15 @@ def flagged_content_list(request):
         'critical_count': all_flags.filter(priority='critical').count(),
     }
     
+    # Paginate results
+    page_number = request.GET.get('page', 1)
+    per_page = 25  # You can make this configurable if desired
+    paginator = Paginator(flags_qs, per_page)
+    page_obj = paginator.get_page(page_number)
+
     # Convert flags to flagged content format for template compatibility
     flagged_content = []
-    for flag in flags_qs[:50]:  # Limit to 50 for performance
+    for flag in page_obj.object_list:
         # Create a pseudo-flagged content object
         flagged_item = type('FlaggedContent', (), {
             'id': flag.id,
