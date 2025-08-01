@@ -70,6 +70,9 @@ from .views.ai_factoid_management import (
     ai_configuration
 )
 
+# Import comparison API views
+from .api import comparison_api
+
 urlpatterns = [
     # Favicon redirect to avoid 404 errors
     path('favicon.ico', RedirectView.as_view(url=settings.STATIC_URL + 'favicon.ico', permanent=True)),
@@ -172,7 +175,20 @@ urlpatterns = [
     path("compare/row/", compare_row, name="compare_row"),
     path("compare/clear/", clear_compare_basket, name="clear_compare_basket"),
     path("compare/detailed/", detailed_comparison, name="detailed_comparison"),
-    path("compare/", compare_basket, name="compare_basket"),
+    
+    # ============================================================================
+    # NEW REACT COMPARISON BASKET API ENDPOINTS
+    # ============================================================================
+    
+    # Main React-based comparison basket page (replaces legacy system)
+    path("compare/", comparison_api.ComparisonBasketView.as_view(), name="compare_basket"),
+    
+    # API endpoints for React comparison basket
+    path("api/comparison/basket/", comparison_api.get_basket_data, name="comparison_basket_api"),
+    path("api/comparison/fields/", comparison_api.get_available_fields, name="comparison_fields_api"),
+    path("api/comparison/years/", comparison_api.get_available_years, name="comparison_years_api"),
+    path("api/comparison/data/", comparison_api.get_comparison_data, name="comparison_data_api"),
+    path("api/comparison/export/", comparison_api.export_comparison_data, name="comparison_export_api"),
     path("following/", following, name="following"),
     # Enhanced Following System API Endpoints
     path("following/api/follow/", follow_item_api, name="follow_item_api"),

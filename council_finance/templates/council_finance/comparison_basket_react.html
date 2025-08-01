@@ -1,0 +1,290 @@
+{% extends "base.html" %}
+{% load static %}
+{% block title %}{{ page_title }} - Council Finance Counters{% endblock %}
+
+{% block extra_css %}
+<style>
+	/* Mobile-First Comparison Basket Styles */
+	.animate-slide-in {
+		animation: slideIn 0.3s ease-out;
+	}
+	
+	@keyframes slideIn {
+		from {
+			transform: translateX(100%);
+			opacity: 0;
+		}
+		to {
+			transform: translateX(0);
+			opacity: 1;
+		}
+	}
+	
+	/* Touch-friendly sizing for mobile */
+	@media (max-width: 640px) {
+		.comparison-basket-app button,
+		.comparison-basket-app input,
+		.comparison-basket-app select {
+			min-height: 44px;
+			min-width: 44px;
+		}
+	}
+	
+	/* Custom scrollbars for tables */
+	.comparison-table-container::-webkit-scrollbar {
+		height: 8px;
+		width: 8px;
+	}
+	
+	.comparison-table-container::-webkit-scrollbar-track {
+		background: #f1f5f9;
+		border-radius: 4px;
+	}
+	
+	.comparison-table-container::-webkit-scrollbar-thumb {
+		background: #cbd5e1;
+		border-radius: 4px;
+	}
+	
+	.comparison-table-container::-webkit-scrollbar-thumb:hover {
+		background: #94a3b8;
+	}
+	
+	/* Sticky table headers */
+	.sticky-header {
+		position: sticky;
+		top: 0;
+		background: white;
+		z-index: 10;
+	}
+	
+	/* Drag and drop visual feedback */
+	.drag-preview {
+		transform: rotate(5deg);
+		box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+	}
+	
+	/* Loading states */
+	.loading-overlay {
+		backdrop-filter: blur(2px);
+	}
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- React Comparison Basket Container -->
+<div id="comparison-basket-react-root" 
+	 data-initial-data='{{ initial_data_json|safe }}'
+	 data-csrf-token="{{ csrf_token }}"
+	 data-react-timeout="10000">
+	
+	<!-- Loading State -->
+	<div id="comparison-basket-loading-state" class="min-h-screen bg-gray-50 flex items-center justify-center">
+		<div class="text-center">
+			<div class="inline-flex items-center justify-center w-16 h-16 bg-blue-100 rounded-lg mb-4">
+				<svg class="animate-spin w-8 h-8 text-blue-600" fill="none" viewBox="0 0 24 24">
+					<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+					<path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+				</svg>
+			</div>
+			<h3 class="text-lg font-semibold text-gray-900 mb-2">Loading Comparison Basket</h3>
+			<p class="text-sm text-gray-600">Preparing your council comparison interface...</p>
+			
+			<!-- Quick access while loading -->
+			<div class="mt-6 text-sm text-gray-500">
+				{% if council_count > 0 %}
+				<p>{{ council_count }} council{{ council_count|pluralize }} in basket</p>
+				{% else %}
+				<p>Your comparison basket is empty</p>
+				{% endif %}
+			</div>
+		</div>
+	</div>
+	
+	<!-- Error State (hidden by default) -->
+	<div id="comparison-basket-error-state" class="hidden min-h-screen bg-gray-50 flex items-center justify-center">
+		<div class="text-center max-w-md px-4">
+			<div class="mx-auto h-12 w-12 text-red-400 mb-4">
+				<svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
+					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+				</svg>
+			</div>
+			<h3 class="text-lg font-medium text-gray-900 mb-2">Failed to load comparison basket</h3>
+			<p class="text-sm text-gray-600 mb-6">
+				The comparison interface could not be loaded. You can still use the basic comparison features below.
+			</p>
+			<div class="space-y-3">
+				<button onclick="window.location.reload()" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+					Refresh Page
+				</button>
+				<div class="flex justify-center space-x-4">
+					<a href="/councils/" class="text-sm text-blue-600 hover:text-blue-700">
+						Browse Councils
+					</a>
+					<span class="text-gray-300">|</span>
+					<a href="/" class="text-sm text-blue-600 hover:text-blue-700">
+						Go Home
+					</a>
+				</div>
+			</div>
+		</div>
+	</div>
+	
+	<!-- Fallback Interface (shown if React fails completely) -->
+	<div id="comparison-basket-fallback-interface" class="hidden">
+		<div class="max-w-none xl:max-w-desktop mx-auto px-4 sm:px-6 lg:px-8 py-8">
+			<!-- Basic Header -->
+			<div class="mb-8">
+				<h1 class="text-3xl font-bold text-gray-900 mb-2">🛒 Council Comparison Basket</h1>
+				<p class="text-gray-600">
+					{% if council_count > 0 %}
+						{{ council_count }} council{{ council_count|pluralize }} selected for comparison.
+					{% else %}
+						Your comparison basket is empty.
+					{% endif %}
+				</p>
+			</div>
+			
+			{% if council_count > 0 %}
+			<!-- Basic Controls -->
+			<div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
+				<div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+					<div class="text-sm text-gray-600">
+						Enhanced comparison features are temporarily unavailable.
+					</div>
+					<div class="flex items-center gap-2">
+						<button onclick="window.location.href='/compare/clear/'" class="px-4 py-2 text-sm font-medium text-red-600 bg-red-50 border border-red-200 rounded-md hover:bg-red-100 focus:outline-none focus:ring-2 focus:ring-red-500">
+							Clear Basket
+						</button>
+						<button onclick="window.location.reload()" class="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500">
+							Try Again
+						</button>
+					</div>
+				</div>
+			</div>
+			
+			<!-- Basic Message -->
+			<div class="bg-yellow-50 border border-yellow-200 rounded-lg p-6">
+				<div class="flex items-start">
+					<svg class="w-6 h-6 text-yellow-600 mt-1 mr-3 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+					</svg>
+					<div>
+						<h3 class="text-lg font-medium text-yellow-800 mb-2">
+							Enhanced Features Temporarily Unavailable
+						</h3>
+						<p class="text-yellow-700 mb-4">
+							The advanced comparison interface is currently experiencing issues. 
+							Please try refreshing the page, or contact support if the problem persists.
+						</p>
+						<div class="text-sm text-yellow-600">
+							<strong>What you can still do:</strong>
+							<ul class="list-disc list-inside mt-2 space-y-1">
+								<li>View individual council pages for detailed information</li>
+								<li>Clear your comparison basket and start over</li>
+								<li>Browse the full council directory</li>
+							</ul>
+						</div>
+					</div>
+				</div>
+			</div>
+			
+			{% else %}
+			<!-- Empty State -->
+			<div class="text-center py-16">
+				<div class="mx-auto h-24 w-24 text-gray-400 mb-6">
+					<svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
+						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M3 3h2l.4 2M7 13h10l4-8H5.4m0 0L7 13m0 0l-2.293 2.293a1 1 0 000 1.414L6 18h12M7 13v8a2 2 0 002 2h6a2 2 0 002-2v-8" />
+					</svg>
+				</div>
+				<h3 class="text-xl font-medium text-gray-900 mb-2">Your comparison basket is empty</h3>
+				<p class="text-gray-500 mb-8 max-w-md mx-auto">
+					Add councils to your basket from any council page to start comparing their financial data and characteristics.
+				</p>
+				<div class="flex flex-col sm:flex-row gap-4 justify-center">
+					<a href="/councils/" class="inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500">
+						<svg class="w-5 h-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+						</svg>
+						Browse Councils
+					</a>
+					<a href="/" class="inline-flex items-center px-6 py-3 border border-gray-300 text-base font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-500">
+						<svg class="w-5 h-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+						</svg>
+						Go Home
+					</a>
+				</div>
+			</div>
+			{% endif %}
+		</div>
+	</div>
+</div>
+
+<!-- Include React components -->
+{% load vite %}
+{% now "U" as cache_bust %}
+<script type="module" src="{% vite_js %}?v={{ cache_bust }}"></script>
+<link rel="stylesheet" href="{% vite_css %}?v={{ cache_bust }}">
+
+<!-- CSRF Token for AJAX requests -->
+{% csrf_token %}
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Error timeout - show error state if React doesn't mount within timeout
+setTimeout(function() {
+	const comparisonBasketRoot = document.getElementById('comparison-basket-react-root');
+	
+	// Check if React app mounted successfully
+	if (comparisonBasketRoot && !comparisonBasketRoot.hasAttribute('data-react-mounted')) {
+		console.error('⏰ Comparison Basket: React app timeout - showing error state');
+		
+		// Hide loading and show error
+		const loadingState = document.getElementById('comparison-basket-loading-state');
+		const errorState = document.getElementById('comparison-basket-error-state');
+		
+		if (loadingState) loadingState.style.display = 'none';
+		if (errorState) {
+			errorState.classList.remove('hidden');
+		}
+	}
+}, 10000);
+
+// Handle browser back/forward navigation
+window.addEventListener('popstate', function(event) {
+	console.log('Comparison Basket: Navigation detected');
+	// Could implement state restoration here
+});
+
+// Handle mobile viewport changes
+window.addEventListener('orientationchange', function() {
+	setTimeout(() => {
+		console.log('Comparison Basket: Orientation changed');
+		// Could trigger responsive updates here
+	}, 100);
+});
+
+// Performance monitoring
+if (window.performance && window.performance.mark) {
+	window.performance.mark('comparison-basket-page-start');
+	
+	window.addEventListener('load', function() {
+		window.performance.mark('comparison-basket-page-loaded');
+		
+		// Measure page load time
+		window.performance.measure(
+			'comparison-basket-load-time',
+			'comparison-basket-page-start',
+			'comparison-basket-page-loaded'
+		);
+		
+		const loadTime = window.performance.getEntriesByName('comparison-basket-load-time')[0];
+		if (loadTime) {
+			console.log(`📊 Comparison Basket page load time: ${loadTime.duration}ms`);
+		}
+	});
+}
+</script>
+{% endblock %}

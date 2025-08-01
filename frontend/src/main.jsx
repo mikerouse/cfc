@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client';
 import App from './App';
 import MyListsIntegration from './components/MyListsIntegration';
 import CouncilEditApp from './components/CouncilEditApp';
+import ComparisonBasketApp from './components/ComparisonBasketApp';
 import LegacyFactoidBuilder from './components/legacy/LegacyFactoidBuilder';
 
 console.log('🚀 Main.jsx loading - React apps initialization');
@@ -121,6 +122,65 @@ function initializeReactApps() {
       const fallbackInterface = document.getElementById('council-edit-fallback-interface');
       if (fallbackInterface) {
         const loadingFallback = document.getElementById('council-edit-loading-fallback');
+        if (loadingFallback) loadingFallback.style.display = 'none';
+        fallbackInterface.classList.remove('hidden');
+        fallbackInterface.classList.add('block');
+      }
+    }
+  }
+
+  // Initialize Comparison Basket app if container exists
+  const comparisonBasketContainer = document.getElementById('comparison-basket-react-root');
+  if (comparisonBasketContainer) {
+    console.log('🛒 Comparison Basket container found, initializing...');
+    try {
+      // Parse data from template
+      let initialData, csrfToken;
+      try {
+        initialData = JSON.parse(comparisonBasketContainer.dataset.initialData || '{}');
+        csrfToken = comparisonBasketContainer.dataset.csrfToken || '';
+        
+        console.log('📊 Comparison Basket: Data parsed successfully', {
+          councils: initialData.councils?.length || 0,
+          fields: initialData.availableFields?.length || 0,
+          years: initialData.availableYears?.length || 0,
+          hasCSRF: !!csrfToken
+        });
+      } catch (error) {
+        console.error('❌ Comparison Basket: Failed to parse data', error);
+        // Still try to mount with empty data
+        initialData = {};
+        csrfToken = '';
+      }
+
+      // Mount React app directly
+      console.log('🚀 Comparison Basket: Mounting React app directly...');
+      const root = createRoot(comparisonBasketContainer);
+      root.render(<ComparisonBasketApp 
+        initialData={initialData}
+        csrfToken={csrfToken}
+      />);
+      
+      // Mark as mounted
+      comparisonBasketContainer.dataset.reactMounted = 'true';
+      
+      // Hide loading fallback
+      const loadingFallback = document.getElementById('comparison-basket-loading-fallback');
+      if (loadingFallback) {
+        loadingFallback.style.display = 'none';
+        console.log('🔍 Comparison Basket: Loading fallback hidden');
+      }
+      
+      initializedApps.push('Comparison Basket');
+      console.log('🎉 Comparison Basket: React app mounted successfully');
+      
+    } catch (error) {
+      console.error('💥 Comparison Basket app initialization failed:', error);
+      
+      // Show fallback interface
+      const fallbackInterface = document.getElementById('comparison-basket-fallback-interface');
+      if (fallbackInterface) {
+        const loadingFallback = document.getElementById('comparison-basket-loading-fallback');
         if (loadingFallback) loadingFallback.style.display = 'none';
         fallbackInterface.classList.remove('hidden');
         fallbackInterface.classList.add('block');
