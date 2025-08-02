@@ -1,63 +1,310 @@
 {% extends "base.html" %}
 {% load static %}
-{% block title %}Change Log - {{ council.name }}{% endblock %}
+{% block title %}Activity Log - {{ council.name }}{% endblock %}
+
 {% block content %}
-<h1 class="text-3xl sm:text-4xl font-extrabold mb-4 pt-5 flex items-left gap-2">
-  <span class="w-8 h-8 bg-gray-300 rounded-full"></span>
-  {{ council.name }}
-</h1>
-<div class="mb-4 border-b text-center">
-  <nav class="inline-flex gap-4">
-    <a href="{% url 'council_detail' council.slug %}" class="py-2 px-4 border-b-2 {% if tab == 'view' %}border-blue-600 font-semibold{% else %}border-transparent{% endif %}">View</a>
-    <a href="{% url 'council_detail' council.slug %}?tab=edit" class="py-2 px-4 border-b-2 {% if tab == 'edit' %}border-blue-600 font-semibold{% else %}border-transparent{% endif %}">Edit</a>
-    <a href="{% url 'council_change_log' council.slug %}" class="py-2 px-4 border-b-2 {% if tab == 'log' %}border-blue-600 font-semibold{% else %}border-transparent{% endif %}">Log</a>
-  </nav>
-</div>
-<table class="min-w-full bg-white border mb-4">
-  <thead>
-    <tr>
-      <th class="border px-2 py-1">Field</th>
-      <th class="border px-2 py-1">Year</th>
-      <th class="border px-2 py-1">Contributor</th>
-      <th class="border px-2 py-1">Old Value</th>
-      <th class="border px-2 py-1">New Value</th>
-      <th class="border px-2 py-1">Timestamp</th>
-    </tr>
-  </thead>
-  <tbody>
+<div id="activity-log-main" class="max-w-none xl:max-w-desktop mx-auto px-4 py-8">
+  <!-- Header Section -->
+  <div id="activity-log-header" class="mb-8">
+    <div class="flex items-center gap-4 mb-4">
+      <div class="w-12 h-12 bg-blue-600 rounded-lg flex items-center justify-center">
+        <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+        </svg>
+      </div>
+      <div>
+        <h1 class="text-3xl font-bold text-gray-900">Activity Log</h1>
+        <p class="text-lg text-gray-600">{{ council.name }}</p>
+      </div>
+    </div>
+    
+    <!-- Navigation Tabs -->
+    <nav id="activity-log-nav" class="border-b border-gray-200 mb-6">
+      <div class="flex space-x-8">
+        <a href="{% url 'council_detail' council.slug %}" 
+           class="py-2 px-1 border-b-2 border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 font-medium text-sm">
+          Financial Overview
+        </a>
+        <a href="{% url 'council_detail' council.slug %}?tab=edit" 
+           class="py-2 px-1 border-b-2 border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 font-medium text-sm">
+          Edit Data
+        </a>
+        <span class="py-2 px-1 border-b-2 border-blue-600 text-blue-600 font-medium text-sm">
+          Activity Log
+        </span>
+      </div>
+    </nav>
+
+    <!-- Filter Controls -->
+    <div id="activity-log-filters" class="mb-6">
+      <div class="bg-gray-50 rounded-lg p-4">
+        <form method="get" class="flex flex-wrap items-center gap-4">
+          <div class="flex items-center gap-2">
+            <label for="type-filter" class="text-sm font-medium text-gray-700">Filter by type:</label>
+            <select id="type-filter" name="type" 
+                    class="block w-48 rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm"
+                    onchange="this.form.submit()">
+              <option value="">All activities</option>
+              {% for activity_type in log_types %}
+                <option value="{{ activity_type }}" {% if activity_type == log_type %}selected{% endif %}>
+                  {{ activity_type|capfirst }}
+                </option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="text-sm text-gray-600">
+            <strong>{{ total_logs }}</strong> total activit{{ total_logs|pluralize:"y,ies" }}
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Activity Timeline -->
+  <div id="activity-log-timeline" class="space-y-4">
     {% for log in page_obj %}
-    <tr class="odd:bg-gray-50">
-      <td class="border px-2 py-1">{{ log.field.name }}</td>
-      <td class="border px-2 py-1 text-center">{{ log.year }}</td>
-      <td class="border px-2 py-1">
-        {% if log.contribution and log.contribution.user %}
-        {{ log.contribution.user.username }}
-        {% else %}
-        System
-        {% endif %}
-      </td>
-      <td class="border px-2 py-1">{{ log.old_value }}</td>
-      <td class="border px-2 py-1">{{ log.new_value }}</td>
-      <td class="border px-2 py-1">{{ log.created|date:'SHORT_DATETIME_FORMAT' }}</td>
-    </tr>
+      <div class="activity-log-entry bg-white rounded-lg border border-gray-200 p-6 hover:shadow-md transition-shadow">
+        <div class="flex items-start gap-4">
+          <!-- Activity Icon -->
+          <div class="flex-shrink-0">
+            {% if log.activity_type == 'create' %}
+              <div class="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center">
+                <svg class="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
+                </svg>
+              </div>
+            {% elif log.activity_type == 'update' or log.activity_type == 'contribution' %}
+              <div class="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
+                <svg class="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
+                </svg>
+              </div>
+            {% elif log.activity_type == 'delete' %}
+              <div class="w-10 h-10 bg-red-100 rounded-full flex items-center justify-center">
+                <svg class="w-5 h-5 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                </svg>
+              </div>
+            {% elif log.activity_type == 'system' %}
+              <div class="w-10 h-10 bg-purple-100 rounded-full flex items-center justify-center">
+                <svg class="w-5 h-5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"></path>
+                </svg>
+              </div>
+            {% else %}
+              <div class="w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center">
+                <svg class="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                </svg>
+              </div>
+            {% endif %}
+          </div>
+
+          <!-- Activity Details -->
+          <div class="flex-1 min-w-0">
+            <div class="flex items-start justify-between">
+              <div class="flex-1">
+                <!-- Main Description -->
+                <h3 class="text-base font-semibold text-gray-900 mb-1">
+                  {{ log.description }}
+                </h3>
+                
+                <!-- Meta Information -->
+                <div class="flex flex-wrap items-center gap-4 text-sm text-gray-600 mb-2">
+                  <span class="inline-flex items-center gap-1">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
+                    </svg>
+                    {% if log.user %}
+                      <strong>{{ log.user.username }}</strong>
+                    {% else %}
+                      <strong>System</strong>
+                    {% endif %}
+                  </span>
+                  
+                  <span class="inline-flex items-center gap-1">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    </svg>
+                    <time datetime="{{ log.created|date:'c' }}">{{ log.created|date:'j M Y, g:i A' }}</time>
+                  </span>
+                  
+                  <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+                    {{ log.get_activity_type_display }}
+                  </span>
+                  
+                  {% if log.status != 'completed' %}
+                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium 
+                                 {% if log.status == 'failed' %}bg-red-100 text-red-800
+                                 {% elif log.status == 'in_progress' %}bg-yellow-100 text-yellow-800
+                                 {% else %}bg-gray-100 text-gray-800{% endif %}">
+                      {{ log.get_status_display }}
+                    </span>
+                  {% endif %}
+                </div>
+
+                <!-- Additional Details -->
+                {% if log.details and log.details != '{}' %}
+                  <div class="mt-3">
+                    <details class="group">
+                      <summary class="cursor-pointer text-sm text-blue-600 hover:text-blue-800 font-medium">
+                        View technical details
+                        <span class="inline-block transition-transform group-open:rotate-90 ml-1">▶</span>
+                      </summary>
+                      <div class="mt-2 p-3 bg-gray-50 rounded-md border">
+                        <pre class="text-sm text-gray-700 whitespace-pre-wrap font-mono">{{ log.get_details_display }}</pre>
+                      </div>
+                    </details>
+                  </div>
+                {% endif %}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
     {% empty %}
-    <tr>
-      <td class="border px-2 py-1 text-center" colspan="6">No log entries.</td>
-    </tr>
+      <div id="activity-log-empty" class="text-center py-12">
+        <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+        </svg>
+        <h3 class="mt-2 text-lg font-medium text-gray-900">No activity recorded</h3>
+        <p class="mt-1 text-gray-500">This council has no recorded activity yet.</p>
+      </div>
     {% endfor %}
-  </tbody>
-</table>
-<div class="flex justify-between">
-  {% if page_obj.has_previous %}
-  <a href="?page={{ page_obj.previous_page_number }}" class="underline">Previous</a>
-  {% else %}
-  <span></span>
-  {% endif %}
-  <span>Page {{ page_obj.number }} of {{ paginator.num_pages }}</span>
-  {% if page_obj.has_next %}
-  <a href="?page={{ page_obj.next_page_number }}" class="underline">Next</a>
-  {% else %}
-  <span></span>
+  </div>
+
+  <!-- Pagination -->
+  {% if page_obj.has_other_pages %}
+    <div id="activity-log-pagination" class="mt-8 flex items-center justify-between border-t border-gray-200 pt-6">
+      <div class="flex flex-1 justify-between sm:hidden">
+        {% if page_obj.has_previous %}
+          <a href="?page={{ page_obj.previous_page_number }}{% if log_type %}&type={{ log_type }}{% endif %}" 
+             class="relative inline-flex items-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">
+            Previous
+          </a>
+        {% else %}
+          <span class="relative inline-flex items-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-300 cursor-not-allowed">
+            Previous
+          </span>
+        {% endif %}
+        
+        {% if page_obj.has_next %}
+          <a href="?page={{ page_obj.next_page_number }}{% if log_type %}&type={{ log_type }}{% endif %}" 
+             class="relative ml-3 inline-flex items-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">
+            Next
+          </a>
+        {% else %}
+          <span class="relative ml-3 inline-flex items-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-300 cursor-not-allowed">
+            Next
+          </span>
+        {% endif %}
+      </div>
+      
+      <div class="hidden sm:flex sm:flex-1 sm:items-center sm:justify-between">
+        <div>
+          <p class="text-sm text-gray-700">
+            Showing 
+            <span class="font-medium">{{ page_obj.start_index }}</span>
+            to 
+            <span class="font-medium">{{ page_obj.end_index }}</span>
+            of 
+            <span class="font-medium">{{ page_obj.paginator.count }}</span>
+            results
+          </p>
+        </div>
+        <div>
+          <nav class="isolate inline-flex -space-x-px rounded-md shadow-sm" aria-label="Pagination">
+            {% if page_obj.has_previous %}
+              <a href="?page={{ page_obj.previous_page_number }}{% if log_type %}&type={{ log_type }}{% endif %}" 
+                 class="relative inline-flex items-center rounded-l-md px-2 py-2 text-gray-400 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 focus:z-20 focus:outline-offset-0">
+                <span class="sr-only">Previous</span>
+                <svg class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                  <path fill-rule="evenodd" d="M12.79 5.23a.75.75 0 01-.02 1.06L8.832 10l3.938 3.71a.75.75 0 11-1.04 1.08l-4.5-4.25a.75.75 0 010-1.08l4.5-4.25a.75.75 0 011.06.02z" clip-rule="evenodd" />
+                </svg>
+              </a>
+            {% endif %}
+            
+            {% for page_num in page_obj.paginator.page_range %}
+              {% if page_num == page_obj.number %}
+                <span aria-current="page" class="relative z-10 inline-flex items-center bg-blue-600 px-4 py-2 text-sm font-semibold text-white focus:z-20 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600">
+                  {{ page_num }}
+                </span>
+              {% elif page_num > page_obj.number|add:'-3' and page_num < page_obj.number|add:'3' %}
+                <a href="?page={{ page_num }}{% if log_type %}&type={{ log_type }}{% endif %}" 
+                   class="relative inline-flex items-center px-4 py-2 text-sm font-semibold text-gray-900 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 focus:z-20 focus:outline-offset-0">
+                  {{ page_num }}
+                </a>
+              {% endif %}
+            {% endfor %}
+            
+            {% if page_obj.has_next %}
+              <a href="?page={{ page_obj.next_page_number }}{% if log_type %}&type={{ log_type }}{% endif %}" 
+                 class="relative inline-flex items-center rounded-r-md px-2 py-2 text-gray-400 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 focus:z-20 focus:outline-offset-0">
+                <span class="sr-only">Next</span>
+                <svg class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                  <path fill-rule="evenodd" d="M7.21 14.77a.75.75 0 01.02-1.06L11.168 10 7.23 6.29a.75.75 0 111.04-1.08l4.5 4.25a.75.75 0 010 1.08l-4.5 4.25a.75.75 0 01-1.06-.02z" clip-rule="evenodd" />
+                </svg>
+              </a>
+            {% endif %}
+          </nav>
+        </div>
+      </div>
+    </div>
   {% endif %}
 </div>
+
+<style>
+/* Additional styles for activity log */
+.activity-log-entry {
+  position: relative;
+}
+
+.activity-log-entry:not(:last-child)::after {
+  content: '';
+  position: absolute;
+  left: 24px;
+  top: 70px;
+  bottom: -16px;
+  width: 2px;
+  background: linear-gradient(to bottom, #e5e7eb, transparent);
+}
+
+/* Blockchain-like styling */
+.activity-log-entry {
+  border-left: 4px solid transparent;
+  transition: all 0.2s ease;
+}
+
+.activity-log-entry:hover {
+  border-left-color: #3b82f6;
+  transform: translateX(2px);
+}
+
+/* Responsive improvements */
+@media (max-width: 640px) {
+  .activity-log-entry .flex {
+    flex-direction: column;
+    gap: 1rem;
+  }
+  
+  .activity-log-entry .flex-shrink-0 {
+    flex-shrink: initial;
+    align-self: flex-start;
+  }
+}
+
+/* Print styles */
+@media print {
+  .activity-log-entry {
+    break-inside: avoid;
+    border: 1px solid #e5e7eb;
+    margin-bottom: 1rem;
+  }
+  
+  #activity-log-filters,
+  #activity-log-pagination {
+    display: none;
+  }
+}
+</style>
 {% endblock %}

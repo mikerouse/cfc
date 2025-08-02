@@ -413,7 +413,7 @@ def council_change_log(request, slug):
     
     # Get available log types for filter
     log_types = ActivityLog.objects.filter(
-        council=council
+        related_council=council
     ).values_list('activity_type', flat=True).distinct()
     
     context = {
