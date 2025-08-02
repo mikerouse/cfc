@@ -541,9 +541,9 @@
     }
 
     function performSearchFor(query, resultsElement) {
-        if (isSearching) return;
+        if (isSearchingMap.get(resultsElement)) return;
         
-        isSearching = true;
+        isSearchingMap.set(resultsElement, true);
         
         fetch(`/api/councils/search/?q=${encodeURIComponent(query)}`)
             .then(response => response.json())
