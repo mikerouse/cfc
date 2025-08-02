@@ -234,7 +234,28 @@
   <div class="space-y-6">
         <!-- Controls Section -->
         <div class="bg-white border border-gray-200 rounded-lg shadow-sm">
-          <div class="px-4 py-4 sm:px-6 border-b border-gray-200">
+          <!-- Mobile Accordion Header -->
+          <div class="md:hidden">
+            <button id="mobile-financial-toggle" 
+                    class="w-full px-4 py-4 text-left focus:outline-none focus:ring-2 focus:ring-blue-500 rounded-t-lg"
+                    aria-expanded="false"
+                    aria-controls="financial-overview-content">
+              <div class="flex items-center justify-between">
+                <div>
+                  <h3 class="text-lg font-semibold text-gray-900">Financial Overview</h3>
+                  <p class="text-sm text-gray-600 mt-1">Tap to view controls</p>
+                </div>
+                <div class="flex-shrink-0">
+                  <svg id="mobile-toggle-icon" class="w-5 h-5 text-gray-500 transition-transform transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                  </svg>
+                </div>
+              </div>
+            </button>
+          </div>
+          
+          <!-- Desktop Header -->
+          <div class="hidden md:block px-4 py-4 sm:px-6 border-b border-gray-200">
             <div class="space-y-4 sm:space-y-0 sm:flex sm:items-center sm:justify-between">
               <div>
                 <h3 class="text-lg font-semibold text-gray-900">Financial Overview</h3>
@@ -274,6 +295,50 @@
                     Flag Data Issue
                   </button>
                 {% endif %}
+              </div>
+            </div>
+          </div>
+
+          <!-- Mobile/Desktop Collapsible Content -->
+          <div id="financial-overview-content" class="hidden md:block overflow-hidden transition-all duration-300 ease-in-out">
+            <div class="md:hidden border-b border-gray-200">
+              <div class="px-4 py-4 space-y-4">
+                <!-- Mobile Year Selector -->
+                <div class="flex flex-col gap-2">
+                  <label for="mobile-year-select" class="text-sm font-medium text-gray-700">Financial Year:</label>
+                  <select id="mobile-year-select" class="border border-gray-300 rounded-md px-3 py-3 bg-white text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 min-h-[44px]">
+                    {% for y in years %}
+                      <option value="{{ y.label }}" {% if y.label == selected_year.label %}selected{% endif %}>{{ y.display }}</option>
+                    {% endfor %}
+                  </select>
+                </div>
+                
+                <!-- Mobile Buttons -->
+                <div class="flex flex-col gap-3">
+                  <!-- Mobile Customize Button -->
+                  <button id="mobile-drawer-toggle" 
+                          class="inline-flex items-center justify-center px-4 py-3 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 active:bg-gray-100 transition-colors min-h-[44px] w-full">
+                    <svg class="w-4 h-4 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/>
+                    </svg>
+                    Customise View
+                  </button>
+                  
+                  {% if user.is_authenticated %}
+                    <!-- Mobile Flag Data Issue Button -->
+                    <button type="button"
+                            class="flag-content-btn inline-flex items-center justify-center px-4 py-3 border border-orange-300 text-sm font-medium rounded-md text-orange-700 bg-orange-50 hover:bg-orange-100 active:bg-orange-200 transition-colors min-h-[44px] w-full"
+                            data-content-type="council_financial_data"
+                            data-object-id="{{ council.slug }}"
+                            data-content-description="{{ council.name }} financial data"
+                            title="Report an issue with this council's financial data">
+                      <svg class="w-4 h-4 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 21v-4m0 0V5a2 2 0 012-2h6.5l1 1H21l-3 6 3 6h-8.5l-1-1H5a2 2 0 00-2 2zm9-13.5V9"/>
+                      </svg>
+                      Flag Data Issue
+                    </button>
+                  {% endif %}
+                </div>
               </div>
             </div>
           </div>
@@ -427,7 +492,7 @@
                 </div>
 
                 <!-- Counter Content -->
-                <div class="px-6 py-8 text-center">
+                <div class="px-6 py-8 md:py-8 sm:py-6 py-4 text-center">
                   <!-- Error Display -->
                   <div class="counter-error text-red-600 text-sm mb-4 {% if not item.error %}hidden{% endif %}">
                     <div class="inline-flex items-center px-3 py-2 rounded-lg bg-red-50 border border-red-200">
@@ -439,7 +504,7 @@
                   </div>
 
                   <!-- Value Display -->
-                  <div class="{% if item.counter.headline %}text-5xl{% else %}text-3xl{% endif %} font-bold text-gray-900 counter-value mb-4"
+                  <div class="{% if item.counter.headline %}text-4xl sm:text-5xl{% else %}text-2xl sm:text-3xl{% endif %} font-bold text-gray-900 counter-value mb-3 sm:mb-4"
                        {% if item.value is not None %}
                        data-duration="{{ item.counter.duration }}"
                        data-value="{{ item.value }}"
@@ -455,7 +520,7 @@
 
                   <!-- Explanation -->
                   {% if item.counter.explanation %}
-                    <p class="text-xs text-gray-500 mt-4 leading-relaxed">{{ item.counter.explanation }}</p>
+                    <p class="text-xs text-gray-500 mt-3 sm:mt-4 leading-relaxed">{{ item.counter.explanation }}</p>
                   {% endif %}
                 </div>
 
@@ -713,7 +778,65 @@ async function loadCounters(year) {
   }
 }
 
-const yearSelect = document.getElementById('year-select');
+// Mobile Financial Overview accordion functionality
+const mobileFinancialToggle = document.getElementById('mobile-financial-toggle');
+const financialOverviewContent = document.getElementById('financial-overview-content');
+const mobileToggleIcon = document.getElementById('mobile-toggle-icon');
+
+if (mobileFinancialToggle && financialOverviewContent) {
+  mobileFinancialToggle.addEventListener('click', () => {
+    const isExpanded = mobileFinancialToggle.getAttribute('aria-expanded') === 'true';
+    const newExpanded = !isExpanded;
+    
+    // Toggle aria-expanded attribute
+    mobileFinancialToggle.setAttribute('aria-expanded', newExpanded.toString());
+    
+    // Toggle content visibility
+    if (newExpanded) {
+      financialOverviewContent.classList.remove('hidden');
+      mobileToggleIcon.style.transform = 'rotate(180deg)';
+    } else {
+      financialOverviewContent.classList.add('hidden');
+      mobileToggleIcon.style.transform = 'rotate(0deg)';
+    }
+  });
+}
+
+// Sync mobile and desktop year selectors
+const mobileYearSelect = document.getElementById('mobile-year-select');
+if (yearSelect && mobileYearSelect) {
+  // Sync desktop -> mobile
+  yearSelect.addEventListener('change', () => {
+    mobileYearSelect.value = yearSelect.value;
+  });
+  
+  // Sync mobile -> desktop
+  mobileYearSelect.addEventListener('change', (e) => {
+    yearSelect.value = e.target.value;
+    const newYear = e.target.value;
+    loadCounters(newYear);
+    
+    // Update financial year pills in counter headers
+    document.querySelectorAll('.financial-year-display').forEach(yearDisplay => {
+      yearDisplay.textContent = newYear;
+    });
+    
+    // Year changed - AI factoids will automatically refresh when cache expires
+    console.log(`📅 Year changed to ${newYear} - AI factoids will refresh automatically`);
+  });
+}
+
+// Mobile drawer toggle (sync with desktop)
+const mobileDrawerToggle = document.getElementById('mobile-drawer-toggle');
+if (mobileDrawerToggle) {
+  mobileDrawerToggle.addEventListener('click', () => {
+    if (drawer.style.maxHeight && drawer.style.maxHeight !== '0px') {
+      drawer.style.maxHeight = '0px';
+    } else {
+      drawer.style.maxHeight = drawer.scrollHeight + 'px';
+    }
+  });
+}
 if (yearSelect) {
   yearSelect.addEventListener('change', e => {
     const newYear = e.target.value;
@@ -960,6 +1083,70 @@ animateCounters();
   transition: grid-template-columns 0.2s ease-in-out;
 }
 
+/* Mobile-specific improvements */
+@media (max-width: 768px) {
+  /* Fix counter spacing issues on mobile */
+  .counter-value {
+    line-height: 1.1;
+    margin-bottom: 0.75rem !important;
+  }
+  
+  /* Reduce excessive padding in counters */
+  #counters-grid .px-6 {
+    padding-left: 1rem !important;
+    padding-right: 1rem !important;
+  }
+  
+  /* Improve counter explanation text spacing */
+  #counters-grid p.text-xs {
+    margin-top: 0.75rem !important;
+    line-height: 1.4;
+  }
+  
+  /* Mobile Financial Overview accordion */
+  #mobile-financial-toggle {
+    transition: background-color 0.2s ease;
+  }
+  
+  #mobile-financial-toggle:active {
+    background-color: #f3f4f6;
+  }
+  
+  #mobile-toggle-icon {
+    transition: transform 0.3s ease;
+  }
+  
+  /* Ensure proper touch targets on mobile */
+  button, .btn, [role="button"] {
+    min-height: 44px;
+    min-width: 44px;
+  }
+  
+  /* Improve button spacing on mobile */
+  .space-y-3 > * + * {
+    margin-top: 0.75rem;
+  }
+  
+  .gap-3 {
+    gap: 0.75rem;
+  }
+  
+  /* Fix select element sizing on mobile */
+  select {
+    min-height: 44px;
+  }
+  
+  /* Counter grid adjustments for mobile */
+  #counters-grid {
+    gap: 1rem;
+  }
+  
+  /* Mobile counter header padding adjustment */
+  #counters-grid .px-6.py-4 {
+    padding: 0.75rem 1rem;
+  }
+}
+
 /* Desktop layout refinements */
 @media (min-width: 1280px) {
   /* Fixed desktop layout width */
@@ -972,23 +1159,6 @@ animateCounters();
   /* Desktop-specific button adjustments */
   .btn-group button {
     min-height: auto;
-  }
-}
-
-/* Ensure proper mobile touch targets */
-@media (max-width: 1279px) {
-  button, .btn, [role="button"] {
-    min-height: 44px;
-    min-width: 44px;
-  }
-  
-  /* Ensure sufficient spacing between interactive elements */
-  .space-y-3 > * + * {
-    margin-top: 0.75rem;
-  }
-  
-  .gap-3 {
-    gap: 0.75rem;
   }
 }
 </style>
