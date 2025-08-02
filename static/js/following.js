@@ -200,8 +200,11 @@ class FollowingPage {
 
     /**
      * Add comment to the list
+     * @param {string} updateId - The update ID
+     * @param {object} commentData - The comment data
+     * @param {boolean} incrementCount - Whether to increment the comment count (default: true)
      */
-    addComment(updateId, commentData) {
+    addComment(updateId, commentData, incrementCount = true) {
         const commentsList = document.getElementById(`comments-list-${updateId}`);
         if (!commentsList) return;
 
@@ -258,11 +261,13 @@ class FollowingPage {
         // Bind actions for the new comment
         this.bindCommentActions(commentElement);
         
-        // Update comment count
-        const commentButton = document.querySelector(`[data-update-id="${updateId}"] [data-action="show-comments"] span`);
-        if (commentButton) {
-            const currentCount = parseInt(commentButton.textContent) || 0;
-            commentButton.textContent = currentCount + 1;
+        // Update comment count only if incrementCount is true
+        if (incrementCount) {
+            const commentButton = document.querySelector(`[data-update-id="${updateId}"] [data-action="show-comments"] span`);
+            if (commentButton) {
+                const currentCount = parseInt(commentButton.textContent) || 0;
+                commentButton.textContent = currentCount + 1;
+            }
         }
     }
 
@@ -672,7 +677,7 @@ class FollowingPage {
                             hiddenComment.textContent = 'This comment has been hidden due to potential content violations';
                             commentsList.appendChild(hiddenComment);
                         } else {
-                            this.addComment(updateId, comment);
+                            this.addComment(updateId, comment, false); // Don't increment count when loading existing comments
                         }
                     });
                 } else {
