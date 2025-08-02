@@ -315,7 +315,7 @@ def edit_council(request, council_id):
                 changes.append(f"Website: '{council.website or ''}' → '{website or ''}'")
             
             pop_value = int(population) if population.isdigit() else None
-            if council.latest_population != pop_value:
+            if (council.latest_population or 0) != (pop_value or 0):
                 changes.append(f"Population: '{council.latest_population or ''}' → '{pop_value or ''}'")
             if council.status != status:
                 changes.append(f"Status: '{council.status}' → '{status}'")
