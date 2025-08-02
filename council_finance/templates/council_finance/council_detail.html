@@ -469,12 +469,11 @@
 
         <!-- Financial Counters Grid -->
         {% if counters %}
-          <div id="counters-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div id="counters-grid" class="counter-grid-container">
             {% for item in counters %}
               <div id="counter-{{ item.counter.slug }}" 
-                   class="bg-white border border-gray-200 rounded-lg shadow-sm overflow-hidden hover:shadow-md transition-all duration-200 {% if item.counter.headline %}lg:col-span-3{% endif %}" 
-                   data-counter="{{ item.counter.slug }}" 
-                   {% if item.counter.headline %}style="grid-column: span 3"{% endif %}>
+                   class="bg-white border border-gray-200 rounded-lg shadow-sm overflow-hidden hover:shadow-md transition-all duration-200 {% if item.counter.headline %}headline-counter{% endif %}" 
+                   data-counter="{{ item.counter.slug }}">
                 
                 <!-- Counter Header -->
                 <div class="px-6 py-4 bg-gray-50 border-b border-gray-200">
@@ -1083,8 +1082,26 @@ animateCounters();
   transition: grid-template-columns 0.2s ease-in-out;
 }
 
+/* Counter Grid Layout - Custom CSS to override Tailwind conflicts */
+.counter-grid-container {
+  display: grid;
+  gap: 1.5rem;
+  grid-template-columns: 1fr; /* Single column on mobile */
+}
+
+/* Headline counters always span full width */
+.counter-grid-container .headline-counter {
+  grid-column: 1 / -1;
+}
+
 /* Mobile-specific improvements */
 @media (max-width: 768px) {
+  /* Ensure single column layout on mobile */
+  .counter-grid-container {
+    grid-template-columns: 1fr !important;
+    gap: 1rem;
+  }
+  
   /* Fix counter spacing issues on mobile - more aggressive spacing reduction */
   .counter-value {
     line-height: 1.1;
@@ -1136,11 +1153,6 @@ animateCounters();
     min-height: 44px;
   }
   
-  /* Counter grid adjustments for mobile */
-  #counters-grid {
-    gap: 1rem;
-  }
-  
   /* Mobile counter header padding adjustment */
   #counters-grid .px-6.py-4 {
     padding: 0.75rem 1rem;
@@ -1154,6 +1166,12 @@ animateCounters();
     max-width: 1280px !important;
     margin-left: auto;
     margin-right: auto;
+  }
+  
+  /* Restore 3-column grid layout on desktop */
+  .counter-grid-container {
+    grid-template-columns: repeat(3, 1fr) !important;
+    gap: 1.5rem;
   }
   
   /* Desktop-specific button adjustments */
