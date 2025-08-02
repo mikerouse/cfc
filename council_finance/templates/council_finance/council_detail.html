@@ -604,6 +604,7 @@
 <script src="{% static 'js/ai-factoids.js' %}"></script>
 
 <script>
+document.addEventListener('DOMContentLoaded', function() {
 // All the existing JavaScript functionality from the original template
 // (keeping the same functions but with updated styling)
 
@@ -841,6 +842,7 @@ if (mobileFinancialToggle && financialOverviewContent) {
 }
 
 // Sync mobile and desktop year selectors
+const yearSelect = document.getElementById('year-select');
 const mobileYearSelect = document.getElementById('mobile-year-select');
 if (yearSelect && mobileYearSelect) {
   // Sync desktop -> mobile
@@ -866,16 +868,17 @@ if (yearSelect && mobileYearSelect) {
 
 // Mobile drawer toggle (sync with desktop)
 const mobileDrawerToggle = document.getElementById('mobile-drawer-toggle');
-const drawer = document.getElementById('drawer');
-if (mobileDrawerToggle && drawer) {
+const mobileDrawer = document.getElementById('counter-drawer'); // Use different name to avoid conflict
+if (mobileDrawerToggle && mobileDrawer) {
   mobileDrawerToggle.addEventListener('click', () => {
-    if (drawer.style.maxHeight && drawer.style.maxHeight !== '0px') {
-      drawer.style.maxHeight = '0px';
+    if (mobileDrawer.style.maxHeight && mobileDrawer.style.maxHeight !== '0px') {
+      mobileDrawer.style.maxHeight = '0px';
     } else {
-      drawer.style.maxHeight = drawer.scrollHeight + 'px';
+      mobileDrawer.style.maxHeight = mobileDrawer.scrollHeight + 'px';
     }
   });
 }
+
 if (yearSelect) {
   yearSelect.addEventListener('change', e => {
     const newYear = e.target.value;
@@ -1103,6 +1106,7 @@ animateCounters();
 
 // End of counter functionality
 
+}); // End DOMContentLoaded
 </script>
 
 <style>
