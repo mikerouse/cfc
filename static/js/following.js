@@ -6,6 +6,7 @@
 class FollowingPage {
     constructor() {
         console.log('FollowingPage: Initializing...');
+        this.isAuthenticated = this.checkAuthentication();
         this.init();
     }
 
@@ -18,6 +19,13 @@ class FollowingPage {
         console.log('FollowingPage: Initialization complete');
     }
 
+    checkAuthentication() {
+        // Check if user is authenticated by looking for user-specific elements or CSRF token
+        const userMenu = document.querySelector('[data-user-menu]');
+        const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]');
+        return !!(userMenu || (csrfToken && csrfToken.value));
+    }
+
     /**
      * Bind comment button functionality
      */
@@ -28,6 +36,13 @@ class FollowingPage {
         commentButtons.forEach(button => {
             button.addEventListener('click', (e) => {
                 e.preventDefault();
+                
+                // Check authentication
+                if (!this.isAuthenticated) {
+                    this.showLoginPrompt('comment on updates');
+                    return;
+                }
+                
                 const updateId = button.dataset.updateId;
                 this.toggleCommentForm(updateId);
             });
@@ -251,6 +266,13 @@ class FollowingPage {
         likeButtons.forEach(button => {
             button.addEventListener('click', (e) => {
                 e.preventDefault();
+                
+                // Check authentication
+                if (!this.isAuthenticated) {
+                    this.showLoginPrompt('like updates');
+                    return;
+                }
+                
                 const updateId = button.dataset.updateId;
                 this.handleUpdateLike(updateId, button);
             });
@@ -571,6 +593,49 @@ class FollowingPage {
         const div = document.createElement('div');
         div.textContent = text;
         return div.innerHTML;
+    }
+
+    /**
+     * Show login prompt for anonymous users
+     */
+    showLoginPrompt(action) {
+        const modal = document.createElement('div');
+        modal.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50';
+        modal.innerHTML = `
+            <div class="bg-white rounded-xl max-w-md w-full mx-4 p-6">
+                <div class="text-center">
+                    <div class="mx-auto w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center mb-4">
+                        <svg class="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
+                        </svg>
+                    </div>
+                    <h3 class="text-lg font-semibold text-gray-900 mb-2">Sign in required</h3>
+                    <p class="text-gray-600 mb-6">You need to be logged in to ${action}.</p>
+                    
+                    <div class="space-y-3">
+                        <a href="/login/" class="block w-full bg-blue-600 text-white py-2 px-4 rounded-lg font-medium hover:bg-blue-700 transition-colors">
+                            Log In
+                        </a>
+                        <a href="/register/" class="block w-full border border-gray-300 text-gray-700 py-2 px-4 rounded-lg font-medium hover:bg-gray-50 transition-colors">
+                            Create Account
+                        </a>
+                        <button onclick="this.closest('.fixed').remove()" 
+                                class="block w-full text-gray-500 hover:text-gray-700 transition-colors">
+                            Cancel
+                        </button>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        document.body.appendChild(modal);
+        
+        // Close on backdrop click
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) {
+                modal.remove();
+            }
+        });
     }
 
     /**

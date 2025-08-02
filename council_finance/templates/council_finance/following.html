@@ -3,7 +3,7 @@
 {% load heroicons %}
 {% load humanize %}
 
-{% block title %}Following - Council Finance Counters{% endblock %}
+{% block title %}Feed - Council Finance Counters{% endblock %}
 
 {% block extra_head %}
 <style>
@@ -55,12 +55,33 @@
 {% block content %}
 {% csrf_token %}
 <div class="mx-auto max-w-none xl:max-w-desktop">
+    {% if is_sample_feed %}
+    <!-- Sample Feed Banner for Anonymous Users -->
+    <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+        <div class="flex items-start gap-3">
+            {% heroicon "information-circle" size="mini" class="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" %}
+            <div class="flex-1">
+                <h3 class="font-medium text-blue-900">Welcome to the Council Finance Feed</h3>
+                <p class="text-sm text-blue-700 mt-1">
+                    You're viewing a sample of recent council finance updates. 
+                    <a href="/signup/" class="font-medium underline">Create an account</a> or 
+                    <a href="/login/" class="font-medium underline">log in</a> to follow specific councils, 
+                    comment on updates, and personalize your feed.
+                </p>
+            </div>
+        </div>
+    </div>
+    {% endif %}
     <!-- Page Header -->
     <div class="mb-8">
         <div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
             <div>
-                <h1 class="text-2xl sm:text-3xl font-bold text-gray-900 mb-2">Following</h1>
+                <h1 class="text-2xl sm:text-3xl font-bold text-gray-900 mb-2">Feed</h1>
+                {% if is_sample_feed %}
+                <p class="text-gray-600">Discover the latest council finance updates from across the UK</p>
+                {% else %}
                 <p class="text-gray-600">Stay updated with councils, lists, and contributors you follow</p>
+                {% endif %}
             </div>
             
             <!-- Quick Stats -->
