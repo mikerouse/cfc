@@ -145,8 +145,8 @@ class LeaderboardService:
         },
         'reserves-balances': {
             'name': 'Reserves & Balances',
-            'description': 'Councils with the highest reserves',
-            'field_slug': 'reserves-and-balances',
+            'description': 'Councils with the highest usable reserves',
+            'field_slug': 'usable-reserves',
             'icon': 'check-circle',
             'reverse': True,
         },
