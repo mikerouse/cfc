@@ -1018,16 +1018,60 @@ def council_change_log(request, slug):
 
 
 def leaderboards(request):
-    """Display the top contributors ordered by points."""
-
-    # Fetch the highest scoring profiles and include the related user object
-    # so the template can reference usernames without additional queries.
-    top_profiles = (
-        UserProfile.objects.select_related("user")
-        .order_by("-points")[:20]
-    )
-
-    context = {"top_profiles": top_profiles}
+    """Display leaderboards for both contributors and council financial metrics."""
+    from council_finance.services.leaderboard_service import LeaderboardService
+    from council_finance.services.export_service import ExportService
+    
+    # Handle export requests
+    export_format = request.GET.get('export')
+    if export_format:
+        try:
+            service = LeaderboardService()
+            export_service = ExportService()
+            
+            category = request.GET.get('category', 'contributors')
+            year = request.GET.get('year')
+            per_capita = request.GET.get('per_capita', 'false') == 'true'
+            
+            leaderboard_data = service.get_leaderboard(category, year, per_capita)
+            if leaderboard_data:
+                return export_service.export_leaderboard(
+                    leaderboard_data.to_dict(),
+                    export_format
+                )
+        except Exception as e:
+            logger.error(f"Export failed: {e}")
+            messages.error(request, f"Export failed: {str(e)}")
+    
+    # Get leaderboard data using the service
+    service = LeaderboardService()
+    
+    # Get parameters
+    category = request.GET.get('category', 'contributors')
+    per_capita = request.GET.get('per_capita', 'false') == 'true'
+    year_label = request.GET.get('year', None)
+    
+    # Get leaderboard data
+    leaderboard_data = service.get_leaderboard(category, year_label, per_capita)
+    
+    # Available financial years for dropdown
+    available_years = FinancialYear.objects.order_by('-start_date').values('label', 'is_forecast')
+    
+    # Get export service capabilities
+    export_service = ExportService()
+    
+    context = {
+        'leaderboard_data': leaderboard_data,
+        'categories': service.CATEGORIES,
+        'current_category': category,
+        'current_category_info': service.CATEGORIES.get(category, service.CATEGORIES['contributors']),
+        'per_capita': per_capita,
+        'year_label': year_label,
+        'available_years': list(available_years),
+        'show_contributors': category == 'contributors',
+        'supported_export_formats': export_service.supported_formats,
+    }
+    
     return render(request, "council_finance/leaderboards.html", context)
 
 

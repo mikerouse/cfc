@@ -83,6 +83,14 @@ from .views.ai_factoid_management import (
 # Import comparison API views
 from .api import comparison_api
 
+# Import leaderboard API views
+from .api.leaderboard_api import (
+    get_leaderboard,
+    get_council_rankings,
+    get_categories,
+    leaderboard_view
+)
+
 urlpatterns = [
     # Favicon redirect to avoid 404 errors
     path('favicon.ico', RedirectView.as_view(url=settings.STATIC_URL + 'favicon.ico', permanent=True)),
@@ -268,6 +276,13 @@ urlpatterns = [
     path("api/factoids/sitewide/", get_sitewide_factoids, name="sitewide_factoids"),
     path("api/factoids/sitewide/health/", get_sitewide_factoids_health, name="sitewide_factoids_health"),
     path("api/factoids/sitewide/legacy/", sitewide_factoids_view, name="sitewide_factoids_legacy"),
+    
+    # Leaderboard API endpoints
+    path("api/leaderboards/", get_leaderboard, name="api_leaderboards"),
+    path("api/leaderboards/categories/", get_categories, name="api_leaderboard_categories"),
+    path("api/leaderboards/legacy/", leaderboard_view, name="leaderboard_legacy_api"),
+    path("api/leaderboards/<str:category>/", get_leaderboard, name="api_leaderboard_category"),
+    path("api/councils/<slug:council_slug>/rankings/", get_council_rankings, name="api_council_rankings"),
     
     # ============================================================================
     # LEGACY FACTOID API ENDPOINTS (DEPRECATED)
