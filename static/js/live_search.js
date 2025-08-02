@@ -439,6 +439,29 @@
         let isSearching = false;
         let lastQuery = '';
 
+        // Local version of performSearchFor, using local isSearching
+        function performSearchFor(query, resultsElement) {
+            if (isSearching) return;
+            isSearching = true;
+
+            fetch('/search/?q=' + encodeURIComponent(query), {
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'X-CSRFToken': getCsrfToken()
+                }
+            })
+            .then(response => response.text())
+            .then(html => {
+                resultsElement.innerHTML = html;
+                resultsElement.classList.remove('hidden');
+                isSearching = false;
+            })
+            .catch(() => {
+                resultsElement.innerHTML = '<div class="search-error">Error loading results</div>';
+                resultsElement.classList.remove('hidden');
+                isSearching = false;
+            });
+        }
         // Enhanced input handler with debouncing
         inputElement.addEventListener('input', function() {
             const query = this.value.trim();
