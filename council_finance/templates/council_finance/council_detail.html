@@ -827,7 +827,8 @@ if (yearSelect && mobileYearSelect) {
 
 // Mobile drawer toggle (sync with desktop)
 const mobileDrawerToggle = document.getElementById('mobile-drawer-toggle');
-if (mobileDrawerToggle) {
+const drawer = document.getElementById('drawer');
+if (mobileDrawerToggle && drawer) {
   mobileDrawerToggle.addEventListener('click', () => {
     if (drawer.style.maxHeight && drawer.style.maxHeight !== '0px') {
       drawer.style.maxHeight = '0px';
