@@ -207,14 +207,19 @@ class FollowingPage {
         // Get update details for sharing
         const councilNameElement = updateCard.querySelector('h3');
         const updateTextElement = updateCard.querySelector('.text-gray-900.leading-relaxed');
+        const councilLinkElement = updateCard.querySelector('a[href*="council_detail"]');
         
         if (!councilNameElement || !updateTextElement) return;
         
         const councilName = councilNameElement.textContent;
-        const updateText = updateTextElement.textContent;
+        const updateText = updateTextElement.textContent.trim();
         
-        const shareUrl = window.location.href;
-        const shareText = `${councilName}: ${updateText.substring(0, 100)}...`;
+        // Get the council detail page URL from the "View Council" link
+        const shareUrl = councilLinkElement ? councilLinkElement.href : window.location.href;
+        console.log(`FollowingPage: Share URL for council ${councilName}: ${shareUrl}`);
+        
+        // Use the full story text, not truncated
+        const shareText = updateText;
 
         // Create modal
         const modal = document.createElement('div');
@@ -229,6 +234,13 @@ class FollowingPage {
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
                         </svg>
                     </button>
+                </div>
+                
+                <!-- Preview what will be shared -->
+                <div class="mb-4 p-3 bg-gray-50 rounded-lg">
+                    <p class="text-sm text-gray-600 mb-1">You'll share:</p>
+                    <p class="text-sm text-gray-900">"${shareText.length > 100 ? shareText.substring(0, 100) + '...' : shareText}"</p>
+                    <p class="text-xs text-gray-500 mt-1">Link: ${councilName} details page</p>
                 </div>
                 
                 <div class="space-y-3">
