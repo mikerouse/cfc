@@ -293,15 +293,32 @@
     transition: opacity 0.6s ease-in-out;
 }
 
+.sitewide-ai-factoid-playlist .factoid-text {
+    /* Override flex layout for natural text flow */
+    display: block !important;
+    text-align: left;
+    line-height: 1.5;
+    font-size: 0.95rem;
+}
+
 .sitewide-ai-factoid-playlist .factoid-text a {
     color: rgb(37 99 235);
     text-decoration: none;
     font-weight: 500;
+    display: inline; /* Ensure links flow inline with text */
 }
 
 .sitewide-ai-factoid-playlist .factoid-text a:hover {
     color: rgb(29 78 216);
     text-decoration: underline;
+}
+
+/* Mobile-specific adjustments for site-wide factoids */
+@media (max-width: 640px) {
+    .sitewide-ai-factoid-playlist .factoid-text {
+        font-size: 0.9rem;
+        line-height: 1.4;
+    }
 }
 
 .sitewide-ai-factoid-playlist .loading-spinner {
