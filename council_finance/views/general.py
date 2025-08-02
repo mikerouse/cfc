@@ -635,12 +635,20 @@ def council_detail(request, slug):
     # Old meta fields logic removed - now using dynamic meta fields system below
 
     is_following = False
+    is_favourited = False
     if request.user.is_authenticated:
         from council_finance.models import CouncilFollow
 
         is_following = CouncilFollow.objects.filter(
             user=request.user, council=council
         ).exists()
+        
+        # Check if council is in user's favourites (default list)
+        default_list = CouncilList.objects.filter(
+            user=request.user, is_default=True
+        ).first()
+        if default_list:
+            is_favourited = default_list.councils.filter(id=council.id).exists()
     
     # Check for recent merge or administrative actions
     recent_merge_activity = None
@@ -877,6 +885,7 @@ def council_detail(request, slug):
             ).values_list("field__slug", "year_id")
         ),
         "is_following": is_following,
+        "is_favourited": is_favourited,
         "share_data": share_data,
         # Administrative messaging
         "administrative_messages": administrative_messages,
@@ -2942,7 +2951,17 @@ def my_lists(request):
 @require_POST
 def add_favourite(request):
     """Add a council to the user's favourites list."""
-    council_slug = request.POST.get('council')
+    # Handle both JSON and form data
+    if request.content_type == 'application/json':
+        import json
+        try:
+            data = json.loads(request.body)
+            council_slug = data.get('council_slug')
+        except (json.JSONDecodeError, UnicodeDecodeError):
+            return JsonResponse({'success': False, 'error': 'Invalid JSON data'})
+    else:
+        council_slug = request.POST.get('council')
+    
     if not council_slug:
         return JsonResponse({'success': False, 'error': 'Council slug required'})
     
@@ -2968,7 +2987,7 @@ def add_favourite(request):
                     'population': council.latest_population or 0,
                     'type': council.council_type.name if council.council_type else 'Unknown',
                     'nation': council.nation.name if council.nation else 'Unknown',
-                    'logo_url': council.logo.url if council.logo else None,
+                    'logo_url': council.logo.url if hasattr(council, 'logo') and council.logo else None,
                 }
             })
         else:
@@ -2985,7 +3004,17 @@ def add_favourite(request):
 @require_POST  
 def remove_favourite(request):
     """Remove a council from the user's favourites list."""
-    council_slug = request.POST.get('council')
+    # Handle both JSON and form data
+    if request.content_type == 'application/json':
+        import json
+        try:
+            data = json.loads(request.body)
+            council_slug = data.get('council_slug')
+        except (json.JSONDecodeError, UnicodeDecodeError):
+            return JsonResponse({'success': False, 'error': 'Invalid JSON data'})
+    else:
+        council_slug = request.POST.get('council')
+    
     if not council_slug:
         return JsonResponse({'success': False, 'error': 'Council slug required'})
     
