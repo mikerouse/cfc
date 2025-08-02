@@ -296,7 +296,9 @@
     }
 
     function showLoadingState() {
-        showLoadingStateFor(searchResults);
+        if (searchResults) {
+            showLoadingStateFor(searchResults);
+        }
     }
 
     function performSearch(query) {
@@ -418,6 +420,8 @@
     function getCsrfToken() {
         return document.querySelector('[name=csrfmiddlewaretoken]')?.value || 
                document.querySelector('meta[name=csrf-token]')?.getAttribute('content') || '';
+    }
+
     // Maintain backward compatibility with old API
     function attachLiveSearch(input, resultsContainer) {
         if (!input || !resultsContainer) {

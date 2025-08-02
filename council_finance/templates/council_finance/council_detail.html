@@ -492,7 +492,7 @@
                 </div>
 
                 <!-- Counter Content -->
-                <div class="px-6 py-8 md:py-8 sm:py-6 py-4 text-center">
+                <div class="px-4 sm:px-6 py-4 sm:py-6 md:py-8 text-center">
                   <!-- Error Display -->
                   <div class="counter-error text-red-600 text-sm mb-4 {% if not item.error %}hidden{% endif %}">
                     <div class="inline-flex items-center px-3 py-2 rounded-lg bg-red-50 border border-red-200">
@@ -504,7 +504,7 @@
                   </div>
 
                   <!-- Value Display -->
-                  <div class="{% if item.counter.headline %}text-4xl sm:text-5xl{% else %}text-2xl sm:text-3xl{% endif %} font-bold text-gray-900 counter-value mb-3 sm:mb-4"
+                  <div class="{% if item.counter.headline %}text-4xl sm:text-5xl{% else %}text-2xl sm:text-3xl{% endif %} font-bold text-gray-900 counter-value mb-2 sm:mb-3"
                        {% if item.value is not None %}
                        data-duration="{{ item.counter.duration }}"
                        data-value="{{ item.value }}"
@@ -520,7 +520,7 @@
 
                   <!-- Explanation -->
                   {% if item.counter.explanation %}
-                    <p class="text-xs text-gray-500 mt-3 sm:mt-4 leading-relaxed">{{ item.counter.explanation }}</p>
+                    <p class="text-xs text-gray-500 mt-2 sm:mt-3 leading-relaxed">{{ item.counter.explanation }}</p>
                   {% endif %}
                 </div>
 
@@ -1085,10 +1085,10 @@ animateCounters();
 
 /* Mobile-specific improvements */
 @media (max-width: 768px) {
-  /* Fix counter spacing issues on mobile */
+  /* Fix counter spacing issues on mobile - more aggressive spacing reduction */
   .counter-value {
     line-height: 1.1;
-    margin-bottom: 0.75rem !important;
+    margin-bottom: 0.5rem !important; /* Reduced from 0.75rem */
   }
   
   /* Reduce excessive padding in counters */
@@ -1097,9 +1097,9 @@ animateCounters();
     padding-right: 1rem !important;
   }
   
-  /* Improve counter explanation text spacing */
+  /* Improve counter explanation text spacing - less space */
   #counters-grid p.text-xs {
-    margin-top: 0.75rem !important;
+    margin-top: 0.5rem !important; /* Reduced from 0.75rem */
     line-height: 1.4;
   }
   
