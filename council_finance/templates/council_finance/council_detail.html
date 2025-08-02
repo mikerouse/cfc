@@ -293,7 +293,7 @@
           </div>
           
           <!-- Desktop Header -->
-          <div class="hidden md:block px-4 py-4 sm:px-6 border-b border-gray-200">
+          <div class="px-4 py-4 sm:px-6 border-b border-gray-200 max-md:hidden" id="desktop-header">
             <div class="space-y-4 sm:space-y-0 sm:flex sm:items-center sm:justify-between">
               <div>
                 <h3 class="text-lg font-semibold text-gray-900">Financial Overview</h3>
@@ -338,7 +338,7 @@
           </div>
 
           <!-- Mobile/Desktop Collapsible Content -->
-          <div id="financial-overview-content" class="hidden md:block overflow-hidden transition-all duration-300 ease-in-out">
+          <div id="financial-overview-content" class="overflow-hidden transition-all duration-300 ease-in-out max-md:hidden">
             <div class="md:hidden border-b border-gray-200">
               <div class="px-4 py-4 space-y-4">
                 <!-- Mobile Year Selector -->
@@ -828,12 +828,14 @@ if (mobileFinancialToggle && financialOverviewContent) {
     // Toggle aria-expanded attribute
     mobileFinancialToggle.setAttribute('aria-expanded', newExpanded.toString());
     
-    // Toggle content visibility
+    // Toggle content visibility (only affects mobile - desktop uses max-md:hidden)
     if (newExpanded) {
-      financialOverviewContent.classList.remove('hidden');
+      financialOverviewContent.classList.remove('max-md:hidden');
+      financialOverviewContent.classList.add('block');
       mobileToggleIcon.style.transform = 'rotate(180deg)';
     } else {
-      financialOverviewContent.classList.add('hidden');
+      financialOverviewContent.classList.remove('block');
+      financialOverviewContent.classList.add('max-md:hidden');
       mobileToggleIcon.style.transform = 'rotate(0deg)';
     }
   });
