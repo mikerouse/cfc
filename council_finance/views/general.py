@@ -82,6 +82,7 @@ from council_finance.models import (
     # contribution rejections and IP blocks.
     RejectionLog,
     ActivityLog,
+    ActivityLogComment,
     CouncilFollow,
     CouncilUpdate,
     CouncilUpdateLike,
@@ -1079,16 +1080,16 @@ def leaderboards(request):
 
 def following(request):
     """
-    Following page showing councils the user follows.
+    Following page showing councils the user follows with their activity logs.
     
-    Shows a simplified feed of followed councils with basic statistics.
-    Uses the existing CouncilFollow model for now.
+    Integrates ActivityLog entries from followed councils into a social feed
+    where users can comment and interact with council activities.
     """
     if not request.user.is_authenticated:
         from django.shortcuts import redirect
         return redirect("login")
     
-    from django.db.models import Count
+    from django.db.models import Count, Prefetch
     import json
     
     # Get user's followed councils using the existing CouncilFollow model
@@ -1119,12 +1120,51 @@ def following(request):
         follower_count=Count('followed_by')
     ).order_by('-follower_count')[:5]
     
-    # Create empty/placeholder data for template compatibility
-    feed_updates = []  # No feed updates yet
+    # Get ActivityLog entries from followed councils as feed updates
+    feed_updates = []
+    if followed_councils.exists():
+        # Import ActivityLogComment here to avoid import issues
+        from council_finance.models import ActivityLogComment
+        
+        # Get activity logs from followed councils with comment counts
+        activity_logs = ActivityLog.objects.filter(
+            related_council__in=followed_councils.values_list('council_id', flat=True)
+        ).select_related(
+            'related_council', 'user'
+        ).prefetch_related(
+            Prefetch(
+                'following_comments',
+                queryset=ActivityLogComment.objects.filter(
+                    is_approved=True, parent=None
+                ).select_related('user').order_by('created_at')
+            )
+        ).annotate(
+            comment_count=Count('following_comments', filter=models.Q(following_comments__is_approved=True))
+        ).order_by('-created')[:50]  # Latest 50 activities
+        
+        # Transform ActivityLog entries into feed update format
+        for activity_log in activity_logs:
+            feed_updates.append({
+                'id': f'activity_{activity_log.id}',
+                'type': 'activity_log',
+                'activity_log': activity_log,
+                'title': f"{activity_log.get_activity_type_display()}: {activity_log.description}",
+                'council': activity_log.related_council,
+                'user': activity_log.user,
+                'created_at': activity_log.created,
+                'comment_count': activity_log.comment_count,
+                'activity_type': activity_log.activity_type,
+                'description': activity_log.description,
+                'details': activity_log.details,
+            })
+    
+    # Calculate recent updates count
+    recent_updates_count = len(feed_updates)
+    
+    # Create trending and priority data
     trending_councils = []  # No trending system yet
     trending_lists = []  # No trending system yet
     priority_stats = {'high': 0, 'medium': 0, 'low': 0}  # No priority system yet
-    recent_updates_count = 0  # No feed system yet
     
     # Create minimal preferences for JavaScript
     preferences_data = {
@@ -3291,4 +3331,231 @@ def update_feed_preferences_api(request):
 def get_feed_updates_api(request):
     """API to get feed updates - placeholder."""
     return JsonResponse({'updates': [], 'message': 'Feed updates API coming soon'})
+
+
+# ActivityLog Comment API Endpoints
+
+@login_required
+@require_POST
+def comment_on_activity_log(request, activity_log_id):
+    """
+    API endpoint to add a comment to an ActivityLog entry in the Following feed.
+    
+    Supports both top-level comments and replies to existing comments.
+    """
+    try:
+        # Get the activity log entry
+        activity_log = get_object_or_404(ActivityLog, id=activity_log_id)
+        
+        # Ensure user follows the council related to this activity log
+        if activity_log.related_council:
+            if not CouncilFollow.objects.filter(
+                user=request.user, 
+                council=activity_log.related_council
+            ).exists():
+                return JsonResponse({
+                    'success': False,
+                    'error': 'You must follow this council to comment on its activities'
+                }, status=403)
+        
+        # Get comment data
+        content = request.POST.get('content', '').strip()
+        parent_id = request.POST.get('parent_id')
+        
+        if not content:
+            return JsonResponse({
+                'success': False,
+                'error': 'Comment content is required'
+            }, status=400)
+        
+        # Validate parent comment if provided
+        parent = None
+        if parent_id:
+            try:
+                parent = ActivityLogComment.objects.get(
+                    id=parent_id,
+                    activity_log=activity_log,
+                    is_approved=True
+                )
+            except ActivityLogComment.DoesNotExist:
+                return JsonResponse({
+                    'success': False,
+                    'error': 'Invalid parent comment'
+                }, status=400)
+        
+        # Create the comment
+        comment = ActivityLogComment.objects.create(
+            activity_log=activity_log,
+            user=request.user,
+            content=content,
+            parent=parent,
+            is_approved=True  # Auto-approve for now, can add moderation later
+        )
+        
+        # Log the activity
+        from council_finance.activity_logging import log_activity
+        log_activity(
+            request,
+            activity='comment_on_activity_log',
+            action=f'Commented on activity log entry',
+            extra={
+                'activity_log_id': activity_log.id,
+                'comment_id': comment.id,
+                'is_reply': parent is not None,
+                'council_slug': activity_log.related_council.slug if activity_log.related_council else None
+            }
+        )
+        
+        # Return success response with comment data
+        return JsonResponse({
+            'success': True,
+            'comment': {
+                'id': comment.id,
+                'content': comment.content,
+                'user': {
+                    'username': comment.user.username,
+                    'display_name': getattr(comment.user, 'get_full_name', lambda: comment.user.username)()
+                },
+                'created_at': comment.created_at.isoformat(),
+                'is_reply': comment.is_reply(),
+                'parent_id': comment.parent.id if comment.parent else None,
+                'like_count': comment.like_count,
+                'reply_count': comment.get_reply_count()
+            }
+        })
+        
+    except Exception as e:
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.error(f'Error in comment_on_activity_log: {str(e)}')
+        return JsonResponse({
+            'success': False,
+            'error': 'An error occurred while posting your comment'
+        }, status=500)
+
+
+@login_required
+@require_GET
+def get_activity_log_comments(request, activity_log_id):
+    """
+    API endpoint to get comments for an ActivityLog entry.
+    
+    Returns paginated comments with threading support.
+    """
+    try:
+        # Get the activity log entry
+        activity_log = get_object_or_404(ActivityLog, id=activity_log_id)
+        
+        # Get approved top-level comments with replies
+        comments = ActivityLogComment.objects.filter(
+            activity_log=activity_log,
+            is_approved=True,
+            parent=None  # Only top-level comments
+        ).select_related('user').prefetch_related(
+            'replies__user'
+        ).order_by('created_at')
+        
+        # Paginate if needed
+        page = request.GET.get('page', 1)
+        try:
+            page = int(page)
+        except (ValueError, TypeError):
+            page = 1
+        
+        paginator = Paginator(comments, 20)  # 20 comments per page
+        page_obj = paginator.get_page(page)
+        
+        # Format comments for JSON response
+        comments_data = []
+        for comment in page_obj:
+            comment_data = {
+                'id': comment.id,
+                'content': comment.content,
+                'user': {
+                    'username': comment.user.username,
+                    'display_name': getattr(comment.user, 'get_full_name', lambda: comment.user.username)()
+                },
+                'created_at': comment.created_at.isoformat(),
+                'like_count': comment.like_count,
+                'reply_count': comment.get_reply_count(),
+                'replies': []
+            }
+            
+            # Add replies
+            for reply in comment.replies.filter(is_approved=True).order_by('created_at'):
+                reply_data = {
+                    'id': reply.id,
+                    'content': reply.content,
+                    'user': {
+                        'username': reply.user.username,
+                        'display_name': getattr(reply.user, 'get_full_name', lambda: reply.user.username)()
+                    },
+                    'created_at': reply.created_at.isoformat(),
+                    'like_count': reply.like_count,
+                    'parent_id': reply.parent.id
+                }
+                comment_data['replies'].append(reply_data)
+            
+            comments_data.append(comment_data)
+        
+        return JsonResponse({
+            'success': True,
+            'comments': comments_data,
+            'pagination': {
+                'current_page': page_obj.number,
+                'total_pages': page_obj.paginator.num_pages,
+                'has_next': page_obj.has_next(),
+                'has_previous': page_obj.has_previous(),
+                'total_comments': page_obj.paginator.count
+            }
+        })
+        
+    except Exception as e:
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.error(f'Error in get_activity_log_comments: {str(e)}')
+        return JsonResponse({
+            'success': False,
+            'error': 'An error occurred while fetching comments'
+        }, status=500)
+
+
+@login_required  
+@require_POST
+def like_activity_log_comment(request, comment_id):
+    """
+    API endpoint to like/unlike an ActivityLog comment.
+    
+    Toggles the like status and updates the like count.
+    """
+    try:
+        comment = get_object_or_404(ActivityLogComment, id=comment_id, is_approved=True)
+        
+        # For simplicity, we'll just increment/decrement the like count
+        # In a full implementation, you'd want a separate Like model to track individual likes
+        action = request.POST.get('action', 'like')
+        
+        if action == 'like':
+            comment.like_count += 1
+            liked = True
+        else:
+            comment.like_count = max(0, comment.like_count - 1)
+            liked = False
+        
+        comment.save(update_fields=['like_count'])
+        
+        return JsonResponse({
+            'success': True,
+            'liked': liked,
+            'like_count': comment.like_count
+        })
+        
+    except Exception as e:
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.error(f'Error in like_activity_log_comment: {str(e)}')
+        return JsonResponse({
+            'success': False,
+            'error': 'An error occurred while updating the like'
+        }, status=500)
 

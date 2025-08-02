@@ -81,40 +81,59 @@
         <div id="feed-container" class="space-y-6">
             {% if feed_updates %}
                 {% for update in feed_updates %}
-                <article class="feed-update bg-white rounded-xl shadow-sm border border-gray-200 hover:shadow-md transition-shadow duration-200" data-update-id="{{ update.id }}">
-                    <!-- Update Header -->
+                {% if update.type == 'activity_log' %}
+                <article class="feed-update bg-white rounded-xl shadow-sm border border-gray-200 hover:shadow-md transition-shadow duration-200" data-activity-log-id="{{ update.activity_log.id }}">
+                    <!-- Activity Header -->
                     <div class="p-6 border-b border-gray-100">
                         <div class="flex items-start justify-between">
                             <div class="flex items-center space-x-3">
-                                <!-- Update Type Icon -->
-                                <div class="update-type-icon update-type-{{ update.update_type }}">
-                                    {% if update.update_type == 'financial' %}
-                                        <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                                            <path d="M8.433 7.418c.155-.103.346-.196.567-.267v1.698a2.305 2.305 0 01-.567-.267C8.07 8.34 8 8.114 8 8c0-.114.07-.34.433-.582zM11 12.849v-1.698c.22.071.412.164.567.267.364.243.433.468.433.582 0 .114-.07.34-.433.582a2.305 2.305 0 01-.567.267z"/>
-                                            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-13a1 1 0 10-2 0v.092a4.535 4.535 0 00-1.676.662C6.602 6.234 6 7.009 6 8c0 .99.602 1.765 1.324 2.246.48.32 1.054.545 1.676.662v1.941c-.391-.127-.68-.317-.843-.504a1 1 0 10-1.51 1.31c.562.649 1.413 1.076 2.353 1.253V15a1 1 0 102 0v-.092a4.535 4.535 0 001.676-.662C13.398 13.766 14 12.991 14 12c0-.99-.602-1.765-1.324-2.246A4.535 4.535 0 0011 9.092V7.151c.391.127.68.317.843.504a1 1 0 101.511-1.31c-.563-.649-1.413-1.076-2.354-1.253V5z" clip-rule="evenodd"/>
-                                        </svg>
-                                    {% elif update.update_type == 'contribution' %}
-                                        <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                                            <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/>
-                                        </svg>
-                                    {% elif update.update_type == 'list_change' %}
-                                        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"/>
-                                        </svg>
+                                <!-- Activity Type Icon -->
+                                <div class="activity-icon">
+                                    {% if update.activity_type == 'create' %}
+                                        <div class="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center">
+                                            <svg class="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
+                                            </svg>
+                                        </div>
+                                    {% elif update.activity_type == 'update' or update.activity_type == 'contribution' %}
+                                        <div class="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
+                                            <svg class="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
+                                            </svg>
+                                        </div>
+                                    {% elif update.activity_type == 'delete' %}
+                                        <div class="w-10 h-10 bg-red-100 rounded-full flex items-center justify-center">
+                                            <svg class="w-5 h-5 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                                            </svg>
+                                        </div>
+                                    {% elif update.activity_type == 'system' %}
+                                        <div class="w-10 h-10 bg-purple-100 rounded-full flex items-center justify-center">
+                                            <svg class="w-5 h-5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"></path>
+                                            </svg>
+                                        </div>
                                     {% else %}
-                                        <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                                            <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"/>
-                                        </svg>
+                                        <div class="w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center">
+                                            <svg class="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                                            </svg>
+                                        </div>
                                     {% endif %}
                                 </div>
                                 
                                 <div>
-                                    <h3 class="font-semibold text-gray-900">{{ update.title }}</h3>
-                                    <div class="flex items-center space-x-2 text-sm text-gray-500">
-                                        <span>{{ update.get_related_object_name }}</span>
-                                        {% if update.author %}
+                                    <h3 class="font-semibold text-gray-900">
+                                        <a href="{% url 'council_detail' update.council.slug %}" class="text-blue-600 hover:text-blue-800">{{ update.council.name }}</a>
+                                    </h3>
+                                    <p class="text-gray-700 text-sm">{{ update.description }}</p>
+                                    <div class="flex items-center space-x-2 text-sm text-gray-500 mt-1">
+                                        <span class="activity-type-badge bg-{{ update.activity_type }}-100 text-{{ update.activity_type }}-800 px-2 py-1 rounded-full text-xs">
+                                            {{ update.activity_log.get_activity_type_display }}
+                                        </span>
+                                        {% if update.user %}
                                         <span>•</span>
-                                        <span>by {{ update.author.get_full_name|default:update.author.username }}</span>
+                                        <span>by {{ update.user.get_full_name|default:update.user.username }}</span>
                                         {% endif %}
                                         <span>•</span>
                                         <time datetime="{{ update.created_at|date:'c' }}">{{ update.created_at|timesince }} ago</time>
@@ -122,32 +141,90 @@
                                 </div>
                             </div>
                             
-                            <!-- Update Type Badge -->
-                            <span class="update-badge update-badge-{{ update.update_type }}">{{ update.get_update_type_display }}</span>
+                            <!-- Action Button -->
+                            <div class="flex items-center space-x-2">
+                                <a href="{% url 'council_change_log' update.council.slug %}" 
+                                   class="text-sm text-blue-600 hover:text-blue-800 flex items-center">
+                                    <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
+                                    </svg>
+                                    View Full Log
+                                </a>
+                            </div>
                         </div>
                     </div>
                     
-                    <!-- Update Content -->
-                    <div class="p-6">
-                        <p class="text-gray-700 mb-4">{{ update.message }}</p>
-                        
-                        <!-- Rich Content -->
-                        {% if update.rich_content %}
-                        <div class="rich-content bg-gray-50 rounded-lg p-4 mb-4">
-                            {% if update.rich_content.change_type %}
-                            <div class="flex items-center space-x-2 text-sm">
-                                <span class="font-medium">Change:</span>
-                                <span class="change-indicator change-{{ update.rich_content.change_type }}">
-                                    {% if update.rich_content.change_type == 'increase' %}↗{% else %}↘{% endif %}
-                                    {{ update.rich_content.old_value }} → {{ update.rich_content.new_value }}
+                    <!-- Activity Details (if available) -->
+                    {% if update.details %}
+                    <div class="px-6 pb-4">
+                        <details class="group">
+                            <summary class="cursor-pointer text-sm text-gray-600 hover:text-gray-800 flex items-center">
+                                <svg class="w-4 h-4 mr-1 transition-transform group-open:rotate-90" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+                                </svg>
+                                Technical Details
+                            </summary>
+                            <div class="mt-2 p-3 bg-gray-50 rounded-lg text-xs font-mono text-gray-700">
+                                <pre>{{ update.details|default:"No additional details available" }}</pre>
+                            </div>
+                        </details>
+                    </div>
+                    {% endif %}
+                    
+                    <!-- Comments Section -->
+                    <div class="activity-comments border-t border-gray-100">
+                        <!-- Comment Stats -->
+                        <div class="px-6 py-3 bg-gray-50 flex items-center justify-between">
+                            <div class="flex items-center space-x-4 text-sm text-gray-600">
+                                <span class="flex items-center">
+                                    <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"></path>
+                                    </svg>
+                                    <span class="comment-count">{{ update.comment_count }}</span> comment{{ update.comment_count|pluralize }}
                                 </span>
+                            </div>
+                            <button class="toggle-comments text-blue-600 hover:text-blue-800 text-sm font-medium" data-activity-log-id="{{ update.activity_log.id }}">
+                                Show Comments
+                            </button>
+                        </div>
+                        
+                        <!-- Comments Container (initially hidden) -->
+                        <div class="comments-container hidden" data-activity-log-id="{{ update.activity_log.id }}">
+                            <!-- Comments will be loaded here via JavaScript -->
+                            <div class="comments-list px-6 py-4"></div>
+                            
+                            <!-- Add Comment Form -->
+                            {% if user.is_authenticated %}
+                            <div class="px-6 py-4 border-t border-gray-100">
+                                <form class="comment-form" data-activity-log-id="{{ update.activity_log.id }}">
+                                    {% csrf_token %}
+                                    <div class="flex space-x-3">
+                                        <div class="flex-shrink-0">
+                                            <div class="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
+                                                <span class="text-blue-600 text-sm font-medium">{{ user.username|first|upper }}</span>
+                                            </div>
+                                        </div>
+                                        <div class="flex-1">
+                                            <textarea name="content" 
+                                                      placeholder="Add a comment about this activity..." 
+                                                      class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none"
+                                                      rows="2"></textarea>
+                                            <div class="mt-2 flex justify-end">
+                                                <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 focus:ring-2 focus:ring-blue-500 text-sm font-medium">
+                                                    Post Comment
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </form>
                             </div>
                             {% endif %}
                         </div>
-                        {% endif %}
-                        
-                        <!-- Engagement Actions -->
-                        <div class="flex items-center justify-between">
+                    </div>
+                </article>
+                {% endif %}
+                {% endfor %}
                             <div class="flex items-center space-x-6">
                                 <button class="engagement-btn like-btn {% if update.user_liked %}active{% endif %}" data-update-id="{{ update.id }}" data-action="like">
                                     <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -691,6 +768,13 @@ function showToast(message) {
         toast.remove();
     }, 3000);
 }
+</script>
+
+<!-- ActivityLog Comments JavaScript -->
+<script src="{% static 'js/following-feed-comments.js' %}"></script>
+<script>
+// Set user initial for comments
+document.body.dataset.userInitial = '{{ user.username|first|upper }}';
 </script>
 
 {% endblock %}

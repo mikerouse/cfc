@@ -47,6 +47,9 @@ from .views.general import (
     comment_on_update_api,
     update_feed_preferences_api,
     get_feed_updates_api,
+    comment_on_activity_log,
+    get_activity_log_comments,
+    like_activity_log_comment,
 )
 
 # Import factoid instance API function
@@ -215,6 +218,10 @@ urlpatterns = [
     path("following/api/updates/<int:update_id>/comment/", comment_on_update_api, name="comment_on_update_api"),
     path("following/api/preferences/", update_feed_preferences_api, name="update_feed_preferences_api"),
     path("following/api/updates/", get_feed_updates_api, name="get_feed_updates_api"),
+    # ActivityLog Comment API Endpoints
+    path("following/api/activity-log/<int:activity_log_id>/comment/", comment_on_activity_log, name="comment_on_activity_log"),
+    path("following/api/activity-log/<int:activity_log_id>/comments/", get_activity_log_comments, name="get_activity_log_comments"),
+    path("following/api/comment/<int:comment_id>/like/", like_activity_log_comment, name="like_activity_log_comment"),
     # Legacy Following URLs (for backward compatibility)
     path("follow/<slug:slug>/", follow_council, name="follow_council"),
     path("unfollow/<slug:slug>/", unfollow_council, name="unfollow_council"),
