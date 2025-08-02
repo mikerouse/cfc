@@ -133,7 +133,21 @@ def create_council(request):
             if Council.objects.filter(Q(name=council_name) | Q(slug=council_slug)).exists():
                 messages.error(request, f"Council with name '{council_name}' or slug '{council_slug}' already exists")
                 return redirect('council_management_dashboard')
-              # Get related objects
+                
+            # Validate required characteristic fields
+            characteristic_fields = DataField.objects.filter(category='characteristic', required=True)
+            missing_required = []
+            
+            for field in characteristic_fields:
+                field_value = request.POST.get(f'characteristic_{field.slug}', '').strip()
+                if not field_value and field.slug not in ['council_type', 'council_nation', 'council_name']:
+                    missing_required.append(field.name)
+            
+            if missing_required:
+                messages.error(request, f"Required fields missing: {', '.join(missing_required)}")
+                return redirect('create_council')
+                
+            # Get related objects
             council_type = None
             if council_type_id:
                 try:
@@ -160,17 +174,30 @@ def create_council(request):
                     status='active'
                 )
                 
-                # Add postcode as a council characteristic if provided
-                if postcode:
-                    try:
-                        postcode_field = DataField.objects.get(slug='council_hq_post_code')
-                        CouncilCharacteristic.objects.create(
-                            council=council,
-                            field=postcode_field,
-                            value=postcode
-                        )
-                    except DataField.DoesNotExist:
-                        logger.warning(f"Postcode field (council_hq_post_code) not found, skipping postcode '{postcode}' for council {council.name}")
+                # Save all characteristic fields dynamically
+                all_characteristic_fields = DataField.objects.filter(category='characteristic')
+                for field in all_characteristic_fields:
+                    # Skip fields handled by the main council model
+                    if field.slug in ['council_type', 'council_nation', 'council_name']:
+                        continue
+                        
+                    field_value = request.POST.get(f'characteristic_{field.slug}', '').strip()
+                    
+                    # Handle special cases for backwards compatibility
+                    if field.slug == 'council_hq_post_code' and not field_value:
+                        field_value = postcode
+                    elif field.slug == 'population' and not field_value:
+                        field_value = population
+                    
+                    if field_value:
+                        try:
+                            CouncilCharacteristic.objects.create(
+                                council=council,
+                                field=field,
+                                value=field_value
+                            )
+                        except Exception as e:
+                            logger.warning(f"Could not save characteristic {field.slug} for council {council.name}: {e}")
                 
                 # Generate missing data issues for contribution queues
                 try:
@@ -203,9 +230,17 @@ def create_council(request):
     council_types = CouncilType.objects.all().order_by('name')
     nations = CouncilNation.objects.all().order_by('name')
     
+    # Get all characteristic fields for dynamic form generation
+    characteristic_fields = DataField.objects.filter(
+        category='characteristic'
+    ).exclude(
+        slug__in=['council_type', 'council_nation', 'council_name']  # Exclude fields handled separately
+    ).order_by('display_order', 'name')
+    
     context = {
         'council_types': council_types,
         'nations': nations,
+        'characteristic_fields': characteristic_fields,
     }
     
     return render(request, 'council_finance/council_management/create.html', context)
@@ -278,12 +313,10 @@ def edit_council(request, council_id):
                 changes.append(f"Nation: '{old_nation}' → '{new_nation}'")
             if council.website != (website or None):
                 changes.append(f"Website: '{council.website or ''}' → '{website or ''}'")
-            if council.postcode != (postcode or None):
-                changes.append(f"Postcode: '{council.postcode or ''}' → '{postcode or ''}'")
             
             pop_value = int(population) if population.isdigit() else None
-            if council.population != pop_value:
-                changes.append(f"Population: '{council.population or ''}' → '{pop_value or ''}'")
+            if (council.latest_population or 0) != (pop_value or 0):
+                changes.append(f"Population: '{council.latest_population or ''}' → '{pop_value or ''}'")
             if council.status != status:
                 changes.append(f"Status: '{council.status}' → '{status}'")
             
@@ -294,10 +327,40 @@ def edit_council(request, council_id):
                 council.council_type = council_type
                 council.council_nation = council_nation
                 council.website = website or None
-                council.postcode = postcode or None
-                council.population = pop_value
+                council.latest_population = pop_value
                 council.status = status
                 council.save()
+                
+                # Update all characteristic fields dynamically
+                all_characteristic_fields = DataField.objects.filter(category='characteristic')
+                for field in all_characteristic_fields:
+                    # Skip fields handled by the main council model
+                    if field.slug in ['council_type', 'council_nation', 'council_name']:
+                        continue
+                        
+                    field_value = request.POST.get(f'characteristic_{field.slug}', '').strip()
+                    
+                    # Handle special cases for backwards compatibility
+                    if field.slug == 'council_hq_post_code' and not field_value:
+                        field_value = postcode
+                    elif field.slug == 'population' and not field_value:
+                        field_value = population
+                    
+                    # Get or create the characteristic
+                    characteristic, created = CouncilCharacteristic.objects.get_or_create(
+                        council=council,
+                        field=field,
+                        defaults={'value': field_value}
+                    )
+                    
+                    # Update the value if it changed
+                    if not created and characteristic.value != field_value:
+                        old_value = characteristic.value
+                        characteristic.value = field_value
+                        characteristic.save()
+                        changes.append(f"{field.name}: '{old_value or ''}' → '{field_value or ''}'")
+                    elif created and field_value:
+                        changes.append(f"{field.name}: '' → '{field_value}'")
                 
                 # Log the activity
                 if changes:
@@ -321,10 +384,24 @@ def edit_council(request, council_id):
     council_types = CouncilType.objects.all().order_by('name')
     nations = CouncilNation.objects.all().order_by('name')
     
+    # Get all characteristic fields for dynamic form generation
+    characteristic_fields = DataField.objects.filter(
+        category='characteristic'
+    ).exclude(
+        slug__in=['council_type', 'council_nation', 'council_name']  # Exclude fields handled separately
+    ).order_by('display_order', 'name')
+    
+    # Get existing characteristic values for this council
+    existing_characteristics = {}
+    for char in CouncilCharacteristic.objects.filter(council=council).select_related('field'):
+        existing_characteristics[char.field.slug] = char.value
+    
     context = {
         'council': council,
         'council_types': council_types,
         'nations': nations,
+        'characteristic_fields': characteristic_fields,
+        'existing_characteristics': existing_characteristics,
     }
     
     return render(request, 'council_finance/council_management/edit.html', context)
@@ -477,10 +554,44 @@ def bulk_import(request):
                                     council_type=council_type,
                                     council_nation=council_nation,
                                     website=str(row['website']).strip() if 'website' in row and pd.notna(row['website']) else None,
-                                    postcode=str(row['postcode']).strip() if 'postcode' in row and pd.notna(row['postcode']) else None,
-                                    population=int(row['population']) if 'population' in row and pd.notna(row['population']) and str(row['population']).replace('.0', '').isdigit() else None,
+                                    latest_population=int(row['population']) if 'population' in row and pd.notna(row['population']) and str(row['population']).replace('.0', '').isdigit() else None,
                                     status='active'
                                 )
+                                
+                                # Save all characteristic fields dynamically
+                                all_characteristic_fields = DataField.objects.filter(category='characteristic')
+                                for field in all_characteristic_fields:
+                                    # Skip fields handled by the main council model
+                                    if field.slug in ['council_type', 'council_nation', 'council_name']:
+                                        continue
+                                        
+                                    field_value = None
+                                    
+                                    # Try different column name variations for this field
+                                    possible_columns = [field.slug, field.slug.replace('-', '_'), field.name.lower()]
+                                    for col_name in possible_columns:
+                                        if col_name in row and pd.notna(row[col_name]):
+                                            field_value = str(row[col_name]).strip()
+                                            break
+                                    
+                                    # Handle special backwards compatibility cases
+                                    if not field_value:
+                                        if field.slug == 'council_hq_post_code' and 'postcode' in row and pd.notna(row['postcode']):
+                                            field_value = str(row['postcode']).strip()
+                                        elif field.slug == 'population' and 'population' in row and pd.notna(row['population']):
+                                            field_value = str(row['population']).strip()
+                                        elif field.slug == 'council_website' and 'website' in row and pd.notna(row['website']):
+                                            field_value = str(row['website']).strip()
+                                    
+                                    if field_value:
+                                        try:
+                                            CouncilCharacteristic.objects.create(
+                                                council=council,
+                                                field=field,
+                                                value=field_value
+                                            )
+                                        except Exception as e:
+                                            logger.warning(f"Could not save characteristic {field.slug} during import for council {council.name}: {e}")
                                 
                                 new_councils.append(council)
                                 created_count += 1
@@ -541,8 +652,16 @@ def import_page(request):
     """
     Show the bulk import page with form and instructions
     """
+    # Get all characteristic fields to show expected columns
+    characteristic_fields = DataField.objects.filter(
+        category='characteristic'
+    ).exclude(
+        slug__in=['council_type', 'council_nation', 'council_name']  # Exclude fields handled separately
+    ).order_by('display_order', 'name')
+    
     context = {
         'max_file_size': '10MB',  # Could be made configurable
+        'characteristic_fields': characteristic_fields,
     }
     
     return render(request, 'council_finance/council_management/import.html', context)
