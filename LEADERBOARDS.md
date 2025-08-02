@@ -363,4 +363,23 @@ print(f'Total figures: {FinancialFigure.objects.count()}')
 - Enhanced link hover states with group hover effects on arrow icons
 - Added tooltips to navigation arrows indicating enhanced functionality
 
+**JavaScript Toggle Functionality (2025-08-02):**
+- ✅ Fixed all JavaScript event listeners to work properly with page reloads
+- ✅ Added `reverse_sort` parameter to LeaderboardService with dynamic sorting logic
+- ✅ Implemented sort order toggle that flips default sorting direction
+- ✅ Enhanced template with proper toggle state persistence (checked/unchecked)
+- ✅ Created dynamic category title updates via JavaScript
+- ✅ Titles automatically change (e.g., "Interest Payments" ↔ "Lowest Interest Payments")
+- ✅ All URL parameters properly maintained across navigation
+- ✅ Removed redundant "Lowest Interest Payments" and "Lowest Debt" categories
+- ✅ Console logging for debugging toggle functionality
+
+**Current Functionality Status:**
+- ✅ Per capita toggle working with proper state persistence
+- ✅ Year dropdown selector functional with all available years
+- ✅ Sort order toggle with dynamic title updates working
+- ✅ Category navigation maintains all filter states
+- ✅ Export functionality preserves all current filters
+- ✅ Simplified UI without complex AJAX (reliable page reloads)
+
 **Next Update:** Phase 2 remaining tasks - bookmarking and export dependencies

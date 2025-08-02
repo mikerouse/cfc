@@ -1032,8 +1032,9 @@ def leaderboards(request):
             category = request.GET.get('category', 'contributors')
             year = request.GET.get('year')
             per_capita = request.GET.get('per_capita', 'false') == 'true'
+            reverse_sort = request.GET.get('reverse', 'false') == 'true'
             
-            leaderboard_data = service.get_leaderboard(category, year, per_capita)
+            leaderboard_data = service.get_leaderboard(category, year, per_capita, reverse_sort=reverse_sort)
             if leaderboard_data:
                 return export_service.export_leaderboard(
                     leaderboard_data.to_dict(),
@@ -1050,9 +1051,10 @@ def leaderboards(request):
     category = request.GET.get('category', 'contributors')
     per_capita = request.GET.get('per_capita', 'false') == 'true'
     year_label = request.GET.get('year', None)
+    reverse_sort = request.GET.get('reverse', 'false') == 'true'
     
     # Get leaderboard data
-    leaderboard_data = service.get_leaderboard(category, year_label, per_capita)
+    leaderboard_data = service.get_leaderboard(category, year_label, per_capita, reverse_sort=reverse_sort)
     
     # Available financial years for dropdown
     available_years = FinancialYear.objects.order_by('-start_date').values('label', 'is_forecast')
@@ -1067,6 +1069,7 @@ def leaderboards(request):
         'current_category_info': service.CATEGORIES.get(category, service.CATEGORIES['contributors']),
         'per_capita': per_capita,
         'year_label': year_label,
+        'reverse_sort': reverse_sort,
         'available_years': list(available_years),
         'show_contributors': category == 'contributors',
         'supported_export_formats': export_service.supported_formats,

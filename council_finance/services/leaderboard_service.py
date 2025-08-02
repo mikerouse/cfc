@@ -157,20 +157,6 @@ class LeaderboardService:
             'icon': 'receipt-refund',
             'reverse': True,
         },
-        'lowest-debt': {
-            'name': 'Lowest Debt',
-            'description': 'Councils with the lowest total debt levels',
-            'field_slug': 'total-debt',
-            'icon': 'badge-check',
-            'reverse': False,
-        },
-        'lowest-interest': {
-            'name': 'Lowest Interest Payments',
-            'description': 'Councils paying the least in interest',
-            'field_slug': 'interest-paid',
-            'icon': 'emoji-happy',
-            'reverse': False,
-        },
     }
     
     def __init__(self):
@@ -181,12 +167,13 @@ class LeaderboardService:
         category: str, 
         year: Optional[str] = None,
         per_capita: bool = False,
-        limit: int = 50
+        limit: int = 50,
+        reverse_sort: bool = False
     ) -> Optional[LeaderboardData]:
         """Get leaderboard data for a specific category"""
         
         # Check cache
-        cache_key = f"leaderboard:{category}:{year}:{per_capita}:{limit}"
+        cache_key = f"leaderboard:{category}:{year}:{per_capita}:{limit}:{reverse_sort}"
         cached_data = cache.get(cache_key)
         if cached_data:
             return cached_data
@@ -207,7 +194,8 @@ class LeaderboardService:
                 category_info, 
                 year, 
                 per_capita, 
-                limit
+                limit,
+                reverse_sort
             )
             
         if data:
@@ -263,7 +251,8 @@ class LeaderboardService:
         category_info: Dict[str, Any],
         year: Optional[str],
         per_capita: bool,
-        limit: int
+        limit: int,
+        reverse_sort: bool = False
     ) -> Optional[LeaderboardData]:
         """Get financial leaderboard data"""
         
@@ -302,16 +291,20 @@ class LeaderboardService:
         all_figures = list(figures_query)
         total_count = len(all_figures)
         
+        # Determine actual sort direction (if reverse_sort is True, flip the default)
+        default_reverse = category_info.get('reverse', True)
+        actual_reverse = not default_reverse if reverse_sort else default_reverse
+        
         if per_capita:
             entries = self._calculate_per_capita_rankings(
                 all_figures, 
-                category_info.get('reverse', True),
+                actual_reverse,
                 limit
             )
         else:
             entries = self._calculate_absolute_rankings(
                 all_figures,
-                category_info.get('reverse', True),
+                actual_reverse,
                 limit
             )
             
