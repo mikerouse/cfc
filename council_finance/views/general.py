@@ -2921,7 +2921,7 @@ def add_favourite(request):
                     'slug': council.slug,
                     'population': council.latest_population or 0,
                     'type': council.council_type.name if council.council_type else 'Unknown',
-                    'nation': council.council_nation.name if council.council_nation else 'Unknown',
+                    'nation': council.nation.name if council.nation else 'Unknown',
                     'logo_url': council.logo.url if hasattr(council, 'logo') and council.logo else None,
                 }
             })
