@@ -53,6 +53,7 @@
 {% endblock %}
 
 {% block content %}
+{% csrf_token %}
 <div class="mx-auto max-w-none xl:max-w-desktop">
     <!-- Page Header -->
     <div class="mb-8">
@@ -110,7 +111,7 @@
             {% if feed_updates %}
                 <div class="space-y-4">
                     {% for update in feed_updates %}
-                    <article class="feed-card bg-white rounded-xl border border-gray-200 p-6 hover:border-gray-300" data-update-id="{{ update.id }}">
+                    <article id="activity-{{ update.id }}" class="feed-card bg-white rounded-xl border border-gray-200 p-6 hover:border-gray-300" data-update-id="{{ update.id }}">
                         <!-- Update Header -->
                         <div class="flex items-start justify-between mb-4">
                             <div class="flex items-center gap-3">
@@ -208,6 +209,12 @@
                         <div class="flex items-center justify-between pt-4 border-t border-gray-100">
                             <div class="flex items-center gap-4">
                                 <button class="flex items-center gap-1 text-sm text-gray-500 hover:text-blue-600 transition-colors" 
+                                        data-action="like-update" data-update-id="{{ update.id }}">
+                                    {% heroicon "thumb-up" size="mini" class="w-4 h-4" %}
+                                    <span data-like-count="update-{{ update.id }}">{{ update.like_count|default:0 }}</span>
+                                </button>
+                                
+                                <button class="flex items-center gap-1 text-sm text-gray-500 hover:text-blue-600 transition-colors" 
                                         data-action="show-comments" data-update-id="{{ update.id }}">
                                     {% heroicon "chat" size="mini" class="w-4 h-4" %}
                                     <span>{{ update.comment_count|default:0 }}</span>
@@ -218,6 +225,12 @@
                                     {% heroicon "share" size="mini" class="w-4 h-4" %}
                                     <span>Share</span>
                                 </button>
+                                
+                                <a href="{% url 'following' %}#activity-{{ update.id }}" 
+                                   class="flex items-center gap-1 text-sm text-gray-500 hover:text-blue-600 transition-colors">
+                                    {% heroicon "link" size="mini" class="w-4 h-4" %}
+                                    <span>Link</span>
+                                </a>
                             </div>
                             
                             <a href="{% url 'council_detail' update.council.slug %}" 

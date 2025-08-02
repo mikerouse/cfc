@@ -12,6 +12,7 @@ class FollowingPage {
     init() {
         this.bindCommentButtons();
         this.bindShareButtons();
+        this.bindLikeButtons();
         this.addSmoothScrolling();
         this.addLoadingStates();
         console.log('FollowingPage: Initialization complete');
@@ -42,11 +43,15 @@ class FollowingPage {
         if (!commentSection) {
             // Create comment section if it doesn't exist
             this.createCommentSection(updateId);
+            // Load existing comments
+            this.loadComments(updateId);
         } else {
             // Toggle existing section
             if (commentSection.classList.contains('hidden')) {
                 commentSection.classList.remove('hidden');
                 commentSection.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                // Refresh comments when showing
+                this.loadComments(updateId);
             } else {
                 commentSection.classList.add('hidden');
             }
@@ -120,7 +125,7 @@ class FollowingPage {
         const form = document.querySelector(`[data-comment-form="${updateId}"]`);
         if (!form) return;
 
-        form.addEventListener('submit', (e) => {
+        form.addEventListener('submit', async (e) => {
             e.preventDefault();
             const textarea = form.querySelector('textarea');
             const comment = textarea.value.trim();
@@ -133,20 +138,45 @@ class FollowingPage {
             submitButton.textContent = 'Posting...';
             submitButton.disabled = true;
 
-            // Simulate API call (replace with actual implementation)
-            setTimeout(() => {
-                this.addComment(updateId, comment);
-                textarea.value = '';
+            try {
+                // Get CSRF token
+                const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+                
+                // Post comment to API
+                const response = await fetch(`/following/api/activity-log/${updateId}/comment/`, {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRFToken': csrfToken,
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                    },
+                    body: `content=${encodeURIComponent(comment)}`
+                });
+
+                const data = await response.json();
+                
+                if (data.success && data.comment) {
+                    this.addComment(updateId, data.comment);
+                    textarea.value = '';
+                    
+                    // Show success message
+                    this.showNotification('Comment posted successfully', 'success');
+                } else {
+                    throw new Error(data.error || 'Failed to post comment');
+                }
+            } catch (error) {
+                console.error('Error posting comment:', error);
+                this.showNotification(error.message || 'Failed to post comment', 'error');
+            } finally {
                 submitButton.textContent = originalText;
                 submitButton.disabled = false;
-            }, 1000);
+            }
         });
     }
 
     /**
      * Add comment to the list
      */
-    addComment(updateId, comment) {
+    addComment(updateId, commentData) {
         const commentsList = document.getElementById(`comments-list-${updateId}`);
         if (!commentsList) return;
 
@@ -156,28 +186,99 @@ class FollowingPage {
             noCommentsMsg.remove();
         }
 
+        // Extract comment data
+        const comment = typeof commentData === 'string' ? commentData : commentData.content || commentData;
+        const commentId = commentData.id || Date.now();
+        const username = commentData.username || commentData.user_display || 'You';
+        const userInitial = username.charAt(0).toUpperCase();
+        const timeAgo = commentData.time_ago || 'just now';
+
         const commentElement = document.createElement('div');
         commentElement.className = 'flex gap-3 p-3 bg-white rounded-lg border border-gray-100';
+        commentElement.dataset.commentId = commentId;
         commentElement.innerHTML = `
             <div class="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center text-white text-sm font-semibold">
-                U
+                ${userInitial}
             </div>
             <div class="flex-1">
-                <div class="flex items-center gap-2 mb-1">
-                    <span class="font-medium text-gray-900">You</span>
-                    <span class="text-xs text-gray-500">just now</span>
+                <div class="flex items-center justify-between mb-1">
+                    <div class="flex items-center gap-2">
+                        <span class="font-medium text-gray-900">${username}</span>
+                        <span class="text-xs text-gray-500">${timeAgo}</span>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <!-- Like/Dislike buttons -->
+                        <button class="text-gray-400 hover:text-blue-600 transition-colors" 
+                                data-action="like-comment" data-comment-id="${commentId}">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 10h4.764a2 2 0 011.789 2.894l-3.5 7A2 2 0 0115.263 21h-4.017c-.163 0-.326-.02-.485-.06L7 20m7-10V5a2 2 0 00-2-2h-.095c-.5 0-.905.405-.905.905 0 .714-.211 1.412-.608 2.006L7 11v9m7-10h-2M7 20H5a2 2 0 01-2-2v-6a2 2 0 012-2h2.5"></path>
+                            </svg>
+                        </button>
+                        <span class="text-xs text-gray-500" data-like-count="${commentId}">0</span>
+                        
+                        <button class="text-gray-400 hover:text-red-600 transition-colors ml-2" 
+                                data-action="flag-comment" data-comment-id="${commentId}">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 21v-4m0 0V5a2 2 0 012-2h6.5l1 1H21l-3 6 3 6h-8.5l-1-1H5a2 2 0 00-2 2zm9-13.5V9"></path>
+                            </svg>
+                        </button>
+                    </div>
                 </div>
-                <p class="text-gray-700 text-sm">${comment}</p>
+                <p class="text-gray-700 text-sm">${this.escapeHtml(comment)}</p>
             </div>
         `;
 
         commentsList.appendChild(commentElement);
+        
+        // Bind actions for the new comment
+        this.bindCommentActions(commentElement);
         
         // Update comment count
         const commentButton = document.querySelector(`[data-update-id="${updateId}"] [data-action="show-comments"] span`);
         if (commentButton) {
             const currentCount = parseInt(commentButton.textContent) || 0;
             commentButton.textContent = currentCount + 1;
+        }
+    }
+
+    /**
+     * Bind like button functionality for feed items
+     */
+    bindLikeButtons() {
+        const likeButtons = document.querySelectorAll('[data-action="like-update"]');
+        console.log(`FollowingPage: Found ${likeButtons.length} like buttons`);
+        
+        likeButtons.forEach(button => {
+            button.addEventListener('click', (e) => {
+                e.preventDefault();
+                const updateId = button.dataset.updateId;
+                this.handleUpdateLike(updateId, button);
+            });
+        });
+    }
+
+    /**
+     * Handle feed item like
+     */
+    async handleUpdateLike(updateId, button) {
+        try {
+            // Toggle visual state immediately
+            button.classList.toggle('text-blue-600');
+            button.classList.toggle('text-gray-500');
+            
+            // Update count
+            const countElement = button.querySelector(`[data-like-count="update-${updateId}"]`);
+            if (countElement) {
+                const currentCount = parseInt(countElement.textContent) || 0;
+                countElement.textContent = button.classList.contains('text-blue-600') 
+                    ? currentCount + 1 
+                    : Math.max(0, currentCount - 1);
+            }
+
+            // TODO: Send to server API when endpoint is available
+            console.log(`Liked activity update ${updateId}`);
+        } catch (error) {
+            console.error('Error liking update:', error);
         }
     }
 
@@ -372,11 +473,150 @@ class FollowingPage {
             }
         });
     }
+
+    /**
+     * Bind comment actions (like, flag)
+     */
+    bindCommentActions(commentElement) {
+        // Like button
+        const likeButton = commentElement.querySelector('[data-action="like-comment"]');
+        if (likeButton) {
+            likeButton.addEventListener('click', (e) => {
+                e.preventDefault();
+                const commentId = likeButton.dataset.commentId;
+                this.handleCommentLike(commentId, likeButton);
+            });
+        }
+
+        // Flag button
+        const flagButton = commentElement.querySelector('[data-action="flag-comment"]');
+        if (flagButton) {
+            flagButton.addEventListener('click', (e) => {
+                e.preventDefault();
+                const commentId = flagButton.dataset.commentId;
+                this.handleCommentFlag(commentId, commentElement);
+            });
+        }
+    }
+
+    /**
+     * Handle comment like
+     */
+    async handleCommentLike(commentId, button) {
+        try {
+            // Toggle visual state immediately
+            button.classList.toggle('text-blue-600');
+            button.classList.toggle('text-gray-400');
+            
+            // Update count
+            const countElement = button.parentElement.querySelector(`[data-like-count="${commentId}"]`);
+            if (countElement) {
+                const currentCount = parseInt(countElement.textContent) || 0;
+                countElement.textContent = button.classList.contains('text-blue-600') 
+                    ? currentCount + 1 
+                    : Math.max(0, currentCount - 1);
+            }
+
+            // TODO: Send to server API when endpoint is available
+            console.log(`Liked comment ${commentId}`);
+        } catch (error) {
+            console.error('Error liking comment:', error);
+        }
+    }
+
+    /**
+     * Handle comment flag
+     */
+    async handleCommentFlag(commentId, commentElement) {
+        try {
+            // Use existing flagging system
+            if (window.flaggingSystem) {
+                window.flaggingSystem.showFlagModal(
+                    'ActivityLogComment',
+                    commentId,
+                    'Comment on activity update'
+                );
+            } else {
+                console.error('Flagging system not available');
+            }
+        } catch (error) {
+            console.error('Error flagging comment:', error);
+        }
+    }
+
+    /**
+     * Show notification
+     */
+    showNotification(message, type = 'info') {
+        const notification = document.createElement('div');
+        notification.className = `fixed top-4 right-4 px-6 py-3 rounded-lg shadow-lg z-50 ${
+            type === 'success' ? 'bg-green-600 text-white' :
+            type === 'error' ? 'bg-red-600 text-white' :
+            'bg-blue-600 text-white'
+        }`;
+        notification.textContent = message;
+        
+        document.body.appendChild(notification);
+        
+        setTimeout(() => {
+            notification.classList.add('opacity-0', 'transition-opacity', 'duration-300');
+            setTimeout(() => notification.remove(), 300);
+        }, 3000);
+    }
+
+    /**
+     * Escape HTML to prevent XSS
+     */
+    escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+
+    /**
+     * Load existing comments for an activity
+     */
+    async loadComments(updateId) {
+        try {
+            const response = await fetch(`/following/api/activity-log/${updateId}/comments/`);
+            const data = await response.json();
+            
+            if (data.success && data.comments) {
+                const commentsList = document.getElementById(`comments-list-${updateId}`);
+                if (!commentsList) return;
+                
+                // Clear existing content
+                commentsList.innerHTML = '';
+                
+                if (data.comments.length > 0) {
+                    data.comments.forEach(comment => {
+                        // Check if comment is flagged and hidden
+                        if (comment.flag_count >= 3) {
+                            const hiddenComment = document.createElement('div');
+                            hiddenComment.className = 'p-3 bg-gray-100 rounded-lg text-sm text-gray-500 italic';
+                            hiddenComment.textContent = 'This comment has been hidden due to potential content violations';
+                            commentsList.appendChild(hiddenComment);
+                        } else {
+                            this.addComment(updateId, comment);
+                        }
+                    });
+                } else {
+                    commentsList.innerHTML = `
+                        <div class="text-sm text-gray-500 text-center py-4">
+                            No comments yet. Be the first to comment!
+                        </div>
+                    `;
+                }
+            }
+        } catch (error) {
+            console.error('Error loading comments:', error);
+        }
+    }
 }
 
 // Initialize when DOM is ready
 document.addEventListener('DOMContentLoaded', function() {
-    new FollowingPage();
+    window.followingPage = new FollowingPage();
 });
 
 // Export for testing
