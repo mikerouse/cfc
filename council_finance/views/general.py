@@ -1083,55 +1083,108 @@ def leaderboards(request):
 
 def following(request):
     """
-    Following page showing councils the user follows with their activity logs.
+    Feed page showing activity logs from councils.
     
-    Integrates ActivityLog entries from followed councils into a social feed
-    where users can comment and interact with council activities.
+    For authenticated users: Shows activity from councils they follow
+    For anonymous users: Shows a sample feed with latest update from each council
     """
-    if not request.user.is_authenticated:
-        from django.shortcuts import redirect
-        return redirect("login")
-    
-    from django.db.models import Count, Prefetch
+    from django.db.models import Count, Prefetch, Max
     import json
     
-    # Get user's followed councils using the existing CouncilFollow model
-    followed_councils = CouncilFollow.objects.filter(user=request.user).select_related('council')
+    # Import models we'll need
+    from council_finance.models import ActivityLogComment
+    from council_finance.services.activity_story_generator import ActivityStoryGenerator
     
-    # Group follows by type (only councils for now)
-    follows_by_type = {
-        'council': [
-            {
-                'id': follow.id,
-                'object': follow.council,
-                'created_at': follow.created_at,
-            }
-            for follow in followed_councils
-        ]
-    }
+    # Initialize story generator
+    story_generator = ActivityStoryGenerator()
     
-    # Get basic statistics
-    total_follows = followed_councils.count()
+    # Initialize variables
+    followed_councils = None
+    follows_by_type = {'council': []}
+    total_follows = 0
+    is_sample_feed = False
     
-    # Get suggested councils (active councils user doesn't follow, ordered by most followed)
-    followed_council_ids = followed_councils.values_list('council_id', flat=True)
-    suggested_councils = Council.objects.filter(
-        status='active'
-    ).exclude(
-        id__in=followed_council_ids
-    ).annotate(
-        follower_count=Count('followed_by')
-    ).order_by('-follower_count')[:5]
-    
-    # Get ActivityLog entries from followed councils as feed updates
-    feed_updates = []
-    if followed_councils.exists():
-        # Import ActivityLogComment here to avoid import issues
-        from council_finance.models import ActivityLogComment
+    if request.user.is_authenticated:
+        # Get user's followed councils using the existing CouncilFollow model
+        followed_councils = CouncilFollow.objects.filter(user=request.user).select_related('council')
         
-        # Get activity logs from followed councils with comment counts
+        # Group follows by type (only councils for now)
+        follows_by_type = {
+            'council': [
+                {
+                    'id': follow.id,
+                    'object': follow.council,
+                    'created_at': follow.created_at,
+                }
+                for follow in followed_councils
+            ]
+        }
+        
+        # Get basic statistics
+        total_follows = followed_councils.count()
+        
+        # Get suggested councils (active councils user doesn't follow, ordered by most followed)
+        followed_council_ids = followed_councils.values_list('council_id', flat=True)
+        suggested_councils = Council.objects.filter(
+            status='active'
+        ).exclude(
+            id__in=followed_council_ids
+        ).annotate(
+            follower_count=Count('followed_by')
+        ).order_by('-follower_count')[:5]
+    else:
+        # For anonymous users, suggest popular councils
+        suggested_councils = Council.objects.filter(
+            status='active'
+        ).annotate(
+            follower_count=Count('followed_by')
+        ).order_by('-follower_count')[:5]
+    
+    # Get ActivityLog entries
+    feed_updates = []
+    
+    if request.user.is_authenticated:
+        if followed_councils and followed_councils.exists():
+            # Authenticated user with follows - show their personalized feed
+            activity_logs = ActivityLog.objects.filter(
+                related_council__in=followed_councils.values_list('council_id', flat=True)
+            ).select_related(
+                'related_council', 'user'
+            ).prefetch_related(
+                Prefetch(
+                    'following_comments',
+                    queryset=ActivityLogComment.objects.filter(
+                        is_approved=True, parent=None
+                    ).select_related('user').order_by('created_at')
+                )
+            ).annotate(
+                comment_count=Count('following_comments', filter=models.Q(following_comments__is_approved=True))
+            ).order_by('-created')[:50]  # Latest 50 activities
+        else:
+            # Authenticated user with no follows - show empty state, not sample feed
+            activity_logs = ActivityLog.objects.none()
+    else:
+        # For anonymous users, get the latest activity from each council (sample feed)
+        is_sample_feed = True
+        # First, get the latest activity log ID for each council
+        from django.db.models import Subquery, OuterRef
+        
+        latest_activities = ActivityLog.objects.filter(
+            related_council=OuterRef('pk'),
+            related_council__status='active'
+        ).order_by('-created').values('id')[:1]
+        
+        councils_with_latest = Council.objects.filter(
+            status='active'
+        ).annotate(
+            latest_activity_id=Subquery(latest_activities)
+        ).exclude(
+            latest_activity_id__isnull=True
+        ).values_list('latest_activity_id', flat=True)[:20]  # Show sample from 20 councils
+        
+        # Get the actual activity logs
         activity_logs = ActivityLog.objects.filter(
-            related_council__in=followed_councils.values_list('council_id', flat=True)
+            id__in=councils_with_latest
         ).select_related(
             'related_council', 'user'
         ).prefetch_related(
@@ -1143,15 +1196,26 @@ def following(request):
             )
         ).annotate(
             comment_count=Count('following_comments', filter=models.Q(following_comments__is_approved=True))
-        ).order_by('-created')[:50]  # Latest 50 activities
-        
-        # Transform ActivityLog entries into feed update format
-        for activity_log in activity_logs:
+        ).order_by('-created')
+    
+    # Transform ActivityLog entries into feed update format with AI stories
+    for activity_log in activity_logs:
+            # Generate AI story for this activity
+            story_data = story_generator.generate_story(activity_log)
+            
             feed_updates.append({
                 'id': f'activity_{activity_log.id}',
+                'activity_log_id': activity_log.id,  # Numeric ID for API calls
                 'type': 'activity_log',
                 'activity_log': activity_log,
-                'title': f"{activity_log.get_activity_type_display()}: {activity_log.description}",
+                'title': story_data.get('title', f"{activity_log.get_activity_type_display()}: {activity_log.description}"),
+                'story': story_data.get('story', activity_log.description),
+                'summary': story_data.get('summary', activity_log.description),
+                'field_name': story_data.get('field_name'),
+                'field_slug': story_data.get('field_slug'),
+                'value': story_data.get('value'),
+                'context': story_data.get('context', {}),
+                'year': story_data.get('year'),
                 'council': activity_log.related_council,
                 'user': activity_log.user,
                 'created_at': activity_log.created,
@@ -1207,6 +1271,7 @@ def following(request):
         ],
         # For JavaScript compatibility
         'preferences_json': json.dumps(preferences_data),
+        'is_sample_feed': is_sample_feed,  # Indicate if this is a sample feed for anonymous users
     }
     
     return render(request, "council_finance/following.html", context)
@@ -3359,16 +3424,8 @@ def comment_on_activity_log(request, activity_log_id):
         # Get the activity log entry
         activity_log = get_object_or_404(ActivityLog, id=activity_log_id)
         
-        # Ensure user follows the council related to this activity log
-        if activity_log.related_council:
-            if not CouncilFollow.objects.filter(
-                user=request.user, 
-                council=activity_log.related_council
-            ).exists():
-                return JsonResponse({
-                    'success': False,
-                    'error': 'You must follow this council to comment on its activities'
-                }, status=403)
+        # Allow any authenticated user to comment (removed follow restriction)
+        # This enables commenting on the public feed and sample feeds
         
         # Get comment data
         content = request.POST.get('content', '').strip()
