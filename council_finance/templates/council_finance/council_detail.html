@@ -4,16 +4,15 @@
 {% load humanize %}
 {% block title %}{{ council.name }} - Council Finance Counters{% endblock %}
 
-{% block extra_js %}
+{% block extra_scripts %}
 <script src="{% static 'js/favourites.js' %}"></script>
 <script src="{% static 'js/ai-factoids.js' %}"></script>
 <!-- Flagging system is loaded globally in base.html -->
 {% endblock %}
 
 {% block content %}
-<!-- CACHE CLEAR: 2025-07-29 20:05 - Dynamic Meta Fields Implementation -->
 <div class="mx-auto max-w-none xl:max-w-desktop">
-  <!-- Council Header - GOV.UK Inspired Design -->
+  <!-- Council Header -->
   <div class="bg-white shadow-sm border-b border-gray-200 -mx-3 sm:-mx-4 xl:-mx-6 mb-8">
     <div class="max-w-none xl:max-w-desktop mx-auto px-6 sm:px-8 xl:px-12">
       
@@ -79,7 +78,7 @@
             </div>
           </div>
           
-          <!-- Action Buttons - GOV.UK Style -->
+          <!-- Action Buttons -->
           {% if user.is_authenticated %}
             <div class="flex flex-col sm:flex-row gap-3 lg:flex-shrink-0">
               <!-- Add to Favourites Button -->

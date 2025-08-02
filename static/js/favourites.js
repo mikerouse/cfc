@@ -12,18 +12,12 @@ class FavouritesManager {
     
     initializeFavouriteButtons() {
         // Initialize favourite buttons on page load
-        console.log('🔍 FavouritesManager: Looking for favourite-btn element');
         const favouriteBtn = document.getElementById('favourite-btn');
-        console.log('🔍 FavouritesManager: favourite-btn element found:', favouriteBtn);
         if (favouriteBtn) {
-            console.log('✅ FavouritesManager: Initializing favourite button');
             this.updateFavouriteButton(favouriteBtn);
             favouriteBtn.addEventListener('click', (e) => {
-                console.log('🖱️ FavouritesManager: Button clicked!', e);
                 this.toggleFavourite(e.target.closest('button'));
             });
-        } else {
-            console.log('❌ FavouritesManager: No favourite-btn element found');
         }
     }
     
