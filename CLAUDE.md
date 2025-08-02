@@ -8,9 +8,10 @@ applyTo: '**'
 - **DESIGN_PRINCIPLES.md** - Mobile-first design patterns, grid system, and UI/UX guidelines
 - **PAGE_SPECIFICATIONS.md** - Detailed page rules, user flows, and business logic for key pages
 - **AGENTS.md** - Counter agent system and calculation logic
+- **LEADERBOARDS.md** - Complete leaderboards system implementation, API, and enhancement roadmap
 - **README.md** - Project setup and deployment instructions
 
-When working on factoids, design/UI, specific pages (Contribute/Lists/Following), counters, or system architecture, **ALWAYS** reference the relevant documentation files above for complete context.
+When working on factoids, design/UI, specific pages (Contribute/Lists/Following), counters, leaderboards, or system architecture, **ALWAYS** reference the relevant documentation files above for complete context.
 
 ---
 
