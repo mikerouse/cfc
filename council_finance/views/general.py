@@ -1128,6 +1128,10 @@ def following(request):
     if followed_councils.exists():
         # Import ActivityLogComment here to avoid import issues
         from council_finance.models import ActivityLogComment
+        from council_finance.services.activity_story_generator import ActivityStoryGenerator
+        
+        # Initialize story generator
+        story_generator = ActivityStoryGenerator()
         
         # Get activity logs from followed councils with comment counts
         activity_logs = ActivityLog.objects.filter(
@@ -1145,13 +1149,23 @@ def following(request):
             comment_count=Count('following_comments', filter=models.Q(following_comments__is_approved=True))
         ).order_by('-created')[:50]  # Latest 50 activities
         
-        # Transform ActivityLog entries into feed update format
+        # Transform ActivityLog entries into feed update format with AI stories
         for activity_log in activity_logs:
+            # Generate AI story for this activity
+            story_data = story_generator.generate_story(activity_log)
+            
             feed_updates.append({
                 'id': f'activity_{activity_log.id}',
                 'type': 'activity_log',
                 'activity_log': activity_log,
-                'title': f"{activity_log.get_activity_type_display()}: {activity_log.description}",
+                'title': story_data.get('title', f"{activity_log.get_activity_type_display()}: {activity_log.description}"),
+                'story': story_data.get('story', activity_log.description),
+                'summary': story_data.get('summary', activity_log.description),
+                'field_name': story_data.get('field_name'),
+                'field_slug': story_data.get('field_slug'),
+                'value': story_data.get('value'),
+                'context': story_data.get('context', {}),
+                'year': story_data.get('year'),
                 'council': activity_log.related_council,
                 'user': activity_log.user,
                 'created_at': activity_log.created,
