@@ -165,6 +165,16 @@
             </span>
             <span class="text-sm"><code>name</code> - Council name</span>
           </div>
+          {% for field in characteristic_fields %}
+            {% if field.required %}
+            <div class="flex items-center space-x-2">
+              <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                Required
+              </span>
+              <span class="text-sm"><code>{{ field.slug }}</code> - {{ field.name }}</span>
+            </div>
+            {% endif %}
+          {% endfor %}
         </div>
       </div>
 
@@ -176,8 +186,12 @@
           <div><code>council_type</code> - Council type slug or name</div>
           <div><code>nation</code> - Nation slug or name</div>
           <div><code>website</code> - Council website URL</div>
-          <div><code>postcode</code> - Main office postcode</div>
-          <div><code>population</code> - Estimated population served</div>
+          {% for field in characteristic_fields %}
+          <div>
+            <code>{{ field.slug }}</code> - {{ field.name }}
+            {% if field.required %}<span class="inline-flex items-center px-1.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800 ml-1">Required</span>{% endif %}
+          </div>
+          {% endfor %}
         </div>
       </div>
     </div>

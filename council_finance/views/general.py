@@ -2193,11 +2193,20 @@ def search_results(request):
     
     # Order by relevance (exact matches first, then partial matches)
     if query:
-        councils = councils.extra(
-            select={
-                'name_exact': f"CASE WHEN LOWER(name) = LOWER('{query}') THEN 1 ELSE 0 END",
-                'name_starts': f"CASE WHEN LOWER(name) LIKE LOWER('{query}%') THEN 1 ELSE 0 END"
-            }
+        from django.db.models import Case, When, Value, BooleanField
+        from django.db.models.functions import Lower
+        
+        councils = councils.annotate(
+            name_exact=Case(
+                When(name__iexact=query, then=Value(True)),
+                default=Value(False),
+                output_field=BooleanField()
+            ),
+            name_starts=Case(
+                When(name__istartswith=query, then=Value(True)),
+                default=Value(False),
+                output_field=BooleanField()
+            )
         ).order_by('-name_exact', '-name_starts', 'name')
     else:
         councils = councils.order_by('name')
