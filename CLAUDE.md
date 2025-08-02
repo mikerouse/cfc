@@ -460,6 +460,56 @@ Common Issues: [List potential problems]
 - CSRF token issues with new API endpoints
 - Data format mismatches between frontend/backend
 
+# HEROICON VALIDATION SYSTEM (2025-08-02)
+
+**CRITICAL**: Heroicon errors have been a recurring issue causing runtime template failures. A validation system has been implemented to prevent future errors.
+
+## Validation Command
+
+Run the heroicon validator to check all templates:
+
+```bash
+# Check for invalid heroicons in all templates
+python manage.py validate_heroicons
+
+# Automatically fix invalid icons with safe fallbacks
+python manage.py validate_heroicons --fix
+```
+
+## Heroicon Usage Guidelines
+
+**Supported Syntaxes** (both work, but be consistent):
+```django
+{# Size-based syntax (recommended) #}
+{% heroicon "icon-name" size="mini" class="w-4 h-4" %}
+
+{# Outline/Solid syntax #}
+{% heroicon_outline "icon-name" class="w-4 h-4" %}
+{% heroicon_solid "icon-name" class="w-4 h-4" %}
+```
+
+**Known Valid Icons**: `cog`, `eye`, `document`, `search`, `refresh`, `check`, `home`, `chat`, `share`, `plus`, `pencil`, `information-circle`, `rss`
+
+**Common Invalid Icons and Replacements**:
+- `arrow-path` → `refresh`
+- `building-office` → `home` 
+- `chat-bubble-oval-left` → `chat`
+- `arrow-up-tray` → `share`
+- `cog-6-tooth` → `cog`
+- `document-text` → `document`
+- `magnifying-glass-plus` → `search`
+
+**Best Practices**:
+1. **Always test heroicons** when adding new ones to templates
+2. **Run validation** before committing template changes
+3. **Use --fix flag** to automatically replace invalid icons with safe fallbacks
+4. **Stick to known valid icons** from the list above when possible
+
+**Integration with Testing**:
+- The validation command can be integrated into CI/CD pipelines
+- Consider running `python manage.py validate_heroicons` as part of the reload command
+- Template errors often manifest as heroicon issues
+
 # Page-Specific Rules
 
 **CRITICAL**: Each major page has detailed specifications and business rules. See **PAGE_SPECIFICATIONS.md** for complete details.
