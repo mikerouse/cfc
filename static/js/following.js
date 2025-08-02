@@ -5,6 +5,7 @@
 
 class FollowingPage {
     constructor() {
+        console.log('FollowingPage: Initializing...');
         this.init();
     }
 
@@ -13,6 +14,7 @@ class FollowingPage {
         this.bindShareButtons();
         this.addSmoothScrolling();
         this.addLoadingStates();
+        console.log('FollowingPage: Initialization complete');
     }
 
     /**
@@ -20,6 +22,7 @@ class FollowingPage {
      */
     bindCommentButtons() {
         const commentButtons = document.querySelectorAll('[data-action="show-comments"]');
+        console.log(`FollowingPage: Found ${commentButtons.length} comment buttons`);
         
         commentButtons.forEach(button => {
             button.addEventListener('click', (e) => {
@@ -183,6 +186,7 @@ class FollowingPage {
      */
     bindShareButtons() {
         const shareButtons = document.querySelectorAll('[data-action="share"]');
+        console.log(`FollowingPage: Found ${shareButtons.length} share buttons`);
         
         shareButtons.forEach(button => {
             button.addEventListener('click', (e) => {
@@ -201,8 +205,13 @@ class FollowingPage {
         if (!updateCard) return;
 
         // Get update details for sharing
-        const councilName = updateCard.querySelector('h3').textContent;
-        const updateText = updateCard.querySelector('.text-gray-900.leading-relaxed').textContent;
+        const councilNameElement = updateCard.querySelector('h3');
+        const updateTextElement = updateCard.querySelector('.text-gray-900.leading-relaxed');
+        
+        if (!councilNameElement || !updateTextElement) return;
+        
+        const councilName = councilNameElement.textContent;
+        const updateText = updateTextElement.textContent;
         
         const shareUrl = window.location.href;
         const shareText = `${councilName}: ${updateText.substring(0, 100)}...`;
@@ -210,11 +219,12 @@ class FollowingPage {
         // Create modal
         const modal = document.createElement('div');
         modal.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50';
+        modal.id = 'share-modal';
         modal.innerHTML = `
             <div class="bg-white rounded-xl max-w-md w-full mx-4 p-6">
                 <div class="flex items-center justify-between mb-4">
                     <h3 class="text-lg font-semibold text-gray-900">Share Update</h3>
-                    <button class="text-gray-400 hover:text-gray-600" onclick="this.closest('.fixed').remove()">
+                    <button class="text-gray-400 hover:text-gray-600" data-action="close-modal">
                         <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
                         </svg>
@@ -222,7 +232,7 @@ class FollowingPage {
                 </div>
                 
                 <div class="space-y-3">
-                    <button onclick="window.open('https://twitter.com/intent/tweet?text=${encodeURIComponent(shareText)}&url=${encodeURIComponent(shareUrl)}', '_blank')" 
+                    <button data-share="twitter" 
                             class="w-full flex items-center gap-3 p-3 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
                         <div class="w-8 h-8 bg-black rounded flex items-center justify-center">
                             <span class="text-white font-bold text-sm">𝕏</span>
@@ -230,7 +240,7 @@ class FollowingPage {
                         <span class="font-medium text-gray-900">Share on X (Twitter)</span>
                     </button>
                     
-                    <button onclick="window.open('https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareUrl)}', '_blank')" 
+                    <button data-share="facebook" 
                             class="w-full flex items-center gap-3 p-3 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
                         <div class="w-8 h-8 bg-blue-600 rounded flex items-center justify-center">
                             <span class="text-white font-bold text-sm">f</span>
@@ -238,7 +248,7 @@ class FollowingPage {
                         <span class="font-medium text-gray-900">Share on Facebook</span>
                     </button>
                     
-                    <button onclick="window.open('https://wa.me/?text=${encodeURIComponent(shareText + ' ' + shareUrl)}', '_blank')" 
+                    <button data-share="whatsapp" 
                             class="w-full flex items-center gap-3 p-3 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
                         <div class="w-8 h-8 bg-green-500 rounded flex items-center justify-center">
                             <span class="text-white font-bold text-sm">W</span>
@@ -246,7 +256,7 @@ class FollowingPage {
                         <span class="font-medium text-gray-900">Share on WhatsApp</span>
                     </button>
                     
-                    <button onclick="navigator.clipboard.writeText('${shareUrl}'); this.innerHTML='<span class=\\'text-green-600\\'>✓ Copied!</span>'; setTimeout(() => this.innerHTML='Copy Link', 2000)" 
+                    <button data-share="copy" 
                             class="w-full flex items-center gap-3 p-3 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
                         <div class="w-8 h-8 bg-gray-600 rounded flex items-center justify-center">
                             <span class="text-white font-bold text-sm">🔗</span>
@@ -255,7 +265,7 @@ class FollowingPage {
                     </button>
                 </div>
                 
-                <button onclick="this.closest('.fixed').remove()" 
+                <button data-action="close-modal" 
                         class="w-full mt-4 py-2 text-gray-600 hover:text-gray-800 transition-colors">
                     Cancel
                 </button>
@@ -264,12 +274,60 @@ class FollowingPage {
 
         document.body.appendChild(modal);
 
-        // Close on backdrop click
+        // Set up event handlers
         modal.addEventListener('click', (e) => {
+            // Close on backdrop click
             if (e.target === modal) {
                 modal.remove();
             }
+            
+            // Handle button clicks
+            const button = e.target.closest('button');
+            if (!button) return;
+            
+            if (button.dataset.action === 'close-modal') {
+                modal.remove();
+                return;
+            }
+            
+            if (button.dataset.share) {
+                this.handleShare(button.dataset.share, shareText, shareUrl, button);
+            }
         });
+    }
+    
+    /**
+     * Handle share actions
+     */
+    handleShare(platform, text, url, button) {
+        const encodedText = encodeURIComponent(text);
+        const encodedUrl = encodeURIComponent(url);
+        
+        switch(platform) {
+            case 'twitter':
+                window.open(`https://twitter.com/intent/tweet?text=${encodedText}&url=${encodedUrl}`, '_blank');
+                break;
+                
+            case 'facebook':
+                window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodedUrl}`, '_blank');
+                break;
+                
+            case 'whatsapp':
+                window.open(`https://wa.me/?text=${encodedText}%20${encodedUrl}`, '_blank');
+                break;
+                
+            case 'copy':
+                navigator.clipboard.writeText(url).then(() => {
+                    const originalContent = button.innerHTML;
+                    button.innerHTML = '<span class="text-green-600">✓ Copied!</span>';
+                    setTimeout(() => {
+                        button.innerHTML = originalContent;
+                    }, 2000);
+                }).catch(err => {
+                    console.error('Failed to copy:', err);
+                });
+                break;
+        }
     }
 
     /**
