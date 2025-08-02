@@ -163,6 +163,8 @@ class Command(BaseCommand):
             'arrow-clockwise': 'refresh',
             'arrow-circular': 'refresh',
             'chat-bubble-oval-left': 'chat',
+            'chat-bubble-left': 'chat',
+            'chat-bubble': 'chat',
             'arrow-up-tray': 'share',
             'cog-6-tooth': 'cog',
             'eye': 'eye',
@@ -176,6 +178,14 @@ class Command(BaseCommand):
             'check': 'check',
             'check-circle': 'check',
             'refresh': 'refresh',
+            'hand-thumb-up': 'thumb-up',
+            'hand-thumb-down': 'thumb-down',
+            'thumb-up-solid': 'thumb-up',
+            'thumb-down-solid': 'thumb-down',
+            'message': 'chat',
+            'messages': 'chat',
+            'comment': 'chat',
+            'comments': 'chat',
             # Add more mappings as needed
         }
         

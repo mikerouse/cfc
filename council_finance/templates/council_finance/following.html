@@ -233,13 +233,13 @@
                             <div class="flex items-center gap-4">
                                 <button class="flex items-center gap-1 text-sm text-gray-500 hover:text-blue-600 transition-colors" 
                                         data-action="like-update" data-update-id="{{ update.activity_log_id }}">
-                                    {% heroicon "hand-thumb-up" size="mini" class="w-4 h-4" %}
+                                    {% heroicon "thumb-up" size="mini" class="w-4 h-4" %}
                                     <span data-like-count="update-{{ update.id }}">{{ update.like_count|default:0 }}</span>
                                 </button>
                                 
                                 <button class="flex items-center gap-1 text-sm text-gray-500 hover:text-blue-600 transition-colors" 
                                         data-action="show-comments" data-update-id="{{ update.activity_log_id }}">
-                                    {% heroicon "chat-bubble-left" size="mini" class="w-4 h-4" %}
+                                    {% heroicon "chat" size="mini" class="w-4 h-4" %}
                                     <span>{{ update.comment_count|default:0 }}</span>
                                 </button>
                                 

@@ -710,6 +710,17 @@ class Command(BaseCommand):
             else:
                 self.stdout.write('   SUCCESS: Council Edit interface passed all syntax checks')
             
+            # Run heroicon validation to prevent runtime errors
+            self.stdout.write('   > Running heroicon validation...')
+            heroicon_success = self._run_heroicon_validation()
+            
+            if not heroicon_success:
+                self.stdout.write(
+                    self.style.WARNING('Heroicon validation failed - see details above')
+                )
+            else:
+                self.stdout.write('   SUCCESS: All heroicons are valid')
+            
             # Get the path to run_all_tests.py
             test_script_path = os.path.join(os.getcwd(), 'run_all_tests.py')
             
@@ -739,8 +750,8 @@ class Command(BaseCommand):
                 if result.returncode != 0:
                     self._write_test_failures_to_log(result.stdout, result.stderr)
                 
-                # Return success based on exit code AND syntax tests
-                return result.returncode == 0 and syntax_success
+                # Return success based on exit code AND syntax tests AND heroicon validation
+                return result.returncode == 0 and syntax_success and heroicon_success
                 
             except subprocess.TimeoutExpired:
                 error_msg = 'Comprehensive test suite timed out after 5 minutes'
@@ -964,6 +975,41 @@ class Command(BaseCommand):
             self.stdout.write(
                 self.style.WARNING(f'Could not write test failures to syntax_errors.log: {e}')
             )
+
+    def _run_heroicon_validation(self):
+        """Run heroicon validation to prevent runtime template errors."""
+        try:
+            from django.core.management import call_command
+            from io import StringIO
+            
+            # Capture output from validate_heroicons command
+            output = StringIO()
+            try:
+                call_command('validate_heroicons', stdout=output)
+                output_text = output.getvalue()
+                
+                # Check if validation passed
+                if 'All heroicons valid!' in output_text:
+                    return True
+                else:
+                    # There were errors - show them
+                    self.stdout.write(
+                        self.style.ERROR('Heroicon validation failed:')
+                    )
+                    self.stdout.write(output_text)
+                    return False
+                    
+            except Exception as e:
+                self.stdout.write(
+                    self.style.ERROR(f'Error running heroicon validation: {e}')
+                )
+                return False
+                
+        except ImportError:
+            self.stdout.write(
+                self.style.WARNING('Could not import heroicon validation - skipping')
+            )
+            return True  # Don't fail if validation isn't available
 
     def _write_test_error_to_log(self, error_message):
         """Write a single test error to syntax_errors.log."""
