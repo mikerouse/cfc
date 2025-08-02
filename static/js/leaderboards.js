@@ -64,6 +64,26 @@ function updateCategoryTitles(isReversed, currentCategory) {
 }
 
 /**
+ * Show loading spinner and disable controls
+ */
+function showLoadingState() {
+    // Disable all form controls
+    const controls = document.querySelectorAll('#per-capita-toggle, #year-select, #sort-order-toggle');
+    controls.forEach(control => {
+        control.disabled = true;
+    });
+    
+    // Show loading spinner
+    const loadingSpinner = document.getElementById('loading-spinner');
+    if (loadingSpinner) {
+        loadingSpinner.classList.remove('hidden');
+    }
+    
+    // Add loading class to body to show cursor
+    document.body.style.cursor = 'wait';
+}
+
+/**
  * Generic per capita toggle functionality 
  * Can be reused across different pages
  */
@@ -72,7 +92,11 @@ function initPerCapitaToggle() {
     if (perCapitaToggle) {
         console.log('Per capita toggle found');
         perCapitaToggle.addEventListener('change', function(e) {
+            if (perCapitaToggle.disabled) return; // Prevent multiple clicks
+            
             console.log('Per capita changed to:', e.target.checked);
+            showLoadingState();
+            
             const url = new URL(window.location);
             if (e.target.checked) {
                 url.searchParams.set('per_capita', 'true');
@@ -92,7 +116,11 @@ function initYearSelector() {
     if (yearSelect) {
         console.log('Year selector found');
         yearSelect.addEventListener('change', function(e) {
+            if (yearSelect.disabled) return; // Prevent multiple changes
+            
             console.log('Year changed to:', e.target.value);
+            showLoadingState();
+            
             const url = new URL(window.location);
             url.searchParams.set('year', e.target.value);
             window.location.href = url.toString();
@@ -108,7 +136,11 @@ function initSortOrderToggle(currentCategory) {
     if (sortToggle) {
         console.log('Sort toggle found');
         sortToggle.addEventListener('change', function(e) {
+            if (sortToggle.disabled) return; // Prevent multiple clicks
+            
             console.log('Sort order changed to:', e.target.checked);
+            showLoadingState();
+            
             const url = new URL(window.location);
             if (e.target.checked) {
                 url.searchParams.set('reverse', 'true');
