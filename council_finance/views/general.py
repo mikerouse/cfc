@@ -1205,6 +1205,7 @@ def following(request):
             
             feed_updates.append({
                 'id': f'activity_{activity_log.id}',
+                'activity_log_id': activity_log.id,  # Numeric ID for API calls
                 'type': 'activity_log',
                 'activity_log': activity_log,
                 'title': story_data.get('title', f"{activity_log.get_activity_type_display()}: {activity_log.description}"),
@@ -3414,16 +3415,8 @@ def comment_on_activity_log(request, activity_log_id):
         # Get the activity log entry
         activity_log = get_object_or_404(ActivityLog, id=activity_log_id)
         
-        # Ensure user follows the council related to this activity log
-        if activity_log.related_council:
-            if not CouncilFollow.objects.filter(
-                user=request.user, 
-                council=activity_log.related_council
-            ).exists():
-                return JsonResponse({
-                    'success': False,
-                    'error': 'You must follow this council to comment on its activities'
-                }, status=403)
+        # Allow any authenticated user to comment (removed follow restriction)
+        # This enables commenting on the public feed and sample feeds
         
         # Get comment data
         content = request.POST.get('content', '').strip()

@@ -20,10 +20,20 @@ class FollowingPage {
     }
 
     checkAuthentication() {
-        // Check if user is authenticated by looking for user-specific elements or CSRF token
-        const userMenu = document.querySelector('[data-user-menu]');
+        // Use Django-provided authentication status if available
+        if (window.djangoContext && typeof window.djangoContext.isAuthenticated === 'boolean') {
+            return window.djangoContext.isAuthenticated;
+        }
+        
+        // Fallback: Check if user is authenticated by looking for authenticated user indicators
         const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]');
-        return !!(userMenu || (csrfToken && csrfToken.value));
+        const logoutLink = document.querySelector('a[href*="logout"]');
+        const userDropdown = document.querySelector('.user-dropdown, [data-dropdown="user"]');
+        const authUserElement = document.querySelector('.auth-user, .user-info');
+        
+        // If we have CSRF token and logout link, user is likely authenticated
+        return !!(csrfToken && csrfToken.value && logoutLink) || 
+               !!(userDropdown || authUserElement);
     }
 
     /**
