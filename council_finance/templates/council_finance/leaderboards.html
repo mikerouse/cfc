@@ -4,32 +4,41 @@
 {% load humanize %}
 {% block title %}Leaderboards - Council Finance Counters{% endblock %}
 
+{% block extra_head %}
+<style>
+@keyframes bounce-gentle {
+    0%, 100% {
+        transform: translateY(0);
+    }
+    50% {
+        transform: translateY(-3px);
+    }
+}
+
+.animate-bounce-gentle {
+    animation: bounce-gentle 1.5s ease-in-out infinite;
+}
+</style>
+{% endblock %}
+
 {% block content %}
 <div class="mx-auto max-w-none xl:max-w-desktop">
-    <!-- Page Header -->
-    <div class="mb-8">
+    <!-- Page Header - GOV.UK Style -->
+    <div class="mb-6">
+        <h1 class="text-3xl font-bold text-gray-900 mb-2">Leaderboards</h1>
+        <p class="text-lg text-gray-600">Rankings for contributions and council financial metrics</p>
+    </div>
+    
+    <div class="mb-6">
         <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-            <div>
-                <h1 class="text-2xl sm:text-3xl font-bold text-gray-900 mb-2">Leaderboards</h1>
-                <p class="text-gray-600">Rankings for contributions and council financial metrics</p>
-            </div>
             
             <!-- Export Controls -->
             {% if not show_contributors and leaderboard_data %}
-            <div class="flex items-center gap-2">
+            <div class="flex items-center gap-2 ml-auto">
                 <span class="text-sm text-gray-600">Export:</span>
                 {% for format in supported_export_formats %}
                 <a href="?{{ request.GET.urlencode }}&export={{ format }}" 
-                   class="inline-flex items-center px-3 py-1.5 border border-gray-300 text-xs font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 transition-colors">
-                    {% if format == 'csv' %}
-                        {% heroicon "document-text" size="mini" class="w-4 h-4 mr-1" %}
-                    {% elif format == 'xlsx' %}
-                        {% heroicon "table-cells" size="mini" class="w-4 h-4 mr-1" %}
-                    {% elif format == 'pdf' %}
-                        {% heroicon "document" size="mini" class="w-4 h-4 mr-1" %}
-                    {% elif format == 'png' %}
-                        {% heroicon "chart-bar" size="mini" class="w-4 h-4 mr-1" %}
-                    {% endif %}
+                   class="text-sm text-blue-600 hover:text-blue-800 underline">
                     {{ format|upper }}
                 </a>
                 {% endfor %}
@@ -38,30 +47,33 @@
         </div>
     </div>
     
-    <!-- Category Navigation -->
-    <div class="mb-8">
-        <nav class="flex overflow-x-auto gap-2 pb-2 scrollbar-hide" role="navigation" aria-label="Leaderboard categories">
-            {% for cat_key, cat_info in categories.items %}
-            <a href="?category={{ cat_key }}{% if per_capita %}&per_capita=true{% endif %}{% if year_label %}&year={{ year_label }}{% endif %}" 
-               class="flex-shrink-0 inline-flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 {% if current_category == cat_key %}bg-blue-600 text-white shadow-sm{% else %}bg-white text-gray-700 border border-gray-200 hover:bg-gray-50 hover:border-gray-300{% endif %}"
-               {% if current_category == cat_key %}aria-current="page"{% endif %}>
-                {% heroicon cat_info.icon size="mini" class="w-4 h-4" %}
-                <span>{{ cat_info.name }}</span>
-            </a>
-            {% endfor %}
+    <!-- Category Navigation - GOV.UK Style -->
+    <div class="mb-6 border-b border-gray-200">
+        <nav class="-mb-px" role="navigation" aria-label="Leaderboard categories">
+            <div class="flex flex-wrap gap-x-1 sm:gap-x-4">
+                {% for cat_key, cat_info in categories.items %}
+                <a href="?category={{ cat_key }}{% if per_capita %}&per_capita=true{% endif %}{% if year_label %}&year={{ year_label }}{% endif %}" 
+                   class="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium border-b-2 transition-colors
+                          {% if current_category == cat_key %}
+                          border-blue-600 text-blue-600
+                          {% else %}
+                          border-transparent text-gray-600 hover:text-gray-900 hover:border-gray-300
+                          {% endif %}"
+                   {% if current_category == cat_key %}aria-current="page"{% endif %}>
+                    <span>{{ cat_info.name }}</span>
+                </a>
+                {% endfor %}
+            </div>
         </nav>
     </div>
     
     <!-- Controls Bar -->
     {% if current_category != 'contributors' %}
-    <div class="bg-gray-50 border border-gray-200 rounded-lg p-6 mb-8">
-        <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
+    <div class="bg-gray-50 border-y border-gray-200 py-4 mb-6">
+        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <!-- Category Description -->
             <div class="flex-1">
-                <div class="flex items-center gap-3 mb-2">
-                    {% heroicon current_category_info.icon size="mini" class="w-5 h-5 text-gray-400" %}
-                    <h2 class="text-lg font-semibold text-gray-900">{{ current_category_info.name }}</h2>
-                </div>
+                <h2 class="text-xl font-medium text-gray-900">{{ current_category_info.name }}</h2>
                 <p class="text-gray-600">{{ current_category_info.description }}</p>
                 {% if leaderboard_data %}
                 <p class="text-sm text-gray-500 mt-1">
@@ -72,28 +84,23 @@
             </div>
             
             <!-- Controls -->
-            <div class="flex flex-wrap items-center gap-6">
+            <div class="flex flex-wrap items-center gap-4">
                 <!-- Per Capita Toggle -->
-                <div class="flex items-center gap-3">
-                    <label for="per-capita-toggle" class="text-sm font-medium text-gray-700">Per Capita</label>
-                    <div class="relative">
-                        <input type="checkbox" 
-                               id="per-capita-toggle" 
-                               class="sr-only" 
-                               {% if per_capita %}checked{% endif %}
-                               onchange="togglePerCapita()">
-                        <div class="toggle-switch w-11 h-6 bg-gray-200 rounded-full cursor-pointer transition-colors duration-300 {% if per_capita %}bg-green-500{% endif %}">
-                            <div class="toggle-knob w-4 h-4 bg-white rounded-full shadow transform transition-transform duration-300 {% if per_capita %}translate-x-6{% else %}translate-x-1{% endif %} mt-1"></div>
-                        </div>
-                    </div>
-                </div>
+                <label class="flex items-center gap-2 text-sm">
+                    <input type="checkbox" 
+                           id="per-capita-toggle" 
+                           class="rounded border-gray-300 text-blue-600 focus:ring-blue-500" 
+                           {% if per_capita %}checked{% endif %}
+                           onchange="togglePerCapita()">
+                    <span class="font-medium text-gray-700">Per capita</span>
+                </label>
                 
                 <!-- Year Selector -->
                 <div class="flex items-center gap-2">
                     <label for="year-select" class="text-sm font-medium text-gray-700">Year:</label>
                     <select id="year-select" 
                             onchange="changeYear(this.value)"
-                            class="block w-auto px-3 py-2 text-sm border border-gray-300 rounded-md bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                            class="text-sm rounded border-gray-300 py-1 pr-8 focus:border-blue-500 focus:ring-blue-500">
                         {% for year in available_years %}
                         <option value="{{ year.label }}" {% if year.label == year_label %}selected{% endif %}>
                             {{ year.label }}{% if year.is_forecast %} (Forecast){% endif %}
@@ -103,12 +110,67 @@
                 </div>
             </div>
         </div>
+        
+        <!-- Chart Visualization (Phase 2 Enhancement) -->
+        <div id="leaderboard-chart-section" class="mt-4 hidden">
+            <div class="border-t border-gray-200 pt-4">
+                <div class="flex items-center justify-between mb-2">
+                    <h3 class="text-lg font-medium text-gray-900">Data visualization</h3>
+                    <div class="flex items-center gap-3">
+                        <button id="chart-toggle-btn" 
+                                class="text-sm text-blue-600 hover:text-blue-800 underline">
+                            Show chart
+                        </button>
+                        <select id="chart-type-select" class="text-sm rounded border-gray-300 py-1 pr-8 focus:border-blue-500 focus:ring-blue-500 hidden">
+                            <option value="bar">Bar chart</option>
+                            <option value="line">Line chart</option>
+                            <option value="doughnut">Pie chart</option>
+                        </select>
+                    </div>
+                </div>
+                <div id="chart-container" class="bg-white border border-gray-200 rounded p-4 hidden">
+                    <canvas id="leaderboard-chart" width="400" height="200"></canvas>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Comparison Controls (Phase 2 Enhancement) -->
+        <div id="comparison-controls" class="mt-4 hidden">
+            <div class="bg-gray-50 border-y border-gray-200 py-3">
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center gap-3">
+                        <button id="comparison-toggle-btn" 
+                                class="text-sm text-blue-600 hover:text-blue-800 underline">
+                            Enable comparison mode
+                        </button>
+                        <span id="selected-count" class="text-sm text-blue-700 hidden">
+                            0 councils selected
+                        </span>
+                    </div>
+                    <div id="comparison-actions" class="flex items-center gap-3 hidden">
+                        <button id="compare-selected-btn" 
+                                class="text-sm text-blue-600 hover:text-blue-800 underline disabled:text-gray-400 disabled:no-underline"
+                                disabled>
+                            Compare selected
+                        </button>
+                        <button id="clear-selection-btn" 
+                                class="text-sm text-gray-600 hover:text-gray-800 underline">
+                            Clear selection
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
     {% endif %}
     
     <!-- Main Content -->
+    <div id="leaderboard-main-content" 
+         data-current-category="{{ current_category }}"
+         data-current-year="{{ year_label|default:'' }}"
+         data-per-capita="{{ per_capita|yesno:'true,false' }}">
     {% if leaderboard_data and leaderboard_data.entries %}
-        <div class="space-y-3">
+        <div id="leaderboard-entries" class="space-y-3">
             {% if show_contributors %}
                 <!-- Contributors Leaderboard -->
                 {% for entry in leaderboard_data.entries %}
@@ -172,7 +234,7 @@
                                 <div class="flex flex-wrap items-center gap-x-4 gap-y-1 mt-1">
                                     {% if entry.council_type %}
                                     <span class="text-sm text-gray-600 flex items-center gap-1">
-                                        {% heroicon "building-office" size="mini" class="w-3 h-3" %}
+                                        {% heroicon "home" size="mini" class="w-3 h-3" %}
                                         {{ entry.council_type }}
                                     </span>
                                     {% endif %}
@@ -225,7 +287,7 @@
         </div>
     {% else %}
         <!-- Empty State -->
-        <div class="text-center py-16">
+        <div id="leaderboard-empty-state" class="text-center py-16">
             <div class="mx-auto w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mb-4">
                 {% heroicon "chart-bar" size="outline" class="w-8 h-8 text-gray-400" %}
             </div>
@@ -242,6 +304,7 @@
             {% endif %}
         </div>
     {% endif %}
+    </div>
 </div>
 
 <style>
@@ -281,56 +344,1257 @@
 {% endblock %}
 
 {% block extra_js %}
+<!-- Chart.js for trend visualizations -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.min.js"></script>
 <script>
-    function togglePerCapita() {
-        const urlParams = new URLSearchParams(window.location.search);
-        const currentPerCapita = urlParams.get('per_capita') === 'true';
+/**
+ * Enhanced AJAX-powered Leaderboards System
+ * Phase 2 Implementation - No page reloads, smooth transitions
+ */
+class LeaderboardManager {
+    constructor() {
+        this.currentCategory = document.getElementById('leaderboard-main-content').dataset.currentCategory;
+        this.currentYear = document.getElementById('leaderboard-main-content').dataset.currentYear;
+        this.currentPerCapita = document.getElementById('leaderboard-main-content').dataset.perCapita === 'true';
+        this.isLoading = false;
+        this.cache = new Map();
+        this.chart = null;
+        this.chartVisible = false;
+        this.progressiveLoading = true;
+        this.loadedEntries = 10; // Start with 10 entries
+        this.totalEntries = 0;
+        this.selectedCouncils = new Set();
+        this.comparisonMode = false;
+        this.previousRankings = new Map(); // Track previous rankings for change indicators
         
-        if (currentPerCapita) {
-            urlParams.delete('per_capita');
-        } else {
-            urlParams.set('per_capita', 'true');
+        this.initializeEventListeners();
+        this.initializeChart();
+        this.initializeComparison();
+        this.preloadAdjacentCategories();
+    }
+    
+    initializeEventListeners() {
+        // Category navigation
+        document.querySelectorAll('nav a[href*="category="]').forEach(link => {
+            link.addEventListener('click', (e) => {
+                e.preventDefault();
+                const url = new URL(link.href);
+                const category = url.searchParams.get('category');
+                this.loadCategory(category);
+            });
+        });
+        
+        // Per capita toggle
+        const perCapitaToggle = document.getElementById('per-capita-toggle');
+        if (perCapitaToggle) {
+            perCapitaToggle.addEventListener('change', () => {
+                this.togglePerCapita();
+            });
         }
         
-        addLoadingState();
-        window.location.search = urlParams.toString();
-    }
-    
-    function changeYear(year) {
-        const urlParams = new URLSearchParams(window.location.search);
-        urlParams.set('year', year);
+        // Year selector
+        const yearSelect = document.getElementById('year-select');
+        if (yearSelect) {
+            yearSelect.addEventListener('change', (e) => {
+                this.changeYear(e.target.value);
+            });
+        }
         
-        addLoadingState();
-        window.location.search = urlParams.toString();
+        // Keyboard shortcuts
+        document.addEventListener('keydown', (e) => {
+            if (e.ctrlKey || e.metaKey) {
+                switch(e.key) {
+                    case '1': case '2': case '3': case '4': case '5':
+                    case '6': case '7': case '8': case '9':
+                        e.preventDefault();
+                        this.loadCategoryByIndex(parseInt(e.key) - 1);
+                        break;
+                    case 'p':
+                        e.preventDefault();
+                        this.togglePerCapita();
+                        break;
+                }
+            }
+        });
+        
+        // Chart controls
+        const chartToggleBtn = document.getElementById('chart-toggle-btn');
+        if (chartToggleBtn) {
+            chartToggleBtn.addEventListener('click', () => {
+                this.toggleChart();
+            });
+        }
+        
+        const chartTypeSelect = document.getElementById('chart-type-select');
+        if (chartTypeSelect) {
+            chartTypeSelect.addEventListener('change', (e) => {
+                this.updateChartType(e.target.value);
+            });
+        }
     }
     
-    function addLoadingState() {
+    async loadCategory(category) {
+        if (this.isLoading || category === this.currentCategory) return;
+        
+        this.showLoadingState('Switching to ' + this.getCategoryDisplayName(category) + '...');
+        
+        try {
+            // Reset progressive loading for new category
+            this.loadedEntries = 10;
+            this.totalEntries = 0;
+            
+            const data = await this.fetchLeaderboardData(category, this.currentYear, this.currentPerCapita);
+            this.updateLeaderboardContent(data, category);
+            this.updateNavigation(category);
+            this.updateURL(category, this.currentYear, this.currentPerCapita);
+            this.currentCategory = category;
+            
+            // Preload adjacent categories for better performance
+            this.preloadAdjacentCategories();
+            
+        } catch (error) {
+            console.error('Failed to load category:', error);
+            this.showErrorState('Failed to load leaderboard data. Please try again.');
+        } finally {
+            this.hideLoadingState();
+        }
+    }
+    
+    async togglePerCapita() {
+        if (this.isLoading || this.currentCategory === 'contributors') return;
+        
+        const newPerCapita = !this.currentPerCapita;
+        this.showLoadingState('Calculating ' + (newPerCapita ? 'per capita' : 'absolute') + ' values...');
+        
+        try {
+            const data = await this.fetchLeaderboardData(this.currentCategory, this.currentYear, newPerCapita);
+            this.updateLeaderboardContent(data, this.currentCategory);
+            this.updateURL(this.currentCategory, this.currentYear, newPerCapita);
+            this.currentPerCapita = newPerCapita;
+            
+            // Update toggle state
+            const toggle = document.getElementById('per-capita-toggle');
+            if (toggle) toggle.checked = newPerCapita;
+            
+        } catch (error) {
+            console.error('Failed to toggle per capita:', error);
+            this.showErrorState('Failed to calculate per capita values. Please try again.');
+        } finally {
+            this.hideLoadingState();
+        }
+    }
+    
+    async changeYear(year) {
+        if (this.isLoading || year === this.currentYear) return;
+        
+        this.showLoadingState('Loading ' + year + ' data...');
+        
+        try {
+            const data = await this.fetchLeaderboardData(this.currentCategory, year, this.currentPerCapita);
+            this.updateLeaderboardContent(data, this.currentCategory);
+            this.updateURL(this.currentCategory, year, this.currentPerCapita);
+            this.currentYear = year;
+            
+        } catch (error) {
+            console.error('Failed to change year:', error);
+            this.showErrorState('Failed to load data for ' + year + '. Please try again.');
+        } finally {
+            this.hideLoadingState();
+        }
+    }
+    
+    async fetchLeaderboardData(category, year, perCapita) {
+        const cacheKey = `${category}-${year}-${perCapita}`;
+        
+        // Check cache first
+        if (this.cache.has(cacheKey)) {
+            return this.cache.get(cacheKey);
+        }
+        
+        const params = new URLSearchParams({
+            category: category,
+            per_capita: perCapita ? 'true' : 'false'
+        });
+        
+        if (year) {
+            params.append('year', year);
+        }
+        
+        const response = await fetch(`/api/leaderboards/?${params}`, {
+            headers: {
+                'Accept': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        });
+        
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+        
+        const data = await response.json();
+        
+        // Cache the result
+        this.cache.set(cacheKey, data);
+        
+        return data;
+    }
+    
+    updateLeaderboardContent(apiData, category, append = false) {
+        const mainContent = document.getElementById('leaderboard-main-content');
+        const data = apiData.success ? apiData.data : null;
+        
+        if (!data || !data.entries || data.entries.length === 0) {
+            if (!append) {
+                this.showEmptyState(category);
+            }
+            return;
+        }
+        
+        // Store total entries count
+        this.totalEntries = data.total_count || data.entries.length;
+        
+        // Track rank changes for animation indicators
+        if (!append) {
+            this.updateRankingsHistory(data.entries, category);
+        }
+        
+        // Update controls bar if needed (only on initial load)
+        if (!append) {
+            this.updateControlsBar(data, category);
+            
+            // Update chart if visible
+            if (this.chartVisible && category !== 'contributors') {
+                this.createChart(document.getElementById('chart-type-select').value || 'bar');
+            }
+            
+            // Show/hide chart section based on category
+            const chartSection = document.getElementById('leaderboard-chart-section');
+            if (category === 'contributors') {
+                chartSection.classList.add('hidden');
+            } else {
+                chartSection.classList.remove('hidden');
+            }
+        }
+        
+        // Determine entries to show based on progressive loading
+        let entriesToShow = data.entries;
+        if (this.progressiveLoading && !append) {
+            entriesToShow = data.entries.slice(0, this.loadedEntries);
+        }
+        
+        // Generate new content
+        const entriesHtml = this.generateEntriesHtml(entriesToShow, category === 'contributors');
+        
+        // Handle progressive loading UI
+        const hasMore = this.progressiveLoading && data.entries.length > this.loadedEntries;
+        const loadMoreHtml = hasMore ? this.generateLoadMoreHtml() : '';
+        
+        const entriesContainer = document.getElementById('leaderboard-entries') || 
+                                document.getElementById('leaderboard-empty-state');
+        
+        if (append) {
+            // Append new entries for "Load More" functionality
+            const loadMoreBtn = document.getElementById('load-more-btn');
+            if (loadMoreBtn) {
+                loadMoreBtn.remove();
+            }
+            
+            const currentContainer = document.getElementById('leaderboard-entries');
+            if (currentContainer) {
+                currentContainer.insertAdjacentHTML('beforeend', entriesHtml + loadMoreHtml);
+            }
+        } else {
+            // Replace content (initial load or category change)
+            if (entriesContainer) {
+                entriesContainer.style.opacity = '0.5';
+                setTimeout(() => {
+                    entriesContainer.outerHTML = `<div id="leaderboard-entries" class="space-y-3">${entriesHtml}${loadMoreHtml}</div>`;
+                    const newContainer = document.getElementById('leaderboard-entries');
+                    newContainer.style.opacity = '0';
+                    setTimeout(() => {
+                        newContainer.style.transition = 'opacity 0.3s ease-in-out';
+                        newContainer.style.opacity = '1';
+                        
+                        // Add load more event listener
+                        this.initializeLoadMoreButton();
+                        
+                        // Initialize comparison checkboxes if in comparison mode
+                        if (this.comparisonMode) {
+                            this.updateSelectionDisplay();
+                        }
+                    }, 50);
+                }, 150);
+            }
+        }
+    }
+    
+    generateEntriesHtml(entries, isContributors) {
+        return entries.map(entry => {
+            if (isContributors) {
+                return this.generateContributorEntryHtml(entry);
+            } else {
+                return this.generateCouncilEntryHtml(entry);
+            }
+        }).join('');
+    }
+    
+    generateContributorEntryHtml(entry) {
+        const rankBadgeClass = this.getRankBadgeClass(entry.rank);
+        return `
+            <div class="bg-white border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow duration-200">
+                <div class="flex items-center">
+                    <div class="flex-shrink-0 mr-4">
+                        <div class="w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold ${rankBadgeClass}">
+                            ${entry.rank}
+                        </div>
+                    </div>
+                    <div class="flex-1 min-w-0">
+                        <h3 class="font-semibold text-gray-900 truncate">${this.escapeHtml(entry.username || entry.council_name)}</h3>
+                        <div class="flex items-center gap-4 mt-1">
+                            <span class="text-sm text-gray-600 flex items-center gap-1">
+                                <svg class="w-4 h-4 text-yellow-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.915a1 1 0 00.95-.69l1.519-4.674z"></path>
+                                </svg>
+                                ${Number(entry.points || entry.value).toLocaleString()} points
+                            </span>
+                            ${entry.badge ? `<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">${this.escapeHtml(entry.badge)}</span>` : ''}
+                        </div>
+                    </div>
+                    <div class="flex-shrink-0 ml-4">
+                        <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+                        </svg>
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+    
+    generateCouncilEntryHtml(entry) {
+        const rankBadgeClass = this.getRankBadgeClass(entry.rank);
+        const councilSlug = entry.council_slug;
+        const displayValue = this.currentPerCapita ? 
+            `£${Number(entry.display_value).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}` :
+            `£${Number(entry.display_value).toLocaleString()}`;
+        
+        const isSelected = this.selectedCouncils.has(councilSlug);
+        const checkboxHtml = this.comparisonMode ? `
+            <div class="flex-shrink-0 mr-3">
+                <input type="checkbox" 
+                       class="council-checkbox w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500"
+                       data-council-slug="${councilSlug}"
+                       data-council-name="${this.escapeHtml(entry.council_name)}"
+                       ${isSelected ? 'checked' : ''}
+                       onclick="event.stopPropagation()">
+            </div>
+        ` : '';
+        
+        // Generate rank change indicator
+        const rankChangeHtml = this.generateRankChangeIndicator(entry);
+        
+        const linkClass = this.comparisonMode ? 'pointer-events-none' : 'block group';
+        const containerClass = this.comparisonMode ? 
+            `bg-white border border-gray-200 rounded-lg p-4 transition-all duration-200 cursor-pointer ${isSelected ? 'border-blue-500 bg-blue-50' : 'hover:shadow-md hover:border-gray-300'}` :
+            'bg-white border border-gray-200 rounded-lg p-4 hover:shadow-md hover:border-gray-300 transition-all duration-200';
+        
+        // Enhanced council detail link with leaderboard context
+        const contextParams = new URLSearchParams({
+            from: 'leaderboard',
+            category: this.currentCategory,
+            rank: entry.rank,
+            ...(this.currentYear && { year: this.currentYear }),
+            ...(this.currentPerCapita && { per_capita: 'true' })
+        });
+        const enhancedUrl = `/councils/${councilSlug}/?${contextParams}`;
+        
+        return `
+            <a href="${enhancedUrl}" class="${linkClass}">
+                <div class="${containerClass}" data-council-slug="${councilSlug}">
+                    <div class="flex items-center">
+                        ${checkboxHtml}
+                        <div class="flex-shrink-0 mr-4 relative">
+                            <div class="w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold ${rankBadgeClass}">
+                                ${entry.rank}
+                            </div>
+                            ${rankChangeHtml}
+                        </div>
+                        <div class="flex-1 min-w-0">
+                            <h3 class="font-semibold text-gray-900 truncate">${this.escapeHtml(entry.council_name)}</h3>
+                            <div class="flex flex-wrap items-center gap-x-4 gap-y-1 mt-1">
+                                ${entry.council_type ? `
+                                    <span class="text-sm text-gray-600 flex items-center gap-1">
+                                        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 21h18m-2 0V7l-8-4-8 4v14m2 0h12m-6 0v-6h4v6"></path>
+                                        </svg>
+                                        ${this.escapeHtml(entry.council_type)}
+                                    </span>
+                                ` : ''}
+                                ${entry.council_nation ? `
+                                    <span class="text-sm text-gray-500 flex items-center gap-1">
+                                        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path>
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                                        </svg>
+                                        ${this.escapeHtml(entry.council_nation)}
+                                    </span>
+                                ` : ''}
+                                ${this.currentPerCapita && entry.population ? `
+                                    <span class="text-sm text-gray-500 flex items-center gap-1">
+                                        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path>
+                                        </svg>
+                                        ${Number(entry.population).toLocaleString()} residents
+                                    </span>
+                                ` : ''}
+                            </div>
+                        </div>
+                        <div class="flex-shrink-0 text-right mx-4">
+                            <div class="font-bold text-gray-900">
+                                ${displayValue}
+                                ${this.currentPerCapita ? '<span class="text-xs font-normal text-gray-600 block">per capita</span>' : ''}
+                            </div>
+                            ${this.currentPerCapita && entry.value !== entry.display_value ? `
+                                <div class="text-sm text-gray-500 mt-1">
+                                    Total: £${Number(entry.value).toLocaleString()}
+                                </div>
+                            ` : ''}
+                            ${entry.percentile ? `
+                                <div class="text-xs text-gray-400 mt-1">
+                                    ${Math.round(entry.percentile)}th percentile
+                                </div>
+                            ` : ''}
+                        </div>
+                        <div class="flex-shrink-0" title="View council details with leaderboard rank #${entry.rank}">
+                            <svg class="w-5 h-5 text-gray-400 group-hover:text-blue-600 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+                            </svg>
+                        </div>
+                    </div>
+                </div>
+            </a>
+        `;
+    }
+    
+    getRankBadgeClass(rank) {
+        switch(rank) {
+            case 1: return 'bg-yellow-400 text-yellow-900';
+            case 2: return 'bg-gray-300 text-gray-800';
+            case 3: return 'bg-orange-400 text-orange-900';
+            default: return 'bg-gray-100 text-gray-700';
+        }
+    }
+    
+    generateRankChangeIndicator(entry) {
+        const councilSlug = entry.council_slug;
+        const currentRank = entry.rank;
+        const cacheKey = `${this.currentCategory}-${this.currentPerCapita}`;
+        const previousRank = this.previousRankings.get(`${councilSlug}-${cacheKey}`);
+        
+        // No previous rank data available
+        if (previousRank === undefined || previousRank === currentRank) {
+            return '';
+        }
+        
+        const rankChange = previousRank - currentRank; // Positive = moved up, negative = moved down
+        const isImprovement = rankChange > 0;
+        const changeSize = Math.abs(rankChange);
+        
+        // Don't show indicator for small changes (1-2 positions)
+        if (changeSize < 3) {
+            return '';
+        }
+        
+        const arrowIcon = isImprovement ? 
+            `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 11l5-5m0 0l5 5m-5-5v12"></path>` :
+            `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 13l-5 5m0 0l-5-5m5 5V6"></path>`;
+        
+        const colorClass = isImprovement ? 'text-green-600' : 'text-red-600';
+        const bgClass = isImprovement ? 'bg-green-100' : 'bg-red-100';
+        const animationClass = 'animate-bounce-gentle';
+        
+        return `
+            <div class="absolute -top-1 -right-1 ${bgClass} rounded-full p-1 ${animationClass}" 
+                 title="${isImprovement ? 'Moved up' : 'Moved down'} ${changeSize} position${changeSize > 1 ? 's' : ''}">
+                <svg class="w-3 h-3 ${colorClass}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    ${arrowIcon}
+                </svg>
+            </div>
+        `;
+    }
+    
+    updateRankingsHistory(entries, category) {
+        const cacheKey = `${category}-${this.currentPerCapita}`;
+        
+        // Store current rankings as previous rankings for next update
+        entries.forEach(entry => {
+            const councilKey = `${entry.council_slug}-${cacheKey}`;
+            this.previousRankings.set(councilKey, entry.rank);
+        });
+        
+        // Clear rank change animations after they've been seen
+        setTimeout(() => {
+            this.clearRankChangeAnimations();
+        }, 5000); // Show animations for 5 seconds
+    }
+    
+    clearRankChangeAnimations() {
+        // Remove bounce animations from rank change indicators
+        document.querySelectorAll('.animate-bounce-gentle').forEach(element => {
+            element.classList.remove('animate-bounce-gentle');
+        });
+    }
+    
+    updateControlsBar(data, category) {
+        // Update category description and stats
+        const categoryDescElement = document.querySelector('.bg-gray-50 .text-lg');
+        if (categoryDescElement && data.category_name) {
+            categoryDescElement.textContent = data.category_name;
+        }
+        
+        const statsElement = document.querySelector('[id*="stats"]');
+        if (statsElement && data.entries) {
+            statsElement.innerHTML = `${data.entries.length} of ${data.total_count || data.entries.length} ${category === 'contributors' ? 'contributors' : 'councils'}${data.year ? ' • ' + data.year : ''}`;
+        }
+    }
+    
+    updateNavigation(category) {
+        // Update active category in navigation
+        document.querySelectorAll('nav a[href*="category="]').forEach(link => {
+            const url = new URL(link.href);
+            const linkCategory = url.searchParams.get('category');
+            
+            if (linkCategory === category) {
+                link.setAttribute('aria-current', 'page');
+                link.className = link.className.replace(/bg-white.*?border-gray-300/, 'bg-blue-600 text-white shadow-sm');
+            } else {
+                link.removeAttribute('aria-current');
+                link.className = link.className.replace(/bg-blue-600.*?shadow-sm/, 'bg-white text-gray-700 border border-gray-200 hover:bg-gray-50 hover:border-gray-300');
+            }
+        });
+    }
+    
+    updateURL(category, year, perCapita) {
+        const params = new URLSearchParams();
+        params.set('category', category);
+        if (year) params.set('year', year);
+        if (perCapita) params.set('per_capita', 'true');
+        
+        const newUrl = `${window.location.pathname}?${params}`;
+        window.history.replaceState({category, year, perCapita}, '', newUrl);
+    }
+    
+    showLoadingState(message = 'Loading...') {
+        this.isLoading = true;
+        
+        // Remove existing overlay
+        const existing = document.getElementById('loading-overlay');
+        if (existing) existing.remove();
+        
         const overlay = document.createElement('div');
-        overlay.className = 'fixed inset-0 bg-white bg-opacity-75 flex items-center justify-center z-50';
+        overlay.id = 'loading-overlay';
+        overlay.className = 'fixed inset-0 bg-white bg-opacity-90 flex items-center justify-center z-50';
         overlay.innerHTML = `
             <div class="flex items-center space-x-3">
                 <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-                <span class="text-gray-700 font-medium">Loading...</span>
+                <span class="text-gray-700 font-medium">${this.escapeHtml(message)}</span>
             </div>
         `;
         document.body.appendChild(overlay);
     }
     
-    // Category navigation with loading states
-    document.addEventListener('DOMContentLoaded', function() {
-        const categoryLinks = document.querySelectorAll('nav a[href*="category="]');
-        categoryLinks.forEach(link => {
-            link.addEventListener('click', function(e) {
-                if (!this.getAttribute('aria-current')) {
-                    addLoadingState();
+    hideLoadingState() {
+        this.isLoading = false;
+        const overlay = document.getElementById('loading-overlay');
+        if (overlay) {
+            overlay.style.opacity = '0';
+            setTimeout(() => overlay.remove(), 200);
+        }
+    }
+    
+    showEmptyState(category) {
+        const mainContent = document.getElementById('leaderboard-main-content');
+        const emptyStateHtml = `
+            <div id="leaderboard-empty-state" class="text-center py-16">
+                <div class="mx-auto w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mb-4">
+                    <svg class="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+                    </svg>
+                </div>
+                <h3 class="text-lg font-medium text-gray-900 mb-2">No data available</h3>
+                <p class="text-gray-600 mb-4">
+                    ${category === 'contributors' ? 'No contributors found.' : `No data available for ${this.getCategoryDisplayName(category)}.`}
+                </p>
+                ${this.currentYear && category !== 'contributors' ? '<p class="text-sm text-gray-500">Try selecting a different year or category.</p>' : ''}
+            </div>
+        `;
+        
+        const container = document.getElementById('leaderboard-entries') || document.getElementById('leaderboard-empty-state');
+        if (container) {
+            container.outerHTML = emptyStateHtml;
+        }
+    }
+    
+    showErrorState(message) {
+        const errorHtml = `
+            <div id="leaderboard-error-state" class="text-center py-16">
+                <div class="mx-auto w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mb-4">
+                    <svg class="w-8 h-8 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    </svg>
+                </div>
+                <h3 class="text-lg font-medium text-gray-900 mb-2">Error Loading Data</h3>
+                <p class="text-gray-600 mb-4">${this.escapeHtml(message)}</p>
+                <button onclick="window.location.reload()" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700">
+                    Try Again
+                </button>
+            </div>
+        `;
+        
+        const container = document.getElementById('leaderboard-entries') || 
+                         document.getElementById('leaderboard-empty-state') ||
+                         document.getElementById('leaderboard-error-state');
+        if (container) {
+            container.outerHTML = errorHtml;
+        }
+    }
+    
+    getCategoryDisplayName(category) {
+        const categories = {
+            'contributors': 'Top Contributors',
+            'total-debt': 'Total Debt',
+            'interest-payments': 'Interest Payments',
+            'current-liabilities': 'Current Liabilities',
+            'long-term-liabilities': 'Long-term Liabilities',
+            'reserves-balances': 'Reserves & Balances',
+            'council-tax-income': 'Council Tax Income',
+            'lowest-debt': 'Lowest Debt',
+            'lowest-interest': 'Lowest Interest Payments'
+        };
+        return categories[category] || category;
+    }
+    
+    loadCategoryByIndex(index) {
+        const categories = ['contributors', 'total-debt', 'interest-payments', 'current-liabilities', 
+                          'long-term-liabilities', 'reserves-balances', 'council-tax-income', 
+                          'lowest-debt', 'lowest-interest'];
+        
+        if (index >= 0 && index < categories.length) {
+            this.loadCategory(categories[index]);
+        }
+    }
+    
+    preloadAdjacentCategories() {
+        // Preload data for better user experience
+        const categories = ['contributors', 'total-debt', 'interest-payments', 'current-liabilities', 
+                          'long-term-liabilities', 'reserves-balances', 'council-tax-income', 
+                          'lowest-debt', 'lowest-interest'];
+        
+        const currentIndex = categories.indexOf(this.currentCategory);
+        const toPreload = [];
+        
+        // Add adjacent categories
+        if (currentIndex > 0) toPreload.push(categories[currentIndex - 1]);
+        if (currentIndex < categories.length - 1) toPreload.push(categories[currentIndex + 1]);
+        
+        // Preload in background
+        toPreload.forEach(category => {
+            setTimeout(() => {
+                this.fetchLeaderboardData(category, this.currentYear, this.currentPerCapita).catch(() => {
+                    // Ignore preload errors
+                });
+            }, 500);
+        });
+    }
+    
+    generateLoadMoreHtml() {
+        const remaining = this.totalEntries - this.loadedEntries;
+        return `
+            <div id="load-more-section" class="text-center py-6">
+                <button id="load-more-btn" 
+                        class="inline-flex items-center px-6 py-3 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 transition-colors shadow-sm">
+                    <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 14l-7 7m0 0l-7-7m7 7V3"></path>
+                    </svg>
+                    Load ${Math.min(10, remaining)} more entries
+                </button>
+                <p class="text-xs text-gray-500 mt-2">
+                    Showing ${this.loadedEntries} of ${this.totalEntries} entries
+                </p>
+            </div>
+        `;
+    }
+    
+    initializeLoadMoreButton() {
+        const loadMoreBtn = document.getElementById('load-more-btn');
+        if (loadMoreBtn) {
+            loadMoreBtn.addEventListener('click', () => {
+                this.loadMoreEntries();
+            });
+        }
+    }
+    
+    async loadMoreEntries() {
+        const cacheKey = `${this.currentCategory}-${this.currentYear}-${this.currentPerCapita}`;
+        const cachedData = this.cache.get(cacheKey);
+        
+        if (!cachedData || !cachedData.success || !cachedData.data) {
+            return;
+        }
+        
+        const data = cachedData.data;
+        const allEntries = data.entries || [];
+        
+        // Calculate next batch
+        const startIndex = this.loadedEntries;
+        const endIndex = Math.min(startIndex + 10, allEntries.length);
+        const newEntries = allEntries.slice(startIndex, endIndex);
+        
+        if (newEntries.length === 0) return;
+        
+        // Update loaded count
+        this.loadedEntries = endIndex;
+        
+        // Show loading state for the button
+        const loadMoreBtn = document.getElementById('load-more-btn');
+        if (loadMoreBtn) {
+            loadMoreBtn.innerHTML = `
+                <div class="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600 mr-2"></div>
+                Loading...
+            `;
+            loadMoreBtn.disabled = true;
+        }
+        
+        // Simulate network delay for smooth UX
+        setTimeout(() => {
+            // Generate HTML for new entries
+            const newEntriesHtml = this.generateEntriesHtml(newEntries, this.currentCategory === 'contributors');
+            
+            // Append to existing container
+            const container = document.getElementById('leaderboard-entries');
+            const loadMoreSection = document.getElementById('load-more-section');
+            
+            if (container && loadMoreSection) {
+                // Remove old load more section
+                loadMoreSection.remove();
+                
+                // Add new entries with fade-in animation
+                const tempDiv = document.createElement('div');
+                tempDiv.innerHTML = newEntriesHtml;
+                tempDiv.style.opacity = '0';
+                tempDiv.style.transition = 'opacity 0.5s ease-in-out';
+                
+                while (tempDiv.firstChild) {
+                    container.appendChild(tempDiv.firstChild);
                 }
+                
+                // Add new load more button if needed
+                const hasMore = this.loadedEntries < this.totalEntries;
+                if (hasMore) {
+                    container.insertAdjacentHTML('beforeend', this.generateLoadMoreHtml());
+                    this.initializeLoadMoreButton();
+                }
+                
+                // Trigger fade-in
+                setTimeout(() => {
+                    tempDiv.style.opacity = '1';
+                }, 50);
+            }
+        }, 300); // 300ms delay for better UX
+    }
+    
+    initializeChart() {
+        // Show chart section for financial categories
+        if (this.currentCategory !== 'contributors') {
+            document.getElementById('leaderboard-chart-section').classList.remove('hidden');
+        }
+    }
+    
+    toggleChart() {
+        const chartContainer = document.getElementById('chart-container');
+        const chartToggleBtn = document.getElementById('chart-toggle-btn');
+        const chartTypeSelect = document.getElementById('chart-type-select');
+        
+        if (this.chartVisible) {
+            // Hide chart
+            chartContainer.classList.add('hidden');
+            chartTypeSelect.classList.add('hidden');
+            chartToggleBtn.innerHTML = `
+                <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+                </svg>
+                <span>Show Chart</span>
+            `;
+            this.chartVisible = false;
+            
+            if (this.chart) {
+                this.chart.destroy();
+                this.chart = null;
+            }
+        } else {
+            // Show chart
+            chartContainer.classList.remove('hidden');
+            chartTypeSelect.classList.remove('hidden');
+            chartToggleBtn.innerHTML = `
+                <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.878 9.878L3 3m6.878 6.878L12 12m-3-3a3 3 0 013-3 3 3 0 013 3m-3 3a3 3 0 01-3-3"></path>
+                </svg>
+                <span>Hide Chart</span>
+            `;
+            this.chartVisible = true;
+            
+            // Create chart with current data
+            this.createChart();
+        }
+    }
+    
+    async createChart(type = 'bar') {
+        if (!this.chartVisible) return;
+        
+        const cacheKey = `${this.currentCategory}-${this.currentYear}-${this.currentPerCapita}`;
+        const cachedData = this.cache.get(cacheKey);
+        
+        if (!cachedData || !cachedData.success || !cachedData.data) {
+            return;
+        }
+        
+        const data = cachedData.data;
+        const entries = data.entries || [];
+        
+        if (entries.length === 0) return;
+        
+        // Prepare chart data
+        const labels = entries.map(entry => entry.council_name || entry.username || 'Unknown');
+        const values = entries.map(entry => parseFloat(entry.display_value) || 0);
+        const colors = this.generateChartColors(entries.length);
+        
+        const chartData = {
+            labels: labels,
+            datasets: [{
+                label: data.category_name || 'Values',
+                data: values,
+                backgroundColor: type === 'doughnut' ? colors.background : colors.background[0],
+                borderColor: type === 'doughnut' ? colors.border : colors.border[0],
+                borderWidth: 1
+            }]
+        };
+        
+        const chartOptions = {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                title: {
+                    display: true,
+                    text: `${data.category_name}${this.currentPerCapita ? ' (Per Capita)' : ''}${data.year ? ' - ' + data.year : ''}`,
+                    font: {
+                        size: 16,
+                        weight: 'bold'
+                    }
+                },
+                legend: {
+                    display: type === 'doughnut',
+                    position: 'right'
+                }
+            },
+            scales: type !== 'doughnut' ? {
+                y: {
+                    beginAtZero: true,
+                    ticks: {
+                        callback: function(value) {
+                            return '£' + value.toLocaleString();
+                        }
+                    }
+                },
+                x: {
+                    ticks: {
+                        maxRotation: 45,
+                        minRotation: 0
+                    }
+                }
+            } : {}
+        };
+        
+        // Destroy existing chart
+        if (this.chart) {
+            this.chart.destroy();
+        }
+        
+        // Create new chart
+        const ctx = document.getElementById('leaderboard-chart').getContext('2d');
+        this.chart = new Chart(ctx, {
+            type: type,
+            data: chartData,
+            options: chartOptions
+        });
+    }
+    
+    updateChartType(type) {
+        if (this.chartVisible && this.chart) {
+            this.createChart(type);
+        }
+    }
+    
+    generateChartColors(count) {
+        const baseColors = [
+            { bg: 'rgba(59, 130, 246, 0.8)', border: 'rgb(59, 130, 246)' },   // Blue
+            { bg: 'rgba(16, 185, 129, 0.8)', border: 'rgb(16, 185, 129)' },   // Green
+            { bg: 'rgba(245, 158, 11, 0.8)', border: 'rgb(245, 158, 11)' },   // Yellow
+            { bg: 'rgba(239, 68, 68, 0.8)', border: 'rgb(239, 68, 68)' },     // Red
+            { bg: 'rgba(139, 92, 246, 0.8)', border: 'rgb(139, 92, 246)' },   // Purple
+            { bg: 'rgba(236, 72, 153, 0.8)', border: 'rgb(236, 72, 153)' },   // Pink
+            { bg: 'rgba(14, 165, 233, 0.8)', border: 'rgb(14, 165, 233)' },   // Sky
+            { bg: 'rgba(34, 197, 94, 0.8)', border: 'rgb(34, 197, 94)' },     // Emerald
+            { bg: 'rgba(251, 146, 60, 0.8)', border: 'rgb(251, 146, 60)' },   // Orange
+        ];
+        
+        const backgrounds = [];
+        const borders = [];
+        
+        for (let i = 0; i < count; i++) {
+            const color = baseColors[i % baseColors.length];
+            backgrounds.push(color.bg);
+            borders.push(color.border);
+        }
+        
+        return {
+            background: backgrounds,
+            border: borders
+        };
+    }
+    
+    initializeComparison() {
+        // Show comparison controls for financial categories
+        if (this.currentCategory !== 'contributors') {
+            document.getElementById('comparison-controls').classList.remove('hidden');
+        }
+        
+        // Add event listeners for comparison controls
+        const comparisonToggleBtn = document.getElementById('comparison-toggle-btn');
+        if (comparisonToggleBtn) {
+            comparisonToggleBtn.addEventListener('click', () => {
+                this.toggleComparisonMode();
+            });
+        }
+        
+        const compareSelectedBtn = document.getElementById('compare-selected-btn');
+        if (compareSelectedBtn) {
+            compareSelectedBtn.addEventListener('click', () => {
+                this.compareSelected();
+            });
+        }
+        
+        const clearSelectionBtn = document.getElementById('clear-selection-btn');
+        if (clearSelectionBtn) {
+            clearSelectionBtn.addEventListener('click', () => {
+                this.clearSelection();
+            });
+        }
+    }
+    
+    toggleComparisonMode() {
+        this.comparisonMode = !this.comparisonMode;
+        
+        const toggleBtn = document.getElementById('comparison-toggle-btn');
+        const selectedCount = document.getElementById('selected-count');
+        const comparisonActions = document.getElementById('comparison-actions');
+        
+        if (this.comparisonMode) {
+            // Enable comparison mode
+            toggleBtn.innerHTML = `
+                <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                </svg>
+                <span>Disable Comparison</span>
+            `;
+            toggleBtn.className = toggleBtn.className.replace('text-blue-700 bg-white hover:bg-blue-50', 'text-red-700 bg-red-50 hover:bg-red-100');
+            
+            selectedCount.classList.remove('hidden');
+            comparisonActions.classList.remove('hidden');
+            
+            // Refresh content to show checkboxes
+            this.refreshCurrentView();
+            
+        } else {
+            // Disable comparison mode
+            toggleBtn.innerHTML = `
+                <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3"></path>
+                </svg>
+                <span>Enable Comparison</span>
+            `;
+            toggleBtn.className = toggleBtn.className.replace('text-red-700 bg-red-50 hover:bg-red-100', 'text-blue-700 bg-white hover:bg-blue-50');
+            
+            selectedCount.classList.add('hidden');
+            comparisonActions.classList.add('hidden');
+            
+            // Clear selections and refresh
+            this.clearSelection();
+            this.refreshCurrentView();
+        }
+    }
+    
+    refreshCurrentView() {
+        const cacheKey = `${this.currentCategory}-${this.currentYear}-${this.currentPerCapita}`;
+        const cachedData = this.cache.get(cacheKey);
+        
+        if (cachedData) {
+            this.updateLeaderboardContent(cachedData, this.currentCategory);
+        }
+    }
+    
+    updateSelectionDisplay() {
+        const selectedCount = document.getElementById('selected-count');
+        const compareBtn = document.getElementById('compare-selected-btn');
+        const count = this.selectedCouncils.size;
+        
+        if (selectedCount) {
+            selectedCount.textContent = `${count} council${count !== 1 ? 's' : ''} selected`;
+        }
+        
+        if (compareBtn) {
+            compareBtn.disabled = count < 2;
+        }
+        
+        // Add event listeners to checkboxes
+        document.querySelectorAll('.council-checkbox').forEach(checkbox => {
+            checkbox.addEventListener('change', (e) => {
+                const councilSlug = e.target.dataset.councilSlug;
+                const councilName = e.target.dataset.councilName;
+                
+                if (e.target.checked) {
+                    this.selectedCouncils.add(councilSlug);
+                    // Update visual state
+                    const container = document.querySelector(`[data-council-slug="${councilSlug}"]`);
+                    if (container) {
+                        container.className = container.className.replace('hover:shadow-md hover:border-gray-300', 'border-blue-500 bg-blue-50');
+                    }
+                } else {
+                    this.selectedCouncils.delete(councilSlug);
+                    // Update visual state
+                    const container = document.querySelector(`[data-council-slug="${councilSlug}"]`);
+                    if (container) {
+                        container.className = container.className.replace('border-blue-500 bg-blue-50', 'hover:shadow-md hover:border-gray-300');
+                    }
+                }
+                
+                this.updateSelectionDisplay();
             });
         });
+    }
+    
+    clearSelection() {
+        this.selectedCouncils.clear();
         
-        // Smooth scroll to top on page load
-        if (window.location.search.includes('category=')) {
-            window.scrollTo({ top: 0, behavior: 'smooth' });
+        // Uncheck all checkboxes
+        document.querySelectorAll('.council-checkbox').forEach(checkbox => {
+            checkbox.checked = false;
+        });
+        
+        // Update visual states
+        document.querySelectorAll('[data-council-slug]').forEach(container => {
+            if (container.className.includes('border-blue-500')) {
+                container.className = container.className.replace('border-blue-500 bg-blue-50', 'hover:shadow-md hover:border-gray-300');
+            }
+        });
+        
+        this.updateSelectionDisplay();
+    }
+    
+    compareSelected() {
+        if (this.selectedCouncils.size < 2) {
+            alert('Please select at least 2 councils to compare.');
+            return;
         }
-    });
+        
+        // Get selected council data
+        const cacheKey = `${this.currentCategory}-${this.currentYear}-${this.currentPerCapita}`;
+        const cachedData = this.cache.get(cacheKey);
+        
+        if (!cachedData || !cachedData.success || !cachedData.data) {
+            alert('Error: Unable to load comparison data. Please try again.');
+            return;
+        }
+        
+        const allEntries = cachedData.data.entries || [];
+        const selectedEntries = allEntries.filter(entry => 
+            this.selectedCouncils.has(entry.council_slug)
+        );
+        
+        if (selectedEntries.length < 2) {
+            alert('Error: Unable to find selected council data. Please try again.');
+            return;
+        }
+        
+        // Create comparison modal
+        this.showComparisonModal(selectedEntries, cachedData.data);
+    }
+    
+    showComparisonModal(entries, categoryData) {
+        // Create modal HTML
+        const modalHtml = `
+            <div id="comparison-modal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+                <div class="relative top-20 mx-auto p-5 border w-11/12 max-w-6xl shadow-lg rounded-md bg-white">
+                    <div class="mt-3">
+                        <div class="flex items-center justify-between mb-6">
+                            <h3 class="text-lg font-bold text-gray-900">
+                                ${categoryData.category_name} Comparison
+                                ${categoryData.year ? ` - ${categoryData.year}` : ''}
+                            </h3>
+                            <button id="close-modal" class="text-gray-400 hover:text-gray-600">
+                                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                                </svg>
+                            </button>
+                        </div>
+                        
+                        <div class="overflow-x-auto">
+                            <table class="min-w-full divide-y divide-gray-200">
+                                <thead class="bg-gray-50">
+                                    <tr>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Rank</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Council</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Value</th>
+                                        ${this.currentPerCapita ? '<th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Per Capita</th>' : ''}
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Percentile</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="bg-white divide-y divide-gray-200">
+                                    ${entries.map(entry => `
+                                        <tr>
+                                            <td class="px-6 py-4 whitespace-nowrap">
+                                                <div class="flex items-center">
+                                                    <div class="w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${this.getRankBadgeClass(entry.rank)}">
+                                                        ${entry.rank}
+                                                    </div>
+                                                </div>
+                                            </td>
+                                            <td class="px-6 py-4 whitespace-nowrap">
+                                                <div class="text-sm font-medium text-gray-900">${this.escapeHtml(entry.council_name)}</div>
+                                                <div class="text-sm text-gray-500">${this.escapeHtml(entry.council_type || '')}</div>
+                                            </td>
+                                            <td class="px-6 py-4 whitespace-nowrap">
+                                                <div class="text-sm font-bold text-gray-900">
+                                                    £${Number(entry.value).toLocaleString()}
+                                                </div>
+                                            </td>
+                                            ${this.currentPerCapita ? `
+                                                <td class="px-6 py-4 whitespace-nowrap">
+                                                    <div class="text-sm text-gray-900">
+                                                        £${Number(entry.display_value).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}
+                                                    </div>
+                                                </td>
+                                            ` : ''}
+                                            <td class="px-6 py-4 whitespace-nowrap">
+                                                <div class="text-sm text-gray-900">
+                                                    ${entry.percentile ? Math.round(entry.percentile) + 'th' : 'N/A'}
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    `).join('')}
+                                </tbody>
+                            </table>
+                        </div>
+                        
+                        <div class="mt-6 flex justify-end gap-3">
+                            <button id="export-comparison" class="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
+                                <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                                </svg>
+                                Export
+                            </button>
+                            <button id="close-comparison" class="inline-flex items-center px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-md hover:bg-blue-700">
+                                Close
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        // Add modal to DOM
+        document.body.insertAdjacentHTML('beforeend', modalHtml);
+        
+        // Add event listeners
+        document.getElementById('close-modal').addEventListener('click', this.closeComparisonModal);
+        document.getElementById('close-comparison').addEventListener('click', this.closeComparisonModal);
+        document.getElementById('export-comparison').addEventListener('click', () => {
+            this.exportComparison(entries, categoryData);
+        });
+        
+        // Close modal when clicking outside
+        document.getElementById('comparison-modal').addEventListener('click', (e) => {
+            if (e.target.id === 'comparison-modal') {
+                this.closeComparisonModal();
+            }
+        });
+    }
+    
+    closeComparisonModal() {
+        const modal = document.getElementById('comparison-modal');
+        if (modal) {
+            modal.remove();
+        }
+    }
+    
+    exportComparison(entries, categoryData) {
+        // Simple CSV export for now
+        const headers = ['Rank', 'Council', 'Value', ...(this.currentPerCapita ? ['Per Capita'] : []), 'Percentile'];
+        const rows = entries.map(entry => [
+            entry.rank,
+            entry.council_name,
+            Number(entry.value),
+            ...(this.currentPerCapita ? [Number(entry.display_value)] : []),
+            entry.percentile ? Math.round(entry.percentile) : 'N/A'
+        ]);
+        
+        const csvContent = [headers, ...rows]
+            .map(row => row.map(cell => `"${cell}"`).join(','))
+            .join('\\n');
+        
+        const blob = new Blob([csvContent], { type: 'text/csv' });
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `leaderboard-comparison-${categoryData.category.replace(/\\s+/g, '-').toLowerCase()}-${new Date().toISOString().split('T')[0]}.csv`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        window.URL.revokeObjectURL(url);
+    }
+    
+    escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+}
+
+// Initialize when DOM is ready
+document.addEventListener('DOMContentLoaded', function() {
+    // Initialize the enhanced leaderboard manager
+    window.leaderboardManager = new LeaderboardManager();
+    
+    // Show keyboard shortcuts hint
+    console.log('Leaderboard Keyboard Shortcuts:');
+    console.log('• Ctrl/Cmd + 1-9: Switch categories');
+    console.log('• Ctrl/Cmd + P: Toggle per capita');
+    
+    // Smooth scroll to top on page load
+    if (window.location.search.includes('category=')) {
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+});
+
+// Legacy function support for existing onclick handlers
+function togglePerCapita() {
+    if (window.leaderboardManager) {
+        window.leaderboardManager.togglePerCapita();
+    }
+}
+
+function changeYear(year) {
+    if (window.leaderboardManager) {
+        window.leaderboardManager.changeYear(year);
+    }
+}
 </script>
 {% endblock %}

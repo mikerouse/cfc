@@ -116,6 +116,22 @@ def council_detail(request, slug):
     if share_id and 'share_links' in request.session:
         share_data = request.session['share_links'].get(share_id)
     
+    # Handle leaderboard context parameters
+    leaderboard_context = None
+    if request.GET.get('from') == 'leaderboard':
+        leaderboard_context = {
+            'category': request.GET.get('category'),
+            'rank': request.GET.get('rank'),
+            'year': request.GET.get('year'),
+            'per_capita': request.GET.get('per_capita') == 'true'
+        }
+        # Validate rank is numeric
+        if leaderboard_context['rank']:
+            try:
+                leaderboard_context['rank'] = int(leaderboard_context['rank'])
+            except (ValueError, TypeError):
+                leaderboard_context['rank'] = None
+    
     # Get the current financial year
     current_year = current_financial_year_label()
     
@@ -282,6 +298,7 @@ def council_detail(request, slug):
         'is_following': is_following,
         'default_counter_slugs': default_counter_slugs,
         'share_data': share_data,
+        'leaderboard_context': leaderboard_context,
         'tab': tab,
         'edit_years': years,
         'edit_selected_year': selected_year,

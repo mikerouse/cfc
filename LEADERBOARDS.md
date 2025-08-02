@@ -85,16 +85,16 @@ The leaderboards system provides comprehensive rankings for both contributors an
 
 **Tasks:**
 1. **Interactive Features**
-   - [ ] AJAX-powered filtering without page reload
-   - [ ] Progressive loading for better performance
-   - [ ] "Compare Selected" functionality from rankings
+   - [x] AJAX-powered filtering without page reload
+   - [x] Progressive loading for better performance
+   - [x] "Compare Selected" functionality from rankings
    - [ ] Bookmarking and sharing specific views
 
 2. **Visual Enhancements**
-   - [ ] Chart.js integration for trend visualization
+   - [x] Chart.js integration for trend visualization
    - [ ] Progress bars showing council rankings
-   - [ ] Animated rank change indicators
-   - [ ] Council detail integration from rankings
+   - [x] Animated rank change indicators
+   - [x] Council detail integration from rankings
 
 ### Phase 3: Advanced Features
 
@@ -342,4 +342,25 @@ print(f'Total figures: {FinancialFigure.objects.count()}')
 
 ---
 
-**Next Update:** Phase 2 implementation - enhanced UX and interactive features
+**Phase 2 Implementation Details:**
+
+**Animated Rank Change Indicators (2025-08-02):**
+- Added `previousRankings` Map to track council positions between updates
+- Created `generateRankChangeIndicator()` method with visual up/down arrows
+- Shows green (improvement) or red (decline) indicators for rank changes ≥3 positions
+- Added custom CSS animation (`animate-bounce-gentle`) for 5-second gentle bounce effect
+- Indicators auto-clear after 5 seconds to avoid visual clutter
+- Tooltips show exact position change ("Moved up 5 positions")
+
+**Enhanced Council Detail Integration (2025-08-02):**
+- Modified leaderboard links to include context parameters: `from=leaderboard`, `category`, `rank`, `year`, `per_capita`
+- Enhanced council detail view (`councils.py`) to detect and process leaderboard context
+- Added leaderboard context banner on council detail pages showing:
+  - Current rank position in specific category
+  - Category name with proper formatting
+  - Year and per capita information
+  - "Back to Leaderboard" button maintaining state
+- Enhanced link hover states with group hover effects on arrow icons
+- Added tooltips to navigation arrows indicating enhanced functionality
+
+**Next Update:** Phase 2 remaining tasks - bookmarking and export dependencies
