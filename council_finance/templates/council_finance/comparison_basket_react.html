@@ -73,8 +73,10 @@
 
 {% block content %}
 <!-- React Comparison Basket Container -->
+<script type="application/json" id="comparison-basket-initial-data">
+{{ initial_data_json|safe }}
+</script>
 <div id="comparison-basket-react-root" 
-	 data-initial-data='{{ initial_data_json|safe }}'
 	 data-csrf-token="{{ csrf_token }}"
 	 data-react-timeout="10000">
 	
@@ -242,11 +244,27 @@ window.addEventListener('load', function() {
 		const comparisonBasketRoot = document.getElementById('comparison-basket-react-root');
 		if (comparisonBasketRoot && comparisonBasketRoot.hasAttribute('data-react-mounted')) {
 			// Parse initial data to check council count
-			const initialDataStr = comparisonBasketRoot.getAttribute('data-initial-data');
-			if (initialDataStr) {
+			// Try to get data from script tag first
+			const dataScript = document.getElementById('comparison-basket-initial-data');
+			let initialData = {};
+			if (dataScript) {
 				try {
-					const initialData = JSON.parse(initialDataStr);
-					const councilCount = (initialData.councils || []).length;
+					initialData = JSON.parse(dataScript.textContent);
+				} catch (e) {
+					console.error('Failed to parse initial data from script tag:', e);
+				}
+			} else {
+				// Fallback to data attribute
+				const initialDataStr = comparisonBasketRoot.getAttribute('data-initial-data');
+				if (initialDataStr) {
+					try {
+						initialData = JSON.parse(initialDataStr);
+					} catch (e) {
+						console.error('Failed to parse initial data from attribute:', e);
+					}
+				}
+			}
+			const councilCount = (initialData.councils || []).length;
 					
 					console.log(`🏛️ Compare page loaded with ${councilCount} councils`);
 					
