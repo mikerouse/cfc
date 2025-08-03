@@ -283,12 +283,26 @@ const ComparisonBasketApp = ({ initialData = {}, onComparisonToggle }) => {
 		}
 	}, [config.apiUrls.exportData, config.csrfToken, councils, selectedFields, selectedYears, showNotification]);
 
-	// Expose function to open comparison (called from header basket)
+	// Expose function to open comparison (called from header basket)  
 	useEffect(() => {
 		if (onComparisonToggle) {
+			// Mark React app as mounted
+			const root = document.getElementById('comparison-basket-react-root');
+			if (root) {
+				root.setAttribute('data-react-mounted', 'true');
+				console.log('✅ ComparisonBasketApp mounted successfully');
+			}
+
 			// Make toggle function available globally
 			window.openComparison = () => {
-				if (councils.length > 0) {
+				console.log(`🛒 openComparison called with ${councils.length} councils`);
+				
+				if (councils.length === 0) {
+					showNotification('Your comparison basket is empty. Add councils to compare by visiting council pages.', 'warning');
+				} else if (councils.length === 1) {
+					showNotification('Please add another council to compare', 'warning');
+				} else {
+					console.log('🚀 Showing comparison overlay');
 					setShowComparison(true);
 				}
 			};
@@ -298,7 +312,21 @@ const ComparisonBasketApp = ({ initialData = {}, onComparisonToggle }) => {
 				delete window.openComparison;
 			}
 		};
-	}, [councils.length, onComparisonToggle]);
+	}, [councils.length, onComparisonToggle, showNotification]);
+
+	// Auto-show comparison overlay when page loads with sufficient councils
+	useEffect(() => {
+		// Only auto-show if we're on the comparison page and have enough councils
+		if (onComparisonToggle && councils.length >= 2) {
+			// Small delay to ensure UI is ready
+			const timer = setTimeout(() => {
+				console.log('🚀 Auto-showing comparison overlay on page load');
+				setShowComparison(true);
+			}, 100);
+
+			return () => clearTimeout(timer);
+		}
+	}, [onComparisonToggle, councils.length]);
 
 	// Choose drag & drop backend based on device
 	const dndBackend = isMobile ? TouchBackend : HTML5Backend;

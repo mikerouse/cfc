@@ -139,7 +139,14 @@ function initializeReactApps() {
       // Parse data from template
       let initialData, csrfToken;
       try {
-        initialData = JSON.parse(comparisonBasketContainer.dataset.initialData || '{}');
+        // Try to get data from script tag first (safer for JSON embedding)
+        const dataScript = document.getElementById('comparison-basket-initial-data');
+        if (dataScript) {
+          initialData = JSON.parse(dataScript.textContent);
+        } else {
+          // Fallback to data attribute if script tag not found
+          initialData = JSON.parse(comparisonBasketContainer.dataset.initialData || '{}');
+        }
         csrfToken = comparisonBasketContainer.dataset.csrfToken || '';
         
         console.log('📊 Comparison Basket: Data parsed successfully', {
