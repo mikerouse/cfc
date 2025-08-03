@@ -14,6 +14,12 @@ from council_finance.models import (
 
 logger = logging.getLogger(__name__)
 
+
+class MissingDataError(Exception):
+    """Raised when a required field is missing from the dataset."""
+    pass
+
+
 class CounterAgent(AgentBase):
     """Simple counter that retrieves a figure for a council/year."""
     name = 'CounterAgent'
