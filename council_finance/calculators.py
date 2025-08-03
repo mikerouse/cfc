@@ -38,10 +38,20 @@ class FormulaEvaluator:
         for key, value in variables.items():
             if value is not None:
                 try:
-                    # Convert to float for calculations
-                    self.variables[key] = float(value)
+                    # Handle comma-formatted numbers
+                    if isinstance(value, str):
+                        # Skip obvious non-numeric fields like postcodes
+                        if any(char.isalpha() for char in str(value)) and not str(value).replace(',', '').replace('.', '').replace('-', '').isdigit():
+                            continue
+                        # Remove commas from formatted numbers
+                        clean_value = str(value).replace(',', '')
+                        self.variables[key] = float(clean_value)
+                    else:
+                        # Convert to float for calculations
+                        self.variables[key] = float(value)
                 except (ValueError, TypeError, InvalidOperation):
-                    logger.warning(f"Could not convert {key}={value} to number")
+                    # Silently skip non-numeric values to reduce noise
+                    pass
     
     def evaluate(self, formula: str) -> Optional[float]:
         """
@@ -87,7 +97,11 @@ class FormulaEvaluator:
             logger.warning(f"Formula evaluation error for '{formula}': {e}")
             return None
         except FormulaEvaluationError as e:
-            logger.error(f"Unsafe formula detected: '{formula}': {e}")
+            # Reduce noise - field references often fail due to missing data for specific councils
+            if "Unknown field reference" in str(e):
+                logger.debug(f"Formula evaluation skipped due to missing data: '{formula}': {e}")
+            else:
+                logger.error(f"Unsafe formula detected: '{formula}': {e}")
             return None
     
     def _clean_formula(self, formula: str) -> str:

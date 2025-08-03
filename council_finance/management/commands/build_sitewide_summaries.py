@@ -76,7 +76,7 @@ class Command(BaseCommand):
         if options['fields']:
             field_slugs = [slug.strip() for slug in options['fields'].split(',')]
         else:
-            # Default comparison fields for site-wide analysis
+            # Default comparison fields for site-wide analysis (only existing fields)
             field_slugs = [
                 'interest-paid',
                 'total-debt',
@@ -84,9 +84,9 @@ class Command(BaseCommand):
                 'long-term-liabilities',
                 'business-rates-income',
                 'council-tax-income',
-                'reserves-and-balances',
-                'employee-costs',
-                'housing-benefit-payments'
+                'usable-reserves',
+                'unusable-reserves',
+                # Note: employee-costs and housing-benefit-payments not yet available
             ]
         
         if options['all_years']:

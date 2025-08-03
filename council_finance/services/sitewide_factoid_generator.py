@@ -44,10 +44,10 @@ class SitewideFactoidGenerator(AIFactoidGenerator):
             'business-rates-income',
             'council-tax-income',
             'population',
-            # New fields for enhanced analysis
-            'reserves-and-balances',
-            'employee-costs',
-            'housing-benefit-payments'
+            # Use actual existing fields instead of planned ones
+            'usable-reserves',
+            'unusable-reserves',
+            # Note: employee-costs and housing-benefit-payments not yet available
         ]
         
     def generate_sitewide_factoids(self, limit: int = 3) -> List[Dict[str, Any]]:
