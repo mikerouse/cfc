@@ -13,9 +13,13 @@ from django.utils import timezone
 from django.urls import reverse
 from django.conf import settings
 import json
+import logging
+import traceback
 import urllib.parse
 from django.http import JsonResponse
 from uuid import uuid4
+
+logger = logging.getLogger(__name__)
 
 from council_finance.models import (
     Council, FinancialYear, 
@@ -680,8 +684,6 @@ def contribute_api(request):
         source = request.POST.get('source', '').strip()
         
         # Debug logging
-        import logging
-        logger = logging.getLogger(__name__)
         logger.info(f'Contribute API called with: field={field_slug}, year_id={year_id}, value={value}, source={source}')
         
         if not field_slug:
@@ -867,9 +869,6 @@ def contribute_api(request):
         })
         
     except Exception as e:
-        import logging
-        import traceback
-        logger = logging.getLogger(__name__)
         logger.error(f'Error in contribute_api: {str(e)}')
         logger.error(f'Traceback: {traceback.format_exc()}')
         return JsonResponse({

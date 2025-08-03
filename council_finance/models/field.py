@@ -1,6 +1,9 @@
 from django.db import models
 from django.core.exceptions import ValidationError
 from django.contrib.contenttypes.models import ContentType
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 # Built in slugs that represent core facts about a council. These are
@@ -229,9 +232,7 @@ class DataField(models.Model):
                 count = old_issues.count()
                 old_issues.delete()
                 
-                # You could add logging here if needed
-                import logging
-                logger = logging.getLogger(__name__)
+                # Log the cleanup operation
                 logger.info(f"Removed {count} DataIssue records for renamed field: {old_slug} -> {self.slug}")
 
     def delete(self, *args, **kwargs):

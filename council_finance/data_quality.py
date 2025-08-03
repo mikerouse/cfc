@@ -1,7 +1,10 @@
 from typing import Iterable
+import logging
 
 from django.db import transaction
 from django.db import models
+
+logger = logging.getLogger(__name__)
 
 from .models import (
     Council,
@@ -32,10 +35,8 @@ COUNCIL_ATTRS = {
 
 def cleanup_invalid_field_references() -> int:
     """Clean up references to non-existent or renamed fields."""
-    import logging
     removed_count = 0
     
-    logger = logging.getLogger(__name__)
     logger.info("Starting cleanup_invalid_field_references() routine ...")
     
     # Get all valid field IDs 
