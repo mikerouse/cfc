@@ -84,6 +84,14 @@ from .views.ai_factoid_management import (
     clear_sitewide_cache
 )
 
+# Import AI analytics dashboard views
+from .views.ai_analytics_dashboard import (
+    ai_analytics_dashboard,
+    usage_analytics_api,
+    cost_tracking_api,
+    create_performance_alert
+)
+
 # Import comparison API views
 from .api import comparison_api
 
@@ -325,6 +333,12 @@ urlpatterns = [
     path("ai-factoids/sitewide/", sitewide_factoid_inspector, name="sitewide_factoid_inspector"),
     path("ai-factoids/sitewide/test-generation/", test_sitewide_generation, name="test_sitewide_generation"),
     path("ai-factoids/sitewide/clear-cache/", clear_sitewide_cache, name="clear_sitewide_cache"),
+    
+    # AI Analytics Dashboard
+    path("ai-factoids/analytics/", ai_analytics_dashboard, name="ai_analytics_dashboard"),
+    path("ai-factoids/analytics/usage-api/", usage_analytics_api, name="usage_analytics_api"),
+    path("ai-factoids/analytics/cost-api/", cost_tracking_api, name="cost_tracking_api"),
+    path("ai-factoids/analytics/alerts/create/", create_performance_alert, name="create_performance_alert"),
     
     # Legacy AI Analysis endpoints removed - now using AI factoids instead
     path("api/ai-providers/<int:provider_id>/models/", api_views.provider_models_api, name="provider_models_api"),

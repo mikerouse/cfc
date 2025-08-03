@@ -72,6 +72,12 @@ from .image_file import (
     ImageFile,
     ImageFileHistory,
 )
+from .ai_usage_analytics import (
+    AIUsageLog,
+    DailyCostSummary,
+    CacheWarmupSchedule,
+    PerformanceAlert,
+)
 
 __all__ = [
     'Council',
@@ -132,4 +138,8 @@ __all__ = [
     'CouncilAIAnalysis',
     'ImageFile',
     'ImageFileHistory',
+    'AIUsageLog',
+    'DailyCostSummary',
+    'CacheWarmupSchedule',
+    'PerformanceAlert',
 ]

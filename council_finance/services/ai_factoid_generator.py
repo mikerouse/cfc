@@ -121,7 +121,8 @@ class AIFactoidGenerator:
         else:
             logger.warning("⚠️ OpenAI API key not found - AI factoids will use fallback")
     
-    def generate_insights(self, council_data: Dict, limit: int = 3, style: str = 'news_ticker') -> List[Dict]:
+    def generate_insights(self, council_data: Dict, limit: int = 3, style: str = 'news_ticker', 
+                         user=None, ip_address=None, user_agent=None, force_refresh=False) -> List[Dict]:
         """
         Generate AI factoids for a council using comprehensive data analysis.
         
@@ -129,10 +130,17 @@ class AIFactoidGenerator:
             council_data: Dictionary containing council and financial data
             limit: Maximum number of factoids to generate
             style: Style of factoids ('news_ticker', 'analytical', 'comparison')
+            user: User making the request (for analytics)
+            ip_address: IP address of the request (for analytics)
+            user_agent: User agent string (for analytics)
+            force_refresh: Whether this was a forced refresh (for analytics)
             
         Returns:
             List of factoid dictionaries with text and insight_type
         """
+        council = council_data['council']
+        start_time = timezone.now()
+        
         try:
             if not self.client:
                 logger.error("OpenAI client unavailable - cannot generate AI factoids")
@@ -156,15 +164,49 @@ class AIFactoidGenerator:
             factoids = self._parse_ai_response(response.choices[0].message.content)
             
             if factoids:
-                logger.info(f"🤖 Generated {len(factoids)} LIVE AI factoids for {council_data['council'].name}")
-                print(f"[AI-SUCCESS] Generated {len(factoids)} LIVE AI insights using OpenAI {self.model} for {council_data['council'].name}")
+                processing_time = (timezone.now() - start_time).total_seconds()
+                logger.info(f"🤖 Generated {len(factoids)} LIVE AI factoids for {council.name}")
+                print(f"[AI-SUCCESS] Generated {len(factoids)} LIVE AI insights using OpenAI {self.model} for {council.name}")
+                
+                # Log usage for analytics
+                self._log_usage(
+                    council=council,
+                    factoids_requested=limit,
+                    factoids_generated=len(factoids),
+                    processing_time=processing_time,
+                    style=style,
+                    force_refresh=force_refresh,
+                    success=True,
+                    user=user,
+                    ip_address=ip_address,
+                    user_agent=user_agent
+                )
+                
                 return factoids[:limit]  # Ensure we don't exceed limit
             else:
                 logger.error("🔄 AI response parsing failed")
                 raise Exception("Failed to parse AI response - invalid format")
                 
         except Exception as e:
+            processing_time = (timezone.now() - start_time).total_seconds()
             logger.error(f"❌ AI factoid generation failed: {str(e)}")
+            
+            # Log failed usage for analytics
+            self._log_usage(
+                council=council,
+                factoids_requested=limit,
+                factoids_generated=0,
+                processing_time=processing_time,
+                style=style,
+                force_refresh=force_refresh,
+                success=False,
+                error_type=type(e).__name__,
+                error_message=str(e),
+                user=user,
+                ip_address=ip_address,
+                user_agent=user_agent
+            )
+            
             # Re-raise the exception instead of generating fallback factoids
             raise
     
@@ -532,6 +574,46 @@ CRITICAL JSON RULES:
             print(f"  [FALLBACK-{i+1}] {factoid['text']}")
         
         return final_factoids
+    
+    def _log_usage(self, council, factoids_requested, factoids_generated, processing_time,
+                   style, force_refresh, success, error_type=None, error_message=None,
+                   user=None, ip_address=None, user_agent=None):
+        """Log AI usage for analytics and cost tracking."""
+        try:
+            from council_finance.models import AIUsageLog
+            
+            # Estimate tokens used (rough approximation)
+            estimated_tokens = factoids_requested * 200  # Approximate tokens per factoid
+            
+            # Calculate estimated cost
+            cost_per_1k = self._get_model_cost(self.model)
+            estimated_cost = (estimated_tokens / 1000) * cost_per_1k
+            
+            # Create usage log entry
+            AIUsageLog.objects.create(
+                council=council,
+                model_used=self.model,
+                factoids_requested=factoids_requested,
+                factoids_generated=factoids_generated,
+                processing_time_seconds=processing_time,
+                tokens_used=estimated_tokens,
+                estimated_cost=estimated_cost,
+                style=style,
+                force_refresh=force_refresh,
+                cache_hit=False,  # This is a live generation
+                success=success,
+                error_type=error_type or '',
+                error_message=error_message or '',
+                user=user,
+                ip_address=ip_address,
+                user_agent=user_agent or ''
+            )
+            
+            logger.debug(f"📊 Logged AI usage: {council.slug} - {factoids_generated} factoids - £{estimated_cost:.6f}")
+            
+        except Exception as e:
+            logger.error(f"Failed to log AI usage: {e}")
+            # Don't let logging errors break the main function
 
 
 class CouncilDataGatherer:
