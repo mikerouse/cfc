@@ -4,6 +4,7 @@
 {% block title %}{{ council.name }} - Council Finance Counters{% endblock %}
 
 {% block extra_scripts %}
+<script src="{% static 'js/auth-utils.js' %}"></script>
 <script src="{% static 'js/favourites.js' %}"></script>
 <script src="{% static 'js/ai-factoids.js' %}"></script>
 <!-- Flagging system is loaded globally in base.html -->
@@ -72,46 +73,47 @@
             </div>
           </div>
           
-          <!-- Action Buttons -->
-          {% if user.is_authenticated %}
-            <div class="flex flex-col sm:flex-row gap-3 lg:flex-shrink-0">
-              <!-- Add to Favourites Button -->
-              <button id="favourite-btn" 
-                      class="gov-uk-button {% if is_favourited %}gov-uk-button--warning{% else %}gov-uk-button--secondary{% endif %}"
-                      data-slug="{{ council.slug }}"
-                      data-favourited="{{ is_favourited|yesno:'true,false' }}">
-                <svg class="w-4 h-4 mr-2 flex-shrink-0" {% if is_favourited %}fill="currentColor"{% else %}fill="none"{% endif %} stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/>
-                </svg>
-                <span>{% if is_favourited %}Remove from Favourites{% else %}Add to Favourites{% endif %}</span>
-              </button>
-              
-              <!-- Follow Button -->
-              <button id="follow-btn" 
-                      class="gov-uk-button {% if is_following %}gov-uk-button--warning{% endif %}"
-                      data-following="{{ is_following|yesno:'true,false' }}" 
-                      data-slug="{{ council.slug }}">
-                <svg class="w-4 h-4 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  {% if is_following %}
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z"/>
-                  {% else %}
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/>
-                  {% endif %}
-                </svg>
-                <span>{% if is_following %}Unfollow{% else %}Follow{% endif %}</span>
-              </button>
-              
-              <!-- Compare Button -->
-              <button id="compare-btn" 
-                      class="gov-uk-button gov-uk-button--secondary"
-                      data-slug="{{ council.slug }}">
-                <svg class="w-4 h-4 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
-                </svg>
-                <span>Compare</span>
-              </button>
-            </div>
-          {% endif %}
+          <!-- Action Buttons - Always visible, with auth prompts for logged-out users -->
+          <div class="flex flex-col sm:flex-row gap-3 lg:flex-shrink-0">
+            <!-- Add to Favourites Button -->
+            <button id="favourite-btn" 
+                    class="gov-uk-button {% if user.is_authenticated and is_favourited %}gov-uk-button--warning{% else %}gov-uk-button--secondary{% endif %}"
+                    data-slug="{{ council.slug }}"
+                    data-favourited="{{ is_favourited|yesno:'true,false' }}"
+                    data-requires-auth="true">
+              <svg class="w-4 h-4 mr-2 flex-shrink-0" {% if user.is_authenticated and is_favourited %}fill="currentColor"{% else %}fill="none"{% endif %} stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/>
+              </svg>
+              <span>{% if user.is_authenticated and is_favourited %}Remove from Favourites{% else %}Add to Favourites{% endif %}</span>
+            </button>
+            
+            <!-- Follow Button -->
+            <button id="follow-btn" 
+                    class="gov-uk-button {% if user.is_authenticated and is_following %}gov-uk-button--warning{% endif %}"
+                    data-following="{{ is_following|yesno:'true,false' }}" 
+                    data-slug="{{ council.slug }}"
+                    data-requires-auth="true">
+              <svg class="w-4 h-4 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                {% if user.is_authenticated and is_following %}
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                {% else %}
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/>
+                {% endif %}
+              </svg>
+              <span>{% if user.is_authenticated and is_following %}Unfollow{% else %}Follow{% endif %}</span>
+            </button>
+            
+            <!-- Compare Button -->
+            <button id="compare-btn" 
+                    class="gov-uk-button gov-uk-button--secondary"
+                    data-slug="{{ council.slug }}"
+                    data-requires-auth="true">
+              <svg class="w-4 h-4 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
+              </svg>
+              <span>Compare</span>
+            </button>
+          </div>
         </div>
       </div>
       
@@ -596,17 +598,31 @@
 <script src="{% static 'js/factoid-playlist.js' %}"></script>
 
 <script>
+// Pass authentication status to JavaScript  
+window.djangoContext = {
+    isAuthenticated: {{ request.user.is_authenticated|yesno:"true,false" }},
+    userId: {{ request.user.id|default:"null" }}
+};
+
 document.addEventListener('DOMContentLoaded', function() {
 // All the existing JavaScript functionality from the original template
 // (keeping the same functions but with updated styling)
 
 function getCookie(name){const m=document.cookie.match('(^|;)\\s*'+name+'\\s*=\\s*([^;]+)');return m?m.pop():'';}
 
+// Authentication helper functions are now loaded from auth-utils.js
+
 // Follow button functionality  
 const followBtn=document.getElementById('follow-btn');
 if(followBtn){
   const csrftoken=getCookie('csrftoken');
   followBtn.addEventListener('click',()=>{
+    // Check authentication first
+    if (!checkAuthentication()) {
+      showLoginPrompt('follow councils');
+      return;
+    }
+    
     const slug=followBtn.dataset.slug;
     const following=followBtn.dataset.following==='true';
     const url=following?`/unfollow/${slug}/`:`/follow/${slug}/`;
@@ -630,10 +646,10 @@ if(followBtn){
         const svg = followBtn.querySelector('svg path');
         if(following) {
           // Show plus icon for Follow
-          svg.setAttribute('d', PLUS_ICON_PATH);
+          svg.setAttribute('d', 'M12 6v6m0 0v6m0-6h6m-6 0H6');
         } else {
           // Show minus icon for Unfollow  
-          svg.setAttribute('d', MINUS_ICON_PATH);
+          svg.setAttribute('d', 'M15 12H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z');
         }
       }
     }).catch(err => {
@@ -647,6 +663,12 @@ const compareBtn=document.getElementById('compare-btn');
 if(compareBtn){
   const csrftoken=getCookie('csrftoken');
   compareBtn.addEventListener('click',()=>{
+    // Check authentication first
+    if (!checkAuthentication()) {
+      showLoginPrompt('compare councils');
+      return;
+    }
+    
     const slug=compareBtn.dataset.slug;
     fetch(`/compare/add/${slug}/`,{
       method:'POST',

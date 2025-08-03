@@ -22,6 +22,12 @@ class FavouritesManager {
     }
     
     async toggleFavourite(button) {
+        // Check authentication first
+        if (!checkAuthentication()) {
+            showLoginPrompt('add councils to favourites');
+            return;
+        }
+        
         const councilSlug = button.dataset.slug;
         const isFavourited = button.dataset.favourited === 'true';
         
