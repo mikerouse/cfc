@@ -16,6 +16,7 @@ from django.core.cache import cache
 from django.utils import timezone
 from django.shortcuts import get_object_or_404
 from django.conf import settings
+from council_finance.utils.email_alerts import send_error_alert
 from rest_framework.decorators import api_view, throttle_classes, permission_classes
 from rest_framework.throttling import UserRateThrottle
 from rest_framework.response import Response
@@ -27,6 +28,67 @@ from council_finance.models import Council
 from council_finance.services.ai_factoid_generator import AIFactoidGenerator, CouncilDataGatherer
 
 logger = logging.getLogger(__name__)
+
+# Track quota notifications to avoid spam
+_quota_notification_cache_key = 'openai_quota_notification_sent'
+_quota_notification_cooldown = 3600  # 1 hour cooldown between notifications
+
+
+def notify_quota_exceeded(council, error, attempt_number):
+    """
+    Send email notification to admins when OpenAI quota is exceeded.
+    Uses cache to prevent spam - only sends one email per hour.
+    """
+    # Check if we've already sent a notification recently
+    if cache.get(_quota_notification_cache_key):
+        logger.info("Quota notification already sent recently, skipping email")
+        return
+        
+    try:
+        # Create a custom exception for the quota error
+        quota_exception = Exception(f"OpenAI Quota Exceeded: {str(error)}")
+        
+        # Add context for the error alert
+        context = {
+            'alert_type': 'OpenAI Quota Exceeded',
+            'council': f"{council.name} ({council.slug})",
+            'attempt': f"{attempt_number} of 3",
+            'error_details': str(error),
+            'impact': 'AI factoid generation is failing for all councils',
+            'current_behavior': 'System is serving cached AI factoids where available',
+            'user_impact': 'Users without cached factoids see "being generated" message',
+            'suggested_action': '''
+To resolve OpenAI quota exceeded error:
+
+1. Check OpenAI billing and usage:
+   https://platform.openai.com/account/billing
+   
+2. Options to resolve:
+   - Increase quota limits in OpenAI account
+   - Wait for billing cycle to reset
+   - Add payment method if needed
+   
+3. Monitor logs for continued failures
+
+Note: Cached factoids will continue to be served for up to 30 days.
+The system attempted {attempt_number} retries before giving up.
+'''.strip(),
+            'priority': 'HIGH',
+            'timestamp': timezone.now().strftime('%Y-%m-%d %H:%M:%S')
+        }
+        
+        # Send using the existing error alert system
+        success = send_error_alert(quota_exception, request=None, context=context)
+        
+        if success:
+            logger.info(f"Sent OpenAI quota exceeded notification via Brevo")
+            # Set cache to prevent spam
+            cache.set(_quota_notification_cache_key, True, _quota_notification_cooldown)
+        else:
+            logger.warning("Failed to send quota notification - check email configuration")
+            
+    except Exception as e:
+        logger.error(f"Failed to send quota exceeded notification: {e}")
 
 
 class AIFactoidRateThrottle(UserRateThrottle):
@@ -158,6 +220,11 @@ def ai_council_factoids(request, council_slug):
                     
             except Exception as ai_error:
                 logger.warning(f"⚠️ AI generation attempt {retry_count} failed for {council.name}: {ai_error}")
+                
+                # Check if this is a quota error and send notification
+                if 'insufficient_quota' in str(ai_error) or '429' in str(ai_error):
+                    notify_quota_exceeded(council, ai_error, retry_count)
+                
                 if retry_count < max_retries:
                     # Wait a bit before retrying
                     import time
