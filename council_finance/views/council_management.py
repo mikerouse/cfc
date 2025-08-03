@@ -536,11 +536,11 @@ def bulk_import(request):
                 messages.error(request, "Invalid file format. Expected tabular data with column headers.")
                 return redirect('bulk_import_councils')
             
-            # Updated required columns based on current business requirements
-            # Note: website, type, and nation are now considered required for CSV imports
-            # even though the database allows them to be null for backwards compatibility
-            required_columns = ['name']  # 'name' is absolutely required in database
-            recommended_columns = ['website', 'council_type', 'nation']  # Business requirements
+            # Required columns for CSV import (database constraints)
+            # Note: Only 'name' is required at database level
+            # Additional business validation (website, type, nation) is performed during import
+            required_columns = ['name']  # Database requirement - absolutely required
+            recommended_columns = ['website', 'council_type', 'nation']  # Business validation requirements
             
             missing_columns = [col for col in required_columns if col not in columns]
             if missing_columns:
@@ -575,6 +575,13 @@ def bulk_import(request):
                 total_issues_created = 0
                 new_councils = []
                 errors = []
+                
+                # Helper function to check if value is valid (defined once, used multiple times)
+                def is_valid_value(value):
+                    if value is None:
+                        return False
+                    str_val = str(value).strip()
+                    return str_val and str_val.lower() not in ['nan', 'none', 'null', '']
                 
                 with transaction.atomic():
                     for index, row in enumerate(data_records):
@@ -620,13 +627,6 @@ def bulk_import(request):
                                             council_nation = CouncilNation.objects.get(name__icontains=str(row['nation']))
                                         except CouncilNation.DoesNotExist:
                                             pass
-                                
-                                # Helper function to check if value is valid
-                                def is_valid_value(value):
-                                    if value is None:
-                                        return False
-                                    str_val = str(value).strip()
-                                    return str_val and str_val.lower() not in ['nan', 'none', 'null', '']
                                 
                                 # Create council
                                 website_value = None
