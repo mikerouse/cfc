@@ -261,7 +261,7 @@ def ai_council_factoids(request, council_slug):
             'factoids': factoids,
             'generated_at': timezone.now().isoformat(),
             'data_period': _get_data_period(council_data),
-            'ai_model': 'gpt-4',
+            'ai_model': ai_generator.model,
             'cache_status': 'fresh',
             'factoid_count': len(factoids)
         }

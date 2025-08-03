@@ -34,7 +34,9 @@
       <dl class="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div>
           <dt class="text-sm font-medium text-gray-500">OpenAI Model</dt>
-          <dd class="mt-1 text-sm text-gray-900 font-mono">{{ current_config.openai_model }}</dd>
+          <dd class="mt-1 text-sm text-gray-900 font-mono">{{ current_config.openai_model_display }}</dd>
+          <dd class="mt-1 text-xs text-gray-500">{{ current_config.openai_model_description }}</dd>
+          <dd class="mt-1 text-xs text-green-600 font-medium">${{ current_config.openai_model_cost|floatformat:6 }} per 1K tokens</dd>
         </div>
         <div>
           <dt class="text-sm font-medium text-gray-500">Default Factoid Limit</dt>
@@ -57,6 +59,63 @@
           <dd class="mt-1 text-sm text-gray-900 font-mono">{{ cache_backend }}</dd>
         </div>
       </dl>
+    </div>
+  </div>
+
+  <!-- Model Selection -->
+  <div class="bg-white border border-gray-200 rounded-lg mb-6">
+    <div class="px-6 py-4 border-b border-gray-200">
+      <h3 class="text-lg font-medium text-gray-900">Available Models</h3>
+      <p class="text-sm text-gray-600 mt-1">Select an OpenAI model for factoid generation</p>
+    </div>
+    <div class="p-6">
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        {% for model in available_models %}
+        <div class="relative border rounded-lg p-4 hover:bg-gray-50 {% if model.name == current_config.openai_model %}bg-blue-50 border-blue-200{% else %}border-gray-200{% endif %}">
+          <div class="flex items-start justify-between">
+            <div class="flex-1">
+              <div class="flex items-center">
+                <h4 class="text-sm font-medium text-gray-900">{{ model.display_name }}</h4>
+                {% if model.recommended %}
+                <span class="ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">
+                  Recommended
+                </span>
+                {% endif %}
+                {% if model.name == current_config.openai_model %}
+                <span class="ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800">
+                  Current
+                </span>
+                {% endif %}
+              </div>
+              <p class="mt-1 text-xs text-gray-500">{{ model.description }}</p>
+              <div class="mt-2 flex items-center space-x-4">
+                <span class="text-xs font-medium text-green-600">${{ model.cost_per_1k|floatformat:6 }} per 1K tokens</span>
+                <span class="text-xs text-gray-500">
+                  Est. ${{ model.cost_per_1k|floatformat:4 }} per factoid
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+      
+      <div class="mt-6 bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+        <div class="flex">
+          <div class="flex-shrink-0">
+            <svg class="h-5 w-5 text-yellow-400" fill="currentColor" viewBox="0 0 20 20">
+              <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/>
+            </svg>
+          </div>
+          <div class="ml-3">
+            <h3 class="text-sm font-medium text-yellow-800">Model Selection</h3>
+            <div class="mt-2 text-sm text-yellow-700">
+              <p>To change the model, update the <code>OPENAI_MODEL</code> setting in Django settings or environment variables, then restart the server.</p>
+              <p class="mt-1">Example: <code>OPENAI_MODEL=gpt-4o-mini</code> for the most cost-effective option.</p>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 

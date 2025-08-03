@@ -90,10 +90,20 @@ def council_ai_data_inspector(request, council_slug):
     else:
         logger.info(f"[INSPECTOR] Prompt contains financial data for {council.slug}")
     
-    # Check cache status
+    # Check cache status with more detail
     cache_key = f"ai_factoids:{council_slug}"
+    cache_key_stale = f"ai_factoids_stale:{council_slug}"
     cached_factoids = cache.get(cache_key)
-    cache_status = 'cached' if cached_factoids else 'not_cached'
+    stale_cached_factoids = cache.get(cache_key_stale)
+    
+    cache_status = {
+        'primary_cache': 'cached' if cached_factoids else 'not_cached',
+        'stale_cache': 'cached' if stale_cached_factoids else 'not_cached',
+        'primary_cache_key': cache_key,
+        'stale_cache_key': cache_key_stale,
+        'primary_factoids': cached_factoids,
+        'stale_factoids': stale_cached_factoids
+    }
     
     # Calculate financial_metrics carefully
     financial_metrics = []
@@ -109,7 +119,6 @@ def council_ai_data_inspector(request, council_slug):
         'council_data': council_data,
         'ai_prompt': sample_prompt,
         'cache_status': cache_status,
-        'cached_factoids': cached_factoids,
         'data_keys': list(council_data.keys()) if council_data else [],
         'financial_metrics': financial_metrics,
         'page_title': f'AI Data Inspector - {council.name}'
@@ -311,24 +320,72 @@ def ai_configuration(request):
     """
     from django.conf import settings
     
-    # Get current configuration
+    # Get AI generator for current model info
+    generator = AIFactoidGenerator()
+    model_info = generator.get_model_info()
+    
+    # Get available models for selection
+    available_models = [
+        {
+            'name': 'gpt-4o-mini',
+            'display_name': 'GPT-4o Mini',
+            'cost_per_1k': 0.000150,
+            'description': 'Most cost-effective option, excellent for factoid generation',
+            'recommended': True
+        },
+        {
+            'name': 'gpt-4o',
+            'display_name': 'GPT-4o',
+            'cost_per_1k': 0.0025,
+            'description': 'Latest high-performance model with excellent reasoning'
+        },
+        {
+            'name': 'gpt-4-turbo',
+            'display_name': 'GPT-4 Turbo',
+            'cost_per_1k': 0.01,
+            'description': 'Fast, high-capability model with large context window'
+        },
+        {
+            'name': 'gpt-4',
+            'display_name': 'GPT-4',
+            'cost_per_1k': 0.03,
+            'description': 'Original GPT-4 model with strong reasoning capabilities'
+        },
+        {
+            'name': 'gpt-3.5-turbo',
+            'display_name': 'GPT-3.5 Turbo',
+            'cost_per_1k': 0.0015,
+            'description': 'Fast and economical model for simpler tasks'
+        }
+    ]
+    
+    # Get current configuration with dynamic model info
     current_config = {
-        'openai_model': 'gpt-4',
+        'openai_model': model_info['name'],
+        'openai_model_display': model_info['display_name'],
+        'openai_model_cost': model_info['cost_per_1k_tokens'],
+        'openai_model_description': model_info['description'],
         'default_factoid_limit': 3,
         'cache_timeout': 21600,  # 6 hours
-        'rate_limit': '10/hour',
-        'temperature': 0.7,
-        'max_tokens': 500
+        'rate_limit': '5/hour',  # Updated to match actual rate limit
+        'temperature': generator.temperature,
+        'max_tokens': generator.max_tokens
     }
     
     # Get REST framework throttling settings
     rest_settings = getattr(settings, 'REST_FRAMEWORK', {})
     throttle_rates = rest_settings.get('DEFAULT_THROTTLE_RATES', {})
     
+    # Check OpenAI API key status
+    openai_configured = generator.client is not None
+    
     context = {
         'current_config': current_config,
+        'available_models': available_models,
+        'current_model_info': model_info,
         'throttle_rates': throttle_rates,
         'cache_backend': str(cache.__class__.__name__),
+        'openai_configured': openai_configured,
         'page_title': 'AI Configuration'
     }
     
