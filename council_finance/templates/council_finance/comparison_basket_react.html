@@ -233,6 +233,88 @@
 
 {% block extra_js %}
 <script>
+// Global function to trigger comparison overlay - called from header compare basket button
+window.openComparisonBasket = function() {
+	console.log('🛒 Compare basket clicked from header');
+	
+	// Check if React app has mounted and councils are available
+	const comparisonBasketRoot = document.getElementById('comparison-basket-react-root');
+	if (comparisonBasketRoot && comparisonBasketRoot.hasAttribute('data-react-mounted')) {
+		// React app mounted - try to trigger comparison overlay
+		if (typeof window.openComparison === 'function') {
+			console.log('✅ Triggering comparison overlay via React app');
+			window.openComparison();
+		} else {
+			console.warn('⚠️ openComparison function not available yet');
+		}
+	} else {
+		console.log('📋 React app not mounted yet - will auto-show when ready');
+	}
+};
+
+// Auto-show comparison overlay when page loads with councils
+window.addEventListener('load', function() {
+	setTimeout(function() {
+		const comparisonBasketRoot = document.getElementById('comparison-basket-react-root');
+		if (comparisonBasketRoot && comparisonBasketRoot.hasAttribute('data-react-mounted')) {
+			// Parse initial data to check council count
+			const initialDataStr = comparisonBasketRoot.getAttribute('data-initial-data');
+			if (initialDataStr) {
+				try {
+					const initialData = JSON.parse(initialDataStr);
+					const councilCount = (initialData.councils || []).length;
+					
+					console.log(`🏛️ Compare page loaded with ${councilCount} councils`);
+					
+					if (councilCount >= 2) {
+						// Auto-show comparison overlay if we have enough councils
+						if (typeof window.openComparison === 'function') {
+							console.log('🚀 Auto-showing comparison overlay');
+							window.openComparison();
+						}
+					} else if (councilCount === 1) {
+						// Show error message for insufficient councils
+						showComparisonError('Please add another council to compare');
+					}
+				} catch (e) {
+					console.error('Failed to parse initial data:', e);
+				}
+			}
+		}
+	}, 500); // Small delay to ensure React app is fully initialized
+});
+
+// Function to show comparison error message
+function showComparisonError(message) {
+	// Create and show error notification
+	const errorDiv = document.createElement('div');
+	errorDiv.className = 'fixed top-4 right-4 z-50 max-w-sm p-4 rounded-lg shadow-lg animate-slide-in bg-yellow-50 border border-yellow-200 text-yellow-800';
+	errorDiv.innerHTML = `
+		<div class="flex items-start">
+			<div class="flex-shrink-0 mr-3">
+				<svg class="w-5 h-5 text-yellow-500" fill="currentColor" viewBox="0 0 20 20">
+					<path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"></path>
+				</svg>
+			</div>
+			<div class="flex-1 text-sm">${message}</div>
+			<button onclick="this.parentElement.parentElement.remove()" class="ml-3 text-gray-400 hover:text-gray-600 transition-colors">
+				<svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+				</svg>
+			</button>
+		</div>
+	`;
+	
+	document.body.appendChild(errorDiv);
+	
+	// Auto-remove after 5 seconds
+	setTimeout(function() {
+		if (errorDiv.parentElement) {
+			errorDiv.remove();
+		}
+	}, 5000);
+}
+
 // Error timeout - show error state if React doesn't mount within timeout
 setTimeout(function() {
 	const comparisonBasketRoot = document.getElementById('comparison-basket-react-root');
