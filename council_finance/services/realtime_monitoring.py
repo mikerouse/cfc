@@ -360,15 +360,15 @@ class RealtimeMonitoringService:
         )
         
         # Calculate success rate manually
-        total_requests = weekly_data['total_requests'] or 0
-        successful_requests = weekly_data['successful_requests'] or 0
-        success_rate = (successful_requests / total_requests * 100) if total_requests > 0 else 100.0
+        total_count = weekly_data['total_requests'] or 0
+        success_count = weekly_data['successful_requests'] or 0
+        calculated_success_rate = (success_count / total_count * 100) if total_count > 0 else 100.0
         
         return {
-            'total_requests': weekly_data['total_requests'] or 0,
+            'total_requests': total_count,
             'total_cost': float(weekly_data['total_cost'] or 0),
             'avg_response_time': round(weekly_data['avg_response_time'] or 0, 2),
-            'success_rate': round(success_rate, 1),
+            'success_rate': round(calculated_success_rate, 1),
         }
     
     def _project_monthly_cost(self):
