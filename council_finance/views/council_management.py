@@ -18,6 +18,7 @@ from django.views.decorators.csrf import csrf_exempt
 from django.db import transaction
 from django.db.models import Q, Count
 from django.core.paginator import Paginator
+from django.utils import timezone
 from django.utils.text import slugify
 import json
 import logging
@@ -219,16 +220,8 @@ def create_council(request):
                 # Handle council logo upload if provided
                 if council_logo:
                     try:
-                        from django.core.files.storage import default_storage
-                        from django.core.files.base import ContentFile
+                        from council_finance.models import ImageFile
                         import os
-                        
-                        # Generate filename
-                        file_extension = os.path.splitext(council_logo.name)[1]
-                        filename = f"council_logos/{council.slug}{file_extension}"
-                        
-                        # Save the file
-                        file_path = default_storage.save(filename, ContentFile(council_logo.read()))
                         
                         # Try to find or create a logo field
                         try:
@@ -243,14 +236,26 @@ def create_council(request):
                                 explanation='Official council logo image'
                             )
                         
-                        # Save logo path as characteristic
+                        # Create ImageFile object
+                        image_file = ImageFile.objects.create(
+                            council=council,
+                            field=logo_field,
+                            file=council_logo,
+                            uploaded_by=request.user,
+                            is_active=True,
+                            is_approved=True,  # Auto-approve for god mode users
+                            approved_by=request.user,
+                            approved_at=timezone.now()
+                        )
+                        
+                        # Save ImageFile ID as characteristic value
                         CouncilCharacteristic.objects.create(
                             council=council,
                             field=logo_field,
-                            value=file_path
+                            value=str(image_file.id)
                         )
                         
-                        logger.info(f"Council logo saved for {council.name}: {file_path}")
+                        logger.info(f"Council logo saved for {council.name}: ImageFile ID {image_file.id}")
                         
                     except Exception as e:
                         logger.error(f"Error saving council logo for {council.name}: {e}")
