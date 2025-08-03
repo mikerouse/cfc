@@ -15,6 +15,8 @@ class HomepageCounterGuardian {
         this.maxRetries = 3;
         this.retryCount = 0;
         this.debugMode = false; // Set to true for console logging
+        this.instanceId = Math.random().toString(36).substr(2, 9); // Unique instance ID
+        this.lastEmergencyTime = 0; // Rate limiting
         
         this.init();
     }
@@ -94,6 +96,13 @@ class HomepageCounterGuardian {
     }
     
     async triggerEmergencyCacheWarming(zeroCounters) {
+        // Security: Rate limiting - max 1 emergency per 30 seconds
+        const now = Date.now();
+        if (now - this.lastEmergencyTime < 30000) {
+            this.log('Emergency rate limited - too soon since last attempt');
+            return;
+        }
+        
         if (this.emergencyTriggered && this.retryCount >= this.maxRetries) {
             this.log('Maximum retries reached - stopping emergency attempts');
             return;
@@ -101,31 +110,64 @@ class HomepageCounterGuardian {
         
         this.emergencyTriggered = true;
         this.retryCount++;
+        this.lastEmergencyTime = now;
+        
+        // Security: Validate and sanitize zero counter data
+        const sanitizedCounters = zeroCounters.slice(0, 10).map(counter => ({
+            name: String(counter.name || 'Unknown').substring(0, 100),
+            index: Math.max(0, Math.min(50, parseInt(counter.index) || 0)),
+            displayText: String(counter.displayText || '').substring(0, 50)
+        }));
         
         // Show user notification
         this.showUserNotification('Detected data loading issue - fixing automatically...');
         
         try {
+            // Security: Get CSRF token for the request
+            const csrfToken = this.getCSRFToken();
+            
+            const headers = {
+                'Content-Type': 'application/json',
+            };
+            
+            // Add CSRF token if available
+            if (csrfToken) {
+                headers['X-CSRFToken'] = csrfToken;
+            }
+            
             const response = await fetch('/api/emergency-cache-warming/', {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
+                headers: headers,
                 body: JSON.stringify({
-                    zero_counters: zeroCounters,
+                    zero_counters: sanitizedCounters,
                     timestamp: new Date().toISOString(),
-                    retry_count: this.retryCount
+                    retry_count: this.retryCount,
+                    instance_id: this.instanceId
                 })
             });
             
             const result = await response.json();
             
+            // Handle rate limiting
+            if (response.status === 429) {
+                this.log('Emergency cache warming rate limited');
+                this.showUserNotification('Too many requests - please wait before trying again', 'error');
+                return;
+            }
+            
+            // Handle concurrent operations
+            if (response.status === 409) {
+                this.log('Cache warming already in progress');
+                this.showUserNotification('System is already fixing the issue - please wait', 'info');
+                return;
+            }
+            
             if (result.success) {
-                this.log('Emergency cache warming successful:', result.details);
+                this.log('Emergency cache warming successful:', result);
                 
                 // Show success notification
                 this.showUserNotification(
-                    `Fixed ${result.details.fixed_counters} counters in ${result.details.warming_duration}`,
+                    `Fixed ${result.fixed_counters} counters in ${result.warming_duration}`,
                     'success'
                 );
                 
@@ -210,6 +252,35 @@ class HomepageCounterGuardian {
         }, hideDelay);
     }
     
+    getCSRFToken() {
+        // Try multiple methods to get CSRF token
+        
+        // Method 1: From meta tag
+        const csrfMeta = document.querySelector('meta[name="csrf-token"]');
+        if (csrfMeta) {
+            return csrfMeta.getAttribute('content');
+        }
+        
+        // Method 2: From cookie
+        const csrfCookie = document.cookie
+            .split('; ')
+            .find(row => row.startsWith('csrftoken='));
+        if (csrfCookie) {
+            return csrfCookie.split('=')[1];
+        }
+        
+        // Method 3: From Django's default cookie name
+        const djangoCSRF = document.cookie
+            .split('; ')
+            .find(row => row.startsWith('csrftoken='));
+        if (djangoCSRF) {
+            return djangoCSRF.split('=')[1];
+        }
+        
+        this.log('CSRF token not found - request may fail');
+        return null;
+    }
+    
     log(message, ...args) {
         if (this.debugMode) {
             console.log(`[Counter Guardian] ${message}`, ...args);
@@ -231,9 +302,12 @@ class HomepageCounterGuardian {
 // Initialize the guardian when the script loads
 // Use a slight delay to ensure other page scripts have loaded
 setTimeout(() => {
-    // Only initialize on the home page
-    if (document.querySelector('#homepage-counters')) {
-        window.homepageCounterGuardian = new HomepageCounterGuardian();
+    // Security: Only initialize on the home page and prevent multiple instances
+    if (document.querySelector('#homepage-counters') && !window.homepageCounterGuardian) {
+        // Security: Verify we're on the intended domain (prevent iframe attacks)
+        if (window.location.hostname === window.parent.location.hostname) {
+            window.homepageCounterGuardian = new HomepageCounterGuardian();
+        }
     }
 }, 1000);
 

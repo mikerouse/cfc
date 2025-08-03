@@ -482,12 +482,17 @@ def _fetch_google_models():
 
 
 @require_POST
-@csrf_exempt
 def emergency_cache_warming(request):
     """
     Emergency API endpoint to detect and fix £0 counters on the home page.
     Triggered automatically by JavaScript when £0 counters are detected.
     Also sends email alerts to administrators.
+    
+    Security measures:
+    - Rate limiting per IP
+    - Request validation and sanitization  
+    - Limited response data
+    - Distributed lock to prevent concurrent execution
     """
     try:
         # Import required modules
@@ -497,17 +502,97 @@ def emergency_cache_warming(request):
         from django.core.cache import cache
         import json
         import time
+        import hashlib
         
-        # Parse request data
+        # Security: Get client IP for rate limiting
+        def get_client_ip(request):
+            x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
+            if x_forwarded_for:
+                return x_forwarded_for.split(',')[0].strip()
+            return request.META.get('REMOTE_ADDR', 'unknown')
+        
+        client_ip = get_client_ip(request)
+        
+        # Security: Rate limiting (max 3 requests per 5 minutes per IP)
+        rate_limit_key = f"emergency_cache_warming_rate_limit:{hashlib.md5(client_ip.encode()).hexdigest()}"
+        current_requests = cache.get(rate_limit_key, 0)
+        
+        if current_requests >= 3:
+            return JsonResponse({
+                'success': False,
+                'error': 'Rate limit exceeded. Please wait before trying again.',
+                'retry_after': 300  # 5 minutes
+            }, status=429)
+        
+        # Increment rate limit counter
+        cache.set(rate_limit_key, current_requests + 1, 300)  # 5 minutes TTL
+        
+        # Security: Distributed lock to prevent concurrent warming
+        lock_key = "emergency_cache_warming_lock"
+        if cache.get(lock_key):
+            return JsonResponse({
+                'success': False,
+                'error': 'Cache warming already in progress. Please wait.',
+                'message': 'Another emergency warming operation is currently running.'
+            }, status=409)
+        
+        # Set lock with 60 second timeout
+        cache.set(lock_key, True, 60)
+        
+        # Security: Parse and validate request data
         try:
             data = json.loads(request.body)
-            zero_counters = data.get('zero_counters', [])
-            user_agent = request.META.get('HTTP_USER_AGENT', 'Unknown')
-            request_ip = request.META.get('REMOTE_ADDR', 'Unknown')
-        except json.JSONDecodeError:
+            
+            # Validate and sanitize zero_counters data
+            raw_zero_counters = data.get('zero_counters', [])
             zero_counters = []
-            user_agent = request.META.get('HTTP_USER_AGENT', 'Unknown')
-            request_ip = request.META.get('REMOTE_ADDR', 'Unknown')
+            
+            # Security: Limit to max 20 reported counters to prevent abuse
+            if len(raw_zero_counters) > 20:
+                return JsonResponse({
+                    'success': False,
+                    'error': 'Too many counters reported. Maximum 20 allowed.'
+                }, status=400)
+            
+            # Validate each counter entry
+            for counter_data in raw_zero_counters[:20]:  # Hard limit
+                if isinstance(counter_data, dict):
+                    # Sanitize counter data - only keep safe fields
+                    sanitized = {
+                        'name': str(counter_data.get('name', 'Unknown'))[:100],  # Limit length
+                        'index': int(counter_data.get('index', 0)) if str(counter_data.get('index', 0)).isdigit() else 0,
+                        'displayText': str(counter_data.get('displayText', ''))[:50]  # Limit length
+                    }
+                    zero_counters.append(sanitized)
+            
+            # Validate timestamp if provided
+            timestamp = data.get('timestamp')
+            if timestamp:
+                try:
+                    from datetime import datetime
+                    parsed_time = datetime.fromisoformat(timestamp.replace('Z', '+00:00'))
+                    # Security: Reject timestamps more than 1 hour in future or past
+                    time_diff = abs((datetime.now().timestamp() - parsed_time.timestamp()))
+                    if time_diff > 3600:  # 1 hour
+                        return JsonResponse({
+                            'success': False,
+                            'error': 'Invalid timestamp provided.'
+                        }, status=400)
+                except (ValueError, AttributeError):
+                    pass  # Ignore invalid timestamps
+            
+            user_agent = request.META.get('HTTP_USER_AGENT', 'Unknown')[:200]  # Limit length
+            
+        except json.JSONDecodeError:
+            return JsonResponse({
+                'success': False,
+                'error': 'Invalid JSON data provided.'
+            }, status=400)
+        except (ValueError, TypeError) as e:
+            return JsonResponse({
+                'success': False,
+                'error': 'Invalid request data format.'
+            }, status=400)
         
         # Log the detection
         print(f"EMERGENCY: £0 counters detected on home page from {request_ip}")
@@ -596,38 +681,46 @@ def emergency_cache_warming(request):
             alert_context
         )
         
-        # Return success response
-        return JsonResponse({
+        # Security: Prepare minimal response data (don't expose internal details)
+        success_response = {
             'success': True,
             'message': 'Emergency cache warming completed',
-            'details': {
-                'warming_duration': f"{warming_duration:.2f}s",
-                'total_counters': len(all_counters),
-                'fixed_counters': len(fixed_counters),
-                'fixed_counter_details': fixed_counters,
-                'email_alert_sent': email_sent,
-                'zero_counters_reported': zero_counters
-            }
-        })
+            'fixed_counters': len(fixed_counters),
+            'warming_duration': f"{warming_duration:.1f}s",
+            'timestamp': time.time()
+        }
+        
+        # Release the lock
+        cache.delete(lock_key)
+        
+        return JsonResponse(success_response)
         
     except Exception as e:
-        # Log the error
+        # Security: Release lock in case of error
+        try:
+            cache.delete(lock_key)
+        except:
+            pass
+        
+        # Log the error (don't expose internal details)
         print(f"ERROR in emergency cache warming: {e}")
         
         # Try to send error alert
         try:
             error_context = {
                 'alert_type': 'Emergency Cache Warming Failure',
-                'original_zero_counters': zero_counters if 'zero_counters' in locals() else 'Unknown'
+                'client_ip': client_ip,
+                'user_agent': user_agent if 'user_agent' in locals() else 'Unknown'
             }
             email_alert_service.send_error_alert(e, request, error_context)
         except:
             pass  # Don't let email failure prevent error response
         
+        # Security: Return generic error message
         return JsonResponse({
             'success': False,
-            'error': str(e),
-            'message': 'Emergency cache warming failed'
+            'error': 'Internal server error during cache warming',
+            'message': 'Please try again or contact support if the issue persists'
         }, status=500)
 
 
