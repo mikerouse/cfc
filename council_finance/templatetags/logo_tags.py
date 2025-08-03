@@ -88,11 +88,13 @@ def council_logo_url(council, size=64):
 def _generate_logo_img(image_file, council, size, css_classes):
     """Generate img tag for an actual logo file."""
     alt_text = image_file.alt_text or image_file.field.image_default_alt_text or f"{council.name} logo"
+    title_text = f"Copyright {council.name}. Fair usage rights. Logo reproduced under fair usage rights. This website is not affiliated with or endorsed by {council.name}."
     
     # Build img tag
     img_attrs = [
         f'src="{escape(image_file.file.url)}"',
         f'alt="{escape(alt_text)}"',
+        f'title="{escape(title_text)}"',
         f'width="{size}"',
         f'height="{size}"',
     ]
@@ -107,11 +109,13 @@ def _generate_pattern_img(council, size, css_classes):
     """Generate img tag for a pattern fallback."""
     data_url = get_pattern_data_url(council.slug, size)
     alt_text = f"{council.name} pattern"
+    title_text = f"Copyright {council.name}. Fair usage rights. Logo reproduced under fair usage rights. This website is not affiliated with or endorsed by {council.name}."
     
     # Build img tag
     img_attrs = [
         f'src="{data_url}"',
         f'alt="{escape(alt_text)}"',
+        f'title="{escape(title_text)}"',
         f'width="{size}"',
         f'height="{size}"',
     ]
@@ -137,6 +141,7 @@ def council_logo_div(council, size=64, css_classes=""):
         HTML div tag with background image
     """
     logo_url = council_logo_url(council, size)
+    title_text = f"Copyright {council.name}. Fair usage rights. Logo reproduced under fair usage rights. This website is not affiliated with or endorsed by {council.name}."
     
     # Build style attribute
     style_parts = [
@@ -148,7 +153,10 @@ def council_logo_div(council, size=64, css_classes=""):
         'background-repeat: no-repeat'
     ]
     
-    div_attrs = [f'style="{"; ".join(style_parts)}"']
+    div_attrs = [
+        f'style="{"; ".join(style_parts)}"',
+        f'title="{escape(title_text)}"'
+    ]
     
     if css_classes:
         div_attrs.append(f'class="{escape(css_classes)}"')

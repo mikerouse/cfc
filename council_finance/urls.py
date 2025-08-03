@@ -431,3 +431,7 @@ urlpatterns = [
     # Include new data architecture URLs (commented out - file doesn't exist)
     # path("", include("council_finance.urls_v2")),
 ]
+
+# Serve media files in development
+if settings.DEBUG:
+    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
