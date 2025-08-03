@@ -233,24 +233,8 @@
 
 {% block extra_js %}
 <script>
-// Global function to trigger comparison overlay - called from header compare basket button
-window.openComparisonBasket = function() {
-	console.log('🛒 Compare basket clicked from header');
-	
-	// Check if React app has mounted and councils are available
-	const comparisonBasketRoot = document.getElementById('comparison-basket-react-root');
-	if (comparisonBasketRoot && comparisonBasketRoot.hasAttribute('data-react-mounted')) {
-		// React app mounted - try to trigger comparison overlay
-		if (typeof window.openComparison === 'function') {
-			console.log('✅ Triggering comparison overlay via React app');
-			window.openComparison();
-		} else {
-			console.warn('⚠️ openComparison function not available yet');
-		}
-	} else {
-		console.log('📋 React app not mounted yet - will auto-show when ready');
-	}
-};
+// Note: window.openComparison is defined by the React component
+// This allows the header basket button to trigger the comparison overlay
 
 // Auto-show comparison overlay when page loads with councils
 window.addEventListener('load', function() {

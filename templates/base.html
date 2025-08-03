@@ -598,13 +598,8 @@
     function openComparisonBasket() {
         console.log('🛒 Compare basket clicked from header');
         
-        // Check if we're on the compare page with dedicated app
-        if (typeof window.openComparisonBasket === 'function') {
-            console.log('📋 Using compare page openComparisonBasket function');
-            window.openComparisonBasket();
-        }
-        // Check for React comparison overlay
-        else if (typeof window.openComparison === 'function') {
+        // Check for React comparison overlay (on compare page)
+        if (typeof window.openComparison === 'function') {
             console.log('⚛️ Using React openComparison function');
             window.openComparison();
         } 
