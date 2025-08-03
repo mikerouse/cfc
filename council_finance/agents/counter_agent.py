@@ -1,3 +1,8 @@
+import ast
+import logging
+import operator
+from django.db.models import Q
+
 from .base import AgentBase
 from council_finance.models import (
     Council,
@@ -7,13 +12,7 @@ from council_finance.models import (
     FinancialFigure,
 )
 
-
-class MissingDataError(ValueError):
-    """Raised when a required figure is absent for a council/year."""
-    pass
-from django.db.models import Q
-import ast
-import operator
+logger = logging.getLogger(__name__)
 
 class CounterAgent(AgentBase):
     """Simple counter that retrieves a figure for a council/year."""
@@ -116,8 +115,6 @@ class CounterAgent(AgentBase):
                         
         except Exception as e:
             # If data context fails, log but continue with just financial figures
-            import logging
-            logger = logging.getLogger(__name__)
             logger.warning(f"Failed to load calculated fields for {council.slug} {year.label}: {e}")
         
         # Fallback to legacy model (FigureSubmission) if no data found in new model
