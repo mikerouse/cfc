@@ -1,0 +1,350 @@
+{% extends "council_finance/base.html" %}
+{% load static %}
+
+{% block title %}AI Tools Hub{% endblock %}
+
+{% block content %}
+<style>
+.tool-card {
+    background: white;
+    border-radius: 16px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    transition: all 0.3s ease;
+    overflow: hidden;
+}
+
+.tool-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 12px 24px rgba(0, 0, 0, 0.15);
+}
+
+.tool-header {
+    padding: 2rem;
+    color: white;
+    position: relative;
+    overflow: hidden;
+}
+
+.tool-header::before {
+    content: '';
+    position: absolute;
+    top: -50%;
+    right: -50%;
+    bottom: -50%;
+    left: -50%;
+    background: linear-gradient(45deg, transparent 30%, rgba(255,255,255,0.1) 50%, transparent 70%);
+    animation: shimmer 3s infinite;
+}
+
+@keyframes shimmer {
+    0% { transform: translateX(-100%) translateY(-100%) rotate(45deg); }
+    100% { transform: translateX(100%) translateY(100%) rotate(45deg); }
+}
+
+.factoid-management { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
+.analytics-dashboard { background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); }
+.monitoring-dashboard { background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); }
+.sitewide-inspector { background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%); }
+.configuration { background: linear-gradient(135deg, #fa709a 0%, #fee140 100%); }
+
+.tool-icon {
+    font-size: 3rem;
+    margin-bottom: 1rem;
+    opacity: 0.9;
+}
+
+.tool-content {
+    padding: 2rem;
+}
+
+.feature-list {
+    list-style: none;
+    padding: 0;
+    margin: 1rem 0;
+}
+
+.feature-list li {
+    padding: 0.5rem 0;
+    padding-left: 1.5rem;
+    position: relative;
+}
+
+.feature-list li::before {
+    content: '✓';
+    position: absolute;
+    left: 0;
+    color: #10b981;
+    font-weight: bold;
+}
+
+.status-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.25rem 0.75rem;
+    border-radius: 9999px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+}
+
+.status-live {
+    background-color: #d1fae5;
+    color: #065f46;
+}
+
+.status-beta {
+    background-color: #dbeafe;
+    color: #1e40af;
+}
+
+.status-new {
+    background-color: #fef3c7;
+    color: #92400e;
+}
+
+.quick-stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1rem;
+    margin-bottom: 2rem;
+}
+
+.stat-card {
+    background: white;
+    border-radius: 12px;
+    padding: 1.5rem;
+    text-align: center;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.stat-value {
+    font-size: 2rem;
+    font-weight: bold;
+    color: #4f46e5;
+}
+
+.stat-label {
+    font-size: 0.875rem;
+    color: #6b7280;
+    margin-top: 0.25rem;
+}
+</style>
+
+<div class="max-w-none xl:max-w-desktop mx-auto px-3 sm:px-4 xl:px-6 py-6">
+    <!-- Header -->
+    <div class="text-center mb-8">
+        <h1 class="text-4xl font-bold text-gray-900 mb-4">AI Tools Hub</h1>
+        <p class="text-xl text-gray-600">Comprehensive AI-powered tools for council finance analysis</p>
+    </div>
+
+    <!-- Quick Stats -->
+    <div class="quick-stats mb-8">
+        <div class="stat-card">
+            <div class="stat-value">{{ stats.total_factoids|default:"0" }}</div>
+            <div class="stat-label">Factoids Generated</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-value">{{ stats.councils_analyzed|default:"0" }}</div>
+            <div class="stat-label">Councils Analyzed</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-value">{{ stats.success_rate|default:"99" }}%</div>
+            <div class="stat-label">Success Rate</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-value">£{{ stats.monthly_cost|default:"0"|floatformat:2 }}</div>
+            <div class="stat-label">Monthly Cost</div>
+        </div>
+    </div>
+
+    <!-- Tool Cards Grid -->
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        
+        <!-- Factoid Management -->
+        <div class="tool-card">
+            <div class="tool-header factoid-management">
+                <div class="tool-icon">🤖</div>
+                <h2 class="text-2xl font-bold">Factoid Management</h2>
+                <span class="status-badge status-live mt-2">Live</span>
+            </div>
+            <div class="tool-content">
+                <p class="text-gray-600 mb-4">
+                    Central hub for managing AI-generated financial insights and factoids.
+                </p>
+                <ul class="feature-list">
+                    <li>Council-specific factoid generation</li>
+                    <li>Cache management and warming</li>
+                    <li>Data inspection tools</li>
+                    <li>Real-time testing interface</li>
+                </ul>
+                <a href="{% url 'ai_factoid_management_dashboard' %}" 
+                   class="inline-block mt-4 px-6 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition">
+                    Open Dashboard →
+                </a>
+            </div>
+        </div>
+
+        <!-- Analytics Dashboard -->
+        <div class="tool-card">
+            <div class="tool-header analytics-dashboard">
+                <div class="tool-icon">📊</div>
+                <h2 class="text-2xl font-bold">Analytics Dashboard</h2>
+                <span class="status-badge status-live mt-2">Live</span>
+            </div>
+            <div class="tool-content">
+                <p class="text-gray-600 mb-4">
+                    Comprehensive analytics for AI usage, costs, and performance metrics.
+                </p>
+                <ul class="feature-list">
+                    <li>Usage statistics and trends</li>
+                    <li>Cost tracking and budgets</li>
+                    <li>Performance metrics</li>
+                    <li>Historical analysis</li>
+                </ul>
+                <a href="{% url 'ai_tools_analytics' %}" 
+                   class="inline-block mt-4 px-6 py-3 bg-pink-600 text-white rounded-lg hover:bg-pink-700 transition">
+                    View Analytics →
+                </a>
+            </div>
+        </div>
+
+        <!-- Monitoring Dashboard -->
+        <div class="tool-card">
+            <div class="tool-header monitoring-dashboard">
+                <div class="tool-icon">📡</div>
+                <h2 class="text-2xl font-bold">Real-time Monitoring</h2>
+                <span class="status-badge status-new mt-2">New</span>
+            </div>
+            <div class="tool-content">
+                <p class="text-gray-600 mb-4">
+                    Live system monitoring with predictive analytics and anomaly detection.
+                </p>
+                <ul class="feature-list">
+                    <li>Real-time metrics updates</li>
+                    <li>Anomaly detection & alerts</li>
+                    <li>Predictive cost forecasting</li>
+                    <li>Load balancer management</li>
+                </ul>
+                <a href="{% url 'ai_tools_monitoring' %}" 
+                   class="inline-block mt-4 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition">
+                    Monitor System →
+                </a>
+            </div>
+        </div>
+
+        <!-- Sitewide Inspector -->
+        <div class="tool-card">
+            <div class="tool-header sitewide-inspector">
+                <div class="tool-icon">🌍</div>
+                <h2 class="text-2xl font-bold">Sitewide Factoids</h2>
+                <span class="status-badge status-beta mt-2">Beta</span>
+            </div>
+            <div class="tool-content">
+                <p class="text-gray-600 mb-4">
+                    Manage and inspect cross-council factoids for homepage display.
+                </p>
+                <ul class="feature-list">
+                    <li>Sitewide trend analysis</li>
+                    <li>Cross-council comparisons</li>
+                    <li>Automated scheduling</li>
+                    <li>Data aggregation tools</li>
+                </ul>
+                <a href="{% url 'sitewide_factoid_inspector' %}" 
+                   class="inline-block mt-4 px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition">
+                    Inspect Sitewide →
+                </a>
+            </div>
+        </div>
+
+        <!-- Configuration -->
+        <div class="tool-card">
+            <div class="tool-header configuration">
+                <div class="tool-icon">⚙️</div>
+                <h2 class="text-2xl font-bold">Configuration</h2>
+                <span class="status-badge status-live mt-2">Live</span>
+            </div>
+            <div class="tool-content">
+                <p class="text-gray-600 mb-4">
+                    Configure AI models, API settings, and system parameters.
+                </p>
+                <ul class="feature-list">
+                    <li>Model selection & costs</li>
+                    <li>API key management</li>
+                    <li>Rate limiting controls</li>
+                    <li>Budget alerts setup</li>
+                </ul>
+                <a href="{% url 'ai_factoid_configuration' %}" 
+                   class="inline-block mt-4 px-6 py-3 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition">
+                    Configure →
+                </a>
+            </div>
+        </div>
+
+        <!-- Quick Actions -->
+        <div class="tool-card">
+            <div class="bg-gray-100 p-8 h-full flex flex-col justify-center">
+                <h3 class="text-xl font-semibold text-gray-800 mb-4">Quick Actions</h3>
+                <div class="space-y-3">
+                    <a href="{% url 'warmup_council_cache' %}" 
+                       class="block w-full text-center px-4 py-2 bg-white text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 transition">
+                        🔥 Warm Cache
+                    </a>
+                    <a href="{% url 'clear_factoid_cache' %}" 
+                       class="block w-full text-center px-4 py-2 bg-white text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 transition">
+                        🗑️ Clear Cache
+                    </a>
+                    <a href="{% url 'test_ai_generation' %}" 
+                       class="block w-full text-center px-4 py-2 bg-white text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 transition">
+                        🧪 Test Generation
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Navigation Help -->
+    <div class="mt-12 bg-blue-50 rounded-lg p-6">
+        <h3 class="text-lg font-semibold text-blue-900 mb-2">🔍 Need Help?</h3>
+        <p class="text-blue-800">
+            Each tool provides specialized functionality for managing different aspects of the AI factoid system.
+            Start with the <strong>Factoid Management</strong> dashboard for council-specific operations,
+            use <strong>Analytics</strong> to track usage and costs, and monitor system health in real-time
+            with the <strong>Monitoring</strong> dashboard.
+        </p>
+    </div>
+</div>
+
+<script>
+// Add interactive animations
+document.addEventListener('DOMContentLoaded', function() {
+    // Animate stat cards on scroll
+    const observer = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+            if (entry.isIntersecting) {
+                entry.target.style.animation = 'fadeInUp 0.6s ease-out';
+            }
+        });
+    });
+    
+    document.querySelectorAll('.stat-card').forEach(card => {
+        observer.observe(card);
+    });
+});
+
+// CSS animation
+const style = document.createElement('style');
+style.textContent = `
+    @keyframes fadeInUp {
+        from {
+            opacity: 0;
+            transform: translateY(20px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+`;
+document.head.appendChild(style);
+</script>
+{% endblock %}

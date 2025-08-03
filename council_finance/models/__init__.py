@@ -84,6 +84,12 @@ from .sitewide_optimization import (
     SitewideFactoidSchedule,
     OptimizedFactoidCache,
 )
+from .predictive_analytics import (
+    AIUsageTrend,
+    CostForecast,
+    PerformanceAnomaly,
+    LoadBalancerConfig,
+)
 
 __all__ = [
     'Council',
@@ -152,4 +158,8 @@ __all__ = [
     'SitewideDataChangeLog',
     'SitewideFactoidSchedule',
     'OptimizedFactoidCache',
+    'AIUsageTrend',
+    'CostForecast',
+    'PerformanceAnomaly',
+    'LoadBalancerConfig',
 ]
