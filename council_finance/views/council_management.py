@@ -481,44 +481,88 @@ def bulk_import(request):
             return redirect('bulk_import_councils')
         
         try:
-            import pandas as pd
+            import csv
             import json
+            import io
+            
+            # Try to import pandas for Excel support, but fall back to CSV-only if not available
+            pandas_available = False
+            try:
+                import pandas as pd
+                pandas_available = True
+            except ImportError:
+                pd = None
             
             if confirm_import and request.session.get('import_preview'):
                 # Confirmed import from session data
                 preview_data = request.session['import_preview']
-                df = pd.DataFrame(preview_data['data'])
+                data_records = preview_data['data']
             else:
-                # New file upload
+                # New file upload - parse based on file type
                 if import_file.name.endswith('.csv'):
-                    df = pd.read_csv(import_file)
+                    # Use native CSV parsing - always available
+                    import_file.seek(0)  # Reset file pointer
+                    content = import_file.read().decode('utf-8')
+                    csv_reader = csv.DictReader(io.StringIO(content))
+                    data_records = list(csv_reader)
                 elif import_file.name.endswith('.xlsx'):
-                    df = pd.read_excel(import_file)
+                    # Excel requires pandas
+                    if not pandas_available:
+                        messages.error(request, "Excel files require pandas library. Please install pandas or use CSV format instead.")
+                        return redirect('bulk_import_councils')
+                    data_records = pd.read_excel(import_file).to_dict('records')
                 elif import_file.name.endswith('.json'):
+                    # JSON parsing - always available
+                    import_file.seek(0)  # Reset file pointer
                     data = json.load(import_file)
-                    df = pd.DataFrame(data)
+                    if isinstance(data, list):
+                        data_records = data
+                    else:
+                        messages.error(request, "JSON file must contain an array of council objects.")
+                        return redirect('bulk_import_councils')
                 else:
-                    messages.error(request, "Unsupported file format. Please use CSV, Excel, or JSON.")
+                    messages.error(request, "Unsupported file format. Please use CSV, Excel (.xlsx), or JSON.")
+                    return redirect('bulk_import_councils')
+                    
+                # Ensure we have data
+                if not data_records:
+                    messages.error(request, "No data found in the uploaded file.")
                     return redirect('bulk_import_councils')
             
-            # Validate required columns
-            required_columns = ['name']
-            missing_columns = [col for col in required_columns if col not in df.columns]
+            # Convert to consistent format (list of dicts) and validate required columns
+            if data_records and isinstance(data_records[0], dict):
+                columns = set(data_records[0].keys())
+            else:
+                messages.error(request, "Invalid file format. Expected tabular data with column headers.")
+                return redirect('bulk_import_councils')
+            
+            # Updated required columns based on current business requirements
+            # Note: website, type, and nation are now considered required for CSV imports
+            # even though the database allows them to be null for backwards compatibility
+            required_columns = ['name']  # 'name' is absolutely required in database
+            recommended_columns = ['website', 'council_type', 'nation']  # Business requirements
+            
+            missing_columns = [col for col in required_columns if col not in columns]
             if missing_columns:
                 messages.error(request, f"Missing required columns: {', '.join(missing_columns)}")
                 return redirect('bulk_import_councils')
             
+            # Check for recommended columns and warn if missing    
+            missing_recommended = [col for col in recommended_columns if col not in columns]
+            if missing_recommended:
+                messages.warning(request, f"Missing recommended columns (import will continue but councils may be incomplete): {', '.join(missing_recommended)}")
+            
             if preview_import and not confirm_import:
                 # Preview mode - show what would be imported
-                preview_data = df.head(20).to_dict('records')  # Show more in preview
+                preview_data = data_records[:20]  # Show first 20 records for preview
                 request.session['import_preview'] = {
-                    'data': df.to_dict('records'),  # Store all data
-                    'total_rows': len(df)
+                    'data': data_records,  # Store all data
+                    'total_rows': len(data_records)
                 }
                 
                 context = {
                     'preview_data': preview_data,
-                    'total_rows': len(df),
+                    'total_rows': len(data_records),
                     'file_name': import_file.name if import_file else 'Session Data',
                 }
                 
@@ -533,9 +577,9 @@ def bulk_import(request):
                 errors = []
                 
                 with transaction.atomic():
-                    for index, row in df.iterrows():
+                    for index, row in enumerate(data_records):
                         try:
-                            council_name = str(row['name']).strip()
+                            council_name = str(row.get('name', '')).strip()
                             if not council_name or council_name.lower() in ['nan', 'none', '']:
                                 continue
                                 
@@ -543,9 +587,22 @@ def bulk_import(request):
                             
                             # Check if council already exists
                             if not Council.objects.filter(Q(name=council_name) | Q(slug=council_slug)).exists():
-                                # Get related objects
+                                # Validate required business fields before creating council
+                                validation_errors = []
+                                
+                                # Website is now considered required for new councils
+                                if not ('website' in row and is_valid_value(row['website'])):
+                                    validation_errors.append("Website is required")
+                                
+                                # Skip validation if we have critical errors
+                                if validation_errors:
+                                    error_count += 1
+                                    errors.append(f"Row {index + 1} ({council_name}): {', '.join(validation_errors)}")
+                                    continue
+                                
+                                # Get related objects - use proper None checking instead of pd.notna()
                                 council_type = None
-                                if 'council_type' in row and pd.notna(row['council_type']):
+                                if 'council_type' in row and row['council_type'] and str(row['council_type']).strip():
                                     try:
                                         council_type = CouncilType.objects.get(slug=str(row['council_type']).lower())
                                     except CouncilType.DoesNotExist:
@@ -555,7 +612,7 @@ def bulk_import(request):
                                             pass
                                 
                                 council_nation = None
-                                if 'nation' in row and pd.notna(row['nation']):
+                                if 'nation' in row and row['nation'] and str(row['nation']).strip():
                                     try:
                                         council_nation = CouncilNation.objects.get(slug=str(row['nation']).lower())
                                     except CouncilNation.DoesNotExist:
@@ -564,14 +621,31 @@ def bulk_import(request):
                                         except CouncilNation.DoesNotExist:
                                             pass
                                 
+                                # Helper function to check if value is valid
+                                def is_valid_value(value):
+                                    if value is None:
+                                        return False
+                                    str_val = str(value).strip()
+                                    return str_val and str_val.lower() not in ['nan', 'none', 'null', '']
+                                
                                 # Create council
+                                website_value = None
+                                if 'website' in row and is_valid_value(row['website']):
+                                    website_value = str(row['website']).strip()
+                                
+                                population_value = None
+                                if 'population' in row and is_valid_value(row['population']):
+                                    pop_str = str(row['population']).replace('.0', '')
+                                    if pop_str.isdigit():
+                                        population_value = int(pop_str)
+                                
                                 council = Council.objects.create(
                                     name=council_name,
                                     slug=council_slug,
                                     council_type=council_type,
                                     council_nation=council_nation,
-                                    website=str(row['website']).strip() if 'website' in row and pd.notna(row['website']) else None,
-                                    latest_population=int(row['population']) if 'population' in row and pd.notna(row['population']) and str(row['population']).replace('.0', '').isdigit() else None,
+                                    website=website_value,
+                                    latest_population=population_value,
                                     status='active'
                                 )
                                 
@@ -587,17 +661,17 @@ def bulk_import(request):
                                     # Try different column name variations for this field
                                     possible_columns = [field.slug, field.slug.replace('-', '_'), field.name.lower()]
                                     for col_name in possible_columns:
-                                        if col_name in row and pd.notna(row[col_name]):
+                                        if col_name in row and is_valid_value(row[col_name]):
                                             field_value = str(row[col_name]).strip()
                                             break
                                     
                                     # Handle special backwards compatibility cases
                                     if not field_value:
-                                        if field.slug == 'council_hq_post_code' and 'postcode' in row and pd.notna(row['postcode']):
+                                        if field.slug == 'council_hq_post_code' and 'postcode' in row and is_valid_value(row['postcode']):
                                             field_value = str(row['postcode']).strip()
-                                        elif field.slug == 'population' and 'population' in row and pd.notna(row['population']):
+                                        elif field.slug == 'population' and 'population' in row and is_valid_value(row['population']):
                                             field_value = str(row['population']).strip()
-                                        elif field.slug == 'council_website' and 'website' in row and pd.notna(row['website']):
+                                        elif field.slug == 'council_website' and 'website' in row and is_valid_value(row['website']):
                                             field_value = str(row['website']).strip()
                                     
                                     if field_value:
@@ -654,8 +728,9 @@ def bulk_import(request):
                     extra=f"Created: {created_count}, Skipped: {skipped_count}, Errors: {error_count}, Issues: {total_issues_created}"
                 )
                 
-        except ImportError:
-            messages.error(request, "pandas library not available. Please install it to use the import feature.")
+        except ImportError as e:
+            # This should now only catch issues with other imports, not pandas
+            messages.error(request, f"Required library not available: {str(e)}. Please contact administrator.")
         except Exception as e:
             logger.error(f"Error during bulk import: {e}")
             messages.error(request, f"Error importing councils: {str(e)}")
