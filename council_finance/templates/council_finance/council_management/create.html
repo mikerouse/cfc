@@ -90,7 +90,7 @@
   <!-- Form -->
   <div class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
     <div class="bg-white rounded-lg shadow">
-      <form id="createCouncilForm" method="POST" class="space-y-6 p-6">
+      <form id="createCouncilForm" method="POST" enctype="multipart/form-data" class="space-y-6 p-6">
         {% csrf_token %}
         
         <!-- Basic Information -->
@@ -124,10 +124,11 @@
 
             <div>
               <label for="council_type" class="block text-sm font-medium text-gray-700 mb-2">
-                Council Type
+                Council Type <span class="text-red-500">*</span>
               </label>
               <select id="council_type"
                       name="council_type" 
+                      required
                       class="block w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-colors">
                 <option value="">Select council type...</option>
                 {% for council_type in council_types %}
@@ -138,10 +139,11 @@
 
             <div>
               <label for="council_nation" class="block text-sm font-medium text-gray-700 mb-2">
-                Nation
+                Nation <span class="text-red-500">*</span>
               </label>
               <select id="council_nation"
                       name="council_nation" 
+                      required
                       class="block w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-colors">
                 <option value="">Select nation...</option>
                 {% for nation in nations %}
@@ -152,14 +154,27 @@
 
             <div>
               <label for="website" class="block text-sm font-medium text-gray-700 mb-2">
-                Website
+                Website <span class="text-red-500">*</span>
               </label>
               <input type="url" 
                      id="website"
                      name="website" 
+                     required
                      placeholder="https://www.example.gov.uk"
                      class="block w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-colors">
               <p class="mt-1 text-sm text-gray-500">Official council website URL</p>
+            </div>
+
+            <div>
+              <label for="council_logo" class="block text-sm font-medium text-gray-700 mb-2">
+                Council Logo
+              </label>
+              <input type="file" 
+                     id="council_logo"
+                     name="council_logo" 
+                     accept="image/*"
+                     class="block w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-colors file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-emerald-50 file:text-emerald-700 hover:file:bg-emerald-100">
+              <p class="mt-1 text-sm text-gray-500">Upload the official council logo (PNG, JPG, or SVG)</p>
             </div>
           </div>
         </div>
@@ -169,6 +184,7 @@
           <h3 class="text-lg font-medium text-gray-900 mb-4">Council Characteristics</h3>
           <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
             {% for field in characteristic_fields %}
+            {% if field.slug != 'council_logo' %}
             <div class="{% if field.content_type == 'text' and field.explanation|length > 100 %}md:col-span-2{% endif %}">
               <label for="characteristic_{{ field.slug }}" class="block text-sm font-medium text-gray-700 mb-2">
                 {{ field.name }}
@@ -221,6 +237,7 @@
                 <p class="mt-1 text-sm text-gray-500">{{ field.explanation }}</p>
               {% endif %}
             </div>
+            {% endif %}
             {% empty %}
             <div class="md:col-span-2">
               <p class="text-sm text-gray-500 italic">No characteristic fields defined yet. You can add them in the field management section.</p>

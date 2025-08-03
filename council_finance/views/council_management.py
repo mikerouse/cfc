@@ -119,10 +119,27 @@ def create_council(request):
         website = request.POST.get('website', '').strip()
         postcode = request.POST.get('postcode', '').strip()
         population = request.POST.get('population', '').strip()
+        council_logo = request.FILES.get('council_logo')
+        
+        # Validate required fields
+        errors = []
         
         if not council_name:
-            messages.error(request, "Council name is required")
-            return redirect('council_management_dashboard')
+            errors.append("Council name is required")
+        
+        if not website:
+            errors.append("Council website is required")
+        
+        if not council_type_id:
+            errors.append("Council type is required") 
+            
+        if not council_nation_id:
+            errors.append("Council nation is required")
+            
+        if errors:
+            for error in errors:
+                messages.error(request, error)
+            return redirect('create_council')
         
         try:
             # Auto-generate slug if not provided
@@ -132,7 +149,7 @@ def create_council(request):
             # Check if council already exists
             if Council.objects.filter(Q(name=council_name) | Q(slug=council_slug)).exists():
                 messages.error(request, f"Council with name '{council_name}' or slug '{council_slug}' already exists")
-                return redirect('council_management_dashboard')
+                return redirect('create_council')
                 
             # Validate required characteristic fields
             characteristic_fields = DataField.objects.filter(category='characteristic', required=True)
@@ -169,7 +186,7 @@ def create_council(request):
                     slug=council_slug,
                     council_type=council_type,
                     council_nation=council_nation,
-                    website=website or None,
+                    website=website,  # No fallback to None since it's now validated as required
                     latest_population=int(population) if population.isdigit() else None,
                     status='active'
                 )
@@ -198,6 +215,47 @@ def create_council(request):
                             )
                         except Exception as e:
                             logger.warning(f"Could not save characteristic {field.slug} for council {council.name}: {e}")
+                
+                # Handle council logo upload if provided
+                if council_logo:
+                    try:
+                        from django.core.files.storage import default_storage
+                        from django.core.files.base import ContentFile
+                        import os
+                        
+                        # Generate filename
+                        file_extension = os.path.splitext(council_logo.name)[1]
+                        filename = f"council_logos/{council.slug}{file_extension}"
+                        
+                        # Save the file
+                        file_path = default_storage.save(filename, ContentFile(council_logo.read()))
+                        
+                        # Try to find or create a logo field
+                        try:
+                            logo_field = DataField.objects.get(slug='council_logo')
+                        except DataField.DoesNotExist:
+                            # Create the logo field if it doesn't exist
+                            logo_field = DataField.objects.create(
+                                name='Council Logo',
+                                slug='council_logo',
+                                category='characteristic',
+                                content_type='image',
+                                explanation='Official council logo image'
+                            )
+                        
+                        # Save logo path as characteristic
+                        CouncilCharacteristic.objects.create(
+                            council=council,
+                            field=logo_field,
+                            value=file_path
+                        )
+                        
+                        logger.info(f"Council logo saved for {council.name}: {file_path}")
+                        
+                    except Exception as e:
+                        logger.error(f"Error saving council logo for {council.name}: {e}")
+                        # Don't fail the entire council creation for logo issues
+                        messages.warning(request, f"Council created successfully, but logo upload failed: {str(e)}")
                 
                 # Generate missing data issues for contribution queues
                 try:

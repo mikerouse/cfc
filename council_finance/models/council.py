@@ -20,7 +20,7 @@ class Council(models.Model):
     
     name = models.CharField(max_length=200)
     slug = models.SlugField(unique=True)
-    website = models.URLField(blank=True)
+    website = models.URLField(help_text="Official council website URL")
     status = models.CharField(
         max_length=20,
         choices=STATUS_CHOICES,
