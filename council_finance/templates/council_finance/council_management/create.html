@@ -90,7 +90,7 @@
   <!-- Form -->
   <div class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
     <div class="bg-white rounded-lg shadow">
-      <form id="createCouncilForm" method="POST" enctype="multipart/form-data" class="space-y-6 p-6">
+      <form id="createCouncilForm" method="POST" class="space-y-6 p-6">
         {% csrf_token %}
         
         <!-- Basic Information -->
@@ -165,17 +165,6 @@
               <p class="mt-1 text-sm text-gray-500">Official council website URL</p>
             </div>
 
-            <div>
-              <label for="council_logo" class="block text-sm font-medium text-gray-700 mb-2">
-                Council Logo
-              </label>
-              <input type="file" 
-                     id="council_logo"
-                     name="council_logo" 
-                     accept="image/*"
-                     class="block w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-colors file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-emerald-50 file:text-emerald-700 hover:file:bg-emerald-100">
-              <p class="mt-1 text-sm text-gray-500">Upload the official council logo (PNG, JPG, or SVG)</p>
-            </div>
           </div>
         </div>
 

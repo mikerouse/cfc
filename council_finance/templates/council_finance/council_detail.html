@@ -1,6 +1,5 @@
 {% extends "council_finance/base.html" %}
 {% load static %}
-{% load logo_tags %}
 {% load humanize %}
 {% block title %}{{ council.name }} - Council Finance Counters{% endblock %}
 
@@ -21,12 +20,7 @@
         <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
           
           <!-- Council Info -->
-          <div class="flex items-start gap-4 min-w-0 flex-1">
-            <!-- Council Logo -->
-            <div class="w-16 h-16 sm:w-20 sm:h-20 rounded-lg bg-gray-100 flex items-center justify-center flex-shrink-0 border border-gray-200">
-              {% council_logo_img council size=80 css_classes="w-full h-full object-cover rounded-lg" %}
-            </div>
-            
+          <div class="min-w-0 flex-1">
             <!-- Council Details -->
             <div class="min-w-0 flex-1">
               <div id="council-detail-name" class="mb-2">

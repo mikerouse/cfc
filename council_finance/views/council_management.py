@@ -120,7 +120,6 @@ def create_council(request):
         website = request.POST.get('website', '').strip()
         postcode = request.POST.get('postcode', '').strip()
         population = request.POST.get('population', '').strip()
-        council_logo = request.FILES.get('council_logo')
         
         # Validate required fields
         errors = []
@@ -216,51 +215,6 @@ def create_council(request):
                             )
                         except Exception as e:
                             logger.warning(f"Could not save characteristic {field.slug} for council {council.name}: {e}")
-                
-                # Handle council logo upload if provided
-                if council_logo:
-                    try:
-                        from council_finance.models import ImageFile
-                        import os
-                        
-                        # Try to find or create a logo field
-                        try:
-                            logo_field = DataField.objects.get(slug='council_logo')
-                        except DataField.DoesNotExist:
-                            # Create the logo field if it doesn't exist
-                            logo_field = DataField.objects.create(
-                                name='Council Logo',
-                                slug='council_logo',
-                                category='characteristic',
-                                content_type='image',
-                                explanation='Official council logo image'
-                            )
-                        
-                        # Create ImageFile object
-                        image_file = ImageFile.objects.create(
-                            council=council,
-                            field=logo_field,
-                            file=council_logo,
-                            uploaded_by=request.user,
-                            is_active=True,
-                            is_approved=True,  # Auto-approve for god mode users
-                            approved_by=request.user,
-                            approved_at=timezone.now()
-                        )
-                        
-                        # Save ImageFile ID as characteristic value
-                        CouncilCharacteristic.objects.create(
-                            council=council,
-                            field=logo_field,
-                            value=str(image_file.id)
-                        )
-                        
-                        logger.info(f"Council logo saved for {council.name}: ImageFile ID {image_file.id}")
-                        
-                    except Exception as e:
-                        logger.error(f"Error saving council logo for {council.name}: {e}")
-                        # Don't fail the entire council creation for logo issues
-                        messages.warning(request, f"Council created successfully, but logo upload failed: {str(e)}")
                 
                 # Generate missing data issues for contribution queues
                 try:
