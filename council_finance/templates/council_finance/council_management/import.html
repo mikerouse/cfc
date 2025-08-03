@@ -165,16 +165,28 @@
             </span>
             <span class="text-sm"><code>name</code> - Council name</span>
           </div>
-          {% for field in characteristic_fields %}
-            {% if field.required %}
-            <div class="flex items-center space-x-2">
-              <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
-                Required
-              </span>
-              <span class="text-sm"><code>{{ field.slug }}</code> - {{ field.name }}</span>
-            </div>
-            {% endif %}
-          {% endfor %}
+          <div class="flex items-center space-x-2">
+            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
+              Required
+            </span>
+            <span class="text-sm"><code>website</code> - Council website URL</span>
+          </div>
+        </div>
+        
+        <h4 class="text-md font-medium text-gray-900 mt-4 mb-2">Strongly Recommended</h4>
+        <div class="space-y-2">
+          <div class="flex items-center space-x-2">
+            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+              Recommended
+            </span>
+            <span class="text-sm"><code>council_type</code> - Council type slug or name</span>
+          </div>
+          <div class="flex items-center space-x-2">
+            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+              Recommended
+            </span>
+            <span class="text-sm"><code>nation</code> - Nation slug or name (England, Scotland, Wales, Northern Ireland)</span>
+          </div>
         </div>
       </div>
 
@@ -182,16 +194,26 @@
       <div class="bg-white rounded-lg shadow p-6">
         <h3 class="text-lg font-medium text-gray-900 mb-4">Optional Columns</h3>
         <div class="space-y-2 text-sm">
-          <div><code>slug</code> - URL slug (auto-generated if empty)</div>
-          <div><code>council_type</code> - Council type slug or name</div>
-          <div><code>nation</code> - Nation slug or name</div>
-          <div><code>website</code> - Council website URL</div>
+          <div><code>slug</code> - URL slug (auto-generated from name if empty)</div>
+          <div><code>population</code> - Council population</div>
           {% for field in characteristic_fields %}
-          <div>
-            <code>{{ field.slug }}</code> - {{ field.name }}
-            {% if field.required %}<span class="inline-flex items-center px-1.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800 ml-1">Required</span>{% endif %}
-          </div>
+            {% if not field.required and field.slug != 'council_logo' %}
+            <div>
+              <code>{{ field.slug }}</code> - {{ field.name }}
+            </div>
+            {% endif %}
           {% endfor %}
+        </div>
+        
+        <div class="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+          <div class="flex items-start space-x-2">
+            <svg class="h-5 w-5 text-blue-400 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+              <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"/>
+            </svg>
+            <div class="text-sm text-blue-700">
+              <strong>Note:</strong> Council logo uploads are not supported via CSV import. Logos can be added individually through the edit interface after import.
+            </div>
+          </div>
         </div>
       </div>
     </div>

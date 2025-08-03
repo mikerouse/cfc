@@ -1,6 +1,6 @@
-name,slug,council_type,nation,website,postcode,population
-Birmingham City Council,birmingham-city-council,metropolitan,england,https://www.birmingham.gov.uk,B1 1BB,1141374
-Manchester City Council,manchester-city-council,metropolitan,england,https://www.manchester.gov.uk,M60 2LA,547899
-Leeds City Council,leeds-city-council,metropolitan,england,https://www.leeds.gov.uk,LS1 1UR,812000
-Glasgow City Council,glasgow-city-council,unitary,scotland,https://www.glasgow.gov.uk,G2 1DU,635640
-Cardiff Council,cardiff-council,unitary,wales,https://www.cardiff.gov.uk,CF10 4UW,369202
+name,website,council_type,nation,slug,population,postcode
+Birmingham City Council,https://www.birmingham.gov.uk,metropolitan,england,birmingham-city-council,1141374,B1 1BB
+Manchester City Council,https://www.manchester.gov.uk,metropolitan,england,manchester-city-council,547899,M60 2LA
+Leeds City Council,https://www.leeds.gov.uk,metropolitan,england,leeds-city-council,812000,LS1 1UR
+Glasgow City Council,https://www.glasgow.gov.uk,unitary,scotland,glasgow-city-council,635640,G2 1DU
+Cardiff Council,https://www.cardiff.gov.uk,unitary,wales,cardiff-council,369202,CF10 4UW
