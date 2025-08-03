@@ -6,7 +6,7 @@ from django.core.paginator import Paginator
 from django.views.decorators.http import require_GET, require_POST
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
-from django.db.models import Q
+from django.db.models import Q, Count
 from django.template.loader import render_to_string
 from django.core.exceptions import ValidationError
 
@@ -731,6 +731,33 @@ def god_mode(request):
                 messages.error(request, f"Error during assessment: {str(e)}")
             return HttpResponseRedirect(reverse('god_mode'))
         
+        elif 'delete_council' in request.POST:
+            council_id = request.POST.get('council_id')
+            confirm = request.POST.get('confirm_deletion')
+            if council_id and confirm == 'yes':
+                try:
+                    council = Council.objects.get(id=council_id)
+                    council_name = council.name
+                    # TODO: Implement proper council deletion with cleanup
+                    # council.delete()
+                    messages.info(request, f"Council deletion for '{council_name}' is not yet implemented - use council management dashboard")
+                except Council.DoesNotExist:
+                    messages.error(request, "Council not found")
+                except Exception as e:
+                    messages.error(request, f"Error deleting council: {str(e)}")
+            return HttpResponseRedirect(reverse('god_mode'))
+        
+        elif 'merge_councils' in request.POST:
+            source_council_id = request.POST.get('source_council_id')
+            target_council_id = request.POST.get('target_council_id')
+            if source_council_id and target_council_id:
+                try:
+                    # TODO: Implement proper council merging functionality
+                    messages.info(request, "Council merging functionality is not yet implemented - use council management dashboard")
+                except Exception as e:
+                    messages.error(request, f"Error merging councils: {str(e)}")
+            return HttpResponseRedirect(reverse('god_mode'))
+        
         elif 'delete_financial_year' in request.POST:
             year_id = request.POST.get('year_id')
             confirm = request.POST.get('confirm_deletion')
@@ -762,17 +789,29 @@ def god_mode(request):
     
     # Get surveillance data
     now = datetime.now()
-    day_ago = now - timedelta(days=1)    # User activity surveillance
-    user_activity_surveillance = {
-        'active_users_24h': UserProfile.objects.count(),  # TODO: Implement proper last_seen tracking
+    day_ago = now - timedelta(days=1)    # System insights - improved from basic surveillance
+    week_ago = now - timedelta(days=7)
+    month_ago = now - timedelta(days=30)
+    
+    system_insights = {
+        'total_users': UserProfile.objects.count(),
         'contributions_today': Contribution.objects.filter(created__date=now.date()).count(),
-        'suspicious_activity_count': 0,  # TODO: Implement suspicious activity detection
+        'contributions_this_week': Contribution.objects.filter(created__gte=week_ago).count(),
+        'contributions_this_month': Contribution.objects.filter(created__gte=month_ago).count(),
+        'new_users_this_week': UserProfile.objects.filter(created__gte=week_ago).count(),
+        'active_contributors': UserProfile.objects.filter(points__gt=0).count(),
     }
     
-    # Get high activity users - using points as a proxy for activity
-    high_activity_users = UserProfile.objects.filter(
+    # Get high activity contributors with meaningful metrics
+    top_contributors = UserProfile.objects.filter(
         points__gt=0
     ).order_by('-points')[:5]
+    
+    # Council attention trends - which councils are getting the most attention
+    trending_councils = Council.objects.annotate(
+        recent_contributions=Count('financial_figures', filter=Q(financial_figures__created__gte=week_ago)) +
+                           Count('characteristics', filter=Q(characteristics__updated__gte=week_ago))
+    ).filter(recent_contributions__gt=0).order_by('-recent_contributions')[:5]
     
     # Data quality surveillance
     total_councils = Council.objects.filter(status='active').count()
@@ -797,12 +836,10 @@ def god_mode(request):
     }
     
     # Council activity hotspots - councils with most recent data updates
-    council_activity_hotspots = Council.objects.filter(
-        Q(financial_figures__isnull=False) | Q(characteristics__isnull=False)
-    ).distinct()[:5]
+    council_activity_hotspots = trending_councils
     
-    # Recent rejections
-    recent_rejections = RejectionLog.objects.order_by('-created')[:10]
+    # Remove recent rejections - now handled by flagging system
+    # recent_rejections = RejectionLog.objects.order_by('-created')[:10]
     
     # Get all councils for quick stats
     all_councils = Council.objects.all()
@@ -829,12 +866,12 @@ def god_mode(request):
     context = {
         'financial_years': financial_years,
         'recommended_year': recommended_year,
-        'user_activity_surveillance': user_activity_surveillance,
-        'high_activity_users': high_activity_users,
+        'system_insights': system_insights,
+        'top_contributors': top_contributors,
+        'trending_councils': trending_councils,
         'data_quality_surveillance': data_quality_surveillance,
         'security_monitoring': security_monitoring,
         'council_activity_hotspots': council_activity_hotspots,
-        'recent_rejections': recent_rejections,
         'all_councils': all_councils,
         'councils_with_data': councils_with_data,
         'councils_without_data': councils_without_data,
