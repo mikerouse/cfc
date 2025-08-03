@@ -225,7 +225,10 @@
               </div>
               <div class="flex items-center">
                 <div class="w-12 bg-gray-200 rounded-full h-2 mr-2">
-                  <div class="bg-green-500 h-2 rounded-full" style="width: {{ council.recent_contributions|floatformat:0 }}0%"></div>
+                  {% with max_contributions=10 %}
+                    {% widthratio council.recent_contributions max_contributions 100 as width_percentage %}
+                    <div class="bg-green-500 h-2 rounded-full" style="width: {% if width_percentage > 100 %}100{% else %}{{ width_percentage }}{% endif %}%"></div>
+                  {% endwith %}
                 </div>
                 <span class="text-xs text-green-700">{{ council.recent_contributions }}</span>
               </div>

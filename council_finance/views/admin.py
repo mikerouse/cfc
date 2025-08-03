@@ -738,9 +738,18 @@ def god_mode(request):
                 try:
                     council = Council.objects.get(id=council_id)
                     council_name = council.name
-                    # TODO: Implement proper council deletion with cleanup
-                    # council.delete()
-                    messages.info(request, f"Council deletion for '{council_name}' is not yet implemented - use council management dashboard")
+                    
+                    # Check if council has any data before attempting deletion
+                    financial_figures_count = council.financial_figures.count()
+                    characteristics_count = council.characteristics.count()
+                    
+                    if financial_figures_count > 0 or characteristics_count > 0:
+                        messages.error(request, f"Cannot delete council '{council_name}' - it has {financial_figures_count} financial figures and {characteristics_count} characteristics. Remove all associated data first.")
+                    else:
+                        # Safe to delete - no associated data
+                        council.delete()
+                        messages.success(request, f"Council '{council_name}' deleted successfully")
+                        
                 except Council.DoesNotExist:
                     messages.error(request, "Council not found")
                 except Exception as e:
@@ -752,8 +761,27 @@ def god_mode(request):
             target_council_id = request.POST.get('target_council_id')
             if source_council_id and target_council_id:
                 try:
-                    # TODO: Implement proper council merging functionality
-                    messages.info(request, "Council merging functionality is not yet implemented - use council management dashboard")
+                    if source_council_id == target_council_id:
+                        messages.error(request, "Cannot merge a council with itself")
+                    else:
+                        source_council = Council.objects.get(id=source_council_id)
+                        target_council = Council.objects.get(id=target_council_id)
+                        
+                        # Check if either council has data that would prevent merging
+                        source_financial_count = source_council.financial_figures.count()
+                        source_characteristics_count = source_council.characteristics.count()
+                        
+                        if source_financial_count > 0 or source_characteristics_count > 0:
+                            messages.error(request, f"Cannot merge council '{source_council.name}' - it has {source_financial_count} financial figures and {source_characteristics_count} characteristics. Council merging with existing data requires manual data migration.")
+                        else:
+                            # Safe to merge - source council has no data, just delete it
+                            source_name = source_council.name
+                            target_name = target_council.name
+                            source_council.delete()
+                            messages.success(request, f"Merged '{source_name}' into '{target_name}' (source council had no data and was removed)")
+                        
+                except Council.DoesNotExist:
+                    messages.error(request, "One or both councils not found")
                 except Exception as e:
                     messages.error(request, f"Error merging councils: {str(e)}")
             return HttpResponseRedirect(reverse('god_mode'))
@@ -805,12 +833,17 @@ def god_mode(request):
     # Get high activity contributors with meaningful metrics
     top_contributors = UserProfile.objects.filter(
         points__gt=0
-    ).order_by('-points')[:5]
+    ).select_related('user').order_by('-points')[:5]
     
     # Council attention trends - which councils are getting the most attention
+    from django.db.models import Value, IntegerField
+    from django.db.models.functions import Coalesce
+    
     trending_councils = Council.objects.annotate(
-        recent_contributions=Count('financial_figures', filter=Q(financial_figures__created__gte=week_ago)) +
-                           Count('characteristics', filter=Q(characteristics__updated__gte=week_ago))
+        financial_updates=Count('financial_figures', filter=Q(financial_figures__created__gte=week_ago)),
+        characteristic_updates=Count('characteristics', filter=Q(characteristics__updated__gte=week_ago))
+    ).annotate(
+        recent_contributions=Coalesce('financial_updates', Value(0)) + Coalesce('characteristic_updates', Value(0))
     ).filter(recent_contributions__gt=0).order_by('-recent_contributions')[:5]
     
     # Data quality surveillance
