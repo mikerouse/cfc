@@ -184,6 +184,10 @@ STATICFILES_DIRS = [
 STATIC_ROOT = os.path.join(BASE_DIR, "staticfiles")
 STATICFILES_STORAGE = "django.contrib.staticfiles.storage.StaticFilesStorage"
 
+# Media files configuration (user uploads like council logos)
+MEDIA_URL = "/media/"
+MEDIA_ROOT = os.path.join(BASE_DIR, "images")
+
 # ============================================================================
 # REACT FACTOID BUILDER CONFIGURATION
 # ============================================================================

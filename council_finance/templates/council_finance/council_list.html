@@ -1,7 +1,6 @@
 {% extends "council_finance/base.html" %}
 {% load static %}
 {% load humanize %}
-{% load logo_tags %}
 
 {% block title %}Browse Councils - Council Finance Counters{% endblock %}
 
@@ -131,10 +130,7 @@
         <div class="bg-white border border-gray-200 rounded-lg shadow-sm hover:shadow-md transition-all duration-200 overflow-hidden">
           <!-- Council Card Header -->
           <div class="p-4 sm:p-6">
-            <div class="flex items-start gap-3 mb-4">
-              <div class="w-12 h-12 sm:w-14 sm:h-14 rounded-lg shadow-sm overflow-hidden bg-gray-100 flex items-center justify-center flex-shrink-0">
-                {% council_logo_img item.council size=56 css_classes="w-full h-full object-cover" %}
-              </div>
+            <div class="mb-4">
               <div class="flex-1 min-w-0">
                 <h3 class="font-semibold text-gray-900 text-sm sm:text-base leading-tight mb-1">
                   <a href="{% url 'council_detail' item.council.slug %}" class="hover:text-blue-600 transition-colors">

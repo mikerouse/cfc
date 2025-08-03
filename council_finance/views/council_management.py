@@ -18,6 +18,7 @@ from django.views.decorators.csrf import csrf_exempt
 from django.db import transaction
 from django.db.models import Q, Count
 from django.core.paginator import Paginator
+from django.utils import timezone
 from django.utils.text import slugify
 import json
 import logging
@@ -120,9 +121,25 @@ def create_council(request):
         postcode = request.POST.get('postcode', '').strip()
         population = request.POST.get('population', '').strip()
         
+        # Validate required fields
+        errors = []
+        
         if not council_name:
-            messages.error(request, "Council name is required")
-            return redirect('council_management_dashboard')
+            errors.append("Council name is required")
+        
+        if not website:
+            errors.append("Council website is required")
+        
+        if not council_type_id:
+            errors.append("Council type is required") 
+            
+        if not council_nation_id:
+            errors.append("Council nation is required")
+            
+        if errors:
+            for error in errors:
+                messages.error(request, error)
+            return redirect('create_council')
         
         try:
             # Auto-generate slug if not provided
@@ -132,7 +149,7 @@ def create_council(request):
             # Check if council already exists
             if Council.objects.filter(Q(name=council_name) | Q(slug=council_slug)).exists():
                 messages.error(request, f"Council with name '{council_name}' or slug '{council_slug}' already exists")
-                return redirect('council_management_dashboard')
+                return redirect('create_council')
                 
             # Validate required characteristic fields
             characteristic_fields = DataField.objects.filter(category='characteristic', required=True)
@@ -169,7 +186,7 @@ def create_council(request):
                     slug=council_slug,
                     council_type=council_type,
                     council_nation=council_nation,
-                    website=website or None,
+                    website=website,  # No fallback to None since it's now validated as required
                     latest_population=int(population) if population.isdigit() else None,
                     status='active'
                 )
