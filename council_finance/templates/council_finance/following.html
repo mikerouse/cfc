@@ -368,5 +368,6 @@ window.djangoContext = {
     userId: {{ request.user.id|default:"null" }}
 };
 </script>
+<script src="{% static 'js/auth-utils.js' %}"></script>
 <script src="{% static 'js/following.js' %}"></script>
 {% endblock %}
