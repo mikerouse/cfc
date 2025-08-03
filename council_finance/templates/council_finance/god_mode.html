@@ -82,44 +82,56 @@
     <!-- Left Column: Surveillance & Activity -->
     <div class="space-y-6">
       
-      <!-- Active User Surveillance -->
+      <!-- System Insights -->
       <div class="bg-white rounded-lg shadow-sm border border-blue-200">
         <div class="p-4 border-b border-gray-200 bg-blue-50">
           <h2 class="text-lg font-semibold text-blue-900 flex items-center">
-            <span class="mr-2">👥</span>User Activity Surveillance
+            <span class="mr-2">📊</span>System Insights
           </h2>
         </div>
         <div class="p-4">
           <div class="space-y-3">
             <div class="flex justify-between items-center">
-              <span class="text-sm font-medium text-gray-700">Active Users (24h)</span>
-              <span class="px-2 py-1 bg-green-100 text-green-800 rounded-full text-sm">
-                {{ user_activity_surveillance.active_users_24h }}
-              </span>
-            </div>
-            <div class="flex justify-between items-center">
-              <span class="text-sm font-medium text-gray-700">New Contributions Today</span>
+              <span class="text-sm font-medium text-gray-700">Total Users</span>
               <span class="px-2 py-1 bg-blue-100 text-blue-800 rounded-full text-sm">
-                {{ user_activity_surveillance.contributions_today }}
+                {{ system_insights.total_users }}
               </span>
             </div>
             <div class="flex justify-between items-center">
-              <span class="text-sm font-medium text-gray-700">Suspicious Activity</span>
-              <span class="px-2 py-1 bg-{% if user_activity_surveillance.suspicious_activity_count > 0 %}red{% else %}gray{% endif %}-100 text-{% if user_activity_surveillance.suspicious_activity_count > 0 %}red{% else %}gray{% endif %}-800 rounded-full text-sm">
-                {{ user_activity_surveillance.suspicious_activity_count }}
+              <span class="text-sm font-medium text-gray-700">Contributions Today</span>
+              <span class="px-2 py-1 bg-green-100 text-green-800 rounded-full text-sm">
+                {{ system_insights.contributions_today }}
+              </span>
+            </div>
+            <div class="flex justify-between items-center">
+              <span class="text-sm font-medium text-gray-700">Contributions This Week</span>
+              <span class="px-2 py-1 bg-indigo-100 text-indigo-800 rounded-full text-sm">
+                {{ system_insights.contributions_this_week }}
+              </span>
+            </div>
+            <div class="flex justify-between items-center">
+              <span class="text-sm font-medium text-gray-700">New Users This Week</span>
+              <span class="px-2 py-1 bg-purple-100 text-purple-800 rounded-full text-sm">
+                {{ system_insights.new_users_this_week }}
+              </span>
+            </div>
+            <div class="flex justify-between items-center">
+              <span class="text-sm font-medium text-gray-700">Active Contributors</span>
+              <span class="px-2 py-1 bg-orange-100 text-orange-800 rounded-full text-sm">
+                {{ system_insights.active_contributors }}
               </span>
             </div>
           </div>
           
-          <!-- High Activity Users -->
-          {% if high_activity_users %}
+          <!-- Top Contributors -->
+          {% if top_contributors %}
           <div class="mt-4 pt-4 border-t border-gray-200">
-            <h4 class="text-sm font-medium text-gray-700 mb-2">🔥 High Activity Users</h4>
+            <h4 class="text-sm font-medium text-gray-700 mb-2">🏆 Top Contributors</h4>
             <div class="space-y-2">
-              {% for user in high_activity_users %}
+              {% for contributor in top_contributors %}
               <div class="flex items-center justify-between text-xs">
-                <span class="font-medium">{{ user.username }}</span>
-                <span class="text-gray-500">{{ user.activity_count }} actions</span>
+                <span class="font-medium">{{ contributor.user.username }}</span>
+                <span class="text-gray-500">{{ contributor.points }} points</span>
               </div>
               {% endfor %}
             </div>
@@ -195,27 +207,30 @@
       </div>
     </div>
     
-      <!-- Council Activity Hotspots -->
+      <!-- Trending Councils -->
       <div class="bg-white rounded-lg shadow-sm border border-green-200">
         <div class="p-4 border-b border-gray-200 bg-green-50">
           <h2 class="text-lg font-semibold text-green-900 flex items-center">
-            <span class="mr-2">🏛️</span>Council Activity Hotspots
+            <span class="mr-2">📈</span>Trending Councils
           </h2>
         </div>
         <div class="p-4">
-          {% if council_activity_hotspots %}
+          {% if trending_councils %}
           <div class="space-y-3">
-            {% for council in council_activity_hotspots %}
+            {% for council in trending_councils %}
             <div class="flex items-center justify-between p-2 bg-green-50 rounded">
               <div>
                 <div class="font-medium text-sm">{{ council.name|truncatechars:25 }}</div>
-                <div class="text-xs text-gray-500">{{ council.recent_activity }} recent activities</div>
+                <div class="text-xs text-gray-500">{{ council.recent_contributions }} recent updates</div>
               </div>
               <div class="flex items-center">
                 <div class="w-12 bg-gray-200 rounded-full h-2 mr-2">
-                  <div class="bg-green-500 h-2 rounded-full" style="width: {{ council.activity_percentage }}%"></div>
+                  {% with max_contributions=10 %}
+                    {% widthratio council.recent_contributions max_contributions 100 as width_percentage %}
+                    <div class="bg-green-500 h-2 rounded-full" style="width: {% if width_percentage > 100 %}100{% else %}{{ width_percentage }}{% endif %}%"></div>
+                  {% endwith %}
                 </div>
-                <span class="text-xs text-green-700">{{ council.activity_percentage }}%</span>
+                <span class="text-xs text-green-700">{{ council.recent_contributions }}</span>
               </div>
             </div>
             {% endfor %}
@@ -223,7 +238,7 @@
           {% else %}
           <div class="text-center py-4 text-gray-500">
             <div class="text-2xl mb-2">🏛️</div>
-            <p class="text-sm">No recent council activity detected</p>
+            <p class="text-sm">No trending council activity this week</p>
           </div>
           {% endif %}
         </div>
@@ -313,50 +328,6 @@
     
     <!-- Right Column: Management & Control Systems -->
     <div class="space-y-6">
-      <!-- Recent Rejections Surveillance -->
-      <div class="bg-white rounded-lg shadow-sm border border-purple-200">
-        <div class="p-4 border-b border-gray-200 bg-purple-50">
-          <h2 class="text-lg font-semibold text-purple-900 flex items-center">
-            <span class="mr-2">❌</span>Recent Rejections
-          </h2>
-        </div>
-        <div class="p-4">
-          {% if recent_rejections %}
-          <div class="space-y-3">
-            {% for rejection in recent_rejections %}
-            <div class="border-l-4 border-red-300 pl-3 py-2">
-              <div class="flex items-center justify-between">
-                <div class="text-sm font-medium">
-                  {{ rejection.council.name|truncatechars:20 }}
-                </div>
-                <div class="text-xs text-gray-500">
-                  {{ rejection.created_at|timesince }} ago
-                </div>
-              </div>
-              <div class="text-xs text-gray-600 mt-1">
-                Field: {{ rejection.field_name }}
-              </div>
-              {% if rejection.reviewed_by %}
-              <div class="text-xs text-purple-600">
-                Reviewed by: {{ rejection.reviewed_by.username }}
-              </div>
-              {% endif %}
-              {% if rejection.reason %}
-              <div class="text-xs text-red-600 mt-1">
-                "{{ rejection.reason|truncatechars:50 }}"
-              </div>
-              {% endif %}
-            </div>
-            {% endfor %}
-          </div>
-          {% else %}
-          <div class="text-center py-4 text-gray-500">
-            <div class="text-2xl mb-2">✅</div>
-            <p class="text-sm">No recent rejections - All is well!</p>
-          </div>
-          {% endif %}
-        </div>
-      </div>
 
       <!-- Smart Data Quality Management -->
       <div class="bg-white rounded-lg shadow-sm border border-blue-200">
@@ -569,26 +540,51 @@
         </div>
         <div class="p-4">
           <div class="space-y-3">
-            <form method="post" class="w-full">
-              {% csrf_token %}
-              <button name="reconcile_population" value="1" 
-                      class="w-full inline-flex items-center justify-center px-4 py-3 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors">
-                <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
-                </svg>
-                Reconcile Population
-              </button>
-            </form>
-            
-            <form method="get" class="w-full">
-              <button name="export" value="csv" 
-                      class="w-full inline-flex items-center justify-center px-4 py-3 bg-gray-600 text-white rounded-md hover:bg-gray-700 transition-colors">
-                <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
-                </svg>
-                Export Divine Records
-              </button>
-            </form>
+            <!-- Council Management Commands -->
+            <div class="bg-amber-50 border border-amber-200 rounded-lg p-3 mb-4">
+              <h4 class="text-sm font-semibold text-amber-800 mb-2">⚠️ Council Management</h4>
+              <p class="text-xs text-amber-700 mb-3">Advanced council operations - use with extreme caution</p>
+              
+              <form method="post" class="mb-2">
+                {% csrf_token %}
+                <div class="flex gap-2 mb-2">
+                  <select name="council_id" class="flex-1 px-2 py-1 border border-amber-300 rounded text-xs" required>
+                    <option value="">Select council to delete...</option>
+                    {% for council in all_councils %}
+                    <option value="{{ council.id }}">{{ council.name }}</option>
+                    {% endfor %}
+                  </select>
+                  <button type="button" onclick="confirmDeleteCouncil(this.form)" 
+                          class="px-3 py-1 bg-red-500 text-white rounded text-xs hover:bg-red-600">
+                    Delete
+                  </button>
+                </div>
+                <input type="hidden" name="delete_council" value="1">
+                <input type="hidden" name="confirm_deletion" id="deleteCouncilConfirm">
+              </form>
+              
+              <form method="post">
+                {% csrf_token %}
+                <div class="flex gap-2">
+                  <select name="source_council_id" class="flex-1 px-2 py-1 border border-amber-300 rounded text-xs" required>
+                    <option value="">Merge from...</option>
+                    {% for council in all_councils %}
+                    <option value="{{ council.id }}">{{ council.name }}</option>
+                    {% endfor %}
+                  </select>
+                  <select name="target_council_id" class="flex-1 px-2 py-1 border border-amber-300 rounded text-xs" required>
+                    <option value="">Merge into...</option>
+                    {% for council in all_councils %}
+                    <option value="{{ council.id }}">{{ council.name }}</option>
+                    {% endfor %}
+                  </select>
+                  <button type="submit" name="merge_councils" value="1"
+                          class="px-3 py-1 bg-blue-500 text-white rounded text-xs hover:bg-blue-600">
+                    Merge
+                  </button>
+                </div>
+              </form>
+            </div>
           </div>
         </div>
       </div>
@@ -631,8 +627,8 @@
             <!-- Recent Errors -->
             <div class="flex items-center justify-between">
               <span class="text-sm font-medium text-gray-700">Recent Errors</span>
-              <span class="px-2 py-1 bg-{% if recent_rejections|length > 0 %}red{% else %}gray{% endif %}-100 text-{% if recent_rejections|length > 0 %}red{% else %}gray{% endif %}-800 rounded-full text-sm">
-                {{ recent_rejections|length }}
+              <span class="px-2 py-1 bg-gray-100 text-gray-800 rounded-full text-sm">
+                0
               </span>
             </div>
           </div>
@@ -673,15 +669,13 @@
               </div>
             </div>
             
-            {% for rejection in recent_rejections|slice:":3" %}
             <div class="flex items-start space-x-2 text-xs">
-              <div class="w-2 h-2 bg-red-500 rounded-full mt-1.5"></div>
+              <div class="w-2 h-2 bg-gray-500 rounded-full mt-1.5"></div>
               <div>
-                <div class="font-medium">Data rejected</div>
-                <div class="text-gray-500">{{ rejection.council.name|truncatechars:20 }} - {{ rejection.created_at|timesince }} ago</div>
+                <div class="font-medium">System monitoring active</div>
+                <div class="text-gray-500">All systems operational - just now</div>
               </div>
             </div>
-            {% endfor %}
           </div>
         </div>
       </div>
@@ -704,8 +698,8 @@
               <div class="text-xs text-green-700">Financial Years</div>
             </div>
             <div class="p-3 bg-yellow-50 rounded">
-              <div class="text-2xl font-bold text-yellow-600">{{ user_activity_surveillance.contributions_today }}</div>
-              <div class="text-xs text-yellow-700">Today's Updates</div>
+              <div class="text-2xl font-bold text-yellow-600">{{ system_insights.contributions_today }}</div>
+              <div class="text-xs text-yellow-700">Today's Contributions</div>
             </div>
             <div class="p-3 bg-purple-50 rounded">
               <div class="text-2xl font-bold text-purple-600">{{ data_quality_surveillance.completeness_percentage|floatformat:0 }}%</div>
@@ -725,7 +719,7 @@
         <p class="text-indigo-800 font-medium">"From digital Olympus, Zeus sees all"</p>
         <p class="text-indigo-600 text-sm mt-1">
           Surveillance active across {{ all_councils|length }} councils • 
-          {{ user_activity_surveillance.active_users_24h }} mortals under watch • 
+          {{ system_insights.active_contributors }} active contributors • 
           Data integrity at {{ data_quality_surveillance.consistency_score|floatformat:0 }}%
         </p>
       </div>
@@ -988,6 +982,43 @@ class CouncilProgressManager {
                 document.getElementById('councilImportFile').parentNode.appendChild(estimateEl);
             }
             estimateEl.textContent = `📊 File size: ${(file.size/1024).toFixed(1)}KB, Estimated ${estimatedRecords} records, Processing time: ~${timeText}`;
+        }
+    }
+}
+
+function confirmDeleteCouncil(form) {
+    const councilSelect = form.querySelector('select[name="council_id"]');
+    const councilId = councilSelect.value;
+    const councilName = councilSelect.options[councilSelect.selectedIndex].text;
+    
+    if (!councilId) {
+        alert('⚠️ Please select a council to delete');
+        return;
+    }
+    
+    const confirmed = confirm(
+        `🗑️ Delete Council '${councilName}'?\n\n` +
+        `⚠️ WARNING: This is an IRREVERSIBLE action!\n\n` +
+        `This will permanently delete:\n` +
+        `• All financial data for this council\n` +
+        `• All characteristic data\n` +
+        `• All contribution history\n` +
+        `• All associated records\n\n` +
+        `This action CANNOT be undone.\n\n` +
+        `Type 'DELETE' in the next prompt to confirm.`
+    );
+    
+    if (confirmed) {
+        const secondConfirm = prompt(
+            `Final confirmation required.\n\n` +
+            `Type 'DELETE' (in capital letters) to permanently delete council '${councilName}':`
+        );
+        
+        if (secondConfirm === 'DELETE') {
+            form.querySelector('#deleteCouncilConfirm').value = 'yes';
+            form.submit();
+        } else {
+            alert('Deletion cancelled - confirmation text did not match');
         }
     }
 }
