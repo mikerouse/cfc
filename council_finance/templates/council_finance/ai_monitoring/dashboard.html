@@ -1,0 +1,501 @@
+{% extends "council_finance/base.html" %}
+{% load static humanize %}
+
+{% block title %}{{ page_title }}{% endblock %}
+
+{% block content %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<style>
+.metric-card {
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    padding: 1.5rem;
+    transition: transform 0.2s;
+}
+
+.metric-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+}
+
+.metric-value {
+    font-size: 2.5rem;
+    font-weight: bold;
+    margin: 0.5rem 0;
+}
+
+.metric-label {
+    font-size: 0.875rem;
+    color: #6b7280;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.status-indicator {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    display: inline-block;
+    margin-right: 0.5rem;
+    animation: pulse 2s infinite;
+}
+
+.status-healthy { background-color: #10b981; }
+.status-warning { background-color: #f59e0b; }
+.status-critical { background-color: #ef4444; }
+
+@keyframes pulse {
+    0% { opacity: 1; }
+    50% { opacity: 0.5; }
+    100% { opacity: 1; }
+}
+
+.anomaly-card {
+    background: #fff;
+    border-left: 4px solid;
+    padding: 1rem;
+    margin-bottom: 0.75rem;
+    border-radius: 0 8px 8px 0;
+}
+
+.anomaly-severity-1 { border-left-color: #3b82f6; }
+.anomaly-severity-2 { border-left-color: #10b981; }
+.anomaly-severity-3 { border-left-color: #f59e0b; }
+.anomaly-severity-4 { border-left-color: #f97316; }
+.anomaly-severity-5 { border-left-color: #ef4444; }
+
+.prediction-card {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border-radius: 12px;
+    padding: 2rem;
+}
+
+.chart-container {
+    position: relative;
+    height: 300px;
+    background: white;
+    border-radius: 12px;
+    padding: 1.5rem;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.recommendation-card {
+    background: #f3f4f6;
+    border-radius: 8px;
+    padding: 1rem;
+    margin-bottom: 0.5rem;
+}
+
+.priority-high { border-left: 4px solid #ef4444; }
+.priority-medium { border-left: 4px solid #f59e0b; }
+.priority-low { border-left: 4px solid #3b82f6; }
+</style>
+
+<div class="max-w-none xl:max-w-desktop mx-auto px-3 sm:px-4 xl:px-6 py-6">
+    <!-- Header with Live Status -->
+    <div class="flex justify-between items-center mb-6">
+        <div>
+            <h1 class="text-3xl font-bold text-gray-900">AI Monitoring Dashboard</h1>
+            <p class="text-gray-600 mt-1">Real-time system monitoring and predictive analytics</p>
+        </div>
+        <div class="flex items-center space-x-4">
+            <div class="flex items-center">
+                <span class="status-indicator status-healthy"></span>
+                <span class="text-sm text-gray-600">Live Updates</span>
+            </div>
+            <div class="text-sm text-gray-500">
+                Last updated: <span id="last-updated">{{ last_updated|date:"H:i:s" }}</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Live Metrics Grid -->
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+        <!-- Requests per Minute -->
+        <div class="metric-card">
+            <div class="metric-label">Requests/Minute</div>
+            <div class="metric-value text-blue-600" id="rpm-metric">
+                {{ live_metrics.requests_per_minute|floatformat:1 }}
+            </div>
+            <div class="text-sm text-gray-600">
+                Active councils: <span id="active-councils">{{ live_metrics.active_councils }}</span>
+            </div>
+        </div>
+
+        <!-- System Health -->
+        <div class="metric-card">
+            <div class="metric-label">System Health</div>
+            <div class="metric-value" id="health-metric">
+                <span class="{% if live_metrics.system_health >= 90 %}text-green-600{% elif live_metrics.system_health >= 70 %}text-orange-600{% else %}text-red-600{% endif %}">
+                    {{ live_metrics.system_health }}%
+                </span>
+            </div>
+            <div class="text-sm text-gray-600">
+                Cache hit rate: {{ live_metrics.cache_hit_rate }}%
+            </div>
+        </div>
+
+        <!-- Response Time -->
+        <div class="metric-card">
+            <div class="metric-label">Avg Response Time</div>
+            <div class="metric-value text-purple-600" id="response-time-metric">
+                {{ live_metrics.avg_response_time_5min|floatformat:2 }}s
+            </div>
+            <div class="text-sm text-gray-600">
+                Success rate: <span class="{% if live_metrics.success_rate_5min >= 95 %}text-green-600{% else %}text-red-600{% endif %}">
+                    {{ live_metrics.success_rate_5min|floatformat:1 }}%
+                </span>
+            </div>
+        </div>
+
+        <!-- Current Hour Requests -->
+        <div class="metric-card">
+            <div class="metric-label">Hour Requests</div>
+            <div class="metric-value text-indigo-600" id="hour-requests">
+                {{ live_metrics.current_hour_requests }}
+            </div>
+            <div class="text-sm text-gray-600">
+                Error rate: <span class="{% if live_metrics.error_rate_5min <= 2 %}text-green-600{% else %}text-red-600{% endif %}">
+                    {{ live_metrics.error_rate_5min|floatformat:1 }}%
+                </span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Anomalies and Predictions Row -->
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+        <!-- Active Anomalies -->
+        <div class="bg-white rounded-lg shadow p-6">
+            <h2 class="text-xl font-bold mb-4">Active Anomalies</h2>
+            <div id="anomalies-container">
+                {% if active_anomalies %}
+                    {% for anomaly in active_anomalies %}
+                    <div class="anomaly-card anomaly-severity-{{ anomaly.severity }}">
+                        <div class="flex justify-between items-start">
+                            <div>
+                                <h4 class="font-semibold">{{ anomaly.get_anomaly_type_display }}</h4>
+                                <p class="text-sm text-gray-600">{{ anomaly.metric_name }}</p>
+                                <p class="text-sm mt-1">
+                                    Expected: {{ anomaly.expected_value|floatformat:1 }}, 
+                                    Actual: {{ anomaly.actual_value|floatformat:1 }}
+                                    <span class="text-red-600">(+{{ anomaly.deviation_percentage|floatformat:0 }}%)</span>
+                                </p>
+                            </div>
+                            <button onclick="resolveAnomaly({{ anomaly.id }})" 
+                                    class="text-blue-600 hover:text-blue-800 text-sm">
+                                Resolve
+                            </button>
+                        </div>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    <p class="text-gray-500 text-center py-4">No active anomalies detected</p>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Predictions -->
+        <div class="prediction-card">
+            <h2 class="text-xl font-bold mb-4">Predictive Insights</h2>
+            
+            {% if predictions.next_hour_prediction.available %}
+            <div class="mb-4">
+                <h3 class="font-semibold mb-2">Next Hour Forecast</h3>
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <div class="text-2xl font-bold">{{ predictions.next_hour_prediction.predicted_requests }}</div>
+                        <div class="text-sm opacity-90">Predicted Requests</div>
+                    </div>
+                    <div>
+                        <div class="text-2xl font-bold">£{{ predictions.next_hour_prediction.predicted_cost }}</div>
+                        <div class="text-sm opacity-90">Predicted Cost</div>
+                    </div>
+                </div>
+                <div class="mt-2 text-sm opacity-75">
+                    Confidence: {{ predictions.next_hour_prediction.confidence }}%
+                </div>
+            </div>
+            {% endif %}
+
+            <div class="border-t border-white/20 pt-4">
+                <h3 class="font-semibold mb-2">Monthly Projection</h3>
+                <div class="text-2xl font-bold">£{{ predictions.cost_projection.projected_monthly_cost|floatformat:2 }}</div>
+                <div class="text-sm opacity-90">Based on £{{ predictions.cost_projection.daily_average|floatformat:2 }}/day average</div>
+            </div>
+        </div>
+
+        <!-- Load Balancer Status -->
+        <div class="bg-white rounded-lg shadow p-6">
+            <h2 class="text-xl font-bold mb-4">Load Balancer</h2>
+            {% if load_balancer.status == 'inactive' %}
+                <p class="text-gray-500 text-center py-4">{{ load_balancer.message }}</p>
+            {% else %}
+                <div class="space-y-3">
+                    <div class="flex justify-between">
+                        <span class="text-gray-600">Current Instances</span>
+                        <span class="font-semibold">{{ load_balancer.current_instances }}/{{ load_balancer.max_instances }}</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span class="text-gray-600">Requests/Second</span>
+                        <span class="font-semibold">{{ load_balancer.requests_per_second }}</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span class="text-gray-600">Avg Response Time</span>
+                        <span class="font-semibold">{{ load_balancer.avg_response_time }}s</span>
+                    </div>
+                    
+                    {% if load_balancer.recommendation %}
+                    <div class="mt-4 p-3 bg-blue-50 rounded-lg">
+                        <p class="text-sm text-blue-800">{{ load_balancer.recommendation }}</p>
+                        {% if load_balancer.should_scale_up %}
+                        <button onclick="updateLoadBalancer('scale_up')" 
+                                class="mt-2 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">
+                            Scale Up
+                        </button>
+                        {% elif load_balancer.should_scale_down %}
+                        <button onclick="updateLoadBalancer('scale_down')" 
+                                class="mt-2 px-4 py-2 bg-orange-600 text-white rounded hover:bg-orange-700">
+                            Scale Down
+                        </button>
+                        {% endif %}
+                    </div>
+                    {% endif %}
+                </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Charts Row -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+        <!-- Request Volume Chart -->
+        <div class="chart-container">
+            <h3 class="text-lg font-semibold mb-4">Request Volume (24h)</h3>
+            <canvas id="requestVolumeChart"></canvas>
+        </div>
+
+        <!-- Cost Trend Chart -->
+        <div class="chart-container">
+            <h3 class="text-lg font-semibold mb-4">Cost Trend (24h)</h3>
+            <canvas id="costTrendChart"></canvas>
+        </div>
+    </div>
+
+    <!-- Recommendations -->
+    <div class="bg-white rounded-lg shadow p-6">
+        <h2 class="text-xl font-bold mb-4">Optimization Recommendations</h2>
+        <div id="recommendations-container">
+            {% for rec in predictions.optimization_recommendations %}
+            <div class="recommendation-card priority-{{ rec.priority }}">
+                <div class="flex justify-between items-start">
+                    <div>
+                        <h4 class="font-semibold">{{ rec.title }}</h4>
+                        <p class="text-sm text-gray-600 mt-1">{{ rec.description }}</p>
+                        <p class="text-sm text-blue-600 mt-2">Action: {{ rec.action }}</p>
+                    </div>
+                    <span class="text-xs px-2 py-1 rounded 
+                        {% if rec.priority == 'high' %}bg-red-100 text-red-800
+                        {% elif rec.priority == 'medium' %}bg-orange-100 text-orange-800
+                        {% else %}bg-blue-100 text-blue-800{% endif %}">
+                        {{ rec.priority|upper }}
+                    </span>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+
+<script>
+// Initialize charts
+let requestVolumeChart, costTrendChart;
+
+document.addEventListener('DOMContentLoaded', function() {
+    initializeCharts();
+    startLiveUpdates();
+    loadChartData();
+});
+
+function initializeCharts() {
+    // Request Volume Chart
+    const requestCtx = document.getElementById('requestVolumeChart').getContext('2d');
+    requestVolumeChart = new Chart(requestCtx, {
+        type: 'line',
+        data: {
+            labels: [],
+            datasets: [{
+                label: 'Requests',
+                data: [],
+                borderColor: 'rgb(59, 130, 246)',
+                backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                tension: 0.3
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                y: {
+                    beginAtZero: true
+                }
+            }
+        }
+    });
+
+    // Cost Trend Chart
+    const costCtx = document.getElementById('costTrendChart').getContext('2d');
+    costTrendChart = new Chart(costCtx, {
+        type: 'line',
+        data: {
+            labels: [],
+            datasets: [{
+                label: 'Cost (£)',
+                data: [],
+                borderColor: 'rgb(168, 85, 247)',
+                backgroundColor: 'rgba(168, 85, 247, 0.1)',
+                tension: 0.3
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                y: {
+                    beginAtZero: true
+                }
+            }
+        }
+    });
+}
+
+function startLiveUpdates() {
+    // Update every 30 seconds
+    setInterval(fetchLiveMetrics, 30000);
+}
+
+function fetchLiveMetrics() {
+    fetch('{% url "ai_tools_live_metrics" %}')
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                updateMetrics(data.metrics);
+                updateAnomalies(data.anomalies);
+                updateTimestamp();
+            }
+        })
+        .catch(error => console.error('Error fetching live metrics:', error));
+}
+
+function updateMetrics(metrics) {
+    document.getElementById('rpm-metric').textContent = metrics.requests_per_minute.toFixed(1);
+    document.getElementById('active-councils').textContent = metrics.active_councils;
+    document.getElementById('health-metric').textContent = metrics.system_health + '%';
+    document.getElementById('response-time-metric').textContent = metrics.avg_response_time_5min.toFixed(2) + 's';
+    document.getElementById('hour-requests').textContent = metrics.current_hour_requests;
+    
+    // Update health color
+    const healthElement = document.getElementById('health-metric');
+    healthElement.className = '';
+    if (metrics.system_health >= 90) {
+        healthElement.classList.add('text-green-600');
+    } else if (metrics.system_health >= 70) {
+        healthElement.classList.add('text-orange-600');
+    } else {
+        healthElement.classList.add('text-red-600');
+    }
+}
+
+function updateAnomalies(anomalies) {
+    const container = document.getElementById('anomalies-container');
+    
+    if (anomalies.length === 0) {
+        container.innerHTML = '<p class="text-gray-500 text-center py-4">No active anomalies detected</p>';
+        return;
+    }
+    
+    container.innerHTML = anomalies.map(anomaly => `
+        <div class="anomaly-card anomaly-severity-${anomaly.severity}">
+            <div class="flex justify-between items-start">
+                <div>
+                    <h4 class="font-semibold">${anomaly.type}</h4>
+                    <p class="text-sm text-gray-600">${anomaly.metric}</p>
+                    <p class="text-sm mt-1">
+                        Expected: ${anomaly.expected.toFixed(1)}, 
+                        Actual: ${anomaly.actual.toFixed(1)}
+                        <span class="text-red-600">(+${anomaly.deviation}%)</span>
+                    </p>
+                </div>
+            </div>
+        </div>
+    `).join('');
+}
+
+function updateTimestamp() {
+    const now = new Date();
+    document.getElementById('last-updated').textContent = now.toLocaleTimeString();
+}
+
+function loadChartData() {
+    fetch('{% url "ai_tools_hourly_trends" %}?hours=24')
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Update request volume chart
+                requestVolumeChart.data.labels = data.data.labels;
+                requestVolumeChart.data.datasets[0].data = data.data.requests;
+                requestVolumeChart.update();
+                
+                // Update cost trend chart
+                costTrendChart.data.labels = data.data.labels;
+                costTrendChart.data.datasets[0].data = data.data.costs;
+                costTrendChart.update();
+            }
+        })
+        .catch(error => console.error('Error loading chart data:', error));
+}
+
+function resolveAnomaly(anomalyId) {
+    const notes = prompt('Resolution notes (optional):');
+    
+    fetch('{% url "ai_tools_resolve_anomaly" %}', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': '{{ csrf_token }}'
+        },
+        body: JSON.stringify({
+            anomaly_id: anomalyId,
+            notes: notes || ''
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            fetchLiveMetrics(); // Refresh the display
+        }
+    })
+    .catch(error => console.error('Error resolving anomaly:', error));
+}
+
+function updateLoadBalancer(action) {
+    fetch('{% url "ai_tools_update_load_balancer" %}', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': '{{ csrf_token }}'
+        },
+        body: JSON.stringify({ action: action })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert(data.message);
+            location.reload(); // Refresh to show updated status
+        }
+    })
+    .catch(error => console.error('Error updating load balancer:', error));
+}
+</script>
+{% endblock %}

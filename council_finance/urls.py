@@ -5,7 +5,6 @@ from django.views.generic import RedirectView
 from django.conf import settings
 from django.conf.urls.static import static
 from django.http import HttpResponse
-from django.contrib import admin
 
 from .views import (
     general as general_views,
@@ -76,11 +75,22 @@ from .views.ai_factoid_management import (
     council_ai_data_inspector,
     test_ai_generation,
     clear_factoid_cache,
+    warmup_council_cache,
     council_financial_data_viewer,
     ai_configuration,
     sitewide_factoid_inspector,
     test_sitewide_generation,
     clear_sitewide_cache
+)
+
+# AI tools views - import here to avoid circular import issues
+from .views import ai_tools_hub
+from .views.ai_analytics_dashboard import (
+    ai_analytics_dashboard, usage_analytics_api, cost_tracking_api, create_performance_alert
+)
+from .views.ai_monitoring_dashboard import (
+    ai_monitoring_dashboard, get_live_metrics, get_hourly_trends, 
+    resolve_anomaly, update_load_balancer, update_budget_alert
 )
 
 # Import comparison API views
@@ -316,6 +326,7 @@ urlpatterns = [
     path("ai-factoids/inspect/<slug:council_slug>/", council_ai_data_inspector, name="council_ai_data_inspector"),
     path("ai-factoids/test-generation/", test_ai_generation, name="test_ai_generation"),
     path("ai-factoids/clear-cache/", clear_factoid_cache, name="clear_factoid_cache"),
+    path("ai-factoids/warmup-cache/", warmup_council_cache, name="warmup_council_cache"),
     path("ai-factoids/financial-data/<slug:council_slug>/", council_financial_data_viewer, name="council_financial_data_viewer"),
     path("ai-factoids/configuration/", ai_configuration, name="ai_factoid_configuration"),
     
@@ -323,6 +334,21 @@ urlpatterns = [
     path("ai-factoids/sitewide/", sitewide_factoid_inspector, name="sitewide_factoid_inspector"),
     path("ai-factoids/sitewide/test-generation/", test_sitewide_generation, name="test_sitewide_generation"),
     path("ai-factoids/sitewide/clear-cache/", clear_sitewide_cache, name="clear_sitewide_cache"),
+    
+    # AI Tools Hub - Unified navigation for all AI features
+    path("ai-tools/", ai_tools_hub.ai_tools_hub, name="ai_tools_hub"),
+    path("ai-tools/analytics/", ai_analytics_dashboard, name="ai_tools_analytics"),
+    path("ai-tools/monitoring/", ai_monitoring_dashboard, name="ai_tools_monitoring"),
+    path("ai-tools/monitoring/api/live-metrics/", get_live_metrics, name="ai_tools_live_metrics"),
+    path("ai-tools/monitoring/api/hourly-trends/", get_hourly_trends, name="ai_tools_hourly_trends"),
+    path("ai-tools/monitoring/api/resolve-anomaly/", resolve_anomaly, name="ai_tools_resolve_anomaly"),
+    path("ai-tools/monitoring/api/update-load-balancer/", update_load_balancer, name="ai_tools_update_load_balancer"),
+    
+    # Legacy AI Analytics Dashboard URLs (kept for backwards compatibility)
+    path("ai-factoids/analytics/", ai_analytics_dashboard, name="ai_analytics_dashboard"),
+    path("ai-factoids/analytics/usage-api/", usage_analytics_api, name="usage_analytics_api"),
+    path("ai-factoids/analytics/cost-api/", cost_tracking_api, name="cost_tracking_api"),
+    path("ai-factoids/analytics/alerts/create/", create_performance_alert, name="create_performance_alert"),
     
     # Legacy AI Analysis endpoints removed - now using AI factoids instead
     path("api/ai-providers/<int:provider_id>/models/", api_views.provider_models_api, name="provider_models_api"),

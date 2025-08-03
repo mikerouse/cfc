@@ -30,12 +30,40 @@ def ai_factoid_management_dashboard(request):
     
     Shows overview of councils, recent AI calls, and configuration options.
     """
+    from datetime import datetime, timedelta
+    
     # Get councils with recent factoid activity
     councils = Council.objects.all().order_by('name')[:50]
     
     # Get system status
     generator = AIFactoidGenerator()
     openai_available = generator.client is not None
+    model_info = generator.get_model_info()
+    
+    # Calculate cache statistics
+    cached_councils = 0
+    stale_cached_councils = 0
+    total_cached_factoids = 0
+    
+    for council in Council.objects.all()[:100]:  # Sample check
+        cache_key = f"ai_factoids:{council.slug}"
+        cache_key_stale = f"ai_factoids_stale:{council.slug}"
+        
+        if cache.get(cache_key):
+            cached_councils += 1
+            cached_data = cache.get(cache_key)
+            if isinstance(cached_data, dict):
+                total_cached_factoids += cached_data.get('factoid_count', 0)
+        
+        if cache.get(cache_key_stale):
+            stale_cached_councils += 1
+    
+    # Estimate costs (rough approximation)
+    estimated_tokens_per_request = 800  # Average tokens per API call
+    requests_per_council = 1  # Initial request
+    total_potential_requests = Council.objects.count() * requests_per_council
+    cost_per_1k_tokens = model_info['cost_per_1k_tokens']
+    estimated_total_cost = (total_potential_requests * estimated_tokens_per_request / 1000) * cost_per_1k_tokens
     
     context = {
         'councils': councils,
@@ -46,6 +74,17 @@ def ai_factoid_management_dashboard(request):
             'councils_total': Council.objects.count(),
             'openai_configured': openai_available,
             'cache_backend': str(cache.__class__.__name__),
+            'cached_councils': cached_councils,
+            'stale_cached_councils': stale_cached_councils,
+            'total_cached_factoids': total_cached_factoids,
+            'cache_hit_rate': round((cached_councils / Council.objects.count() * 100), 1) if Council.objects.count() > 0 else 0,
+        },
+        'ai_model_info': model_info,
+        'cost_estimates': {
+            'per_request': round(estimated_tokens_per_request / 1000 * cost_per_1k_tokens, 4),
+            'per_council': round(estimated_tokens_per_request / 1000 * cost_per_1k_tokens * requests_per_council, 4),
+            'total_potential': round(estimated_total_cost, 2),
+            'monthly_estimate': round(estimated_total_cost * 30 / 7, 2),  # Assuming weekly cache refresh
         }
     }
     
@@ -90,10 +129,20 @@ def council_ai_data_inspector(request, council_slug):
     else:
         logger.info(f"[INSPECTOR] Prompt contains financial data for {council.slug}")
     
-    # Check cache status
+    # Check cache status with more detail
     cache_key = f"ai_factoids:{council_slug}"
+    cache_key_stale = f"ai_factoids_stale:{council_slug}"
     cached_factoids = cache.get(cache_key)
-    cache_status = 'cached' if cached_factoids else 'not_cached'
+    stale_cached_factoids = cache.get(cache_key_stale)
+    
+    cache_status = {
+        'primary_cache': 'cached' if cached_factoids else 'not_cached',
+        'stale_cache': 'cached' if stale_cached_factoids else 'not_cached',
+        'primary_cache_key': cache_key,
+        'stale_cache_key': cache_key_stale,
+        'primary_factoids': cached_factoids,
+        'stale_factoids': stale_cached_factoids
+    }
     
     # Calculate financial_metrics carefully
     financial_metrics = []
@@ -109,7 +158,6 @@ def council_ai_data_inspector(request, council_slug):
         'council_data': council_data,
         'ai_prompt': sample_prompt,
         'cache_status': cache_status,
-        'cached_factoids': cached_factoids,
         'data_keys': list(council_data.keys()) if council_data else [],
         'financial_metrics': financial_metrics,
         'page_title': f'AI Data Inspector - {council.name}'
@@ -311,24 +359,72 @@ def ai_configuration(request):
     """
     from django.conf import settings
     
-    # Get current configuration
+    # Get AI generator for current model info
+    generator = AIFactoidGenerator()
+    model_info = generator.get_model_info()
+    
+    # Get available models for selection
+    available_models = [
+        {
+            'name': 'gpt-4o-mini',
+            'display_name': 'GPT-4o Mini',
+            'cost_per_1k': 0.000150,
+            'description': 'Most cost-effective option, excellent for factoid generation',
+            'recommended': True
+        },
+        {
+            'name': 'gpt-4o',
+            'display_name': 'GPT-4o',
+            'cost_per_1k': 0.0025,
+            'description': 'Latest high-performance model with excellent reasoning'
+        },
+        {
+            'name': 'gpt-4-turbo',
+            'display_name': 'GPT-4 Turbo',
+            'cost_per_1k': 0.01,
+            'description': 'Fast, high-capability model with large context window'
+        },
+        {
+            'name': 'gpt-4',
+            'display_name': 'GPT-4',
+            'cost_per_1k': 0.03,
+            'description': 'Original GPT-4 model with strong reasoning capabilities'
+        },
+        {
+            'name': 'gpt-3.5-turbo',
+            'display_name': 'GPT-3.5 Turbo',
+            'cost_per_1k': 0.0015,
+            'description': 'Fast and economical model for simpler tasks'
+        }
+    ]
+    
+    # Get current configuration with dynamic model info
     current_config = {
-        'openai_model': 'gpt-4',
+        'openai_model': model_info['name'],
+        'openai_model_display': model_info['display_name'],
+        'openai_model_cost': model_info['cost_per_1k_tokens'],
+        'openai_model_description': model_info['description'],
         'default_factoid_limit': 3,
         'cache_timeout': 21600,  # 6 hours
-        'rate_limit': '10/hour',
-        'temperature': 0.7,
-        'max_tokens': 500
+        'rate_limit': '5/hour',  # Updated to match actual rate limit
+        'temperature': generator.temperature,
+        'max_tokens': generator.max_tokens
     }
     
     # Get REST framework throttling settings
     rest_settings = getattr(settings, 'REST_FRAMEWORK', {})
     throttle_rates = rest_settings.get('DEFAULT_THROTTLE_RATES', {})
     
+    # Check OpenAI API key status
+    openai_configured = generator.client is not None
+    
     context = {
         'current_config': current_config,
+        'available_models': available_models,
+        'current_model_info': model_info,
         'throttle_rates': throttle_rates,
         'cache_backend': str(cache.__class__.__name__),
+        'openai_configured': openai_configured,
         'page_title': 'AI Configuration'
     }
     
@@ -487,4 +583,96 @@ def clear_sitewide_cache(request):
         return JsonResponse({
             'success': False,
             'error': str(e)
+        }, status=500)
+
+
+@staff_member_required
+@require_http_methods(["POST"])
+@csrf_exempt
+def warmup_council_cache(request):
+    """
+    Warmup AI factoid cache for a specific council.
+    
+    Forces fresh generation and caches the result.
+    Useful for testing and ensuring cached data is available.
+    """
+    try:
+        data = json.loads(request.body)
+        council_slug = data.get('council_slug')
+        
+        if not council_slug:
+            return JsonResponse({
+                'success': False,
+                'error': 'council_slug is required'
+            }, status=400)
+        
+        council = get_object_or_404(Council, slug=council_slug)
+        
+        # Clear existing cache
+        cache_key = f"ai_factoids:{council_slug}"
+        cache_key_stale = f"ai_factoids_stale:{council_slug}"
+        cache_key_data = f"ai_council_data:{council_slug}"
+        
+        cache.delete(cache_key)
+        cache.delete(cache_key_stale)
+        cache.delete(cache_key_data)
+        
+        # Force fresh generation
+        gatherer = CouncilDataGatherer()
+        council_data = gatherer.gather_council_data(council)
+        
+        generator = AIFactoidGenerator()
+        start_time = timezone.now()
+        
+        try:
+            factoids = generator.generate_insights(
+                council_data=council_data,
+                limit=10,
+                style='news_ticker'
+            )
+            
+            end_time = timezone.now()
+            processing_time = (end_time - start_time).total_seconds()
+            
+            # Cache the results
+            response_data = {
+                'success': True,
+                'council': council_slug,
+                'factoids': factoids,
+                'generated_at': timezone.now().isoformat(),
+                'ai_model': generator.model,
+                'cache_status': 'fresh',
+                'factoid_count': len(factoids)
+            }
+            
+            # Cache with same strategy as main API
+            cache.set(cache_key, response_data, 604800)  # 7 days
+            cache.set(cache_key_stale, response_data, 2592000)  # 30 days
+            
+            return JsonResponse({
+                'success': True,
+                'council': council_slug,
+                'council_name': council.name,
+                'factoids_generated': len(factoids),
+                'processing_time_seconds': processing_time,
+                'ai_model': generator.model,
+                'cache_keys_set': [cache_key, cache_key_stale],
+                'warmed_at': timezone.now().isoformat()
+            })
+            
+        except Exception as ai_error:
+            return JsonResponse({
+                'success': False,
+                'council': council_slug,
+                'error': 'AI generation failed during warmup',
+                'ai_error': str(ai_error),
+                'error_type': type(ai_error).__name__
+            }, status=500)
+        
+    except Exception as e:
+        logger.error(f"Cache warmup failed: {e}")
+        return JsonResponse({
+            'success': False,
+            'error': 'Cache warmup failed',
+            'details': str(e)
         }, status=500)

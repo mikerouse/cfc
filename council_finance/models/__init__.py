@@ -72,6 +72,24 @@ from .image_file import (
     ImageFile,
     ImageFileHistory,
 )
+from .ai_usage_analytics import (
+    AIUsageLog,
+    DailyCostSummary,
+    CacheWarmupSchedule,
+    PerformanceAlert,
+)
+from .sitewide_optimization import (
+    SitewideDataSummary,
+    SitewideDataChangeLog,
+    SitewideFactoidSchedule,
+    OptimizedFactoidCache,
+)
+from .predictive_analytics import (
+    AIUsageTrend,
+    CostForecast,
+    PerformanceAnomaly,
+    LoadBalancerConfig,
+)
 
 __all__ = [
     'Council',
@@ -132,4 +150,16 @@ __all__ = [
     'CouncilAIAnalysis',
     'ImageFile',
     'ImageFileHistory',
+    'AIUsageLog',
+    'DailyCostSummary',
+    'CacheWarmupSchedule',
+    'PerformanceAlert',
+    'SitewideDataSummary',
+    'SitewideDataChangeLog',
+    'SitewideFactoidSchedule',
+    'OptimizedFactoidCache',
+    'AIUsageTrend',
+    'CostForecast',
+    'PerformanceAnomaly',
+    'LoadBalancerConfig',
 ]

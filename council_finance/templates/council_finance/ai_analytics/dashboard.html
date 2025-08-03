@@ -1,0 +1,420 @@
+{% extends "council_finance/base.html" %}
+{% load static %}
+
+{% block title %}{{ page_title }}{% endblock %}
+
+{% block content %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<style>
+.analytics-card {
+    background: white;
+    border-radius: 8px;
+    padding: 1.5rem;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    margin-bottom: 1.5rem;
+}
+
+.metric-value {
+    font-size: 2rem;
+    font-weight: bold;
+    color: #1f2937;
+}
+
+.metric-label {
+    color: #6b7280;
+    font-size: 0.875rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.chart-container {
+    position: relative;
+    height: 300px;
+    margin: 1rem 0;
+}
+
+.alert-item {
+    padding: 1rem;
+    border-left: 4px solid #f59e0b;
+    background: #fef3c7;
+    margin-bottom: 0.5rem;
+    border-radius: 0 4px 4px 0;
+}
+
+.alert-high { border-color: #dc2626; background: #fee2e2; }
+.alert-medium { border-color: #f59e0b; background: #fef3c7; }
+.alert-low { border-color: #10b981; background: #d1fae5; }
+
+.recommendation {
+    background: #f3f4f6;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    padding: 1rem;
+    margin-bottom: 1rem;
+}
+
+.recommendation.high { border-color: #dc2626; background: #fee2e2; }
+.recommendation.medium { border-color: #f59e0b; background: #fef3c7; }
+.recommendation.low { border-color: #10b981; background: #d1fae5; }
+
+.log-table {
+    font-size: 0.875rem;
+}
+
+.log-success { color: #059669; }
+.log-failed { color: #dc2626; }
+
+.warmup-priority-1 { border-left: 4px solid #dc2626; }
+.warmup-priority-2 { border-left: 4px solid #f59e0b; }
+.warmup-priority-3 { border-left: 4px solid #10b981; }
+</style>
+
+<div class="max-w-none xl:max-w-desktop mx-auto px-3 sm:px-4 xl:px-6 py-6">
+    <!-- Header -->
+    <div class="flex justify-between items-center mb-6">
+        <h1 class="text-3xl font-bold text-gray-900">AI Analytics Dashboard</h1>
+        <div class="text-gray-600">
+            <small>{{ date_range.start }} to {{ date_range.end }}</small>
+        </div>
+    </div>
+
+    <!-- Key Metrics Row -->
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+        <div class="analytics-card text-center p-4">
+            <div class="text-3xl font-bold text-blue-600 mb-2">{{ usage_stats.total_requests }}</div>
+            <div class="text-gray-700 font-medium">Total Requests</div>
+        </div>
+        <div class="analytics-card text-center p-4">
+            <div class="text-3xl font-bold text-green-600 mb-2">{{ usage_stats.success_rate }}%</div>
+            <div class="text-gray-700 font-medium">Success Rate</div>
+        </div>
+        <div class="analytics-card text-center p-4">
+            <div class="text-3xl font-bold text-blue-600 mb-2">£{{ cost_analysis.total_cost|floatformat:4 }}</div>
+            <div class="text-gray-700 font-medium">Total Cost</div>
+        </div>
+        <div class="analytics-card text-center p-4">
+            <div class="text-3xl font-bold text-orange-600 mb-2">{{ performance_metrics.avg_response_time }}s</div>
+            <div class="text-gray-700 font-medium">Avg Response Time</div>
+        </div>
+    </div>
+
+    <!-- Charts Row -->
+    <div class="row mb-4">
+        <div class="col-md-6">
+            <div class="analytics-card">
+                <h5 class="mb-3">Daily Usage Trend</h5>
+                <div class="chart-container">
+                    <canvas id="usageChart"></canvas>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="analytics-card">
+                <h5 class="mb-3">Cost Breakdown by Model</h5>
+                <div class="chart-container">
+                    <canvas id="costChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Performance Alerts -->
+    {% if active_alerts %}
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="analytics-card">
+                <h5 class="mb-3">Active Performance Alerts</h5>
+                {% for alert in active_alerts %}
+                <div class="alert-item alert-{{ alert.severity }}">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div>
+                            <strong>{{ alert.title }}</strong>
+                            <p class="mb-1">{{ alert.description }}</p>
+                            {% if alert.recommendation %}
+                            <small class="text-muted">💡 {{ alert.recommendation }}</small>
+                            {% endif %}
+                        </div>
+                        <small class="text-muted">{{ alert.created_at|date:"M d, H:i" }}</small>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Optimization Recommendations -->
+    <div class="row mb-4">
+        <div class="col-md-6">
+            <div class="analytics-card">
+                <h5 class="mb-3">🎯 Optimization Recommendations</h5>
+                {% for rec in optimization_recommendations %}
+                <div class="recommendation {{ rec.severity }}">
+                    <h6 class="mb-2">{{ rec.title }}</h6>
+                    <p class="mb-2">{{ rec.description }}</p>
+                    <small class="text-muted">💡 {{ rec.recommendation }}</small>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="analytics-card">
+                <h5 class="mb-3">📊 Cost Analysis</h5>
+                <div class="row text-center">
+                    <div class="col-6">
+                        <div class="metric-value text-info">£{{ cost_analysis.cost_per_factoid|floatformat:4 }}</div>
+                        <div class="metric-label">Cost per Factoid</div>
+                    </div>
+                    <div class="col-6">
+                        <div class="metric-value text-warning">£{{ cost_analysis.projected_monthly_cost|floatformat:2 }}</div>
+                        <div class="metric-label">Projected Monthly</div>
+                    </div>
+                </div>
+                <hr>
+                <div class="text-center">
+                    <div class="metric-value text-primary">{{ cost_analysis.total_factoids }}</div>
+                    <div class="metric-label">Total Factoids Generated</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Cache Warming Schedule -->
+    {% if warmup_schedules %}
+    <div class="row mb-4">
+        <div class="col-md-6">
+            <div class="analytics-card">
+                <h5 class="mb-3">🔄 Cache Warming Schedule</h5>
+                <div style="max-height: 300px; overflow-y: auto;">
+                    {% for schedule in warmup_schedules %}
+                    <div class="d-flex justify-content-between align-items-center py-2 warmup-priority-{{ schedule.priority }}">
+                        <div>
+                            <strong>{{ schedule.council.name }}</strong>
+                            <br>
+                            <small class="text-muted">
+                                Priority {{ schedule.priority }} • 
+                                Popularity: {{ schedule.popularity_score|floatformat:2 }} • 
+                                Every {{ schedule.frequency_hours }}h
+                            </small>
+                        </div>
+                        <div class="text-end">
+                            {% if schedule.next_warmup %}
+                            <small class="text-muted">Next: {{ schedule.next_warmup|date:"M d, H:i" }}</small>
+                            {% else %}
+                            <small class="text-warning">Not scheduled</small>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="analytics-card">
+                <h5 class="mb-3">⚡ Performance Metrics</h5>
+                <div class="row">
+                    <div class="col-12 mb-3">
+                        <div class="d-flex justify-content-between">
+                            <span>Cache Hit Rate:</span>
+                            <strong class="text-success">{{ usage_stats.cache_hit_rate }}%</strong>
+                        </div>
+                    </div>
+                    <div class="col-12 mb-3">
+                        <div class="d-flex justify-content-between">
+                            <span>Unique Councils:</span>
+                            <strong>{{ usage_stats.unique_councils }}</strong>
+                        </div>
+                    </div>
+                    <div class="col-12 mb-3">
+                        <div class="d-flex justify-content-between">
+                            <span>Active Users:</span>
+                            <strong>{{ usage_stats.unique_users }}</strong>
+                        </div>
+                    </div>
+                </div>
+                {% if performance_metrics.response_time_percentiles %}
+                <hr>
+                <h6>Response Time Percentiles</h6>
+                <div class="row text-center">
+                    <div class="col-4">
+                        <div class="metric-value text-success">{{ performance_metrics.response_time_percentiles.p50|floatformat:1 }}s</div>
+                        <div class="metric-label">P50</div>
+                    </div>
+                    <div class="col-4">
+                        <div class="metric-value text-warning">{{ performance_metrics.response_time_percentiles.p90|floatformat:1 }}s</div>
+                        <div class="metric-label">P90</div>
+                    </div>
+                    <div class="col-4">
+                        <div class="metric-value text-danger">{{ performance_metrics.response_time_percentiles.p95|floatformat:1 }}s</div>
+                        <div class="metric-label">P95</div>
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Recent Activity -->
+    <div class="row">
+        <div class="col-12">
+            <div class="analytics-card">
+                <h5 class="mb-3">📝 Recent Activity</h5>
+                <div class="table-responsive">
+                    <table class="table table-sm log-table">
+                        <thead>
+                            <tr>
+                                <th>Time</th>
+                                <th>Council</th>
+                                <th>Model</th>
+                                <th>Factoids</th>
+                                <th>Time</th>
+                                <th>Cost</th>
+                                <th>Status</th>
+                                <th>User</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for log in recent_logs %}
+                            <tr>
+                                <td>{{ log.created_at|date:"M d H:i" }}</td>
+                                <td>
+                                    <a href="{% url 'council_detail' log.council.slug %}">
+                                        {{ log.council.name|truncatechars:20 }}
+                                    </a>
+                                </td>
+                                <td><code>{{ log.model_used }}</code></td>
+                                <td>{{ log.factoids_generated }}/{{ log.factoids_requested }}</td>
+                                <td>
+                                    {% if log.processing_time_seconds %}
+                                        {{ log.processing_time_seconds|floatformat:1 }}s
+                                    {% else %}
+                                        -
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if log.estimated_cost %}
+                                        £{{ log.estimated_cost|floatformat:4 }}
+                                    {% else %}
+                                        -
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if log.success %}
+                                        <span class="log-success">✓</span>
+                                    {% else %}
+                                        <span class="log-failed" title="{{ log.error_message|truncatechars:50 }}">✗</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if log.user %}
+                                        {{ log.user.username }}
+                                    {% else %}
+                                        <em>Anonymous</em>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="8" class="text-center text-muted">No recent activity</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Load analytics data and create charts
+document.addEventListener('DOMContentLoaded', function() {
+    // Fetch usage analytics data
+    fetch('/ai-factoids/analytics/usage-api/?days=7')
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                createUsageChart(data.daily_usage);
+                createCostChart(data.model_usage);
+            }
+        })
+        .catch(error => console.error('Error loading analytics data:', error));
+});
+
+function createUsageChart(dailyData) {
+    const ctx = document.getElementById('usageChart').getContext('2d');
+    
+    const labels = dailyData.map(d => new Date(d.day).toLocaleDateString());
+    const requests = dailyData.map(d => d.total_requests);
+    const successful = dailyData.map(d => d.successful_requests);
+    
+    new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: labels,
+            datasets: [{
+                label: 'Total Requests',
+                data: requests,
+                borderColor: '#3b82f6',
+                backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                tension: 0.4
+            }, {
+                label: 'Successful',
+                data: successful,
+                borderColor: '#10b981',
+                backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                tension: 0.4
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    position: 'top',
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true
+                }
+            }
+        }
+    });
+}
+
+function createCostChart(modelData) {
+    const ctx = document.getElementById('costChart').getContext('2d');
+    
+    const labels = modelData.map(d => d.model_used);
+    const costs = modelData.map(d => parseFloat(d.total_cost || 0));
+    
+    const colors = [
+        '#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6'
+    ];
+    
+    new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+            labels: labels,
+            datasets: [{
+                data: costs,
+                backgroundColor: colors.slice(0, labels.length),
+                borderWidth: 2,
+                borderColor: '#ffffff'
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    position: 'bottom'
+                }
+            }
+        }
+    });
+}
+</script>
+{% endblock %}
