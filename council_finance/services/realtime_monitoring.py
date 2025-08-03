@@ -281,7 +281,7 @@ class RealtimeMonitoringService:
         
         daily_costs = DailyCostSummary.objects.filter(
             date__gte=past_week.date()
-        ).aggregate(avg=Avg('total_cost'))
+        ).aggregate(avg=Avg('total_estimated_cost'))
         
         # Convert daily to hourly
         return (daily_costs['avg'] or Decimal('1')) / 24
@@ -373,7 +373,7 @@ class RealtimeMonitoringService:
         
         daily_avg = DailyCostSummary.objects.filter(
             date__gte=past_week.date()
-        ).aggregate(avg=Avg('total_cost'))
+        ).aggregate(avg=Avg('total_estimated_cost'))
         
         daily_cost = daily_avg['avg'] or Decimal('0')
         days_in_month = 30  # Simplified
@@ -391,7 +391,7 @@ class RealtimeMonitoringService:
         
         avg_cost = DailyCostSummary.objects.filter(
             date__gte=past_week.date()
-        ).aggregate(avg=Avg('total_cost'))
+        ).aggregate(avg=Avg('total_estimated_cost'))
         
         return avg_cost['avg'] or Decimal('5.00')
     

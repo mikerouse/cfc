@@ -52,7 +52,7 @@ def ai_tools_hub(request):
     # Monthly cost
     monthly_costs = DailyCostSummary.objects.filter(
         date__gte=month_start.date()
-    ).aggregate(total=Sum('total_cost'))
+    ).aggregate(total=Sum('total_estimated_cost'))
     
     monthly_cost = monthly_costs['total'] or Decimal('0')
     
