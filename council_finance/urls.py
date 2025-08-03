@@ -76,6 +76,7 @@ from .views.ai_factoid_management import (
     council_ai_data_inspector,
     test_ai_generation,
     clear_factoid_cache,
+    warmup_council_cache,
     council_financial_data_viewer,
     ai_configuration,
     sitewide_factoid_inspector,
@@ -316,6 +317,7 @@ urlpatterns = [
     path("ai-factoids/inspect/<slug:council_slug>/", council_ai_data_inspector, name="council_ai_data_inspector"),
     path("ai-factoids/test-generation/", test_ai_generation, name="test_ai_generation"),
     path("ai-factoids/clear-cache/", clear_factoid_cache, name="clear_factoid_cache"),
+    path("ai-factoids/warmup-cache/", warmup_council_cache, name="warmup_council_cache"),
     path("ai-factoids/financial-data/<slug:council_slug>/", council_financial_data_viewer, name="council_financial_data_viewer"),
     path("ai-factoids/configuration/", ai_configuration, name="ai_factoid_configuration"),
     

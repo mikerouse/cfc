@@ -24,7 +24,7 @@
   </div>
 
   <!-- System Status Cards -->
-  <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+  <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
     <div class="bg-white border border-gray-200 rounded-lg p-6">
       <div class="flex items-center">
         <div class="flex-shrink-0">
@@ -50,9 +50,9 @@
         </div>
         <div class="ml-5 w-0 flex-1">
           <dl>
-            <dt class="text-sm font-medium text-gray-500 truncate">OpenAI Status</dt>
+            <dt class="text-sm font-medium text-gray-500 truncate">AI Model</dt>
             <dd class="text-lg font-medium {% if dashboard_stats.openai_configured %}text-green-900{% else %}text-red-900{% endif %}">
-              {% if dashboard_stats.openai_configured %}Connected{% else %}Not Configured{% endif %}
+              {% if dashboard_stats.openai_configured %}{{ ai_model_info.display_name }}{% else %}Not Configured{% endif %}
             </dd>
           </dl>
         </div>
@@ -68,9 +68,120 @@
         </div>
         <div class="ml-5 w-0 flex-1">
           <dl>
-            <dt class="text-sm font-medium text-gray-500 truncate">Cache Backend</dt>
-            <dd class="text-lg font-medium text-gray-900">{{ dashboard_stats.cache_backend }}</dd>
+            <dt class="text-sm font-medium text-gray-500 truncate">Cache Hit Rate</dt>
+            <dd class="text-lg font-medium text-gray-900">{{ dashboard_stats.cache_hit_rate }}%</dd>
           </dl>
+        </div>
+      </div>
+    </div>
+
+    <div class="bg-white border border-gray-200 rounded-lg p-6">
+      <div class="flex items-center">
+        <div class="flex-shrink-0">
+          <svg class="w-8 h-8 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"/>
+          </svg>
+        </div>
+        <div class="ml-5 w-0 flex-1">
+          <dl>
+            <dt class="text-sm font-medium text-gray-500 truncate">Cached Factoids</dt>
+            <dd class="text-lg font-medium text-gray-900">{{ dashboard_stats.total_cached_factoids|intcomma }}</dd>
+          </dl>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Additional Stats Row -->
+  <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+    <!-- Cost Estimates -->
+    <div class="bg-white border border-gray-200 rounded-lg">
+      <div class="px-6 py-4 border-b border-gray-200">
+        <h3 class="text-lg font-medium text-gray-900">Cost Estimates</h3>
+        <p class="text-xs text-gray-500 mt-1">Based on {{ ai_model_info.display_name }}</p>
+      </div>
+      <div class="p-6">
+        <dl class="space-y-3">
+          <div class="flex justify-between">
+            <dt class="text-sm text-gray-500">Per Request</dt>
+            <dd class="text-sm font-medium text-gray-900">${{ cost_estimates.per_request|floatformat:4 }}</dd>
+          </div>
+          <div class="flex justify-between">
+            <dt class="text-sm text-gray-500">Per Council</dt>
+            <dd class="text-sm font-medium text-gray-900">${{ cost_estimates.per_council|floatformat:4 }}</dd>
+          </div>
+          <div class="flex justify-between">
+            <dt class="text-sm text-gray-500">All Councils</dt>
+            <dd class="text-sm font-medium text-gray-900">${{ cost_estimates.total_potential|floatformat:2 }}</dd>
+          </div>
+          <div class="flex justify-between pt-3 border-t">
+            <dt class="text-sm font-medium text-gray-900">Monthly Est.</dt>
+            <dd class="text-sm font-medium text-green-600">${{ cost_estimates.monthly_estimate|floatformat:2 }}</dd>
+          </div>
+        </dl>
+      </div>
+    </div>
+
+    <!-- Cache Performance -->
+    <div class="bg-white border border-gray-200 rounded-lg">
+      <div class="px-6 py-4 border-b border-gray-200">
+        <h3 class="text-lg font-medium text-gray-900">Cache Performance</h3>
+      </div>
+      <div class="p-6">
+        <dl class="space-y-3">
+          <div class="flex justify-between">
+            <dt class="text-sm text-gray-500">Primary Cached</dt>
+            <dd class="text-sm font-medium text-gray-900">{{ dashboard_stats.cached_councils }} councils</dd>
+          </div>
+          <div class="flex justify-between">
+            <dt class="text-sm text-gray-500">Stale Cached</dt>
+            <dd class="text-sm font-medium text-gray-900">{{ dashboard_stats.stale_cached_councils }} councils</dd>
+          </div>
+          <div class="flex justify-between">
+            <dt class="text-sm text-gray-500">Cache Backend</dt>
+            <dd class="text-sm font-medium text-gray-900">{{ dashboard_stats.cache_backend }}</dd>
+          </div>
+          <div class="flex justify-between pt-3 border-t">
+            <dt class="text-sm font-medium text-gray-900">Hit Rate</dt>
+            <dd class="text-sm font-medium {% if dashboard_stats.cache_hit_rate > 80 %}text-green-600{% elif dashboard_stats.cache_hit_rate > 50 %}text-yellow-600{% else %}text-red-600{% endif %}">{{ dashboard_stats.cache_hit_rate }}%</dd>
+          </div>
+        </dl>
+      </div>
+    </div>
+
+    <!-- System Health -->
+    <div class="bg-white border border-gray-200 rounded-lg">
+      <div class="px-6 py-4 border-b border-gray-200">
+        <h3 class="text-lg font-medium text-gray-900">System Health</h3>
+      </div>
+      <div class="p-6">
+        <div class="space-y-3">
+          <div class="flex items-center justify-between">
+            <span class="text-sm text-gray-500">OpenAI API</span>
+            <span class="flex items-center">
+              <div class="w-2 h-2 rounded-full {% if dashboard_stats.openai_configured %}bg-green-400{% else %}bg-red-400{% endif %} mr-2"></div>
+              <span class="text-sm font-medium {% if dashboard_stats.openai_configured %}text-green-600{% else %}text-red-600{% endif %}">
+                {% if dashboard_stats.openai_configured %}Active{% else %}Inactive{% endif %}
+              </span>
+            </span>
+          </div>
+          <div class="flex items-center justify-between">
+            <span class="text-sm text-gray-500">Cache System</span>
+            <span class="flex items-center">
+              <div class="w-2 h-2 rounded-full bg-green-400 mr-2"></div>
+              <span class="text-sm font-medium text-green-600">Active</span>
+            </span>
+          </div>
+          <div class="flex items-center justify-between">
+            <span class="text-sm text-gray-500">Rate Limiting</span>
+            <span class="flex items-center">
+              <div class="w-2 h-2 rounded-full bg-green-400 mr-2"></div>
+              <span class="text-sm font-medium text-green-600">5/hour</span>
+            </span>
+          </div>
+          <div class="pt-3 border-t">
+            <a href="{% url 'ai_factoid_status' %}" class="text-sm text-blue-600 hover:text-blue-800">View detailed status →</a>
+          </div>
         </div>
       </div>
     </div>
@@ -104,6 +215,13 @@
           </svg>
           Configuration
         </a>
+        
+        <button id="warmup-worcestershire-btn" class="inline-flex items-center justify-center px-4 py-2 border border-yellow-300 rounded-md shadow-sm text-sm font-medium text-yellow-700 bg-yellow-50 hover:bg-yellow-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-yellow-500">
+          <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"/>
+          </svg>
+          Warmup Worcestershire
+        </button>
         
         <button id="test-random-council-btn" class="inline-flex items-center justify-center px-4 py-2 border border-green-300 rounded-md shadow-sm text-sm font-medium text-green-700 bg-green-50 hover:bg-green-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500">
           <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -416,7 +534,7 @@ document.addEventListener('DOMContentLoaded', function() {
     `;
   }
   
-  // Clear all cache
+  // Clear all cache  
   document.getElementById('clear-all-cache-btn').addEventListener('click', async function() {
     if (!confirm('Clear all factoid caches? This will force fresh generation for all councils.')) return;
     
@@ -440,6 +558,44 @@ document.addEventListener('DOMContentLoaded', function() {
       }
     } catch (error) {
       alert(`Network error: ${error.message}`);
+    }
+  });
+  
+  // Warmup Worcestershire cache
+  document.getElementById('warmup-worcestershire-btn').addEventListener('click', async function() {
+    const btn = this;
+    const originalText = btn.innerHTML;
+    
+    // Show loading
+    btn.innerHTML = '<div class="animate-spin rounded-full h-4 w-4 border-b-2 border-yellow-600 mr-2"></div>Warming...';
+    btn.disabled = true;
+    
+    try {
+      const response = await fetch('/ai-factoids/warmup-cache/', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          council_slug: 'worcestershire'
+        })
+      });
+      
+      const data = await response.json();
+      
+      if (data.success) {
+        alert(`Warmup successful! Generated ${data.factoids_generated} factoids using ${data.ai_model} in ${data.processing_time_seconds.toFixed(2)}s`);
+        // Refresh the page to update cache stats
+        window.location.reload();
+      } else {
+        alert(`Warmup failed: ${data.error}`);
+      }
+    } catch (error) {
+      alert(`Network error: ${error.message}`);
+    } finally {
+      // Restore button
+      btn.innerHTML = originalText;
+      btn.disabled = false;
     }
   });
 });

@@ -282,12 +282,12 @@ CRITICAL JSON RULES:
                         try:
                             change_pct = ((float(latest_value) - float(earliest_value)) / float(earliest_value)) * 100
                             formatted_lines.append(
-                                f"{metric.replace('_', ' ').title()}: {latest_year} £{latest_value}M "
+                                f"{metric.replace('_', ' ').title()}: {latest_year} \u00a3{latest_value}M "
                                 f"({change_pct:+.1f}% from {earliest_year})"
                             )
                         except (ValueError, TypeError, ZeroDivisionError):
                             formatted_lines.append(
-                                f"{metric.replace('_', ' ').title()}: {latest_year} £{latest_value}M"
+                                f"{metric.replace('_', ' ').title()}: {latest_year} \u00a3{latest_value}M"
                             )
         
         return "\n".join(formatted_lines) if formatted_lines else "Financial data processing in progress."
@@ -372,8 +372,8 @@ CRITICAL JSON RULES:
                     # Clean the text to ensure no problematic characters
                     text = str(factoid['text']).strip()
                     text = text.replace('\n', ' ').replace('\r', ' ')
-                    # Convert GBP back to £ symbol for display
-                    text = text.replace('GBP ', '£')
+                    # Convert GBP back to £ symbol for display using Unicode
+                    text = text.replace('GBP ', '\u00a3')
                     text = text[:150]  # Limit length
                     
                     # Ensure required fields exist
