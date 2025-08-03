@@ -253,13 +253,21 @@ def home(request):
     latest_year = FinancialYear.objects.order_by("-label").first()
     
     if latest_year:
-        field = DataField.objects.filter(slug="total_debt").first()
-        total_debt = (
-            FinancialFigure.objects.filter(field=field, year=latest_year).aggregate(
-                total=Sum("value")
-            )["total"]
-            or 0
-        )
+        try:
+            field = DataField.objects.filter(slug="total_debt").first()
+            if field:
+                total_debt = (
+                    FinancialFigure.objects.filter(field=field, year=latest_year).aggregate(
+                        total=Sum("value")
+                    )["total"]
+                    or 0
+                )
+            else:
+                logger.warning("DataField 'total_debt' not found in database")  
+                total_debt = 0
+        except Exception as e:
+            logger.error(f"Error calculating total debt: {e}")
+            total_debt = 0
     else:
         # Fallback when no figures are loaded
         total_debt = 0
@@ -270,11 +278,33 @@ def home(request):
     # Calculate enhanced hero stats
     total_debt_billions = total_debt / 1_000_000_000 if total_debt else 0
     
-    # Calculate completion percentage
-    all_years = FinancialYear.objects.all()
-    expected_data_points = total_councils * DataField.objects.count() * all_years.count()
-    actual_data_points = CouncilCharacteristic.objects.count() + FinancialFigure.objects.count()
-    completion_percentage = (actual_data_points / expected_data_points * 100) if expected_data_points > 0 else 0
+    # Calculate completion percentage (cached to avoid expensive calculation)
+    from django.core.cache import cache
+    completion_cache_key = "home_completion_percentage"
+    completion_percentage = cache.get(completion_cache_key)
+    
+    if completion_percentage is None:
+        all_years = FinancialYear.objects.all()
+        # Use a single query to get counts instead of multiple
+        from django.db.models import Count
+        counts = {
+            'councils': total_councils,  # Already calculated above
+            'fields': DataField.objects.count(),
+            'years': all_years.count(),
+            'characteristics': CouncilCharacteristic.objects.count(),
+            'figures': FinancialFigure.objects.count()
+        }
+        
+        expected_data_points = counts['councils'] * counts['fields'] * counts['years']
+        actual_data_points = counts['characteristics'] + counts['figures']
+        completion_percentage = (actual_data_points / expected_data_points * 100) if expected_data_points > 0 else 0
+        
+        # Cache completion percentage for 30 minutes (data doesn't change frequently)
+        cache.set(completion_cache_key, completion_percentage, 1800)
+    
+    # Get all_years here for later use (reuse from cache calculation if available)
+    if 'all_years' not in locals():
+        all_years = FinancialYear.objects.all()
     
     # Get featured councils (mix of council of the day + random selection)
     featured_councils = []
@@ -287,39 +317,97 @@ def home(request):
         today_seed = hashlib.md5(str(date.today()).encode()).hexdigest()
         council_count = Council.objects.count()
         if council_count > 0:
-            council_index = int(today_seed[:8], 16) % council_count
-            council_of_the_day = Council.objects.all()[council_index]
+            try:
+                council_index = int(today_seed[:8], 16) % council_count
+                council_of_the_day = Council.objects.all()[council_index]
+            except (ValueError, IndexError) as e:
+                logger.warning(f"Error selecting council of the day: {e}")
+                council_of_the_day = Council.objects.first()  # Safe fallback
             
             # Get a few more featured councils (exclude council of the day)
-            featured_councils_raw = list(Council.objects.exclude(id=council_of_the_day.id).order_by('?')[:5])
-            featured_councils_raw.insert(0, council_of_the_day)  # Put council of the day first
+            # Use a more efficient approach than order_by('?') which is expensive
+            remaining_councils = Council.objects.exclude(id=council_of_the_day.id)
+            council_count_remaining = remaining_councils.count()
+            
+            if council_count_remaining > 0:
+                # Select councils using deterministic but varied approach
+                import hashlib
+                from datetime import date
+                seed = hashlib.md5(f"{date.today()}_featured".encode()).hexdigest()
+                selected_indices = []
+                for i in range(min(5, council_count_remaining)):
+                    index_seed = hashlib.md5(f"{seed}_{i}".encode()).hexdigest()
+                    index = int(index_seed[:8], 16) % council_count_remaining
+                    selected_indices.append(index)
+                
+                # Convert to list to enable indexing
+                remaining_list = list(remaining_councils.all())
+                # Validate indices are within bounds to prevent IndexError
+                valid_indices = [i for i in selected_indices[:5] if 0 <= i < len(remaining_list)]
+                if valid_indices:
+                    featured_councils_raw = [remaining_list[i] for i in valid_indices]
+                    featured_councils_raw.insert(0, council_of_the_day)  # Put council of the day first
+                else:
+                    # Fallback if no valid indices
+                    featured_councils_raw = [council_of_the_day]
+            else:
+                featured_councils_raw = [council_of_the_day]
             
             # Enhance featured councils with financial data carousel
-            featured_councils = []
-            from council_finance.agents.counter_agent import CounterAgent
-            agent = CounterAgent()
+            # Use caching to avoid expensive CounterAgent calls on every page load
+            from django.core.cache import cache
+            import hashlib
             
-            for council in featured_councils_raw:
-                council_data = {'council': council, 'financial_years': []}
+            featured_councils = []
+            councils_ids_str = ','.join([str(c.id) for c in featured_councils_raw])
+            councils_cache_key = f"featured_councils_{hashlib.md5(councils_ids_str.encode()).hexdigest()}"
+            cached_featured = cache.get(councils_cache_key)
+            
+            if cached_featured is not None:
+                featured_councils = cached_featured
+            else:
+                # Only run expensive operations if not cached
+                from council_finance.agents.counter_agent import CounterAgent
+                agent = CounterAgent()
                 
-                # Get current liabilities data for available years
-                for year in all_years[:3]:  # Show up to 3 most recent years
-                    result = agent.run(council_slug=council.slug, year_label=year.label)
-                    current_liabilities = result.get('current-liabilities')
+                for council in featured_councils_raw:
+                    council_data = {'council': council, 'financial_years': []}
                     
-                    if current_liabilities and current_liabilities.get('value') and current_liabilities.get('value') > 0:
-                        # Use friendly format for carousel display
-                        from council_finance.models.counter import CounterDefinition
-                        counter_def = CounterDefinition.objects.filter(slug='current-liabilities').first()
-                        if counter_def:
-                            friendly_value = counter_def.format_value(current_liabilities['value'])
-                            council_data['financial_years'].append({
-                                'year': year.label,
-                                'value': friendly_value,
-                                'raw_value': current_liabilities['value']
-                            })
+                    # Get current liabilities data for available years (limited to reduce load)
+                    for year in all_years[:2]:  # Reduced from 3 to 2 years for performance
+                        # Check cache first for this specific council/year combination
+                        council_year_key = f"council_data_{council.slug}_{year.label}"
+                        cached_result = cache.get(council_year_key)
+                        
+                        if cached_result is not None:
+                            result = cached_result
+                        else:
+                            try:
+                                result = agent.run(council_slug=council.slug, year_label=year.label)
+                                # Cache individual council/year results for 10 minutes
+                                cache.set(council_year_key, result, 600)
+                            except Exception as e:
+                                logger.warning(f"CounterAgent failed for {council.slug}/{year.label}: {e}")
+                                result = {}  # Provide fallback empty result
+                        
+                        current_liabilities = result.get('current-liabilities')
+                        
+                        if current_liabilities and current_liabilities.get('value') and current_liabilities.get('value') > 0:
+                            # Use friendly format for carousel display
+                            from council_finance.models.counter import CounterDefinition
+                            counter_def = CounterDefinition.objects.filter(slug='current-liabilities').first()
+                            if counter_def:
+                                friendly_value = counter_def.format_value(current_liabilities['value'])
+                                council_data['financial_years'].append({
+                                    'year': year.label,
+                                    'value': friendly_value,
+                                    'raw_value': current_liabilities['value']
+                                })
+                    
+                    featured_councils.append(council_data)
                 
-                featured_councils.append(council_data)
+                # Cache featured councils for 15 minutes
+                cache.set(councils_cache_key, featured_councils, 900)
 
     # Get recent activity for the homepage
     recent_contributions = Contribution.objects.filter(
@@ -352,7 +440,8 @@ def home(request):
         ).count() + DataIssue.objects.filter(
             issue_type='missing_financial'
         ).count()
-    except:
+    except (DataIssue.DoesNotExist, AttributeError, Exception) as e:
+        logger.warning(f"Error calculating missing data count: {e}")
         missing_data_count = 0
 
     promoted = []
@@ -399,13 +488,13 @@ def home(request):
         if gc.year and cache.get(f"{key}:prev") is None:
             missing_cache = True
 
-    # When any counter total is missing, compute them all so visitors always see
-    # up to date figures even if the background task failed to run.
+    # When any counter total is missing, use fallback values instead of 
+    # running expensive SiteTotalsAgent synchronously. The agent should be 
+    # run via scheduled task or management command, not on page load.
     if missing_cache:
-        # Run the agent synchronously so the cache is filled before rendering
-        # the page. This means the first visitor after a deployment may trigger
-        # a slight delay, but subsequent requests will hit the cache.
-        SiteTotalsAgent().run()
+        # Log the issue for admin awareness but don't block page rendering
+        logger.warning("Home page: Site counter cache is cold. Run 'python manage.py run_site_totals_agent' to populate cache.")
+        # Don't run SiteTotalsAgent().run() here - it's too expensive!
 
     # Now build the list of promoted counters using the cached totals. This may
     # happen after the agent has populated the cache above.
@@ -415,7 +504,7 @@ def home(request):
         prev_value = 0
         if sc.year:
             prev_value = cache.get(f"counter_total:{sc.slug}:{year_label}:prev", 0)
-        formatted = CounterDefinition.format_value(sc, value)
+        formatted = sc.counter.format_value(value)
         promoted.append({
             "slug": sc.slug,
             "counter_slug": sc.counter.slug,
@@ -438,7 +527,7 @@ def home(request):
         prev_value = 0
         if gc.year:
             prev_value = cache.get(f"counter_total:{gc.slug}:{year_label}:prev", 0)
-        formatted = CounterDefinition.format_value(gc, value)
+        formatted = gc.counter.format_value(value)
         promoted.append({
             "slug": gc.slug,
             "name": gc.name,
@@ -446,7 +535,7 @@ def home(request):
             "raw": value,
             "duration": gc.duration,
             "precision": gc.precision,
-            "show_currency": sc.show_currency,
+            "show_currency": gc.show_currency,
             "friendly_format": gc.friendly_format,
             "explanation": "",  # groups currently lack custom explanations
             "columns": 3,  # groups default to full width for now

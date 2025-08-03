@@ -111,6 +111,7 @@ urlpatterns = [
     path("", general_views.home, name="home"),
     path("search/", general_views.search_results, name="search_results"),
     path("api/councils/search/", api_views.search_councils, name="search_councils"),
+    path("api/emergency-cache-warming/", api_views.emergency_cache_warming, name="emergency_cache_warming"),
     path("admin/", admin.site.urls),
     path("plugins/", include("core.urls")),
     # Authentication endpoints

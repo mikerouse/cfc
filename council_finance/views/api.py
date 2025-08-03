@@ -481,3 +481,153 @@ def _fetch_google_models():
     ]
 
 
+@require_POST
+@csrf_exempt
+def emergency_cache_warming(request):
+    """
+    Emergency API endpoint to detect and fix £0 counters on the home page.
+    Triggered automatically by JavaScript when £0 counters are detected.
+    Also sends email alerts to administrators.
+    """
+    try:
+        # Import required modules
+        from council_finance.agents.site_totals_agent import SiteTotalsAgent
+        from council_finance.models import SiteCounter, GroupCounter
+        from council_finance.utils.email_alerts import email_alert_service
+        from django.core.cache import cache
+        import json
+        import time
+        
+        # Parse request data
+        try:
+            data = json.loads(request.body)
+            zero_counters = data.get('zero_counters', [])
+            user_agent = request.META.get('HTTP_USER_AGENT', 'Unknown')
+            request_ip = request.META.get('REMOTE_ADDR', 'Unknown')
+        except json.JSONDecodeError:
+            zero_counters = []
+            user_agent = request.META.get('HTTP_USER_AGENT', 'Unknown')
+            request_ip = request.META.get('REMOTE_ADDR', 'Unknown')
+        
+        # Log the detection
+        print(f"EMERGENCY: £0 counters detected on home page from {request_ip}")
+        print(f"Zero counters reported: {zero_counters}")
+        
+        # Get current cache status before warming
+        site_counters = list(SiteCounter.objects.all())
+        group_counters = list(GroupCounter.objects.all())
+        all_counters = site_counters + group_counters
+        
+        cache_status_before = {}
+        for counter in all_counters:
+            year_label = counter.year.label if counter.year else "all"
+            cache_key = f"counter_total:{counter.slug}:{year_label}"
+            cached_value = cache.get(cache_key)
+            cache_status_before[counter.slug] = {
+                'cached': cached_value is not None,
+                'value': cached_value,
+                'counter_name': counter.name
+            }
+        
+        # Run emergency cache warming
+        start_time = time.time()
+        agent = SiteTotalsAgent()
+        agent.run()
+        warming_duration = time.time() - start_time
+        
+        # Check cache status after warming
+        cache_status_after = {}
+        fixed_counters = []
+        for counter in all_counters:
+            year_label = counter.year.label if counter.year else "all"
+            cache_key = f"counter_total:{counter.slug}:{year_label}"
+            cached_value = cache.get(cache_key)
+            cache_status_after[counter.slug] = {
+                'cached': cached_value is not None,
+                'value': cached_value,
+                'counter_name': counter.name
+            }
+            
+            # Check if this counter was fixed
+            before = cache_status_before.get(counter.slug, {})
+            after = cache_status_after.get(counter.slug, {})
+            
+            was_zero_or_missing = (
+                not before.get('cached') or 
+                before.get('value') == 0 or 
+                before.get('value') is None
+            )
+            is_now_nonzero = (
+                after.get('cached') and 
+                after.get('value') is not None and 
+                after.get('value') != 0
+            )
+            
+            if was_zero_or_missing and is_now_nonzero:
+                fixed_counters.append({
+                    'slug': counter.slug,
+                    'name': counter.name,
+                    'before_value': before.get('value'),
+                    'after_value': after.get('value')
+                })
+        
+        # Send email alert to administrators
+        alert_context = {
+            'alert_type': 'Emergency £0 Counter Detection',
+            'zero_counters_reported': zero_counters,
+            'total_counters_checked': len(all_counters),
+            'fixed_counters': fixed_counters,
+            'cache_warming_duration': f"{warming_duration:.2f} seconds",
+            'request_ip': request_ip,
+            'user_agent': user_agent,
+            'cache_status_before': cache_status_before,
+            'cache_status_after': cache_status_after,
+            'suggested_action': 'Monitor for recurring £0 counter issues. Check SiteTotalsAgent performance.'
+        }
+        
+        exception = Exception(
+            f"£0 counters detected on home page. Fixed {len(fixed_counters)} counters. "
+            f"Zero counters reported: {zero_counters}"
+        )
+        
+        email_sent = email_alert_service.send_error_alert(
+            exception, 
+            request, 
+            alert_context
+        )
+        
+        # Return success response
+        return JsonResponse({
+            'success': True,
+            'message': 'Emergency cache warming completed',
+            'details': {
+                'warming_duration': f"{warming_duration:.2f}s",
+                'total_counters': len(all_counters),
+                'fixed_counters': len(fixed_counters),
+                'fixed_counter_details': fixed_counters,
+                'email_alert_sent': email_sent,
+                'zero_counters_reported': zero_counters
+            }
+        })
+        
+    except Exception as e:
+        # Log the error
+        print(f"ERROR in emergency cache warming: {e}")
+        
+        # Try to send error alert
+        try:
+            error_context = {
+                'alert_type': 'Emergency Cache Warming Failure',
+                'original_zero_counters': zero_counters if 'zero_counters' in locals() else 'Unknown'
+            }
+            email_alert_service.send_error_alert(e, request, error_context)
+        except:
+            pass  # Don't let email failure prevent error response
+        
+        return JsonResponse({
+            'success': False,
+            'error': str(e),
+            'message': 'Emergency cache warming failed'
+        }, status=500)
+
+

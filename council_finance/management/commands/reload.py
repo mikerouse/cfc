@@ -14,7 +14,7 @@ from django.core.management import call_command
 
 
 class Command(BaseCommand):
-    help = 'Reload development server with cache clearing (cfc-reload equivalent)'
+    help = 'Reload development server with cache clearing and optional cache warming (cfc-reload equivalent)'
 
     def add_arguments(self, parser):
         parser.add_argument(
@@ -57,6 +57,11 @@ class Command(BaseCommand):
             action='store_true',
             help='Enable verbose debugging output',
         )
+        parser.add_argument(
+            '--dont-warm-cache',
+            action='store_true',
+            help='Skip warming site-wide counter cache (cache warming is enabled by default)',
+        )
 
     def handle(self, *args, **options):
         # Store debug flag for verbose output
@@ -74,6 +79,8 @@ class Command(BaseCommand):
             total_steps += 1  # Extra step for React rebuild
         if options['clear_cache']:
             total_steps += 1  # Extra step for cache clearing
+        if not options['dont_warm_cache']:
+            total_steps += 1  # Extra step for cache warming (enabled by default)
         
         self.stdout.write(
             self.style.SUCCESS('Council Finance Counters - Development Reload')
@@ -164,6 +171,20 @@ class Command(BaseCommand):
             step_num += 1
         elif not options['test_only']:
             self.stdout.write(f'[{step_num}/{total_steps}] Skipping Django checks...')
+            step_num += 1
+
+        # Optional: Warm site-wide counter cache
+        if not options['dont_warm_cache']:
+            self.stdout.write(f'[{step_num}/{total_steps}] Warming site-wide counter cache...')
+            cache_success = self._warm_sitewide_counter_cache()
+            if cache_success:
+                self.stdout.write(
+                    self.style.SUCCESS('Cache warming completed successfully!')
+                )
+            else:
+                self.stdout.write(
+                    self.style.WARNING('Cache warming had some issues - check output above')
+                )
             step_num += 1
 
         # Final step: Start server (unless test-only)
@@ -1365,4 +1386,175 @@ class Command(BaseCommand):
             self.stdout.write(
                 self.style.ERROR(f'Build verification failed: {e}')
             )
+            return False
+
+    def _warm_sitewide_counter_cache(self):
+        """
+        Warm site-wide counter cache using extensible architecture.
+        
+        This method automatically discovers and warms all site-wide counters,
+        making it extensible for future counter additions.
+        """
+        try:
+            from council_finance.models import SiteCounter, GroupCounter, Council, FinancialYear
+            from council_finance.agents.site_totals_agent import SiteTotalsAgent
+            from django.core.cache import cache
+            
+            success = True
+            
+            # Step 1: Display cache warming overview
+            site_counters = SiteCounter.objects.all()
+            group_counters = GroupCounter.objects.all()
+            councils = Council.objects.count()
+            years = FinancialYear.objects.count()
+            
+            self.stdout.write(f'   > Cache warming overview:')
+            self.stdout.write(f'     - Site counters: {site_counters.count()}')
+            self.stdout.write(f'     - Group counters: {group_counters.count()}')
+            self.stdout.write(f'     - Councils in system: {councils}')
+            self.stdout.write(f'     - Financial years: {years}')
+            
+            if site_counters.count() == 0 and group_counters.count() == 0:
+                self.stdout.write(
+                    self.style.WARNING('No site-wide counters found to warm')
+                )
+                return True
+            
+            # Step 2: Check current cache status
+            self.stdout.write(f'   > Checking current cache status...')
+            cold_counters = []
+            
+            for sc in site_counters:
+                year_label = sc.year.label if sc.year else "all"
+                cache_key = f"counter_total:{sc.slug}:{year_label}"
+                cached_value = cache.get(cache_key)
+                
+                if cached_value is None:
+                    cold_counters.append(f'Site: {sc.name}')
+                    self.stdout.write(f'     [COLD] {sc.name} ({sc.slug})')
+                else:
+                    self.stdout.write(f'     [WARM] {sc.name}: {cached_value:,.0f}')
+            
+            for gc in group_counters:
+                year_label = gc.year.label if gc.year else "all"
+                cache_key = f"counter_total:{gc.slug}:{year_label}"
+                cached_value = cache.get(cache_key)
+                
+                if cached_value is None:
+                    cold_counters.append(f'Group: {gc.name}')
+                    self.stdout.write(f'     [COLD] {gc.name} ({gc.slug})')
+                else:
+                    self.stdout.write(f'     [WARM] {gc.name}: {cached_value:,.0f}')
+            
+            if not cold_counters:
+                self.stdout.write(
+                    self.style.SUCCESS('   All counters already have warm cache!')
+                )
+                return True
+            
+            # Step 3: Warm cold counters
+            self.stdout.write(f'   > Warming {len(cold_counters)} cold counter(s)...')
+            
+            if councils == 0:
+                self.stdout.write(
+                    self.style.WARNING('Cannot warm cache: No councils in database')
+                )
+                return False
+            
+            if years == 0:
+                self.stdout.write(
+                    self.style.WARNING('Cannot warm cache: No financial years in database')
+                )
+                return False
+            
+            # Run the SiteTotalsAgent with progress indication
+            self.stdout.write(f'   > Running SiteTotalsAgent (this may take a moment)...')
+            
+            # Estimate processing time based on data size
+            estimated_operations = 0
+            for sc in site_counters:
+                if sc.year:
+                    estimated_operations += councils  # One year
+                else:
+                    estimated_operations += councils * years  # All years
+            
+            for gc in group_counters:
+                if gc.year:
+                    estimated_operations += councils  # One year (filtered by group)
+                else:
+                    estimated_operations += councils * years  # All years (filtered by group)
+            
+            if estimated_operations > 100:
+                self.stdout.write(f'     Estimated operations: {estimated_operations:,}')
+                self.stdout.write(f'     This may take 30-60 seconds...')
+            
+            # Execute the cache warming
+            agent = SiteTotalsAgent()
+            agent.run()
+            
+            # Step 4: Verify cache was warmed successfully
+            self.stdout.write(f'   > Verifying cache warming results...')
+            
+            warmed_successfully = 0
+            still_cold = 0
+            
+            for sc in site_counters:
+                year_label = sc.year.label if sc.year else "all"
+                cache_key = f"counter_total:{sc.slug}:{year_label}"
+                cached_value = cache.get(cache_key)
+                
+                if cached_value is not None:
+                    warmed_successfully += 1
+                    formatted_value = f"{cached_value:,.0f}" if isinstance(cached_value, (int, float)) else str(cached_value)
+                    self.stdout.write(f'     [SUCCESS] {sc.name}: {formatted_value}')
+                else:
+                    still_cold += 1
+                    self.stdout.write(f'     [FAILED] {sc.name}: Still cold')
+                    success = False
+            
+            for gc in group_counters:
+                year_label = gc.year.label if gc.year else "all"
+                cache_key = f"counter_total:{gc.slug}:{year_label}"
+                cached_value = cache.get(cache_key)
+                
+                if cached_value is not None:
+                    warmed_successfully += 1
+                    formatted_value = f"{cached_value:,.0f}" if isinstance(cached_value, (int, float)) else str(cached_value)
+                    self.stdout.write(f'     [SUCCESS] {gc.name}: {formatted_value}')
+                else:
+                    still_cold += 1
+                    self.stdout.write(f'     [FAILED] {gc.name}: Still cold')
+                    success = False
+            
+            # Step 5: Summary
+            total_counters = site_counters.count() + group_counters.count()
+            self.stdout.write(f'   > Cache warming summary:')
+            self.stdout.write(f'     - Successfully warmed: {warmed_successfully}/{total_counters}')
+            
+            if still_cold > 0:
+                self.stdout.write(f'     - Still cold: {still_cold}')
+                self.stdout.write(f'     - This may indicate missing data or counter configuration issues')
+            
+            # Step 6: Performance benefit explanation
+            if success:
+                self.stdout.write(f'   > Performance impact:')
+                self.stdout.write(f'     - Home page load time should now be much faster')
+                self.stdout.write(f'     - Counters will display real values instead of £0')
+                self.stdout.write(f'     - Cache will remain warm until next server restart')
+            
+            return success
+            
+        except ImportError as e:
+            self.stdout.write(
+                self.style.ERROR(f'Cache warming failed - missing dependency: {e}')
+            )
+            return False
+            
+        except Exception as e:
+            self.stdout.write(
+                self.style.ERROR(f'Cache warming failed: {e}')
+            )
+            if self.debug_mode:
+                import traceback
+                self.stdout.write(f'   [DEBUG] Traceback: {traceback.format_exc()}')
             return False
