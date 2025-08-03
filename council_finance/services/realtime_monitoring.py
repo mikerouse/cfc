@@ -111,7 +111,7 @@ class RealtimeMonitoringService:
         current_hour_cost = self._get_current_hour_cost()
         avg_hour_cost = self._get_average_hour_cost()
         
-        if current_hour_cost > avg_hour_cost * 1.5:
+        if current_hour_cost > avg_hour_cost * Decimal('1.5'):
             anomaly = self._create_anomaly(
                 'cost_spike',
                 'Hourly cost',
@@ -356,14 +356,19 @@ class RealtimeMonitoringService:
             total_requests=Count('id'),
             total_cost=Sum('estimated_cost'),
             avg_response_time=Avg('processing_time_seconds'),
-            success_rate=Avg('success')
+            successful_requests=Count('id', filter=Q(success=True))
         )
+        
+        # Calculate success rate manually
+        total_requests = weekly_data['total_requests'] or 0
+        successful_requests = weekly_data['successful_requests'] or 0
+        success_rate = (successful_requests / total_requests * 100) if total_requests > 0 else 100.0
         
         return {
             'total_requests': weekly_data['total_requests'] or 0,
             'total_cost': float(weekly_data['total_cost'] or 0),
             'avg_response_time': round(weekly_data['avg_response_time'] or 0, 2),
-            'success_rate': round((weekly_data['success_rate'] or 1) * 100, 1),
+            'success_rate': round(success_rate, 1),
         }
     
     def _project_monthly_cost(self):
