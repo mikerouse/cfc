@@ -21,6 +21,7 @@ from rest_framework.throttling import UserRateThrottle
 from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.permissions import AllowAny
+from rest_framework.exceptions import Throttled
 
 from council_finance.models import Council
 from council_finance.services.ai_factoid_generator import AIFactoidGenerator, CouncilDataGatherer
@@ -33,10 +34,10 @@ class AIFactoidRateThrottle(UserRateThrottle):
     Custom throttle for AI factoid requests.
     
     Limits API calls to prevent excessive OpenAI usage costs.
-    Rate: 25 requests per hour per council.
+    Rate: 5 requests per hour per council (reduced for efficiency).
     """
     scope = 'ai_factoids'
-    rate = '25/hour'
+    rate = '5/hour'
     
     def get_cache_key(self, request, view):
         """Generate cache key based on council slug rather than user."""
@@ -50,7 +51,6 @@ class AIFactoidRateThrottle(UserRateThrottle):
 
 @api_view(['GET'])
 @permission_classes([AllowAny])
-@throttle_classes([AIFactoidRateThrottle])
 def ai_council_factoids(request, council_slug):
     """
     Generate AI factoids for a specific council.
@@ -80,8 +80,9 @@ def ai_council_factoids(request, council_slug):
         # Get council or return 404
         council = get_object_or_404(Council, slug=council_slug)
         
-        # Check cache first (6-hour cache as per spec)
+        # Enhanced caching strategy - longer cache, fallback on rate limit
         cache_key = f"ai_factoids:{council_slug}"
+        cache_key_stale = f"ai_factoids_stale:{council_slug}"
         cached_response = cache.get(cache_key)
         
         if cached_response:
@@ -90,41 +91,101 @@ def ai_council_factoids(request, council_slug):
             cached_response['served_at'] = timezone.now().isoformat()
             return Response(cached_response, status=status.HTTP_200_OK)
         
-        # Generate fresh AI factoids
-        logger.info(f"🤖 Generating fresh AI factoids for {council.name}")
+        # Check if we're rate limited and have stale cache
+        stale_cached_response = cache.get(cache_key_stale)
         
-        # Gather comprehensive council data
-        data_gatherer = CouncilDataGatherer()
-        council_data = data_gatherer.gather_council_data(council)
+        # Check rate limit manually before attempting AI generation
+        throttle = AIFactoidRateThrottle()
         
-        # Generate AI insights
-        ai_generator = AIFactoidGenerator()
-        factoids = ai_generator.generate_insights(
-            council_data=council_data,
-            limit=3,
-            style='news_ticker'
-        )
+        # Create a mock view object for throttle checking
+        class MockView:
+            def __init__(self, council_slug):
+                self.kwargs = {'council_slug': council_slug}
         
-        # Check if these are fallback factoids
-        are_fallback_factoids = all(
-            f.get('insight_type') in ['basic', 'system'] for f in factoids
-        )
+        mock_view = MockView(council_slug)
         
-        if are_fallback_factoids:
-            # Don't cache fallback factoids - return error response instead
-            logger.warning(f"❌ AI generation failed for {council.name}, not caching fallback factoids")
+        if not throttle.allow_request(request, mock_view):
+            # Rate limited - fallback to stale cache
+            if stale_cached_response:
+                logger.info(f"⏱️ Rate limited for {council.name} - serving stale cached AI factoids")
+                stale_cached_response['cache_status'] = 'rate_limited_fallback'
+                stale_cached_response['served_at'] = timezone.now().isoformat()
+                stale_cached_response['fallback_reason'] = 'Rate limit exceeded - serving cached data'
+                return Response(stale_cached_response, status=status.HTTP_200_OK)
+            
+            # No stale cache available during rate limit
+            logger.warning(f"⏱️ Rate limited for {council.name} with no cached fallback")
             return Response({
-                'success': False,
-                'error': 'AI analysis temporarily unavailable',
+                'success': True,
+                'no_factoids': True,
+                'rate_limited': True,
+                'message': f'AI analysis for {council.name} is temporarily rate limited. Fresh insights will be available in about an hour.',
                 'council': council_slug,
-                'factoids': [{
-                    'text': f"AI analysis temporarily unavailable for {council.name}",
-                    'insight_type': 'error',
-                    'confidence': 1.0,
-                    'show_retry': True
-                }],
-                'cache_status': 'not_cached'
-            }, status=status.HTTP_503_SERVICE_UNAVAILABLE)
+                'factoids': [],  # Empty array - no factoids to show
+                'cache_status': 'rate_limited',
+                'retry_after': throttle.wait()
+            }, status=status.HTTP_200_OK)
+        
+        # Try to generate fresh AI factoids with up to 3 retry attempts
+        factoids = None
+        generation_success = False
+        retry_count = 0
+        max_retries = 3
+        
+        while retry_count < max_retries and not generation_success:
+            try:
+                retry_count += 1
+                logger.info(f"🤖 AI factoid generation attempt {retry_count}/{max_retries} for {council.name}")
+                
+                # Gather comprehensive council data
+                data_gatherer = CouncilDataGatherer()
+                council_data = data_gatherer.gather_council_data(council)
+                
+                # Generate AI insights - increased to 10 factoids as requested
+                ai_generator = AIFactoidGenerator()
+                factoids = ai_generator.generate_insights(
+                    council_data=council_data,
+                    limit=10,
+                    style='news_ticker'
+                )
+                
+                # Check if we got real AI factoids (not fallback)
+                if factoids and not all(f.get('insight_type') in ['basic', 'system'] for f in factoids):
+                    generation_success = True
+                    logger.info(f"✅ AI generation successful on attempt {retry_count} for {council.name}")
+                else:
+                    logger.warning(f"⚠️ Attempt {retry_count} returned fallback factoids for {council.name}")
+                    
+            except Exception as ai_error:
+                logger.warning(f"⚠️ AI generation attempt {retry_count} failed for {council.name}: {ai_error}")
+                if retry_count < max_retries:
+                    # Wait a bit before retrying
+                    import time
+                    time.sleep(1)
+        
+        # If AI generation failed after retries, use cached data
+        if not generation_success:
+            if stale_cached_response:
+                logger.info(f"🔄 Serving cached AI factoids for {council.name} after {retry_count} failed attempts")
+                stale_cached_response['cache_status'] = 'cached_after_retry_failure'
+                stale_cached_response['served_at'] = timezone.now().isoformat()
+                stale_cached_response['retry_attempts'] = retry_count
+                return Response(stale_cached_response, status=status.HTTP_200_OK)
+            
+            # No cache available - return message instead of poor quality factoids
+            logger.warning(f"❌ No AI factoids available for {council.name} after {retry_count} attempts")
+            return Response({
+                'success': True,
+                'no_factoids': True,
+                'message': f'AI analysis for {council.name} is being generated. Please check back in a few minutes.',
+                'council': council_slug,
+                'factoids': [],  # Empty array instead of fallback factoids
+                'cache_status': 'none_available',
+                'retry_attempts': retry_count
+            }, status=status.HTTP_200_OK)
+        
+        # At this point we have successful AI-generated factoids
+        # No need to check for fallback factoids anymore
         
         # Build response for successful AI generation
         response_data = {
@@ -138,8 +199,11 @@ def ai_council_factoids(request, council_slug):
             'factoid_count': len(factoids)
         }
         
-        # Cache successful AI responses for 6 hours (21600 seconds)
-        cache.set(cache_key, response_data, 21600)
+        # Enhanced caching strategy:
+        # - Primary cache: 7 days (604800 seconds) - only invalidated when data changes
+        # - Stale cache: 30 days (2592000 seconds) - for fallback when AI service unavailable
+        cache.set(cache_key, response_data, 604800)  # 7 days primary cache
+        cache.set(cache_key_stale, response_data, 2592000)  # 30 days stale cache for fallback
         
         logger.info(f"✅ Generated {len(factoids)} AI factoids for {council.name}")
         return Response(response_data, status=status.HTTP_200_OK)

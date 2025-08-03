@@ -81,9 +81,24 @@ class AIFactoidPlaylist {
                 throw new Error(`HTTP ${response.status}: ${response.statusText}`);
             }
             
-            if (data.success && data.factoids) {
-                this.factoids = data.factoids;
-                this.hasError = false;
+            if (data.success) {
+                // Check if no factoids are available
+                if (data.no_factoids) {
+                    console.log(`⏳ No AI factoids available for ${this.council} - ${data.message}`);
+                    this.showNoFactoidsMessage(data.message);
+                    return;
+                }
+                
+                // Check if we have factoids
+                if (data.factoids && data.factoids.length > 0) {
+                    this.factoids = data.factoids;
+                    this.hasError = false;
+                } else {
+                    // Empty factoids array
+                    console.log(`📭 Empty factoids response for ${this.council}`);
+                    this.showNoFactoidsMessage('AI insights are being generated. Please check back soon.');
+                    return;
+                }
                 
                 // Determine if these are AI or fallback factoids
                 const hasAiFactoids = this.factoids.some(f => 
@@ -92,7 +107,19 @@ class AIFactoidPlaylist {
                     f.insight_type !== 'error'
                 );
                 const hasErrorFactoids = this.factoids.some(f => f.insight_type === 'error');
-                const factoidType = hasAiFactoids ? '🤖 LIVE AI' : hasErrorFactoids ? '❌ AI UNAVAILABLE' : '🔄 FALLBACK';
+                const isRateLimited = data.rate_limited || false;
+                const isFallback = data.fallback || false;
+                
+                let factoidType;
+                if (hasAiFactoids) {
+                    factoidType = '🤖 LIVE AI';
+                } else if (isRateLimited) {
+                    factoidType = '⏱️ RATE LIMITED';
+                } else if (isFallback || hasErrorFactoids) {
+                    factoidType = '🔄 FALLBACK';
+                } else {
+                    factoidType = '📋 BASIC';
+                }
                 
                 console.log(`✅ Loaded ${this.factoids.length} ${factoidType} factoids for ${this.council}`);
                 console.log(`📊 ${factoidType} Factoids:`, this.factoids);
@@ -361,6 +388,23 @@ class AIFactoidPlaylist {
             <div class="flex items-center space-x-3 py-3 px-4 bg-yellow-50 border-l-4 border-yellow-300 rounded-r-lg">
                 <div class="text-lg">📊</div>
                 <div class="text-sm text-yellow-800">AI insights are being generated for this council</div>
+            </div>
+        `;
+    }
+    
+    showNoFactoidsMessage(message) {
+        // Display message when no factoids are available
+        this.container.innerHTML = `
+            <div class="gov-uk-notification-banner__header">
+                <h2 class="gov-uk-notification-banner__title">
+                    <svg class="w-5 h-5 inline-block mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                    </svg>
+                    AI Financial Insights
+                </h2>
+            </div>
+            <div class="gov-uk-notification-banner__content">
+                <p class="gov-uk-body-s mb-0">${this.escapeHTML(message)}</p>
             </div>
         `;
     }

@@ -7,6 +7,7 @@ and invalidate instances when data changes, ensuring real-time responsiveness.
 from django.db.models.signals import post_save, post_delete, pre_save
 from django.dispatch import receiver
 from django.utils import timezone
+from django.core.cache import cache
 import logging
 
 from ..models import (
@@ -102,6 +103,11 @@ def handle_council_characteristic_change(sender, instance, created, **kwargs):
             count = affected_instances.count()
             if count > 0:
                 logger.info(f"Invalidated {count} factoid instances due to characteristic change: {field_name}")
+            
+            # Also invalidate AI factoid cache for this council
+            ai_cache_key = f"ai_factoids:{instance.council.slug}"
+            cache.delete(ai_cache_key)
+            logger.info(f"Invalidated AI factoid cache for {instance.council.slug} due to characteristic change")
                 
     except Exception as e:
         logger.error(f"Error handling characteristic change: {e}")
@@ -129,6 +135,11 @@ def handle_financial_figure_change(sender, instance, created, **kwargs):
             count = affected_instances.count()
             if count > 0:
                 logger.info(f"Invalidated {count} factoid instances due to financial figure change: {field_name}")
+            
+            # Also invalidate AI factoid cache for this council
+            ai_cache_key = f"ai_factoids:{instance.council.slug}"
+            cache.delete(ai_cache_key)
+            logger.info(f"Invalidated AI factoid cache for {instance.council.slug} due to financial figure change")
                 
     except Exception as e:
         logger.error(f"Error handling financial figure change: {e}")

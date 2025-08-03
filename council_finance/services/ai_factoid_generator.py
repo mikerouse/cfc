@@ -33,7 +33,7 @@ class AIFactoidGenerator:
         """Initialize the AI client and configuration."""
         self.client = None
         self._setup_openai_client()
-        self.max_factoids = 3
+        self.max_factoids = 10
         self.max_tokens = 500
         self.temperature = 0.7
         
@@ -64,9 +64,8 @@ class AIFactoidGenerator:
         """
         try:
             if not self.client:
-                logger.warning("OpenAI client unavailable - using fallback factoids")
-                print(f"[FALLBACK] No OpenAI client configured, using fallback for {council_data['council'].name}")
-                return self._generate_fallback_factoids(council_data, limit)
+                logger.error("OpenAI client unavailable - cannot generate AI factoids")
+                raise Exception("OpenAI API not configured")
                 
             # Generate AI prompt from council data
             prompt = self._build_analysis_prompt(council_data, limit, style)
@@ -90,14 +89,13 @@ class AIFactoidGenerator:
                 print(f"[AI-SUCCESS] Generated {len(factoids)} LIVE AI insights using OpenAI GPT-4 for {council_data['council'].name}")
                 return factoids[:limit]  # Ensure we don't exceed limit
             else:
-                logger.warning("🔄 AI response parsing failed - using fallback factoids")
-                print(f"[FALLBACK] AI parsing failed, using fallback for {council_data['council'].name}")
-                return self._generate_fallback_factoids(council_data, limit)
+                logger.error("🔄 AI response parsing failed")
+                raise Exception("Failed to parse AI response - invalid format")
                 
         except Exception as e:
             logger.error(f"❌ AI factoid generation failed: {str(e)}")
-            print(f"[FALLBACK] OpenAI API failed ({str(e)}), using fallback for {council_data['council'].name}")
-            return self._generate_fallback_factoids(council_data, limit)
+            # Re-raise the exception instead of generating fallback factoids
+            raise
     
     def _build_analysis_prompt(self, data: Dict, limit: int, style: str) -> str:
         """
