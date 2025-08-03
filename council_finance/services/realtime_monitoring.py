@@ -38,7 +38,7 @@ class RealtimeMonitoringService:
         
         # Real-time request metrics
         recent_requests = AIUsageLog.objects.filter(
-            timestamp__gte=last_5_minutes
+            created_at__gte=last_5_minutes
         )
         
         metrics = {
@@ -46,11 +46,11 @@ class RealtimeMonitoringService:
             'requests_per_minute': recent_requests.count() / 5,
             'active_councils': recent_requests.values('council').distinct().count(),
             'current_hour_requests': AIUsageLog.objects.filter(
-                timestamp__gte=last_hour
+                created_at__gte=last_hour
             ).count(),
             'success_rate_5min': self._calculate_success_rate(recent_requests),
             'avg_response_time_5min': recent_requests.aggregate(
-                avg=Avg('response_time')
+                avg=Avg('processing_time_seconds')
             )['avg'] or 0,
             'error_rate_5min': recent_requests.filter(
                 success=False
@@ -222,7 +222,7 @@ class RealtimeMonitoringService:
         """Get current requests per minute."""
         last_minute = timezone.now() - timedelta(minutes=1)
         return AIUsageLog.objects.filter(
-            timestamp__gte=last_minute
+            created_at__gte=last_minute
         ).count()
     
     def _get_expected_requests_per_minute(self):
@@ -244,15 +244,15 @@ class RealtimeMonitoringService:
         """Get current average response time."""
         last_5_min = timezone.now() - timedelta(minutes=5)
         avg_time = AIUsageLog.objects.filter(
-            timestamp__gte=last_5_min
-        ).aggregate(avg=Avg('response_time'))
+            created_at__gte=last_5_min
+        ).aggregate(avg=Avg('processing_time_seconds'))
         
         return avg_time['avg'] or 2.5
     
     def _get_current_error_rate(self):
         """Get current error rate percentage."""
         last_5_min = timezone.now() - timedelta(minutes=5)
-        recent = AIUsageLog.objects.filter(timestamp__gte=last_5_min)
+        recent = AIUsageLog.objects.filter(created_at__gte=last_5_min)
         
         total = recent.count()
         if total == 0:
@@ -270,7 +270,7 @@ class RealtimeMonitoringService:
         current_hour_start = timezone.now().replace(minute=0, second=0, microsecond=0)
         
         cost = AIUsageLog.objects.filter(
-            timestamp__gte=current_hour_start
+            created_at__gte=current_hour_start
         ).aggregate(total=Sum('estimated_cost'))
         
         return cost['total'] or Decimal('0')
@@ -351,11 +351,11 @@ class RealtimeMonitoringService:
         past_week = timezone.now() - timedelta(days=7)
         
         weekly_data = AIUsageLog.objects.filter(
-            timestamp__gte=past_week
+            created_at__gte=past_week
         ).aggregate(
             total_requests=Count('id'),
             total_cost=Sum('estimated_cost'),
-            avg_response_time=Avg('response_time'),
+            avg_response_time=Avg('processing_time_seconds'),
             success_rate=Avg('success')
         )
         
@@ -401,7 +401,7 @@ class RealtimeMonitoringService:
         past_week = timezone.now() - timedelta(days=7)
         
         daily_requests = AIUsageLog.objects.filter(
-            timestamp__gte=past_week
+            created_at__gte=past_week
         ).count() / 7
         
         return int(daily_requests)

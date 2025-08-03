@@ -40,7 +40,7 @@ def ai_tools_hub(request):
     
     # Success rate (last 7 days)
     week_ago = now - timedelta(days=7)
-    recent_logs = AIUsageLog.objects.filter(timestamp__gte=week_ago)
+    recent_logs = AIUsageLog.objects.filter(created_at__gte=week_ago)
     total_requests = recent_logs.count()
     successful_requests = recent_logs.filter(success=True).count()
     
