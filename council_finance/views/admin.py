@@ -826,7 +826,7 @@ def god_mode(request):
         'contributions_today': Contribution.objects.filter(created__date=now.date()).count(),
         'contributions_this_week': Contribution.objects.filter(created__gte=week_ago).count(),
         'contributions_this_month': Contribution.objects.filter(created__gte=month_ago).count(),
-        'new_users_this_week': UserProfile.objects.filter(created__gte=week_ago).count(),
+        'new_users_this_week': UserProfile.objects.filter(user__date_joined__gte=week_ago).count(),
         'active_contributors': UserProfile.objects.filter(points__gt=0).count(),
     }
     
