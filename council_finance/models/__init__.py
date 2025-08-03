@@ -78,6 +78,12 @@ from .ai_usage_analytics import (
     CacheWarmupSchedule,
     PerformanceAlert,
 )
+from .sitewide_optimization import (
+    SitewideDataSummary,
+    SitewideDataChangeLog,
+    SitewideFactoidSchedule,
+    OptimizedFactoidCache,
+)
 
 __all__ = [
     'Council',
@@ -142,4 +148,8 @@ __all__ = [
     'DailyCostSummary',
     'CacheWarmupSchedule',
     'PerformanceAlert',
+    'SitewideDataSummary',
+    'SitewideDataChangeLog',
+    'SitewideFactoidSchedule',
+    'OptimizedFactoidCache',
 ]
