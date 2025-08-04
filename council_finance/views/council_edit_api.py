@@ -146,12 +146,17 @@ def save_council_characteristic_api(request, council_slug):
             # Log the activity
             ActivityLog.objects.create(
                 user=request.user,
-                activity_type='data_edit',
+                activity_type='update',  # Changed from 'data_edit' to 'update' to match story generator
                 description=f"Updated {field.name} for {council.name}",
                 related_council=council,
-                field=field,
-                old_value=old_value,
-                new_value=value
+                details={
+                    'field_name': field.slug,  # Use field.slug for field_name as story generator expects slug
+                    'field_display_name': field.name,  # Keep the human-readable name separately
+                    'old_value': str(old_value) if old_value is not None else None,
+                    'new_value': str(value),
+                    'content_type': field.content_type,
+                    'category': field.category
+                }
             )
         
         # Invalidate counter cache for all years since characteristics can affect all calculations
@@ -406,14 +411,15 @@ def save_temporal_data_api(request, council_slug, year_id):
             # Log the activity
             ActivityLog.objects.create(
                 user=request.user,
-                activity_type='data_edit',
+                activity_type='update',  # Changed from 'data_edit' to 'update' to match story generator
                 description=f"Updated {field.name} for {council.name} ({year.label})",
                 related_council=council,
                 details={
-                    'field_slug': field.slug,
-                    'field_name': field.name,
+                    'field_name': field.slug,  # Use field.slug for field_name as story generator expects slug
+                    'field_display_name': field.name,  # Keep the human-readable name separately
                     'old_value': str(old_value) if old_value is not None else None,
                     'new_value': str(value),
+                    'year': year.label,  # Add year for story generator
                     'content_type': field.content_type,
                     'category': field.category
                 }
