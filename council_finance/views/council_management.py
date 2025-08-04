@@ -1120,8 +1120,11 @@ def bulk_import(request):
                                 if 'council_type' in row and row['council_type'] and str(row['council_type']).strip():
                                     council_type_name = str(row['council_type']).strip()
                                     try:
-                                        # CouncilType model only has 'name' field, not 'slug'
-                                        council_type = CouncilType.objects.get(name__iexact=council_type_name)
+                                        # Try slug lookup first (handles lowercase input like 'unitary'), then name fallback
+                                        try:
+                                            council_type = CouncilType.objects.get(slug=council_type_name.lower())
+                                        except CouncilType.DoesNotExist:
+                                            council_type = CouncilType.objects.get(name__iexact=council_type_name)
                                     except CouncilType.DoesNotExist:
                                         try:
                                             # Fallback to partial match
