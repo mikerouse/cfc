@@ -2,16 +2,21 @@ applyTo: '**'
 
 # PROJECT DOCUMENTATION INDEX
 
-**IMPORTANT**: This project has multiple documentation files. Always check these additional files for context:
+**IMPORTANT**: This project uses comprehensive documentation for all major systems. **ALWAYS** check relevant documentation files before making changes:
 
+## Core System Documentation:
 - **FACTOIDS.md** - Complete AI-powered factoids system architecture and implementation
-- **DESIGN_PRINCIPLES.md** - Mobile-first design patterns, grid system, and UI/UX guidelines
+- **DESIGN_PRINCIPLES.md** - Mobile-first design patterns, grid system, and UI/UX guidelines  
 - **PAGE_SPECIFICATIONS.md** - Detailed page rules, user flows, and business logic for key pages
 - **AGENTS.md** - Counter agent system and calculation logic
 - **LEADERBOARDS.md** - Complete leaderboards system implementation, API, and enhancement roadmap
+- **EVENT_VIEWER.md** - Comprehensive monitoring, logging, and debugging system
 - **README.md** - Project setup and deployment instructions
 
-When working on factoids, design/UI, specific pages (Contribute/Lists/Following), counters, leaderboards, or system architecture, **ALWAYS** reference the relevant documentation files above for complete context.
+## Documentation Organization:
+See **DOCUMENTATION_INDEX.md** for complete documentation structure and organization guidelines. This project follows documentation-driven development - every major system has comprehensive `.md` documentation that MUST be referenced before making changes.
+
+When working on any system (factoids, design/UI, specific pages, counters, leaderboards, monitoring, or system architecture), **ALWAYS** reference the relevant documentation files above for complete context.
 
 ---
 
