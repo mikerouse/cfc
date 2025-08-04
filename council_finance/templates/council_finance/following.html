@@ -232,9 +232,9 @@
                                     </div>
                                     
                                     <!-- Council Badge - Moved to bottom-left to avoid overlapping with value -->
-                                    <div class="absolute bottom-2 left-2">
-                                        <div class="bg-white/80 backdrop-blur-sm rounded-full px-2 py-1 text-xs font-medium text-blue-800 border border-blue-200">
-                                            {{ update.council.name|truncatechars:15 }}
+                                    <div class="absolute bottom-2 left-2 max-w-[calc(100%-1rem)]">
+                                        <div class="bg-white/80 backdrop-blur-sm rounded-full px-3 py-1 text-xs font-medium text-blue-800 border border-blue-200 truncate">
+                                            {{ update.council.name }}
                                         </div>
                                     </div>
                                 </div>
