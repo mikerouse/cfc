@@ -762,6 +762,7 @@ def bulk_import(request):
                 # Confirmed import from session data
                 preview_data = request.session['import_preview']
                 data_records = preview_data['data']
+                file_name = preview_data.get('file_name', 'unknown_file')
                 
                 log_council_management_event(
                     request,
@@ -774,6 +775,22 @@ def bulk_import(request):
                         'source': 'session_preview_data'
                     }
                 )
+            elif confirm_import and not request.session.get('import_preview'):
+                # Confirmation attempted but no session data available
+                log_council_management_event(
+                    request,
+                    'error',
+                    'user_activity',
+                    'Council Import: Confirmation Failed - No Session Data',
+                    'User attempted to confirm import but no preview data found in session',
+                    {
+                        'has_file': bool(import_file),
+                        'session_keys': list(request.session.keys()),
+                        'is_confirmation': confirm_import
+                    }
+                )
+                messages.error(request, "Import session expired. Please upload your file again.")
+                return redirect('bulk_import_councils')
             else:
                 # New file upload - parse based on file type
                 file_extension = import_file.name.lower().split('.')[-1] if import_file else 'unknown'
@@ -1011,7 +1028,8 @@ def bulk_import(request):
                 preview_data = data_records[:20]  # Show first 20 records for preview
                 request.session['import_preview'] = {
                     'data': data_records,  # Store all data
-                    'total_rows': len(data_records)
+                    'total_rows': len(data_records),
+                    'file_name': import_file.name if import_file else 'unknown_file'
                 }
                 
                 # Log preview generation
@@ -1058,6 +1076,7 @@ def bulk_import(request):
                 # Actual import
                 import uuid
                 import_id = str(uuid.uuid4())[:8]  # Short unique ID for this import session
+                import_start_time = time.time()  # Track import processing time
                 created_count = 0
                 skipped_count = 0
                 error_count = 0
@@ -1285,6 +1304,9 @@ def bulk_import(request):
                                 }
                             )
                 
+                # Calculate processing time
+                processing_time = time.time() - import_start_time
+                
                 # Log comprehensive import completion
                 log_council_management_event(
                     request=request,
@@ -1297,7 +1319,7 @@ def bulk_import(request):
                         'councils_created': created_count,
                         'councils_skipped': skipped_count,
                         'errors_encountered': error_count,
-                        'total_rows_processed': len(csv_data),
+                        'total_rows_processed': len(data_records),
                         'processing_time_seconds': processing_time,
                         'file_name': file_name,
                         'new_council_ids': [c.id for c in new_councils],
