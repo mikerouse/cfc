@@ -689,14 +689,42 @@ def delete_council(request, council_id):
 @user_passes_test(is_tier_5_user)
 def bulk_import(request):
     """
-    Bulk import councils from CSV/Excel/JSON with progress tracking
+    Bulk import councils from CSV/Excel/JSON with progress tracking.
+    Enhanced with comprehensive error reporting and analytics logging.
     """
+    import time
+    start_time = time.time()
+    
     if request.method == 'POST':
         import_file = request.FILES.get('council_import_file')
         preview_import = request.POST.get('preview_import') == '1'
         confirm_import = request.POST.get('confirm_import') == '1'
         
+        # Log import attempt
+        log_council_management_event(
+            request,
+            'info',
+            'user_activity',
+            'Council Bulk Import Attempted',
+            f'User {request.user.username} initiated bulk import process',
+            {
+                'has_file': bool(import_file),
+                'file_name': import_file.name if import_file else None,
+                'file_size': import_file.size if import_file else None,
+                'preview_mode': preview_import,
+                'is_confirmation': confirm_import
+            }
+        )
+        
         if not import_file and not confirm_import:
+            log_council_management_event(
+                request,
+                'warning',
+                'user_activity',
+                'Council Import Failed: No File Selected',
+                'User attempted import without selecting a file',
+                {'error_type': 'validation_error'}
+            )
             messages.error(request, "Please select a file to import")
             return redirect('bulk_import_councils')
         
@@ -710,44 +738,239 @@ def bulk_import(request):
             try:
                 import pandas as pd
                 pandas_available = True
+                log_council_management_event(
+                    request,
+                    'info',
+                    'configuration',
+                    'Council Import: Pandas Available',
+                    'Excel file support enabled via pandas library'
+                )
             except ImportError:
                 pd = None
+                log_council_management_event(
+                    request,
+                    'warning',
+                    'configuration',
+                    'Council Import: Pandas Not Available',
+                    'Excel file support disabled - pandas library not installed',
+                    {'limitation': 'csv_json_only'}
+                )
+            
+            # Track file parsing performance
+            parse_start = time.time()
             
             if confirm_import and request.session.get('import_preview'):
                 # Confirmed import from session data
                 preview_data = request.session['import_preview']
                 data_records = preview_data['data']
+                
+                log_council_management_event(
+                    request,
+                    'info',
+                    'user_activity',
+                    'Council Import Confirmed from Preview',
+                    f'User confirmed import of {len(data_records)} records from preview',
+                    {
+                        'record_count': len(data_records),
+                        'source': 'session_preview_data'
+                    }
+                )
             else:
                 # New file upload - parse based on file type
-                if import_file.name.endswith('.csv'):
-                    # Use native CSV parsing - always available
-                    import_file.seek(0)  # Reset file pointer
-                    content = import_file.read().decode('utf-8')
-                    csv_reader = csv.DictReader(io.StringIO(content))
-                    data_records = list(csv_reader)
-                elif import_file.name.endswith('.xlsx'):
-                    # Excel requires pandas
-                    if not pandas_available:
-                        messages.error(request, "Excel files require pandas library. Please install pandas or use CSV format instead.")
-                        return redirect('bulk_import_councils')
-                    data_records = pd.read_excel(import_file).to_dict('records')
-                elif import_file.name.endswith('.json'):
-                    # JSON parsing - always available
-                    import_file.seek(0)  # Reset file pointer
-                    data = json.load(import_file)
-                    if isinstance(data, list):
-                        data_records = data
+                file_extension = import_file.name.lower().split('.')[-1] if import_file else 'unknown'
+                
+                try:
+                    if import_file.name.endswith('.csv'):
+                        # Use native CSV parsing - always available
+                        import_file.seek(0)  # Reset file pointer
+                        try:
+                            content = import_file.read().decode('utf-8')
+                        except UnicodeDecodeError as e:
+                            log_council_management_event(
+                                request,
+                                'error',
+                                'data_quality',
+                                'Council Import: CSV Encoding Error',
+                                f'Failed to decode CSV file as UTF-8: {str(e)}',
+                                {
+                                    'file_name': import_file.name,
+                                    'file_size': import_file.size,
+                                    'encoding_error': str(e)
+                                }
+                            )
+                            messages.error(request, "CSV file encoding error. Please ensure file is saved as UTF-8.")
+                            return redirect('bulk_import_councils')
+                            
+                        csv_reader = csv.DictReader(io.StringIO(content))
+                        data_records = list(csv_reader)
+                        
+                        log_council_management_event(
+                            request,
+                            'info',
+                            'data_processing',
+                            'Council Import: CSV Parsed Successfully',
+                            f'Successfully parsed CSV file with {len(data_records)} records',
+                            {
+                                'file_name': import_file.name,
+                                'file_size': import_file.size,
+                                'record_count': len(data_records),
+                                'columns': list(data_records[0].keys()) if data_records else []
+                            }
+                        )
+                        
+                    elif import_file.name.endswith('.xlsx'):
+                        # Excel requires pandas
+                        if not pandas_available:
+                            log_council_management_event(
+                                request,
+                                'error',
+                                'configuration',
+                                'Council Import: Excel Not Supported',
+                                'User attempted Excel import but pandas not available',
+                                {
+                                    'file_name': import_file.name,
+                                    'file_size': import_file.size,
+                                    'required_library': 'pandas'
+                                }
+                            )
+                            messages.error(request, "Excel files require pandas library. Please install pandas or use CSV format instead.")
+                            return redirect('bulk_import_councils')
+                            
+                        data_records = pd.read_excel(import_file).to_dict('records')
+                        
+                        log_council_management_event(
+                            request,
+                            'info',
+                            'data_processing',
+                            'Council Import: Excel Parsed Successfully',
+                            f'Successfully parsed Excel file with {len(data_records)} records',
+                            {
+                                'file_name': import_file.name,
+                                'file_size': import_file.size,
+                                'record_count': len(data_records),
+                                'columns': list(data_records[0].keys()) if data_records else []
+                            }
+                        )
+                        
+                    elif import_file.name.endswith('.json'):
+                        # JSON parsing - always available
+                        import_file.seek(0)  # Reset file pointer
+                        try:
+                            data = json.load(import_file)
+                        except json.JSONDecodeError as e:
+                            log_council_management_event(
+                                request,
+                                'error',
+                                'data_quality',
+                                'Council Import: JSON Parse Error',
+                                f'Failed to parse JSON file: {str(e)}',
+                                {
+                                    'file_name': import_file.name,
+                                    'file_size': import_file.size,
+                                    'json_error': str(e),
+                                    'error_line': getattr(e, 'lineno', None),
+                                    'error_column': getattr(e, 'colno', None)
+                                }
+                            )
+                            messages.error(request, f"JSON file parsing error: {str(e)}")
+                            return redirect('bulk_import_councils')
+                            
+                        if isinstance(data, list):
+                            data_records = data
+                            
+                            log_council_management_event(
+                                request,
+                                'info',
+                                'data_processing',
+                                'Council Import: JSON Parsed Successfully',
+                                f'Successfully parsed JSON file with {len(data_records)} records',
+                                {
+                                    'file_name': import_file.name,
+                                    'file_size': import_file.size,
+                                    'record_count': len(data_records)
+                                }
+                            )
+                        else:
+                            log_council_management_event(
+                                request,
+                                'error',
+                                'data_quality',
+                                'Council Import: Invalid JSON Structure',
+                                'JSON file does not contain an array of objects',
+                                {
+                                    'file_name': import_file.name,
+                                    'file_size': import_file.size,
+                                    'actual_type': type(data).__name__
+                                }
+                            )
+                            messages.error(request, "JSON file must contain an array of council objects.")
+                            return redirect('bulk_import_councils')
                     else:
-                        messages.error(request, "JSON file must contain an array of council objects.")
+                        log_council_management_event(
+                            request,
+                            'error',
+                            'user_activity',
+                            'Council Import: Unsupported File Format',
+                            f'User attempted to import unsupported file format: {file_extension}',
+                            {
+                                'file_name': import_file.name,
+                                'file_extension': file_extension,
+                                'supported_formats': ['csv', 'xlsx', 'json']
+                            }
+                        )
+                        messages.error(request, "Unsupported file format. Please use CSV, Excel (.xlsx), or JSON.")
                         return redirect('bulk_import_councils')
-                else:
-                    messages.error(request, "Unsupported file format. Please use CSV, Excel (.xlsx), or JSON.")
+                        
+                except Exception as e:
+                    log_council_management_event(
+                        request,
+                        'error',
+                        'exception',
+                        'Council Import: File Parsing Critical Error',
+                        f'Unexpected error parsing file: {str(e)}',
+                        {
+                            'file_name': import_file.name,
+                            'file_size': import_file.size,
+                            'file_extension': file_extension,
+                            'error_type': type(e).__name__,
+                            'error_message': str(e)
+                        }
+                    )
+                    messages.error(request, f"Error parsing file: {str(e)}")
                     return redirect('bulk_import_councils')
                     
                 # Ensure we have data
                 if not data_records:
+                    log_council_management_event(
+                        request,
+                        'warning',
+                        'data_quality',
+                        'Council Import: Empty File',
+                        'No data records found in uploaded file',
+                        {
+                            'file_name': import_file.name,
+                            'file_size': import_file.size,
+                            'file_extension': file_extension
+                        }
+                    )
                     messages.error(request, "No data found in the uploaded file.")
                     return redirect('bulk_import_councils')
+                    
+            # Track file parsing performance
+            parse_duration = (time.time() - parse_start) * 1000
+            if parse_duration > 1000:  # Log slow file parsing
+                log_council_management_event(
+                    request,
+                    'warning',
+                    'performance',
+                    'Council Import: Slow File Parsing',
+                    f'File parsing took {parse_duration:.2f}ms',
+                    {
+                        'parse_duration_ms': parse_duration,
+                        'record_count': len(data_records),
+                        'file_size': import_file.size if import_file else 0
+                    }
+                )
             
             # Convert to consistent format (list of dicts) and validate required columns
             if data_records and isinstance(data_records[0], dict):
@@ -770,6 +993,18 @@ def bulk_import(request):
             # Check for recommended columns and warn if missing    
             missing_recommended = [col for col in recommended_columns if col not in columns]
             if missing_recommended:
+                log_council_management_event(
+                    request,
+                    'warning',
+                    'data_quality',
+                    'Council Import: Missing Recommended Columns',
+                    f'Import file missing recommended columns: {", ".join(missing_recommended)}',
+                    {
+                        'missing_columns': missing_recommended,
+                        'available_columns': list(columns),
+                        'impact': 'councils_may_be_incomplete'
+                    }
+                )
                 messages.warning(request, f"Missing recommended columns (import will continue but councils may be incomplete): {', '.join(missing_recommended)}")
             
             if preview_import and not confirm_import:
@@ -780,13 +1015,46 @@ def bulk_import(request):
                     'total_rows': len(data_records)
                 }
                 
+                # Log preview generation
+                log_council_management_event(
+                    request,
+                    'info',
+                    'user_activity',
+                    'Council Import Preview Generated',
+                    f'Generated preview for {len(data_records)} records, showing first {len(preview_data)}',
+                    {
+                        'total_records': len(data_records),
+                        'preview_records': len(preview_data),
+                        'file_name': import_file.name if import_file else 'Session Data',
+                        'available_columns': list(columns),
+                        'missing_recommended': missing_recommended
+                    }
+                )
+                
                 context = {
                     'preview_data': preview_data,
                     'total_rows': len(data_records),
                     'file_name': import_file.name if import_file else 'Session Data',
                 }
                 
-                return render(request, 'council_finance/council_management/import_preview.html', context)
+                try:
+                    return render(request, 'council_finance/council_management/import_preview.html', context)
+                except Exception as e:
+                    log_council_management_event(
+                        request,
+                        'error',
+                        'exception',
+                        'Council Import: Preview Template Error',
+                        f'Failed to render import preview template: {str(e)}',
+                        {
+                            'error_type': type(e).__name__,
+                            'error_message': str(e),
+                            'template_name': 'import_preview.html',
+                            'context_keys': list(context.keys())
+                        }
+                    )
+                    messages.error(request, f"Error displaying import preview: {str(e)}")
+                    return redirect('bulk_import_councils')
             else:
                 # Actual import
                 created_count = 0
@@ -950,10 +1218,53 @@ def bulk_import(request):
                 
         except ImportError as e:
             # This should now only catch issues with other imports, not pandas
+            log_council_management_event(
+                request,
+                'error',
+                'configuration',
+                'Council Import: Library Import Error',
+                f'Required library not available: {str(e)}',
+                {
+                    'error_type': 'ImportError',
+                    'error_message': str(e),
+                    'missing_library': str(e).split("'")[1] if "'" in str(e) else 'unknown'
+                }
+            )
             messages.error(request, f"Required library not available: {str(e)}. Please contact administrator.")
+            
         except Exception as e:
             logger.error(f"Error during bulk import: {e}")
+            log_council_management_event(
+                request,
+                'critical',
+                'exception',
+                'Council Import: Critical Import Error',
+                f'Critical error during council import: {str(e)}',
+                {
+                    'error_type': type(e).__name__,
+                    'error_message': str(e),
+                    'stack_trace': str(e.__traceback__) if hasattr(e, '__traceback__') else None,
+                    'has_file': bool(import_file),
+                    'file_name': import_file.name if import_file else None,
+                    'preview_mode': preview_import,
+                    'is_confirmation': confirm_import
+                }
+            )
             messages.error(request, f"Error importing councils: {str(e)}")
+            
+        finally:
+            # Track overall import operation performance
+            track_performance(
+                request,
+                'council_import_operation',
+                start_time,
+                {
+                    'has_file': bool(import_file),
+                    'preview_mode': preview_import,
+                    'is_confirmation': confirm_import,
+                    'operation_completed': True
+                }
+            )
     
     return redirect('council_management_dashboard')
 
@@ -962,21 +1273,78 @@ def bulk_import(request):
 @user_passes_test(is_tier_5_user)
 def import_page(request):
     """
-    Show the bulk import page with form and instructions
+    Show the bulk import page with form and instructions.
+    Enhanced with error reporting and analytics logging.
     """
-    # Get all characteristic fields to show expected columns
-    characteristic_fields = DataField.objects.filter(
-        category='characteristic'
-    ).exclude(
-        slug__in=['council_type', 'council_nation', 'council_name']  # Exclude fields handled separately
-    ).order_by('display_order', 'name')
+    import time
+    start_time = time.time()
     
-    context = {
-        'max_file_size': '10MB',  # Could be made configurable
-        'characteristic_fields': characteristic_fields,
-    }
-    
-    return render(request, 'council_finance/council_management/import.html', context)
+    try:
+        # Log import page access
+        log_council_management_event(
+            request,
+            'info',
+            'user_activity',
+            'Council Import Page Accessed',
+            f'User {request.user.username} accessed council import page',
+            {'access_time': timezone.now().isoformat()}
+        )
+        
+        # Get all characteristic fields to show expected columns
+        try:
+            characteristic_fields = DataField.objects.filter(
+                category='characteristic'
+            ).exclude(
+                slug__in=['council_type', 'council_nation', 'council_name']  # Exclude fields handled separately
+            ).order_by('display_order', 'name')
+            
+        except Exception as e:
+            logger.error(f"Error loading characteristic fields for import: {e}")
+            log_council_management_event(
+                request,
+                'error',
+                'exception',
+                'Council Import: Failed to Load Field Metadata',
+                f'Error loading characteristic fields: {str(e)}',
+                {
+                    'error_type': type(e).__name__,
+                    'error_message': str(e)
+                }
+            )
+            characteristic_fields = []
+            messages.warning(request, "Some import field information could not be loaded.")
+        
+        context = {
+            'max_file_size': '10MB',  # Could be made configurable
+            'characteristic_fields': characteristic_fields,
+        }
+        
+        # Track page load performance
+        track_performance(
+            request,
+            'import_page_load',
+            start_time,
+            {'field_count': len(characteristic_fields)}
+        )
+        
+        return render(request, 'council_finance/council_management/import.html', context)
+        
+    except Exception as e:
+        logger.error(f"Critical error loading council import page: {e}")
+        log_council_management_event(
+            request,
+            'critical',
+            'exception',
+            'Council Import: Page Load Critical Error',
+            f'Critical error loading import page: {str(e)}',
+            {
+                'error_type': type(e).__name__,
+                'error_message': str(e),
+                'request_path': request.path
+            }
+        )
+        messages.error(request, 'An error occurred loading the import page. Please try again.')
+        return redirect('council_management_dashboard')
 
 
 @login_required
