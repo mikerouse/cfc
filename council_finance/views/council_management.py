@@ -1168,11 +1168,10 @@ def bulk_import(request):
                                 if 'nation' in row and row['nation'] and str(row['nation']).strip():
                                     nation_name = str(row['nation']).strip()
                                     try:
-                                        # Check if CouncilNation has slug field or use name
+                                        # Try slug lookup first (handles lowercase input like 'england'), then name fallback
                                         try:
                                             council_nation = CouncilNation.objects.get(slug=nation_name.lower())
-                                        except AttributeError:
-                                            # Fallback if no slug field
+                                        except CouncilNation.DoesNotExist:
                                             council_nation = CouncilNation.objects.get(name__iexact=nation_name)
                                     except CouncilNation.DoesNotExist:
                                         try:
