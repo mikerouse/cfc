@@ -184,6 +184,20 @@ python manage.py parse_logs --verbose
 
 ## Integration Points
 
+### Email Integration with Existing System
+The Event Viewer automatically integrates with your existing email configuration by using the `ERROR_ALERTS_EMAIL_ADDRESS` from your `.env` file:
+
+```bash
+# In .env file
+ERROR_ALERTS_EMAIL_ADDRESS=admin@yourcouncil.gov.uk
+```
+
+This ensures consistency with existing error alerting and requires no additional email configuration. The Event Viewer will automatically use this address for:
+- Threshold violation alerts
+- Pattern detection notifications  
+- Daily/weekly health reports
+- Anomaly detection alerts
+
 ### Middleware Integration (`council_finance/middleware/error_alerting.py`)
 Enhanced existing error middleware to create SystemEvent records without disrupting email alerts:
 
@@ -221,6 +235,62 @@ Optimized for performance with strategic indexes:
 - Proper database indexing for common queries
 - Pagination for large result sets
 - Efficient filtering and search operations
+
+## Configuration
+
+### Basic Setup (Uses Existing Email Configuration)
+The Event Viewer works out-of-the-box with your existing `.env` configuration:
+
+```bash
+# In .env file (already configured for your project)
+ERROR_ALERTS_EMAIL_ADDRESS=admin@yourcouncil.gov.uk
+```
+
+### Advanced Configuration (Optional)
+For custom alert thresholds and settings, add to your Django `settings.py`:
+
+```python
+# Optional: Customize Event Viewer settings
+EVENT_VIEWER_SETTINGS = {
+    # Email configuration (defaults to ERROR_ALERTS_EMAIL_ADDRESS from .env)
+    'ENABLE_EMAIL_ALERTS': True,
+    
+    # Custom alert thresholds (adjust for your environment)
+    'ALERT_THRESHOLDS': {
+        'critical_errors_per_hour': 3,    # Lower threshold for faster alerts
+        'total_errors_per_hour': 15,      # Adjust based on normal error volume
+        'api_errors_per_hour': 8,         # API-specific monitoring
+        'security_events_per_hour': 1,    # Security events are high priority
+        'test_failures_per_day': 1,       # Test failures should be rare
+    },
+    
+    # Data retention (adjust based on storage needs)
+    'RETENTION_POLICIES': {
+        'default_retention_days': 90,
+        'critical_events_retention_days': 365,
+    },
+    
+    # Analytics configuration
+    'ANALYTICS': {
+        'enable_health_scoring': True,
+        'daily_summary_time': '06:00',    # When to generate daily summaries
+    }
+}
+```
+
+### Setting Up Automated Monitoring
+Add to your cron jobs for automated monitoring:
+
+```bash
+# Check alert thresholds every 15 minutes
+*/15 * * * * /path/to/python manage.py check_alerts
+
+# Send daily health report at 6 AM
+0 6 * * * /path/to/python manage.py check_alerts --health-report
+
+# Create missing daily summaries (run once daily)
+0 1 * * * /path/to/python manage.py check_alerts --create-summaries
+```
 
 ## Common Issues & Solutions
 

@@ -4,6 +4,10 @@ Management command to check alert thresholds and send notifications.
 This command should be run periodically (e.g., every 15 minutes via cron)
 to monitor system health and send alerts when thresholds are exceeded.
 
+Email Integration:
+    Automatically uses ERROR_ALERTS_EMAIL_ADDRESS from .env file for notifications.
+    No additional email configuration required.
+
 Usage:
     python manage.py check_alerts                    # Check all thresholds
     python manage.py check_alerts --dry-run          # Check without sending emails

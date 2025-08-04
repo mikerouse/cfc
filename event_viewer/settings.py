@@ -13,7 +13,7 @@ DEFAULT_EVENT_VIEWER_SETTINGS = {
     # Alerting Configuration
     'ENABLE_EMAIL_ALERTS': True,
     'ALERT_EMAIL_FROM': getattr(settings, 'DEFAULT_FROM_EMAIL', 'noreply@example.com'),
-    'ALERT_EMAIL_TO': [email for name, email in getattr(settings, 'ADMINS', [])],
+    'ALERT_EMAIL_TO': [getattr(settings, 'ERROR_ALERTS_EMAIL_ADDRESS', 'admin@example.com')],
     
     # Threshold-based alerting (events per time period)
     'ALERT_THRESHOLDS': {
@@ -115,10 +115,13 @@ class EventViewerConfig:
         """Validate critical configuration settings."""
         # Validate email settings if alerts are enabled
         if self._settings['ENABLE_EMAIL_ALERTS']:
-            if not self._settings['ALERT_EMAIL_TO']:
-                raise ImproperlyConfigured(
-                    "EVENT_VIEWER_SETTINGS['ALERT_EMAIL_TO'] must be configured when email alerts are enabled"
-                )
+            if not self._settings['ALERT_EMAIL_TO'] or not self._settings['ALERT_EMAIL_TO'][0]:
+                # Check if ERROR_ALERTS_EMAIL_ADDRESS is set in Django settings
+                if not getattr(settings, 'ERROR_ALERTS_EMAIL_ADDRESS', None):
+                    raise ImproperlyConfigured(
+                        "ERROR_ALERTS_EMAIL_ADDRESS must be configured in Django settings (.env file) "
+                        "when email alerts are enabled, or set EVENT_VIEWER_SETTINGS['ALERT_EMAIL_TO']"
+                    )
         
         # Validate thresholds are positive integers
         for threshold_name, value in self._settings['ALERT_THRESHOLDS'].items():
