@@ -93,7 +93,28 @@ def dashboard(request):
         'last_updated': now,
     }
     
-    return render(request, 'event_viewer/dashboard.html', context)
+    from django.http import HttpResponse
+    
+    # Temporary debug: check if template exists
+    try:
+        return render(request, 'event_viewer/dashboard.html', context)
+    except Exception as e:
+        # Return debug info if template fails
+        return HttpResponse(f"""
+        <h1>Event Viewer Debug</h1>
+        <p><strong>Error:</strong> {str(e)}</p>
+        <p><strong>Template path:</strong> event_viewer/dashboard.html</p>
+        <p><strong>Context keys:</strong> {list(context.keys())}</p>
+        <hr>
+        <h2>Basic Event Viewer</h2>
+        <p>Health Score: {context['health_metrics']['health_score']}%</p>
+        <p>Total Events (24h): {context['health_metrics']['total_events_24h']}</p>
+        <p>Recent Events: {len(context['recent_system_events'])}</p>
+        <br>
+        <a href="/system-events/events/">View All Events</a> | 
+        <a href="/system-events/analytics/">Analytics</a> | 
+        <a href="/system-events/export/">Export</a>
+        """, content_type='text/html')
 
 
 @superuser_required
