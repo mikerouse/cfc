@@ -20,6 +20,304 @@ When working on any system (factoids, design/UI, specific pages, counters, leade
 
 ---
 
+# CRITICAL: COMPREHENSIVE ERROR MONITORING & LOGGING REQUIREMENTS
+
+**MANDATORY FOR ALL FUTURE DEVELOPMENT**: This project now has enterprise-grade error monitoring via the Event Viewer system. **ALL** new development must integrate with and enhance this monitoring infrastructure.
+
+## Error Reporting Integration Requirements
+
+### **1. AUTOMATIC ERROR CAPTURE (Already Implemented)**
+All Python exceptions are automatically captured by:
+- **Enhanced Middleware**: `council_finance/middleware/error_alerting.py` creates SystemEvent records
+- **Comprehensive Context**: User, request path, IP address, user agent automatically captured
+- **Email Integration**: Uses existing `ERROR_ALERTS_EMAIL_ADDRESS` from `.env` for notifications
+- **NO ACTION REQUIRED**: Existing exception handling automatically feeds Event Viewer
+
+### **2. MANUAL EVENT LOGGING (Use for Custom Events)**
+For non-exception events that should be monitored, use the SystemEvent model:
+
+```python
+from event_viewer.models import SystemEvent
+from django.utils import timezone
+
+# For significant business events, data issues, or custom monitoring
+SystemEvent.objects.create(
+    source='your_component',  # e.g., 'data_importer', 'ai_system', 'user_action'
+    level='warning',  # 'debug', 'info', 'warning', 'error', 'critical'
+    category='integration',  # See EVENT_CATEGORIES in models.py
+    title='Descriptive Event Title',
+    message='Detailed description of what happened',
+    user=request.user if hasattr(self, 'request') else None,
+    details={
+        'custom_field': 'additional_context',
+        'affected_records': record_count,
+        'processing_time': duration_seconds,
+    },
+    tags=['data_import', 'validation', 'performance'],
+    fingerprint='unique_identifier_for_grouping'  # Groups similar events
+)
+```
+
+### **3. STRATEGIC LOGGING LOCATIONS (Implement These)**
+
+#### **🔴 CRITICAL - Always Log These Events:**
+```python
+# Data corruption or integrity issues
+SystemEvent.objects.create(
+    source='data_validator',
+    level='critical',
+    category='data_quality',
+    title='Data Integrity Violation Detected',
+    message=f'Invalid data found: {description}',
+    details={'affected_records': count, 'validation_rule': rule_name}
+)
+
+# Security violations or suspicious activity  
+SystemEvent.objects.create(
+    source='security',
+    level='critical', 
+    category='security',
+    title='Unauthorized Access Attempt',
+    message=f'User {user} attempted unauthorized action: {action}',
+    user=user,
+    details={'attempted_action': action, 'resource': resource}
+)
+
+# External API failures or integration issues
+SystemEvent.objects.create(
+    source='api_integration',
+    level='error',
+    category='integration', 
+    title='External API Connection Failed',
+    message=f'Failed to connect to {api_name}: {error_message}',
+    details={'api_endpoint': endpoint, 'response_code': status_code}
+)
+```
+
+#### **🟠 HIGH PRIORITY - Monitor Performance Issues:**
+```python
+# Slow database queries or performance degradation
+if query_time > 5.0:  # seconds
+    SystemEvent.objects.create(
+        source='database',
+        level='warning',
+        category='performance',
+        title='Slow Database Query Detected',
+        message=f'Query took {query_time:.2f}s: {query_description}',
+        details={'execution_time': query_time, 'query_type': query_type}
+    )
+
+# Memory or resource usage spikes
+if memory_usage > threshold:
+    SystemEvent.objects.create(
+        source='system_monitor',
+        level='warning', 
+        category='performance',
+        title='High Memory Usage Detected',
+        message=f'Memory usage: {memory_usage}MB exceeds threshold',
+        details={'memory_mb': memory_usage, 'threshold_mb': threshold}
+    )
+```
+
+#### **🟡 MEDIUM PRIORITY - Business Logic Events:**
+```python
+# Unusual user behavior patterns
+SystemEvent.objects.create(
+    source='user_analytics',
+    level='info',
+    category='user_activity',
+    title='Unusual User Activity Pattern',
+    message=f'User {user.username} performed {action_count} actions in {time_period}',
+    user=user,
+    details={'action_count': action_count, 'time_period': time_period}
+)
+
+# Data processing milestones
+SystemEvent.objects.create(
+    source='batch_processor',
+    level='info',
+    category='data_processing',
+    title='Batch Processing Completed',
+    message=f'Processed {record_count} records in {duration} seconds',
+    details={'records_processed': record_count, 'duration_seconds': duration}
+)
+```
+
+### **4. DEVELOPMENT WORKFLOW REQUIREMENTS**
+
+#### **Before Committing Code:**
+```bash
+# 1. Run comprehensive tests (includes error detection)
+python manage.py reload --test-only
+
+# 2. Check for new events in Event Viewer
+python manage.py shell -c "
+from event_viewer.models import SystemEvent;
+from datetime import timedelta;
+from django.utils import timezone;
+recent = SystemEvent.objects.filter(
+    timestamp__gte=timezone.now() - timedelta(minutes=30)
+);
+print(f'New events in last 30 min: {recent.count()}');
+for event in recent[:5]:
+    print(f'- {event.level}: {event.title}')
+"
+
+# 3. Test alert thresholds (dry run)
+python manage.py check_alerts --dry-run --verbose
+```
+
+#### **When Adding New Features:**
+1. **Identify Monitoring Points**: What could go wrong? What needs tracking?
+2. **Add Strategic Logging**: Use SystemEvent.objects.create() for key events
+3. **Test Error Scenarios**: Deliberately cause errors to verify logging works
+4. **Update Alert Thresholds**: Adjust if new feature changes normal error rates
+5. **Document Monitoring**: Add to relevant system documentation
+
+#### **When Debugging Issues:**
+1. **Check Event Viewer First**: `/system-events/` for recent error patterns
+2. **Use Correlation Engine**: Related events often reveal root causes
+3. **Review Health Score**: System health trends show impact of changes
+4. **Export Event Data**: CSV export for detailed analysis when needed
+
+### **5. ALERT THRESHOLD MANAGEMENT**
+
+#### **Monitor These Thresholds (Adjust for Your Environment):**
+```python
+# Current default thresholds in EVENT_VIEWER_SETTINGS
+'ALERT_THRESHOLDS': {
+    'critical_errors_per_hour': 5,     # Critical system failures
+    'total_errors_per_hour': 20,       # All error-level events  
+    'api_errors_per_hour': 10,         # External integration failures
+    'security_events_per_hour': 3,     # Security violations
+    'test_failures_per_day': 1,        # Test suite failures
+}
+```
+
+#### **When to Adjust Thresholds:**
+- **After Major Releases**: Monitor for 1-2 weeks, adjust if needed
+- **Seasonal Changes**: Higher traffic periods may need higher thresholds
+- **New Features**: May change normal error patterns
+- **Infrastructure Changes**: Server upgrades, database changes, etc.
+
+### **6. PERFORMANCE IMPACT CONSIDERATIONS**
+
+#### **Efficient Logging Patterns:**
+```python
+# GOOD - Minimal database impact
+SystemEvent.objects.create(
+    source='component_name',
+    level='error',
+    category='category',
+    title='Short descriptive title',
+    message='Concise error description',
+    details={'key': 'value'}  # JSON field - efficient storage
+)
+
+# AVOID - High frequency logging in loops
+for item in large_list:  # This could create thousands of events
+    SystemEvent.objects.create(...)  # DON'T DO THIS
+    
+# BETTER - Batch reporting
+if error_count > 0:
+    SystemEvent.objects.create(
+        title=f'Batch Processing Errors: {error_count} items failed',
+        details={'failed_items': error_count, 'sample_errors': first_5_errors}
+    )
+```
+
+#### **Use Event Fingerprinting for Deduplication:**
+```python
+# Events with same fingerprint are grouped, not duplicated
+SystemEvent.objects.create(
+    # ... other fields ...
+    fingerprint=f'data_import_failure_{table_name}_{date}',
+    # Multiple events with same fingerprint increment occurrence_count
+)
+```
+
+### **7. MONITORING OPERATIONAL HEALTH**
+
+#### **Daily Monitoring Checklist:**
+```bash
+# Check system health score (should be >80)
+python manage.py shell -c "
+from event_viewer.services.analytics_service import analytics_service;
+score = analytics_service.calculate_system_health_score(days_back=1);
+print(f'Health Score: {score[\"total_score\"]}/100')
+"
+
+# Review error patterns 
+python manage.py shell -c "
+from event_viewer.services.correlation_engine import correlation_engine;
+patterns = correlation_engine.detect_error_patterns(hours_back=24);
+print(f'Error patterns detected: {len(patterns)}');
+for p in patterns[:3]:
+    print(f'- {p[\"title\"]} ({p[\"severity\"]})')
+"
+
+# Send health report (manual)
+python manage.py check_alerts --health-report
+```
+
+#### **Automated Monitoring (Set Up in Production):**
+```bash
+# Add to cron jobs
+*/15 * * * * /path/to/python manage.py check_alerts
+0 6 * * * /path/to/python manage.py check_alerts --health-report
+0 1 * * * /path/to/python manage.py check_alerts --create-summaries
+```
+
+### **8. DEVELOPMENT BEST PRACTICES**
+
+#### **Code Review Checklist:**
+- [ ] Error handling includes appropriate SystemEvent logging
+- [ ] Performance bottlenecks are monitored with warning events  
+- [ ] Security-sensitive operations log security events
+- [ ] External API calls log integration failures
+- [ ] Database operations log data integrity issues
+- [ ] User actions that could fail are monitored
+
+#### **Testing Error Scenarios:**
+```python
+# Example: Test that your error logging works
+def test_error_logging(self):
+    from event_viewer.models import SystemEvent
+    
+    # Trigger the error condition
+    response = self.client.post('/api/endpoint/', invalid_data)
+    
+    # Verify error was logged
+    error_events = SystemEvent.objects.filter(
+        level='error',
+        source='your_component',
+        timestamp__gte=timezone.now() - timedelta(minutes=1)
+    )
+    self.assertEqual(error_events.count(), 1)
+    self.assertIn('expected error message', error_events.first().message)
+```
+
+## Integration with Existing Systems
+
+**The Event Viewer seamlessly integrates with existing infrastructure:**
+- ✅ **Email Alerts**: Uses `ERROR_ALERTS_EMAIL_ADDRESS` from `.env` - no additional config needed
+- ✅ **Error Middleware**: Automatically captures all Python exceptions
+- ✅ **ActivityLog**: Complements (doesn't replace) existing user activity logging  
+- ✅ **Testing Suite**: Error detection integrated into `python manage.py reload` workflow
+
+## Monitoring Success Metrics
+
+**Aim for these operational metrics:**
+- 🎯 **Health Score**: >85 consistently (80+ minimum)
+- 🎯 **Critical Errors**: <3 per day
+- 🎯 **Error Resolution**: <4 hours average time to fix
+- 🎯 **Alert Accuracy**: <10% false positive rate
+- 🎯 **System Uptime**: >99.5% (based on error patterns)
+
+**REMEMBER**: The Event Viewer provides comprehensive monitoring, but it's only as good as the events you feed it. **Always consider what could go wrong and ensure it's being monitored.**
+
+---
+
 # COMPREHENSIVE TESTING INTEGRATION (2025-07-30)
 
 ## Enhanced Reload Command with Testing
