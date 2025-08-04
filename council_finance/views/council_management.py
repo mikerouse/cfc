@@ -60,8 +60,8 @@ def log_council_management_event(request, level, category, title, message, detai
     try:
         event_details = {
             'module': 'council_management',
-            'function': request.resolver_match.url_name if hasattr(request, 'resolver_match') else 'unknown',
-            'user_tier': getattr(request.user.profile, 'tier', {}).get('level') if hasattr(request.user, 'profile') else None,
+            'function': request.resolver_match.url_name if (hasattr(request, 'resolver_match') and request.resolver_match) else 'unknown',
+            'user_tier': None,  # Simplified to avoid complex attribute access issues
             'request_method': request.method,
             'query_params': dict(request.GET),
         }
@@ -91,10 +91,9 @@ def log_council_management_event(request, level, category, title, message, detai
             request_method=request.method,
             details=event_details
         )
-        
     except Exception as e:
-        # Silently fail event logging to prevent breaking main functionality
         logger.error(f"Failed to log council management event: {e}")
+        # Don't re-raise to prevent logging failures from breaking main functionality
 
 
 def track_performance(request, action, start_time, details=None):
@@ -1057,6 +1056,8 @@ def bulk_import(request):
                     return redirect('bulk_import_councils')
             else:
                 # Actual import
+                import uuid
+                import_id = str(uuid.uuid4())[:8]  # Short unique ID for this import session
                 created_count = 0
                 skipped_count = 0
                 error_count = 0
@@ -1098,23 +1099,102 @@ def bulk_import(request):
                                 # Get related objects - use proper None checking instead of pd.notna()
                                 council_type = None
                                 if 'council_type' in row and row['council_type'] and str(row['council_type']).strip():
+                                    council_type_name = str(row['council_type']).strip()
                                     try:
-                                        council_type = CouncilType.objects.get(slug=str(row['council_type']).lower())
+                                        # CouncilType model only has 'name' field, not 'slug'
+                                        council_type = CouncilType.objects.get(name__iexact=council_type_name)
                                     except CouncilType.DoesNotExist:
                                         try:
-                                            council_type = CouncilType.objects.get(name__icontains=str(row['council_type']))
+                                            # Fallback to partial match
+                                            council_type = CouncilType.objects.get(name__icontains=council_type_name)
                                         except CouncilType.DoesNotExist:
+                                            # Log the lookup failure for debugging
+                                            available_types = list(CouncilType.objects.values_list('name', flat=True))
+                                            log_council_management_event(
+                                                request,
+                                                'warning',
+                                                'data_quality',
+                                                'Council Import: Unknown Council Type',
+                                                f'Row {index + 1}: Cannot find council type "{council_type_name}"',
+                                                {
+                                                    'row_number': index + 1,
+                                                    'council_name': council_name,
+                                                    'requested_type': council_type_name,
+                                                    'available_types': available_types,
+                                                    'lookup_method': 'name_iexact_then_icontains'
+                                                }
+                                            )
                                             pass
+                                    except Exception as e:
+                                        # Log database lookup errors
+                                        log_council_management_event(
+                                            request,
+                                            'error',
+                                            'exception',
+                                            'Council Import: CouncilType Lookup Error',
+                                            f'Row {index + 1}: Database error looking up council type: {str(e)}',
+                                            {
+                                                'row_number': index + 1,
+                                                'council_name': council_name,
+                                                'requested_type': council_type_name,
+                                                'error_type': type(e).__name__,
+                                                'error_message': str(e)
+                                            }
+                                        )
+                                        error_count += 1
+                                        errors.append(f"Row {index + 1} ({council_name}): Database error looking up council type '{council_type_name}': {str(e)}")
+                                        continue
                                 
                                 council_nation = None
                                 if 'nation' in row and row['nation'] and str(row['nation']).strip():
+                                    nation_name = str(row['nation']).strip()
                                     try:
-                                        council_nation = CouncilNation.objects.get(slug=str(row['nation']).lower())
+                                        # Check if CouncilNation has slug field or use name
+                                        try:
+                                            council_nation = CouncilNation.objects.get(slug=nation_name.lower())
+                                        except AttributeError:
+                                            # Fallback if no slug field
+                                            council_nation = CouncilNation.objects.get(name__iexact=nation_name)
                                     except CouncilNation.DoesNotExist:
                                         try:
-                                            council_nation = CouncilNation.objects.get(name__icontains=str(row['nation']))
+                                            # Fallback to partial match by name
+                                            council_nation = CouncilNation.objects.get(name__icontains=nation_name)
                                         except CouncilNation.DoesNotExist:
+                                            # Log the lookup failure
+                                            available_nations = list(CouncilNation.objects.values_list('name', flat=True))
+                                            log_council_management_event(
+                                                request,
+                                                'warning',
+                                                'data_quality',
+                                                'Council Import: Unknown Nation',
+                                                f'Row {index + 1}: Cannot find nation "{nation_name}"',
+                                                {
+                                                    'row_number': index + 1,
+                                                    'council_name': council_name,
+                                                    'requested_nation': nation_name,
+                                                    'available_nations': available_nations
+                                                }
+                                            )
                                             pass
+                                    except Exception as e:
+                                        # Log database lookup errors
+                                        log_council_management_event(
+                                            request,
+                                            'error',
+                                            'exception',
+                                            'Council Import: CouncilNation Lookup Error',
+                                            f'Row {index + 1}: Database error looking up nation: {str(e)}',
+                                            {
+                                                'row_number': index + 1,
+                                                'council_name': council_name,
+                                                'requested_nation': nation_name,
+                                                'error_type': type(e).__name__,
+                                                'error_message': str(e)
+                                            }
+                                        )
+                                        error_count += 1
+                                        errors.append(f"Row {index + 1} ({council_name}): Database error looking up nation '{nation_name}': {str(e)}")
+                                        continue
                                 
                                 # Create council
                                 website_value = None
@@ -1179,8 +1259,52 @@ def bulk_import(request):
                                 
                         except Exception as e:
                             error_count += 1
-                            errors.append(f"Row {index + 1}: {str(e)}")
+                            error_message = str(e)
+                            errors.append(f"Row {index + 1}: {error_message}")
                             logger.error(f"Error importing council from row {index + 1}: {e}")
+                            
+                            # Log each import error to Event Viewer immediately
+                            log_council_management_event(
+                                request=request,
+                                level='error',
+                                category='data_processing',
+                                title=f'Council Import Error - Row {index + 1}',
+                                message=f'Failed to import council from row {index + 1}: {error_message}',
+                                details={
+                                    'row_number': index + 1,
+                                    'error_type': type(e).__name__,
+                                    'council_name': row.get('name', 'Unknown'),
+                                    'council_website': row.get('website', ''),
+                                    'council_type': row.get('council_type', ''),
+                                    'nation': row.get('nation', ''),
+                                    'available_council_types': [ct.name for ct in available_council_types],
+                                    'available_nations': [n.name for n in available_nations],
+                                    'import_session': import_id,
+                                    'total_processed': index + 1,
+                                    'errors_so_far': error_count
+                                }
+                            )
+                
+                # Log comprehensive import completion
+                log_council_management_event(
+                    request=request,
+                    level='info' if error_count == 0 else 'warning',
+                    category='data_processing',
+                    title=f'Bulk Council Import Completed',
+                    message=f'Import session {import_id} completed: {created_count} created, {skipped_count} skipped, {error_count} errors',
+                    details={
+                        'import_session': import_id,
+                        'councils_created': created_count,
+                        'councils_skipped': skipped_count,
+                        'errors_encountered': error_count,
+                        'total_rows_processed': len(csv_data),
+                        'processing_time_seconds': processing_time,
+                        'file_name': file_name,
+                        'new_council_ids': [c.id for c in new_councils],
+                        'error_summary': errors[:10] if errors else [],  # First 10 errors for summary
+                        'issues_created': 0  # Will be updated below
+                    }
+                )
                 
                 # Generate missing data issues for all new councils (outside the main transaction)
                 if new_councils:
@@ -1188,9 +1312,40 @@ def bulk_import(request):
                         for council in new_councils:
                             issues_created = generate_missing_data_issues_for_council(council)
                             total_issues_created += issues_created
+                            
+                        # Update the completion event with issues created count
+                        if total_issues_created > 0:
+                            log_council_management_event(
+                                request=request,
+                                level='info',
+                                category='data_processing',
+                                title='Data Contribution Opportunities Generated',
+                                message=f'Created {total_issues_created} contribution opportunities for {len(new_councils)} new councils',
+                                details={
+                                    'import_session': import_id,
+                                    'issues_created': total_issues_created,
+                                    'councils_processed': len(new_councils),
+                                    'council_ids': [c.id for c in new_councils]
+                                }
+                            )
                     except Exception as e:
                         logger.error(f"Error generating data issues during bulk import: {e}")
                         messages.warning(request, f"Import completed but some contribution queue entries may not have been generated: {str(e)}")
+                        
+                        # Log this error to Event Viewer
+                        log_council_management_event(
+                            request=request,
+                            level='error',
+                            category='data_processing',
+                            title='Failed to Generate Contribution Opportunities',
+                            message=f'Error creating data issues after import: {str(e)}',
+                            details={
+                                'import_session': import_id,
+                                'error_type': type(e).__name__,
+                                'councils_affected': len(new_councils),
+                                'council_ids': [c.id for c in new_councils]
+                            }
+                        )
                 
                 # Clear session data
                 if 'import_preview' in request.session:
