@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ page_title }}</title>
+    <style>
+        body { 
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: #f3f2f1;
+            color: #0b0c0c;
+        }
+        .header { 
+            background: #1d70b8; 
+            color: white; 
+            padding: 15px 20px; 
+            margin: -20px -20px 20px -20px;
+        }
+        .header h1 { margin: 0; font-size: 24px; font-weight: bold; }
+        .nav { margin-bottom: 20px; }
+        .nav a { 
+            display: inline-block;
+            padding: 10px 15px;
+            background: #1d70b8;
+            color: white;
+            text-decoration: none;
+            margin-right: 10px;
+            font-weight: bold;
+        }
+        .nav a:hover { background: #144e81; }
+        .card { 
+            background: white; 
+            border: 2px solid #b1b4b6; 
+            padding: 20px; 
+            margin-bottom: 20px;
+        }
+        .card h2 { margin: 0 0 15px 0; font-size: 18px; }
+        .event-level { 
+            padding: 6px 12px; 
+            font-size: 14px; 
+            font-weight: bold; 
+            text-transform: uppercase;
+            display: inline-block;
+            margin-bottom: 10px;
+        }
+        .level-error { background: #d4351c; color: white; }
+        .level-warning { background: #f47738; color: white; }
+        .level-info { background: #1d70b8; color: white; }
+        .level-critical { background: #942514; color: white; }
+        .level-debug { background: #626a6e; color: white; }
+        .detail-grid { 
+            display: grid; 
+            grid-template-columns: 200px 1fr; 
+            gap: 10px; 
+            margin-bottom: 15px;
+        }
+        .detail-label { font-weight: bold; }
+        .detail-value { word-break: break-word; }
+        .code-block { 
+            background: #f8f8f8; 
+            border: 1px solid #b1b4b6; 
+            padding: 15px; 
+            font-family: monospace; 
+            white-space: pre-wrap; 
+            font-size: 14px;
+            overflow-x: auto;
+        }
+        .btn { 
+            padding: 10px 20px; 
+            background: #00703c; 
+            color: white; 
+            border: none; 
+            font-weight: bold; 
+            cursor: pointer;
+            text-decoration: none;
+            display: inline-block;
+        }
+        .btn:hover { background: #005a30; }
+        .btn-danger { background: #d4351c; }
+        .btn-danger:hover { background: #942514; }
+        .resolution-form { 
+            background: #f3f2f1; 
+            padding: 15px; 
+            border: 2px solid #b1b4b6; 
+            margin-top: 15px;
+        }
+        .resolution-form textarea { 
+            width: 100%; 
+            padding: 10px; 
+            border: 2px solid #626a6e; 
+            font-size: 16px; 
+            min-height: 100px;
+        }
+        .similar-events { 
+            background: #f8f8f8; 
+            padding: 15px; 
+            border: 1px solid #b1b4b6;
+        }
+        .similar-event { 
+            padding: 8px 0; 
+            border-bottom: 1px solid #b1b4b6;
+        }
+        .similar-event:last-child { border-bottom: none; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>{{ page_title }}</h1>
+    </div>
+
+    <div class="nav">
+        <a href="{% url 'event_viewer:dashboard' %}">Dashboard</a>
+        <a href="{% url 'event_viewer:event_list' %}">All Events</a>
+        <a href="{% url 'event_viewer:analytics' %}">Analytics</a>
+        <a href="{% url 'event_viewer:export_events' %}">Export</a>
+    </div>
+
+    <div class="card">
+        <span class="event-level level-{{ event.level }}">
+            {{ event.get_level_display }}
+        </span>
+        
+        <h2 style="margin-top: 15px;">{{ event.title }}</h2>
+        
+        <div class="detail-grid">
+            <div class="detail-label">Timestamp:</div>
+            <div class="detail-value">{{ event.timestamp|date:"F d, Y H:i:s" }}</div>
+            
+            <div class="detail-label">Source:</div>
+            <div class="detail-value">{{ event.get_source_display }}</div>
+            
+            <div class="detail-label">Category:</div>
+            <div class="detail-value">{{ event.get_category_display }}</div>
+            
+            {% if event.user %}
+            <div class="detail-label">User:</div>
+            <div class="detail-value">{{ event.user.username }}</div>
+            {% endif %}
+            
+            {% if event.ip_address %}
+            <div class="detail-label">IP Address:</div>
+            <div class="detail-value">{{ event.ip_address }}</div>
+            {% endif %}
+            
+            {% if event.request_path %}
+            <div class="detail-label">Request Path:</div>
+            <div class="detail-value">{{ event.request_path }}</div>
+            {% endif %}
+            
+            {% if event.exception_type %}
+            <div class="detail-label">Exception Type:</div>
+            <div class="detail-value">{{ event.exception_type }}</div>
+            {% endif %}
+            
+            <div class="detail-label">Occurrences:</div>
+            <div class="detail-value">{{ event.occurrence_count }}</div>
+            
+            <div class="detail-label">First Seen:</div>
+            <div class="detail-value">{{ event.first_seen|date:"F d, Y H:i:s" }}</div>
+            
+            <div class="detail-label">Last Seen:</div>
+            <div class="detail-value">{{ event.last_seen|date:"F d, Y H:i:s" }}</div>
+            
+            <div class="detail-label">Status:</div>
+            <div class="detail-value">
+                {% if event.resolved %}
+                    <span style="color: #00703c;">✓ Resolved</span>
+                    {% if event.resolved_by %}
+                        by {{ event.resolved_by.username }} 
+                        on {{ event.resolved_at|date:"F d, Y H:i" }}
+                    {% endif %}
+                {% else %}
+                    <span style="color: #d4351c;">○ Unresolved</span>
+                {% endif %}
+            </div>
+        </div>
+        
+        {% if not event.resolved %}
+        <div class="resolution-form">
+            <h3>Mark as Resolved</h3>
+            <form method="post" action="{% url 'event_viewer:resolve_event' event.id %}">
+                {% csrf_token %}
+                <label for="resolution_notes"><strong>Resolution Notes:</strong></label>
+                <textarea name="resolution_notes" id="resolution_notes" placeholder="Describe how this issue was resolved..."></textarea>
+                <br><br>
+                <button type="submit" class="btn">Mark as Resolved</button>
+            </form>
+        </div>
+        {% endif %}
+        
+        {% if event.resolved and event.resolution_notes %}
+        <div style="margin-top: 15px;">
+            <h3>Resolution Notes</h3>
+            <div class="code-block">{{ event.resolution_notes }}</div>
+        </div>
+        {% endif %}
+    </div>
+
+    {% if event.message %}
+    <div class="card">
+        <h2>Message</h2>
+        <div class="code-block">{{ event.message }}</div>
+    </div>
+    {% endif %}
+
+    {% if event.stack_trace %}
+    <div class="card">
+        <h2>Stack Trace</h2>
+        <div class="code-block">{{ event.stack_trace }}</div>
+    </div>
+    {% endif %}
+
+    {% if formatted_details %}
+    <div class="card">
+        <h2>Additional Details</h2>
+        <div class="code-block">{{ formatted_details }}</div>
+    </div>
+    {% endif %}
+
+    {% if similar_events %}
+    <div class="card">
+        <h2>Similar Events</h2>
+        <div class="similar-events">
+            {% for similar in similar_events %}
+            <div class="similar-event">
+                <strong>{{ similar.timestamp|date:"M d, H:i" }}</strong> - 
+                <a href="{% url 'event_viewer:event_detail' similar.id %}">{{ similar.title|truncatechars:80 }}</a>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+</body>
+</html>

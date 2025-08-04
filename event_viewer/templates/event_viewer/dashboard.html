@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ page_title }}</title>
+    <style>
+        /* Simple GOV.UK inspired styling */
+        body { 
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: #f3f2f1;
+            color: #0b0c0c;
+        }
+        .header { 
+            background: #1d70b8; 
+            color: white; 
+            padding: 15px 20px; 
+            margin: -20px -20px 20px -20px;
+        }
+        .header h1 { margin: 0; font-size: 24px; font-weight: bold; }
+        .health-score { 
+            display: inline-block;
+            padding: 8px 12px;
+            border-radius: 4px;
+            font-weight: bold;
+            margin-left: 15px;
+        }
+        .health-excellent { background: #00703c; color: white; }
+        .health-good { background: #006435; color: white; }
+        .health-warning { background: #f47738; color: white; }
+        .health-critical { background: #d4351c; color: white; }
+        .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px; margin-bottom: 30px; }
+        .card { 
+            background: white; 
+            border: 2px solid #b1b4b6; 
+            padding: 20px; 
+            border-radius: 0;
+        }
+        .card h2 { margin: 0 0 10px 0; font-size: 18px; }
+        .stat { font-size: 32px; font-weight: bold; color: #1d70b8; }
+        .events-list { background: white; border: 2px solid #b1b4b6; padding: 20px; }
+        .event-item { 
+            padding: 10px 0; 
+            border-bottom: 1px solid #b1b4b6; 
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .event-item:last-child { border-bottom: none; }
+        .event-level { 
+            padding: 4px 8px; 
+            font-size: 12px; 
+            font-weight: bold; 
+            text-transform: uppercase;
+            border-radius: 0;
+        }
+        .level-error { background: #d4351c; color: white; }
+        .level-warning { background: #f47738; color: white; }
+        .level-info { background: #1d70b8; color: white; }
+        .level-critical { background: #942514; color: white; }
+        .nav { margin-bottom: 20px; }
+        .nav a { 
+            display: inline-block;
+            padding: 10px 15px;
+            background: #1d70b8;
+            color: white;
+            text-decoration: none;
+            margin-right: 10px;
+            font-weight: bold;
+        }
+        .nav a:hover { background: #144e81; }
+        .updated { color: #626a6e; font-size: 14px; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>{{ page_title }}</h1>
+        <span class="health-score 
+            {% if health_metrics.health_score >= 90 %}health-excellent
+            {% elif health_metrics.health_score >= 75 %}health-good  
+            {% elif health_metrics.health_score >= 50 %}health-warning
+            {% else %}health-critical{% endif %}">
+            System Health: {{ health_metrics.health_score }}%
+        </span>
+    </div>
+
+    <div class="nav">
+        <a href="{% url 'event_viewer:dashboard' %}">Dashboard</a>
+        <a href="{% url 'event_viewer:event_list' %}">All Events</a>
+        <a href="{% url 'event_viewer:analytics' %}">Analytics</a>
+        <a href="{% url 'event_viewer:export_events' %}">Export</a>
+    </div>
+
+    <div class="grid">
+        <div class="card">
+            <h2>Events (24h)</h2>
+            <div class="stat">{{ health_metrics.total_events_24h }}</div>
+        </div>
+        <div class="card">
+            <h2>Critical Errors</h2>
+            <div class="stat" style="color: #d4351c;">{{ health_metrics.critical_events_24h }}</div>
+        </div>
+        <div class="card">
+            <h2>Errors</h2>
+            <div class="stat" style="color: #f47738;">{{ health_metrics.error_events_24h }}</div>
+        </div>
+        <div class="card">
+            <h2>Unresolved</h2>
+            <div class="stat" style="color: #626a6e;">{{ health_metrics.unresolved_events }}</div>
+        </div>
+    </div>
+
+    <div class="events-list">
+        <h2>Recent System Events</h2>
+        {% for event in recent_system_events %}
+        <div class="event-item">
+            <div>
+                <span class="event-level level-{{ event.level }}">{{ event.get_level_display }}</span>
+                <strong>{{ event.title }}</strong>
+                <br>
+                <small>{{ event.timestamp|date:"M d, H:i" }} - 
+                {% if event.user %}{{ event.user.username }}{% else %}System{% endif %}</small>
+            </div>
+            <div>
+                <a href="{% url 'event_viewer:event_detail' event.id %}">View</a>
+            </div>
+        </div>
+        {% empty %}
+        <p>No recent system events.</p>
+        {% endfor %}
+    </div>
+
+    <div style="margin-top: 30px;">
+        <h2>Recent User Activity</h2>
+        <div class="events-list">
+            {% for activity in recent_user_activity %}
+            <div class="event-item">
+                <div>
+                    <strong>{{ activity.get_activity_type_display }}</strong>: {{ activity.description }}
+                    <br>
+                    <small>{{ activity.created|date:"M d, H:i" }} - 
+                    {% if activity.user %}{{ activity.user.username }}{% else %}System{% endif %}</small>
+                </div>
+            </div>
+            {% empty %}
+            <p>No recent user activity.</p>
+            {% endfor %}
+        </div>
+    </div>
+
+    <p class="updated">Last updated: {{ last_updated|date:"M d, Y H:i" }}</p>
+</body>
+</html>
