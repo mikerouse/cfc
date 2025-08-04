@@ -62,7 +62,7 @@ class Command(BaseCommand):
             except Exception as e:
                 error_count += 1
                 self.stdout.write(
-                    self.style.ERROR(f"Error migrating activity {activity_log.id}: {e}")
+                    self.style.ERROR(f"Error migrating activity {activity_log.id}: {str(e)}")
                 )
         
         self.stdout.write(
