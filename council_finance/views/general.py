@@ -3781,33 +3781,6 @@ def about(request):
         'total_contributions': ActivityLog.objects.filter(activity_type='update').count(),
         'latest_year': FinancialYear.objects.order_by('-start_date').first(),
         
-        # System features
-        'key_features': [
-            {
-                'title': 'Comprehensive Financial Data',
-                'description': 'Track spending, income, debt, and assets across all UK councils',
-                'icon': 'chart-bar',
-                'stats': f"{DataField.objects.count()} data fields"
-            },
-            {
-                'title': 'AI-Powered Insights',
-                'description': 'Intelligent analysis and contextual factoids about council finances',
-                'icon': 'sparkles',
-                'stats': 'Real-time analysis'
-            },
-            {
-                'title': 'Social Following',
-                'description': 'Follow councils, lists, and contributors to track changes',
-                'icon': 'users',
-                'stats': f"{UserFollow.objects.count()} active follows"
-            },
-            {
-                'title': 'Open Source',
-                'description': 'Built transparently with community contributions welcome',
-                'icon': 'code-bracket',
-                'stats': 'MIT License'
-            }
-        ],
         
         # Technology stack
         'tech_stack': [
@@ -3821,4 +3794,61 @@ def about(request):
     }
     
     return render(request, 'council_finance/about.html', context)
+
+
+def github_stats_api(request):
+    """
+    API endpoint for GitHub repository statistics.
+    Returns JSON data for AJAX calls from the About page.
+    """
+    if not request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+        return JsonResponse({'error': 'AJAX requests only'}, status=400)
+    
+    try:
+        github_service = GitHubStatsService()
+        stats = github_service.get_repository_stats()
+        
+        # Add contributors count to stats
+        contributors = github_service.get_contributors(limit=100)
+        stats['contributors_count'] = len(contributors)
+        
+        return JsonResponse(stats)
+        
+    except Exception as e:
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.error(f'Error in github_stats_api: {str(e)}')
+        
+        return JsonResponse({
+            'stars': 0,
+            'forks': 0,
+            'open_issues': 0,
+            'contributors_count': 0
+        }, status=500)
+
+
+def github_contributors_api(request):
+    """
+    API endpoint for GitHub repository contributors.
+    Returns JSON data for AJAX calls from the About page.
+    """
+    if not request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+        return JsonResponse({'error': 'AJAX requests only'}, status=400)
+    
+    try:
+        github_service = GitHubStatsService()
+        contributors = github_service.get_contributors(limit=12)
+        
+        return JsonResponse({
+            'contributors': contributors
+        })
+        
+    except Exception as e:
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.error(f'Error in github_contributors_api: {str(e)}')
+        
+        return JsonResponse({
+            'contributors': []
+        }, status=500)
 

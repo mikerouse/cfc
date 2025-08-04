@@ -50,6 +50,8 @@ from .views.general import (
     comment_on_activity_log,
     get_activity_log_comments,
     like_activity_log_comment,
+    github_stats_api,
+    github_contributors_api,
 )
 
 # Import factoid instance API function
@@ -114,6 +116,10 @@ urlpatterns = [
     path("search/", general_views.search_results, name="search_results"),
     path("api/councils/search/", api_views.search_councils, name="search_councils"),
     path("api/emergency-cache-warming/", api_views.emergency_cache_warming, name="emergency_cache_warming"),
+    
+    # GitHub API endpoints for About page
+    path("api/github/stats/", github_stats_api, name="github_stats_api"),
+    path("api/github/contributors/", github_contributors_api, name="github_contributors_api"),
     path("admin/", admin.site.urls),
     path("plugins/", include("core.urls")),
     # Authentication endpoints

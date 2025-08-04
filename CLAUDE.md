@@ -488,7 +488,27 @@ python manage.py validate_heroicons --fix
 {% heroicon_solid "icon-name" class="w-4 h-4" %}
 ```
 
-**Known Valid Icons**: `cog`, `eye`, `document`, `search`, `refresh`, `check`, `home`, `chat`, `share`, `plus`, `pencil`, `information-circle`, `rss`
+**CRITICAL - Dynamic Variable Usage**:
+**NEVER** use dynamic variables in heroicon calls - this causes template failures:
+```django
+{# WRONG - This will fail at runtime #}
+{% heroicon feature.icon size="medium" class="w-6 h-6" %}
+{% heroicon variable_name size="small" class="w-4 h-4" %}
+
+{# CORRECT - Use conditional logic instead #}
+{% if feature.icon == 'chart-bar' %}
+    {% heroicon "chart-bar" size="medium" class="w-6 h-6" %}
+{% elif feature.icon == 'cog' %}
+    {% heroicon "cog" size="medium" class="w-6 h-6" %}
+{% else %}
+    {% heroicon "document" size="medium" class="w-6 h-6" %}
+{% endif %}
+
+{# BEST - Hardcode icon names directly #}
+{% heroicon "chart-bar" size="medium" class="w-6 h-6" %}
+```
+
+**Known Valid Icons**: `cog`, `eye`, `document`, `search`, `refresh`, `check`, `home`, `chat`, `share`, `plus`, `pencil`, `information-circle`, `rss`, `chart-bar`
 
 **Common Invalid Icons and Replacements**:
 - `arrow-path` → `refresh`
@@ -498,12 +518,24 @@ python manage.py validate_heroicons --fix
 - `cog-6-tooth` → `cog`
 - `document-text` → `document`
 - `magnifying-glass-plus` → `search`
+- `code-bracket` → `document`
+- `exclamation-triangle` → `information-circle`
+- `sparkles` → `cog`
+- `users` → `rss`
 
 **Best Practices**:
-1. **Always test heroicons** when adding new ones to templates
-2. **Run validation** before committing template changes
-3. **Use --fix flag** to automatically replace invalid icons with safe fallbacks
-4. **Stick to known valid icons** from the list above when possible
+1. **Always use hardcoded icon names** - never use variables in heroicon calls
+2. **Always test heroicons** when adding new ones to templates
+3. **Run validation** before committing template changes: `python manage.py validate_heroicons`
+4. **Use --fix flag** to automatically replace invalid icons with safe fallbacks
+5. **Stick to known valid icons** from the list above when possible
+6. **Use conditional logic** if you need dynamic icons based on context data
+
+**Common Error Pattern**:
+If you see "code-bracket is not a valid icon!" or similar errors, it's usually because:
+1. You're using a variable in the heroicon call: `{% heroicon variable_name %}`
+2. The icon name is invalid or misspelled
+3. You need to use conditional logic instead of dynamic variables
 
 **Integration with Testing**:
 - The validation command can be integrated into CI/CD pipelines

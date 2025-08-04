@@ -5,7 +5,10 @@ Fetches live statistics from the GitHub repository to display on the About page.
 Includes error handling and caching to ensure the page loads even if GitHub is unavailable.
 """
 
-import requests
+try:
+    import requests
+except ImportError:
+    requests = None
 import logging
 from django.conf import settings
 from django.core.cache import cache
@@ -53,6 +56,10 @@ class GitHubStatsService:
             return cached_stats
         
         try:
+            if not requests:
+                logger.warning("requests module not available, falling back to static data")
+                return self._get_fallback_stats()
+                
             url = f"{self.base_url}/repos/{self.repo_owner}/{self.repo_name}"
             response = requests.get(url, headers=self.get_headers(), timeout=10)
             
@@ -75,6 +82,10 @@ class GitHubStatsService:
                     'cached_at': None  # Live data
                 }
                 
+                # Fetch additional statistics
+                additional_stats = self._fetch_additional_stats()
+                stats.update(additional_stats)
+                
                 # Cache the successful response
                 cache.set(self.cache_key_stats, stats, self.cache_duration)
                 logger.info(f"✅ Fetched GitHub repository stats: {stats['stars']} stars, {stats['open_issues']} issues")
@@ -87,6 +98,84 @@ class GitHubStatsService:
         except Exception as e:
             logger.error(f"Failed to fetch GitHub repository stats: {e}")
             return self._get_fallback_stats()
+    
+    def _fetch_additional_stats(self) -> Dict:
+        """
+        Fetch additional repository statistics like commits, PRs, and closed issues.
+        Returns empty values if API is unavailable.
+        """
+        additional_stats = {
+            'commits': 0,
+            'pull_requests': 0,
+            'closed_issues': 0
+        }
+        
+        try:
+            if not requests:
+                return additional_stats
+            
+            # Fetch commit count from default branch
+            commits_url = f"{self.base_url}/repos/{self.repo_owner}/{self.repo_name}/commits"
+            commits_response = requests.get(commits_url, headers=self.get_headers(), params={'per_page': 1}, timeout=5)
+            
+            if commits_response.status_code == 200:
+                # Get total count from Link header
+                link_header = commits_response.headers.get('Link', '')
+                if link_header and 'last' in link_header:
+                    import re
+                    match = re.search(r'&page=(\d+)>; rel="last"', link_header)
+                    if match:
+                        additional_stats['commits'] = int(match.group(1))
+                else:
+                    # Fallback: count commits (limited to 100)
+                    all_commits = requests.get(commits_url, headers=self.get_headers(), params={'per_page': 100}, timeout=5)
+                    if all_commits.status_code == 200:
+                        additional_stats['commits'] = len(all_commits.json())
+            
+            # Fetch pull requests count
+            prs_url = f"{self.base_url}/repos/{self.repo_owner}/{self.repo_name}/pulls"
+            prs_response = requests.get(prs_url, headers=self.get_headers(), params={'state': 'all', 'per_page': 1}, timeout=5)
+            
+            if prs_response.status_code == 200:
+                # Count from headers
+                link_header = prs_response.headers.get('Link', '')
+                if link_header and 'last' in link_header:
+                    import re
+                    match = re.search(r'&page=(\d+)>; rel="last"', link_header)
+                    if match:
+                        additional_stats['pull_requests'] = int(match.group(1))
+                else:
+                    # Get all PRs (limited)
+                    all_prs = requests.get(prs_url, headers=self.get_headers(), params={'state': 'all', 'per_page': 100}, timeout=5)
+                    if all_prs.status_code == 200:
+                        additional_stats['pull_requests'] = len(all_prs.json())
+            
+            # Fetch closed issues count
+            issues_url = f"{self.base_url}/repos/{self.repo_owner}/{self.repo_name}/issues"
+            closed_response = requests.get(issues_url, headers=self.get_headers(), params={'state': 'closed', 'per_page': 1}, timeout=5)
+            
+            if closed_response.status_code == 200:
+                # Count from headers
+                link_header = closed_response.headers.get('Link', '')
+                if link_header and 'last' in link_header:
+                    import re
+                    match = re.search(r'&page=(\d+)>; rel="last"', link_header)
+                    if match:
+                        additional_stats['closed_issues'] = int(match.group(1))
+                else:
+                    # Get all closed issues (limited)
+                    all_closed = requests.get(issues_url, headers=self.get_headers(), params={'state': 'closed', 'per_page': 100}, timeout=5)
+                    if all_closed.status_code == 200:
+                        # Filter out pull requests from issues
+                        issues_only = [i for i in all_closed.json() if 'pull_request' not in i]
+                        additional_stats['closed_issues'] = len(issues_only)
+            
+            logger.info(f"✅ Fetched additional stats: {additional_stats['commits']} commits, {additional_stats['pull_requests']} PRs")
+            
+        except Exception as e:
+            logger.warning(f"Failed to fetch additional stats: {e}")
+        
+        return additional_stats
     
     def get_recent_issues(self, limit: int = 5) -> list:
         """
@@ -101,6 +190,10 @@ class GitHubStatsService:
             return cached_issues
         
         try:
+            if not requests:
+                logger.warning("requests module not available, falling back to static data")
+                return self._get_fallback_issues()
+                
             url = f"{self.base_url}/repos/{self.repo_owner}/{self.repo_name}/issues"
             params = {
                 'state': 'all',
@@ -155,6 +248,10 @@ class GitHubStatsService:
             return cached_contributors
         
         try:
+            if not requests:
+                logger.warning("requests module not available, falling back to static data")
+                return self._get_fallback_contributors()
+                
             url = f"{self.base_url}/repos/{self.repo_owner}/{self.repo_name}/contributors"
             params = {'per_page': limit}
             
@@ -192,19 +289,22 @@ class GitHubStatsService:
         from datetime import datetime
         
         return {
-            'stars': '?',
-            'forks': '?',
-            'open_issues': '?',
-            'watchers': '?',
-            'size_kb': '?',
+            'stars': 0,
+            'forks': 0,
+            'open_issues': 0,
+            'watchers': 0,
+            'size_kb': 0,
             'language': 'Python',
             'created_at': None,
             'updated_at': None,
             'description': 'UK Council Finance Data Platform',
-            'license': 'Unknown',
+            'license': 'MIT',
             'default_branch': 'main',
             'topics': ['django', 'python', 'uk-councils', 'finance', 'open-data'],
-            'cached_at': datetime.now().isoformat()
+            'cached_at': datetime.now().isoformat(),
+            'commits': 0,
+            'pull_requests': 0,
+            'closed_issues': 0
         }
     
     def _get_fallback_issues(self) -> list:
