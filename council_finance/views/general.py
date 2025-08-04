@@ -18,6 +18,7 @@ from django.core.paginator import Paginator
 from django.template.loader import render_to_string
 from django.urls import reverse
 from django.core import signing
+from council_finance.services.github_stats import GitHubStatsService
 from django.views.decorators.http import require_GET, require_POST, require_http_methods
 from django.views.decorators.csrf import csrf_exempt
 from django.core.exceptions import ValidationError
@@ -3754,4 +3755,70 @@ def like_activity_log_comment(request, comment_id):
             'success': False,
             'error': 'An error occurred while updating the like'
         }, status=500)
+
+
+def about(request):
+    """
+    About page showcasing the Council Finance Counters platform.
+    
+    Explains what the system does, how it works, and encourages community
+    involvement through GitHub contributions and issue reporting.
+    """
+    # Get GitHub statistics
+    github_service = GitHubStatsService()
+    
+    context = {
+        'page_title': 'About Council Finance Counters',
+        'github_stats': github_service.get_repository_stats(),
+        'recent_issues': github_service.get_recent_issues(limit=3),
+        'contributors': github_service.get_contributors(limit=8),
+        'github_repo_url': 'https://github.com/mikerouse/cfc',
+        'github_issues_url': 'https://github.com/mikerouse/cfc/issues',
+        
+        # Platform statistics
+        'total_councils': Council.objects.count(),
+        'total_data_fields': DataField.objects.count(),
+        'total_contributions': ActivityLog.objects.filter(activity_type='update').count(),
+        'latest_year': FinancialYear.objects.order_by('-start_date').first(),
+        
+        # System features
+        'key_features': [
+            {
+                'title': 'Comprehensive Financial Data',
+                'description': 'Track spending, income, debt, and assets across all UK councils',
+                'icon': 'chart-bar',
+                'stats': f"{DataField.objects.count()} data fields"
+            },
+            {
+                'title': 'AI-Powered Insights',
+                'description': 'Intelligent analysis and contextual factoids about council finances',
+                'icon': 'sparkles',
+                'stats': 'Real-time analysis'
+            },
+            {
+                'title': 'Social Following',
+                'description': 'Follow councils, lists, and contributors to track changes',
+                'icon': 'users',
+                'stats': f"{UserFollow.objects.count()} active follows"
+            },
+            {
+                'title': 'Open Source',
+                'description': 'Built transparently with community contributions welcome',
+                'icon': 'code-bracket',
+                'stats': 'MIT License'
+            }
+        ],
+        
+        # Technology stack
+        'tech_stack': [
+            {'name': 'Django', 'description': 'Python web framework for rapid development'},
+            {'name': 'PostgreSQL', 'description': 'Robust database for financial data integrity'},
+            {'name': 'Tailwind CSS', 'description': 'Modern utility-first CSS framework'},
+            {'name': 'OpenAI API', 'description': 'AI-powered insights and factoid generation'},
+            {'name': 'JavaScript', 'description': 'Interactive frontend and real-time updates'},
+            {'name': 'Redis', 'description': 'Caching and session management'}
+        ]
+    }
+    
+    return render(request, 'council_finance/about.html', context)
 

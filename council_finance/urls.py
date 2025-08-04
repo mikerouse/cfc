@@ -28,6 +28,7 @@ from .views.general import (
     unfollow_item_api,
     add_favourite,
     remove_favourite,
+    about,
     add_to_list,
     remove_from_list,
     move_between_lists,
@@ -109,6 +110,7 @@ urlpatterns = [
     path('favicon.ico', RedirectView.as_view(url=settings.STATIC_URL + 'favicon.ico', permanent=True)),
     
     path("", general_views.home, name="home"),
+    path("about/", about, name="about"),
     path("search/", general_views.search_results, name="search_results"),
     path("api/councils/search/", api_views.search_councils, name="search_councils"),
     path("api/emergency-cache-warming/", api_views.emergency_cache_warming, name="emergency_cache_warming"),
