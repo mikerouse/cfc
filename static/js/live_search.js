@@ -4,7 +4,8 @@
     let searchResults;
     let searchTimeout;
     let currentFocus = -1;
-    let isSearching = false;
+    // Map to track searching state for different elements
+    const isSearchingMap = new Map();
 
     // Initialize when DOM is ready
     document.addEventListener('DOMContentLoaded', function() {
@@ -444,23 +445,17 @@
             if (isSearching) return;
             isSearching = true;
 
-            fetch('/search/?q=' + encodeURIComponent(query), {
-                headers: {
-                    'X-Requested-With': 'XMLHttpRequest',
-                    'X-CSRFToken': getCsrfToken()
-                }
-            })
-            .then(response => response.text())
-            .then(html => {
-                resultsElement.innerHTML = html;
-                resultsElement.classList.remove('hidden');
-                isSearching = false;
-            })
-            .catch(() => {
-                resultsElement.innerHTML = '<div class="search-error">Error loading results</div>';
-                resultsElement.classList.remove('hidden');
-                isSearching = false;
-            });
+            fetch(`/api/councils/search/?q=${encodeURIComponent(query)}`)
+                .then(response => response.json())
+                .then(data => {
+                    displayResultsFor(data.results || [], query, resultsElement);
+                    isSearching = false;
+                })
+                .catch(error => {
+                    console.error('Search error:', error);
+                    displayErrorFor(resultsElement);
+                    isSearching = false;
+                });
         }
         // Enhanced input handler with debouncing
         inputElement.addEventListener('input', function() {
@@ -578,7 +573,7 @@
                 displayErrorFor(resultsElement);
             })
             .finally(() => {
-                isSearching = false;
+                isSearchingMap.set(resultsElement, false);
             });
     }
 
