@@ -9,7 +9,7 @@ from django.core.paginator import Paginator
 import random
 from django.db.models import Q
 
-from council_finance.models import Council, UserProfile, ActivityLog
+from council_finance.models import Council, UserProfile, ActivityLog, DataField
 
 # Import utility functions we'll need
 from .general import log_activity, current_financial_year_label
@@ -72,17 +72,52 @@ def home(request):
 
 
 def about(request):
-    """About page."""
-    # Get some basic statistics
-    stats = {
-        'total_councils': Council.objects.count(),
-        'total_users': UserProfile.objects.count(),
-        'total_contributions': ActivityLog.objects.count(),
-        'current_year': current_financial_year_label(),
-    }
+    """About page explaining the project, its goals, and how to contribute."""
+    from council_finance.services.github_stats import GitHubStatsService
+    from council_finance.models import FinancialYear, UserFollow
     
+    # Initialize GitHub service
+    github_service = GitHubStatsService()
+    
+    # Prepare context with all required variables
     context = {
-        'stats': stats,
+        'page_title': 'About - Council Finance Counters',
+        
+        # Basic statistics
+        'total_councils': Council.objects.count(),
+        'total_data_fields': DataField.objects.count(),
+        'total_contributions': ActivityLog.objects.filter(activity_type='update').count(),
+        'latest_year': FinancialYear.objects.order_by('-start_date').first(),
+        
+        # GitHub data
+        'github_repo_url': 'https://github.com/mikerouse/cfc',
+        'github_stats': github_service.get_repository_stats() or {
+            'stars': 0,
+            'forks': 0,
+            'open_issues': 0,
+            'commits': 0,
+            'pull_requests': 0,
+            'closed_issues': 0,
+        },
+        'contributors': github_service.get_contributors() or [],
+        
+        # Technology stack
+        'tech_stack': [
+            {'name': 'Django', 'description': 'Python web framework for robust backend'},
+            {'name': 'PostgreSQL', 'description': 'Powerful open-source database'},
+            {'name': 'Tailwind CSS', 'description': 'Utility-first CSS framework'},
+            {'name': 'Alpine.js', 'description': 'Lightweight JavaScript framework'},
+            {'name': 'Chart.js', 'description': 'Flexible charting library'},
+            {'name': 'OpenAI API', 'description': 'AI-powered insights and analysis'},
+        ],
+        
+        # Legacy stats dict for compatibility
+        'stats': {
+            'total_councils': Council.objects.count(),
+            'total_users': UserProfile.objects.count(),
+            'total_contributions': ActivityLog.objects.count(),
+            'current_year': current_financial_year_label(),
+        },
     }
     
     return render(request, 'council_finance/about.html', context)
