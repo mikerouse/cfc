@@ -305,6 +305,21 @@ class ResponseLogParser(BaseLogParser):
         if not line.strip():
             return None
         
+        # Filter out HTML content and curl progress output
+        if any(marker in line for marker in [
+            '<!DOCTYPE', '<html', '<head', '<body', '<script', '<style',
+            'Content-Type: text/html', '% Total', '% Received', 'Dload', 'Upload',
+            'Content-Length:', 'X-Frame-Options:', 'Set-Cookie:', 'Date:', 'Server:'
+        ]):
+            return None
+        
+        # Only process lines that look like HTTP responses or proper log entries
+        if not any(marker in line for marker in [
+            'HTTP/', 'GET ', 'POST ', 'PUT ', 'DELETE ', 'PATCH ',
+            '[INFO]', '[DEBUG]', '[WARNING]', '[ERROR]', '[CRITICAL]'
+        ]):
+            return None
+        
         # Skip successful responses to reduce noise
         if '200' in line or '201' in line or '204' in line:
             return None
@@ -344,9 +359,17 @@ class LogParsingService:
             'server2.log': ServerLogParser,
             'response.log': ResponseLogParser,
         }
+        self.stats = {
+            'start_time': None,
+            'end_time': None,
+            'duration': None,
+        }
     
     def parse_all_logs(self, dry_run=False, logs_dir='logs'):
         """Parse all available log files."""
+        import time
+        self.stats['start_time'] = time.time()
+        
         results = {
             'summary': {
                 'total_files': 0,
@@ -354,6 +377,7 @@ class LogParsingService:
                 'failed_files': 0,
                 'total_events': 0,
                 'total_errors': 0,
+                'total_skipped': 0,
             },
             'files': {}
         }
@@ -378,6 +402,13 @@ class LogParsingService:
                         results['summary']['successful_files'] += 1
                         results['summary']['total_events'] += file_result.get('parsed', 0)
                         results['summary']['total_errors'] += file_result.get('errors', 0)
+                        results['summary']['total_skipped'] += file_result.get('skipped', 0)
+        
+        # Calculate duration
+        import time
+        self.stats['end_time'] = time.time()
+        self.stats['duration'] = round(self.stats['end_time'] - self.stats['start_time'], 2)
+        results['stats'] = self.stats.copy()
         
         return results
     

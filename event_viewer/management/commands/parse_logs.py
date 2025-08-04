@@ -91,6 +91,12 @@ class Command(BaseCommand):
         self.stdout.write(f"Failed: {summary['failed_files']}")
         self.stdout.write(f"Events created: {summary['total_events']}")
         self.stdout.write(f"Parse errors: {summary['total_errors']}")
+        self.stdout.write(f"Skipped entries: {summary['total_skipped']}")
+        
+        # Performance stats
+        if 'stats' in results:
+            stats = results['stats']
+            self.stdout.write(f"Processing time: {stats['duration']}s")
         
         if verbose:
             self.stdout.write("\n" + "-"*40)
