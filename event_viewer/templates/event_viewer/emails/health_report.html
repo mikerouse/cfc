@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ report_type }} Health Report</title>
+    <style>
+        body {
+            font-family: "GDS Transport", arial, sans-serif;
+            line-height: 1.6;
+            color: #0b0c0c;
+            margin: 0;
+            padding: 20px;
+            background-color: #f3f2f1;
+        }
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background-color: #ffffff;
+            border: 3px solid #00703c;
+            padding: 30px;
+        }
+        .header {
+            background-color: #00703c;
+            color: #ffffff;
+            padding: 20px;
+            margin: -30px -30px 20px -30px;
+        }
+        .header h1 {
+            margin: 0;
+            font-size: 24px;
+            font-weight: 700;
+        }
+        .summary-card {
+            background-color: #f8f8f8;
+            border-left: 5px solid #1d70b8;
+            padding: 20px;
+            margin: 20px 0;
+        }
+        .metric-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 15px;
+            margin: 20px 0;
+        }
+        .metric {
+            background-color: #f3f2f1;
+            padding: 15px;
+            text-align: center;
+            border-radius: 3px;
+        }
+        .metric-value {
+            font-size: 28px;
+            font-weight: 700;
+            margin-bottom: 5px;
+        }
+        .metric-label {
+            font-size: 14px;
+            color: #626a6e;
+        }
+        .health-score {
+            font-size: 48px;
+            font-weight: 700;
+            text-align: center;
+            padding: 20px;
+            border-radius: 3px;
+            margin: 20px 0;
+        }
+        .score-excellent { background-color: #00703c; color: white; }
+        .score-good { background-color: #006435; color: white; }
+        .score-warning { background-color: #f47738; color: white; }
+        .score-critical { background-color: #d4351c; color: white; }
+        .event-list {
+            margin: 20px 0;
+        }
+        .event-item {
+            border-left: 3px solid #b1b4b6;
+            padding: 10px 15px;
+            margin: 10px 0;
+            background-color: #f8f8f8;
+        }
+        .event-critical { border-left-color: #d4351c; }
+        .event-error { border-left-color: #f47738; }
+        .event-warning { border-left-color: #ffdd00; }
+        .event-title {
+            font-weight: 700;
+            color: #0b0c0c;
+        }
+        .event-details {
+            font-size: 14px;
+            color: #626a6e;
+            margin-top: 5px;
+        }
+        .footer {
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 1px solid #b1b4b6;
+            font-size: 14px;
+            color: #626a6e;
+        }
+        .button {
+            display: inline-block;
+            background-color: #1d70b8;
+            color: #ffffff;
+            padding: 10px 20px;
+            text-decoration: none;
+            border-radius: 3px;
+            margin: 10px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📊 {{ report_type }} System Health Report</h1>
+            <p style="margin: 10px 0 0 0;">{{ date|date:"F j, Y" }}</p>
+        </div>
+        
+        <div class="summary-card">
+            <h2>System Health Overview</h2>
+            <div class="health-score {% if summary.health_score >= 90 %}score-excellent{% elif summary.health_score >= 70 %}score-good{% elif summary.health_score >= 50 %}score-warning{% else %}score-critical{% endif %}">
+                {{ summary.health_score|floatformat:0 }}/100
+            </div>
+            <p style="text-align: center; margin: 0;">
+                {% if summary.health_score >= 90 %}
+                    System is operating excellently with minimal issues.
+                {% elif summary.health_score >= 70 %}
+                    System is operating well with some minor issues.
+                {% elif summary.health_score >= 50 %}
+                    System has moderate issues that require attention.
+                {% else %}
+                    System has significant issues requiring immediate attention.
+                {% endif %}
+            </p>
+        </div>
+        
+        <div class="metric-grid">
+            <div class="metric">
+                <div class="metric-value" style="color: #1d70b8;">{{ summary.total_events }}</div>
+                <div class="metric-label">Total Events</div>
+            </div>
+            <div class="metric">
+                <div class="metric-value" style="color: #d4351c;">{{ summary.critical_events }}</div>
+                <div class="metric-label">Critical Events</div>
+            </div>
+            <div class="metric">
+                <div class="metric-value" style="color: #f47738;">{{ summary.error_events }}</div>
+                <div class="metric-label">Error Events</div>
+            </div>
+            <div class="metric">
+                <div class="metric-value" style="color: #ffdd00;">{{ summary.warning_events }}</div>
+                <div class="metric-label">Warning Events</div>
+            </div>
+        </div>
+        
+        <div class="summary-card">
+            <h3>Key Metrics</h3>
+            <ul>
+                <li><strong>Unique Users Affected:</strong> {{ summary.unique_users }}</li>
+                <li><strong>Event Sources:</strong> {{ summary.unique_sources }}</li>
+                <li><strong>Error Rate:</strong> 
+                    {% if summary.total_events > 0 %}
+                        {{ summary.error_events|add:summary.critical_events|div:summary.total_events|mul:100|floatformat:1 }}%
+                    {% else %}
+                        0%
+                    {% endif %}
+                </li>
+            </ul>
+        </div>
+        
+        {% if summary.top_sources %}
+        <div class="summary-card">
+            <h3>Top Event Sources</h3>
+            <ul>
+                {% for source, count in summary.top_sources.items %}
+                <li><strong>{{ source|title }}:</strong> {{ count }} events</li>
+                {% endfor %}
+            </ul>
+        </div>
+        {% endif %}
+        
+        {% if summary.top_error_categories %}
+        <div class="summary-card">
+            <h3>Top Error Categories</h3>
+            <ul>
+                {% for category, count in summary.top_error_categories.items %}
+                <li><strong>{{ category|title }}:</strong> {{ count }} errors</li>
+                {% endfor %}
+            </ul>
+        </div>
+        {% endif %}
+        
+        {% if top_errors %}
+        <div class="event-list">
+            <h3>Top Errors from {{ report_type|lower }}:</h3>
+            {% for event in top_errors %}
+            <div class="event-item event-{{ event.level }}">
+                <div class="event-title">{{ event.title }}</div>
+                <div class="event-details">
+                    <strong>Level:</strong> {{ event.level|upper }} |
+                    <strong>Source:</strong> {{ event.source }} |
+                    <strong>Time:</strong> {{ event.timestamp|date:"H:i:s" }}
+                    {% if event.user %}
+                    | <strong>User:</strong> {{ event.user.username }}
+                    {% endif %}
+                </div>
+                {% if event.message %}
+                <div class="event-details" style="margin-top: 8px;">
+                    {{ event.message|truncatechars:150 }}
+                </div>
+                {% endif %}
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+        
+        <div style="margin: 30px 0; text-align: center;">
+            <a href="{{ request.build_absolute_uri }}/system-events/" class="button">
+                View Full Event Dashboard
+            </a>
+        </div>
+        
+        <div class="footer">
+            <p>
+                <strong>Report Generated:</strong> {{ timestamp|date:"Y-m-d H:i:s T" }}<br>
+                <strong>Period:</strong> {{ report_type }} report for {{ date|date:"F j, Y" }}<br>
+                This is an automated health report from the Council Finance Event Viewer.
+            </p>
+            
+            {% if summary.health_score < 70 %}
+            <div style="background-color: #fef7f7; border-left: 5px solid #d4351c; padding: 15px; margin-top: 15px;">
+                <strong>⚠️ Action Required:</strong> System health score is below optimal levels. 
+                Please review the Event Viewer dashboard for detailed analysis and take appropriate action.
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</body>
+</html>
