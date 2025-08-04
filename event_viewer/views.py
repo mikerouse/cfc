@@ -19,6 +19,8 @@ import csv
 
 from .models import SystemEvent, EventSummary
 from council_finance.models import ActivityLog
+from .services.analytics_service import analytics_service
+from .services.correlation_engine import correlation_engine
 
 
 def superuser_required(view_func):
@@ -38,26 +40,24 @@ def dashboard(request):
     last_24h = now - timedelta(hours=24)
     last_week = now - timedelta(days=7)
     
-    # Recent events breakdown
+    # Enhanced health metrics with analytics
     recent_events = SystemEvent.objects.filter(timestamp__gte=last_24h)
+    health_score_data = analytics_service.calculate_system_health_score(days_back=7)
+    
     health_metrics = {
         'total_events_24h': recent_events.count(),
         'critical_events_24h': recent_events.filter(level='critical').count(),
         'error_events_24h': recent_events.filter(level='error').count(),
         'warning_events_24h': recent_events.filter(level='warning').count(),
         'unresolved_events': SystemEvent.objects.filter(resolved=False, level__in=['critical', 'error']).count(),
+        'health_score': health_score_data['total_score'],
+        'health_components': health_score_data['component_scores'],
     }
     
-    # Calculate health score (0-100)
-    health_score = 100
-    if health_metrics['critical_events_24h'] > 0:
-        health_score -= min(health_metrics['critical_events_24h'] * 20, 60)
-    if health_metrics['error_events_24h'] > 5:
-        health_score -= min((health_metrics['error_events_24h'] - 5) * 5, 30)
-    if health_metrics['unresolved_events'] > 0:
-        health_score -= min(health_metrics['unresolved_events'] * 10, 40)
-    
-    health_metrics['health_score'] = max(health_score, 0)
+    # Get error patterns and trends
+    error_patterns = correlation_engine.detect_error_patterns(hours_back=24)
+    trend_analysis = analytics_service.get_trend_analysis(days_back=7)
+    source_analysis = analytics_service.get_event_source_analysis(days_back=7)
     
     # Recent activity (mix of SystemEvents and ActivityLog)
     recent_system_events = SystemEvent.objects.select_related('user').filter(
@@ -90,6 +90,9 @@ def dashboard(request):
         'recent_system_events': recent_system_events,
         'recent_user_activity': recent_user_activity,
         'trend_data': json.dumps(trend_data),
+        'error_patterns': error_patterns[:5],  # Show top 5 patterns
+        'trend_analysis': trend_analysis,
+        'source_analysis': source_analysis[:10],  # Show top 10 sources
         'last_updated': now,
     }
     
@@ -186,8 +189,14 @@ def event_detail(request, event_id):
     """
     event = get_object_or_404(SystemEvent, id=event_id)
     
-    # Get similar events
-    similar_events = event.get_similar_events(limit=5)
+    # Get correlated events using the correlation engine
+    related_events = correlation_engine.find_related_events(event)
+    
+    # Get similar events (fallback method)
+    try:
+        similar_events = event.get_similar_events(limit=5)
+    except AttributeError:
+        similar_events = []
     
     # Format details for display
     formatted_details = {}
@@ -197,6 +206,7 @@ def event_detail(request, event_id):
     context = {
         'page_title': f'Event: {event.title}',
         'event': event,
+        'related_events': related_events,
         'similar_events': similar_events,
         'formatted_details': formatted_details,
     }

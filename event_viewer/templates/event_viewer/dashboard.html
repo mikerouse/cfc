@@ -112,6 +112,103 @@
         </div>
     </div>
 
+    <!-- Enhanced Analytics Section -->
+    {% if error_patterns %}
+    <div class="events-list" style="margin-bottom: 30px;">
+        <h2>🚨 Detected Error Patterns</h2>
+        {% for pattern in error_patterns %}
+        <div class="event-item" style="border-left: 4px solid {% if pattern.severity == 'high' %}#d4351c{% else %}#f47738{% endif %};">
+            <div>
+                <strong>{{ pattern.title }}</strong>
+                <br>
+                <small>{{ pattern.description }} | Severity: {{ pattern.severity|upper }}</small>
+            </div>
+            <div style="color: {% if pattern.severity == 'high' %}#d4351c{% else %}#f47738{% endif %};">
+                {{ pattern.count }} events
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <!-- Health Score Components -->
+    <div class="grid" style="margin-bottom: 30px;">
+        <div class="card">
+            <h2>Error Rate Score</h2>
+            <div class="stat" style="color: {% if health_metrics.health_components.error_rate > 80 %}#00703c{% elif health_metrics.health_components.error_rate > 60 %}#f47738{% else %}#d4351c{% endif %};">
+                {{ health_metrics.health_components.error_rate|floatformat:1 }}
+            </div>
+            <small>Higher is better</small>
+        </div>
+        <div class="card">
+            <h2>Critical Events Score</h2>
+            <div class="stat" style="color: {% if health_metrics.health_components.critical_events > 80 %}#00703c{% elif health_metrics.health_components.critical_events > 60 %}#f47738{% else %}#d4351c{% endif %};">
+                {{ health_metrics.health_components.critical_events|floatformat:1 }}
+            </div>
+            <small>Fewer critical events = higher score</small>
+        </div>
+        <div class="card">
+            <h2>Security Score</h2>
+            <div class="stat" style="color: {% if health_metrics.health_components.security_incidents > 80 %}#00703c{% elif health_metrics.health_components.security_incidents > 60 %}#f47738{% else %}#d4351c{% endif %};">
+                {{ health_metrics.health_components.security_incidents|floatformat:1 }}
+            </div>
+            <small>Fewer security incidents = higher score</small>
+        </div>
+        <div class="card">
+            <h2>System Availability</h2>
+            <div class="stat" style="color: {% if health_metrics.health_components.system_availability > 80 %}#00703c{% elif health_metrics.health_components.system_availability > 60 %}#f47738{% else %}#d4351c{% endif %};">
+                {{ health_metrics.health_components.system_availability|floatformat:1 }}
+            </div>
+            <small>Based on error patterns</small>
+        </div>
+    </div>
+
+    <!-- Top Error Sources -->
+    {% if source_analysis %}
+    <div class="events-list" style="margin-bottom: 30px;">
+        <h2>📊 Top Error Sources (Last 7 Days)</h2>
+        {% for source in source_analysis %}
+        <div class="event-item">
+            <div>
+                <strong>{{ source.source|title }}</strong>
+                <br>
+                <small>{{ source.total_events }} total events | {{ source.error_rate }}% error rate</small>
+            </div>
+            <div style="color: {% if source.error_rate > 20 %}#d4351c{% elif source.error_rate > 10 %}#f47738{% else %}#00703c{% endif %};">
+                {{ source.error_events }} errors
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <!-- Trend Analysis -->
+    {% if trend_analysis %}
+    <div class="events-list" style="margin-bottom: 30px;">
+        <h2>📈 System Trends</h2>
+        <div class="event-item">
+            <div>
+                <strong>Error Trend (7 days)</strong>
+                <br>
+                <small>Direction: {{ trend_analysis.error_trend.direction|title }} | Strength: {{ trend_analysis.error_trend.strength }}</small>
+            </div>
+            <div style="color: {% if trend_analysis.error_trend.direction == 'decreasing' %}#00703c{% elif trend_analysis.error_trend.direction == 'stable' %}#626a6e{% else %}#d4351c{% endif %};">
+                {% if trend_analysis.error_trend.direction == 'increasing' %}⬆️{% elif trend_analysis.error_trend.direction == 'decreasing' %}⬇️{% else %}➡️{% endif %}
+            </div>
+        </div>
+        <div class="event-item">
+            <div>
+                <strong>Average Errors per Day</strong>
+                <br>
+                <small>Based on last 7 days of data</small>
+            </div>
+            <div style="color: #1d70b8;">
+                {{ trend_analysis.average_errors_per_day|floatformat:1 }}
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
     <div class="events-list">
         <h2>Recent System Events</h2>
         {% for event in recent_system_events %}
