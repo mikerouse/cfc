@@ -119,6 +119,7 @@ urlpatterns = [
     path("api/github/stats/", github_stats_api, name="github_stats_api"),
     path("api/github/contributors/", github_contributors_api, name="github_contributors_api"),
     path("admin/", admin.site.urls),
+    path("admin/events/", include("event_viewer.urls")),  # Event Viewer for superadmins
     path("plugins/", include("core.urls")),
     # Authentication endpoints
     path(

@@ -59,6 +59,9 @@ class ErrorAlertingMiddleware:
             return None
         
         try:
+            # Create SystemEvent record for all alertable errors
+            self._create_system_event(exception, request)
+            
             # Special handling for template errors
             if isinstance(exception, TemplateDoesNotExist):
                 template_name = str(exception) if hasattr(exception, 'template_name') else str(exception)
@@ -135,3 +138,29 @@ class ErrorAlertingMiddleware:
             })
         
         return context
+    
+    def _create_system_event(self, exception, request):
+        """Create a SystemEvent record for database tracking."""
+        try:
+            # Import here to avoid circular imports
+            from event_viewer.models import SystemEvent
+            
+            # Only create events for alertable errors
+            if isinstance(exception, self.alertable_errors) or not isinstance(exception, self.ignored_errors):
+                context = self._get_error_context(exception, request)
+                
+                # Create SystemEvent with additional middleware context
+                SystemEvent.create_from_exception(
+                    exception=exception,
+                    request=request,
+                    source='middleware',
+                    extra_context={
+                        'middleware_context': context,
+                        'alert_type': context.get('alert_type', 'UnknownError'),
+                        'suggested_action': context.get('suggested_action', 'Review error details'),
+                    }
+                )
+                
+        except Exception as event_creation_error:
+            # Don't let event creation errors break the main application
+            logger.error(f"Failed to create SystemEvent: {event_creation_error}")
