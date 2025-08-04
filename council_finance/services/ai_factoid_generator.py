@@ -232,8 +232,20 @@ class AIFactoidGenerator:
             "council": {
                 "name": council.name,
                 "slug": council.slug,
-                "type": str(getattr(council, 'council_type', 'Council')),
-                "nation": data.get('context', {}).get('nation', 'Unknown')
+                "type": {
+                    "name": str(council.council_type) if council.council_type else 'Unknown',
+                    "tier_level": council.council_type.tier_level if council.council_type else None,
+                    "tier_name": council.council_type.tier_name if council.council_type else None,
+                    "typical_responsibilities": council.council_type.description if council.council_type else None,
+                    "council_count_uk": council.council_type.council_count if council.council_type else None
+                },
+                "nation": {
+                    "name": council.council_nation.name if council.council_nation else 'Unknown',
+                    "total_population": council.council_nation.total_population if council.council_nation else None,
+                    "council_count": council.council_nation.council_count if council.council_nation else None,
+                    "capital_city": council.council_nation.capital_city if council.council_nation else None,
+                    "population_density": council.council_nation.population_density if council.council_nation else None
+                }
             },
             "population": population_info,
             "financial_data": financial_data,
@@ -251,11 +263,34 @@ class AIFactoidGenerator:
         # Convert to formatted JSON string
         json_data_str = json.dumps(council_json_data, indent=2)
         
+        # Extract council context for enhanced prompt
+        council_type_name = council.council_type.name if council.council_type else 'Council'
+        tier_info = f" (Tier {council.council_type.tier_level} - {council.council_type.tier_name})" if council.council_type and council.council_type.tier_level else ""
+        nation_name = council.council_nation.name if council.council_nation else 'UK'
+        
+        # Build nation context safely
+        nation_context = ""
+        if council.council_nation and council.council_nation.total_population:
+            nation_context = f"- Located in {nation_name} (population: {council.council_nation.total_population:,}, {council.council_nation.council_count} councils)"
+        else:
+            nation_context = f"- Located in {nation_name}"
+        
+        # Build governance context safely
+        governance_context = "Local government services"
+        if council.council_type and council.council_type.description:
+            governance_context = council.council_type.description[:100] + ('...' if len(council.council_type.description) > 100 else '')
+        
         prompt = f"""
 You are a financial analyst specializing in UK local government finances. Analyze the complete financial dataset below and generate {limit} engaging factoids in news ticker style.
 
 COMPLETE FINANCIAL DATASET (JSON):
 {json_data_str}
+
+COUNCIL CONTEXT:
+- This is a {council_type_name}{tier_info} authority
+- One of {council.council_type.council_count if council.council_type and council.council_type.council_count else 'many'} {council_type_name} authorities in the UK
+{nation_context}
+- Governance responsibilities: {governance_context}
 
 ANALYSIS REQUIREMENTS:
 - Generate exactly {limit} factoids
@@ -265,6 +300,8 @@ ANALYSIS REQUIREMENTS:
 - Write in engaging news ticker style (like BBC/Sky News tickers)
 - Look for year-over-year changes, multi-year trends, and notable figures
 - Prioritize the most significant financial insights
+- Consider tier-appropriate performance expectations for this {council_type_name}
+- Include nation-level context where relevant for {nation_name} councils
 - Use UK currency formatting (GBP X.XM for millions to avoid encoding issues)
 
 INSIGHT TYPES TO CONSIDER:

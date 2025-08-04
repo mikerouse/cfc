@@ -1,0 +1,293 @@
+{% extends "base.html" %}
+{% load static %}
+{% block title %}Import Preview - Council Finance Counters{% endblock %}
+
+{% block content %}
+<div class="min-h-screen" style="background: #f3f2f1;">
+  <!-- GOV.UK-style Header -->
+  <div style="background: #1d70b8; color: white; border-bottom: 2px solid #144e81;">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <nav class="flex py-3 text-sm" aria-label="Breadcrumb">
+        <ol class="inline-flex items-center space-x-2">
+          <li class="inline-flex items-center">
+            <a href="{% url 'god_mode' %}" class="inline-flex items-center" style="color: #b3d1f2; text-decoration: none;" 
+               onmouseover="this.style.color='white'" onmouseout="this.style.color='#b3d1f2'">
+              <span style="margin-right: 8px;">🏠</span>
+              Zeus God Mode
+            </a>
+          </li>
+          <li style="color: #b3d1f2;">›</li>
+          <li>
+            <a href="{% url 'council_management_dashboard' %}" class="inline-flex items-center" style="color: #b3d1f2; text-decoration: none;" 
+               onmouseover="this.style.color='white'" onmouseout="this.style.color='#b3d1f2'">
+              <span style="margin-right: 8px;">🏛️</span>
+              Council Management
+            </a>
+          </li>
+          <li style="color: #b3d1f2;">›</li>
+          <li>
+            <span style="color: white; font-weight: bold;">📥 Import Preview</span>
+          </li>
+        </ol>
+      </nav>
+    </div>
+  </div>
+
+  <!-- Page Header -->
+  <div style="background: white; border-bottom: 2px solid #b1b4b6;">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="py-6">
+        <h1 style="font-size: 32px; font-weight: bold; color: #0b0c0c; margin: 0 0 8px 0; line-height: 1.2;">
+          Import Preview
+        </h1>
+        <p style="color: #626a6e; font-size: 16px; margin: 0;">
+          Review the councils that will be imported from <strong>{{ file_name }}</strong>
+        </p>
+        <div style="margin-top: 8px;">
+          <span style="background: #00703c; color: white; padding: 4px 8px; font-size: 12px; font-weight: bold; text-transform: uppercase;">{{ total_rows }} councils found</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Main Content -->
+  <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+    
+    <!-- Summary Card -->
+    <div id="import-summary" style="background: white; border: 2px solid #b1b4b6; padding: 24px; margin-bottom: 24px;">
+      <h2 style="font-size: 24px; font-weight: bold; color: #0b0c0c; margin: 0 0 16px 0;">Import Summary</h2>
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div style="text-align: center; padding: 16px; background: #f3f2f1; border: 1px solid #b1b4b6;">
+          <div style="font-size: 32px; font-weight: bold; color: #1d70b8;">{{ total_rows }}</div>
+          <div style="font-size: 14px; color: #626a6e; text-transform: uppercase; font-weight: bold;">Total Records</div>
+        </div>
+        <div style="text-align: center; padding: 16px; background: #f3f2f1; border: 1px solid #b1b4b6;">
+          <div style="font-size: 32px; font-weight: bold; color: #00703c;">{{ preview_data|length }}</div>
+          <div style="font-size: 14px; color: #626a6e; text-transform: uppercase; font-weight: bold;">Showing Preview</div>
+        </div>
+        <div style="text-align: center; padding: 16px; background: #f3f2f1; border: 1px solid #b1b4b6;">
+          <div style="font-size: 32px; font-weight: bold; color: #f47738;">~{{ total_rows|add:total_rows }} min</div>
+          <div style="font-size: 14px; color: #626a6e; text-transform: uppercase; font-weight: bold;">Est. Import Time</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Preview Table -->
+    <div id="preview-table" style="background: white; border: 2px solid #b1b4b6; overflow: hidden; margin-bottom: 24px;">
+      <div style="background: #f3f2f1; border-bottom: 2px solid #b1b4b6; padding: 16px;">
+        <h3 style="font-size: 20px; font-weight: bold; color: #0b0c0c; margin: 0;">
+          Data Preview (First {{ preview_data|length }} records)
+        </h3>
+      </div>
+      
+      {% if preview_data %}
+      <div class="overflow-x-auto">
+        <table style="width: 100%; border-collapse: collapse;">
+          <thead style="background: #f3f2f1; border-bottom: 2px solid #b1b4b6;">
+            <tr>
+              {% for key in preview_data.0.keys %}
+              <th scope="col" style="padding: 12px 16px; text-align: left; font-size: 14px; font-weight: bold; color: #0b0c0c; text-transform: uppercase;">
+                {{ key }}
+              </th>
+              {% endfor %}
+            </tr>
+          </thead>
+          <tbody style="background: white;">
+            {% for row in preview_data %}
+            <tr style="border-bottom: 1px solid #b1b4b6;" 
+                onmouseover="this.style.background='#f8f8f8'" 
+                onmouseout="this.style.background='white'">
+              {% for key, value in row.items %}
+              <td style="padding: 12px 16px; font-size: 14px; color: #0b0c0c; white-space: nowrap; max-width: 200px; overflow: hidden; text-overflow: ellipsis;">
+                {% if value %}
+                  {{ value|truncatechars:30 }}
+                {% else %}
+                  <span style="color: #626a6e; font-style: italic;">empty</span>
+                {% endif %}
+              </td>
+              {% endfor %}
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+      <div style="text-align: center; padding: 48px 24px;">
+        <div style="font-size: 48px; margin-bottom: 16px;">📄</div>
+        <h3 style="font-size: 24px; font-weight: bold; color: #0b0c0c; margin: 0 0 8px 0;">No data to preview</h3>
+        <p style="font-size: 16px; color: #626a6e; margin: 0;">The uploaded file appears to be empty or could not be parsed.</p>
+      </div>
+      {% endif %}
+    </div>
+
+    <!-- Import Confirmation -->
+    <div id="import-confirmation" style="background: white; border: 2px solid #b1b4b6; padding: 24px;">
+      <h3 style="font-size: 20px; font-weight: bold; color: #0b0c0c; margin: 0 0 16px 0;">
+        Confirm Import
+      </h3>
+      
+      <div style="background: #fff2f2; border: 2px solid #f47738; padding: 16px; margin-bottom: 24px;">
+        <h4 style="font-size: 16px; font-weight: bold; color: #f47738; margin: 0 0 8px 0;">⚠️ Important Notes</h4>
+        <ul style="margin: 0; padding-left: 20px; color: #0b0c0c; line-height: 1.5;">
+          <li>This will create <strong>{{ total_rows }} new councils</strong> in the system</li>
+          <li>Existing councils with the same name or slug will be skipped</li>
+          <li>Missing required data will cause records to be skipped with errors</li>
+          <li>Data contribution opportunities will be automatically generated</li>
+          <li>This operation cannot be easily undone</li>
+        </ul>
+      </div>
+
+      <form method="POST" action="{% url 'bulk_import_councils' %}">
+        {% csrf_token %}
+        <input type="hidden" name="confirm_import" value="1">
+        
+        <div style="display: flex; gap: 12px; justify-content: flex-end;">
+          <a href="{% url 'cancel_import' %}" 
+             style="display: inline-flex; align-items: center; padding: 12px 20px; background: #f3f2f1; color: #0b0c0c; font-size: 16px; font-weight: bold; text-decoration: none; border: 2px solid #b1b4b6;"
+             onmouseover="this.style.background='#e6e5e4'" onmouseout="this.style.background='#f3f2f1'"
+             onclick="logImportAction('preview_cancelled', {{ total_rows }})">
+            ❌ Cancel Import
+          </a>
+          
+          <button type="submit" 
+                  style="display: inline-flex; align-items: center; padding: 12px 20px; background: #00703c; color: white; font-size: 16px; font-weight: bold; border: 2px solid #00703c; cursor: pointer;"
+                  onmouseover="this.style.background='#005a30'" onmouseout="this.style.background='#00703c'"
+                  onclick="logImportAction('import_confirmed', {{ total_rows }})">
+            ✅ Confirm Import ({{ total_rows }} councils)
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<script>
+// Enhanced import preview analytics and error reporting
+const ImportPreviewAnalytics = {
+  // Log import preview events to Event Viewer
+  logEvent: function(source, level, category, title, message, details = {}) {
+    fetch('/api/event-viewer/log/', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+      },
+      body: JSON.stringify({
+        source: source,
+        level: level,
+        category: category,
+        title: title,
+        message: message,
+        details: details,
+        request_path: window.location.pathname,
+        timestamp: new Date().toISOString()
+      })
+    }).catch(error => {
+      console.error('Failed to log import event:', error);
+    });
+  },
+
+  // Track user actions in import preview
+  trackUserAction: function(action, details = {}) {
+    this.logEvent(
+      'council_import',
+      'info',
+      'user_activity',
+      `Council Import Preview: ${action}`,
+      `User performed ${action} in import preview`,
+      {
+        action: action,
+        total_records: {{ total_rows }},
+        preview_records: {{ preview_data|length }},
+        file_name: '{{ file_name|escapejs }}',
+        ...details
+      }
+    );
+  },
+
+  // Track errors in import preview
+  trackError: function(error, context) {
+    this.logEvent(
+      'council_import',
+      'error',
+      'exception',
+      'Council Import Preview Error',
+      error.message || error.toString(),
+      {
+        error_type: error.name || 'Error',
+        context: context,
+        stack_trace: error.stack,
+        user_agent: navigator.userAgent,
+        total_records: {{ total_rows }},
+        file_name: '{{ file_name|escapejs }}'
+      }
+    );
+  }
+};
+
+// Global function for logging import actions
+function logImportAction(action, recordCount, details = {}) {
+  try {
+    ImportPreviewAnalytics.trackUserAction(action, {
+      record_count: recordCount,
+      timestamp: new Date().toISOString(),
+      ...details
+    });
+  } catch (error) {
+    console.error('Failed to log import action:', error);
+  }
+}
+
+// Initialize page analytics
+document.addEventListener('DOMContentLoaded', function() {
+  try {
+    // Log preview page access
+    ImportPreviewAnalytics.trackUserAction('preview_page_loaded', {
+      load_time: performance.now(),
+      timestamp: new Date().toISOString()
+    });
+
+    // Monitor for JavaScript errors
+    window.addEventListener('error', function(event) {
+      ImportPreviewAnalytics.trackError(event.error || new Error(event.message), 'global_error_handler');
+    });
+
+    // Monitor for unhandled promise rejections
+    window.addEventListener('unhandledrejection', function(event) {
+      ImportPreviewAnalytics.trackError(new Error(event.reason), 'unhandled_promise_rejection');
+    });
+
+    // Track table interactions
+    const previewTable = document.getElementById('preview-table');
+    if (previewTable) {
+      let interactionCount = 0;
+      previewTable.addEventListener('scroll', function() {
+        interactionCount++;
+        if (interactionCount === 1) { // Log first scroll interaction
+          ImportPreviewAnalytics.trackUserAction('preview_table_scrolled', {
+            scroll_position: this.scrollLeft
+          });
+        }
+      });
+    }
+
+  } catch (error) {
+    console.error('Error initializing import preview analytics:', error);
+  }
+});
+
+// Track page unload for session analytics
+window.addEventListener('beforeunload', function() {
+  try {
+    ImportPreviewAnalytics.trackUserAction('preview_page_unloaded', {
+      session_duration: performance.now(),
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    // Silently fail on page unload
+    console.error('Failed to log page unload:', error);
+  }
+});
+</script>
+
+{% endblock %}
