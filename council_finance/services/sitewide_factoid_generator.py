@@ -119,7 +119,13 @@ class SitewideFactoidGenerator(AIFactoidGenerator):
                         'council__name', 
                         'council__slug',
                         'council__council_type__name',
+                        'council__council_type__tier_level',
+                        'council__council_type__tier_name',
+                        'council__council_type__council_count',
                         'council__council_nation__name',
+                        'council__council_nation__total_population',
+                        'council__council_nation__council_count',
+                        'council__council_nation__population_density',
                         'value'
                     )
                     
@@ -131,7 +137,13 @@ class SitewideFactoidGenerator(AIFactoidGenerator):
                                 'council_name': figure['council__name'],
                                 'council_slug': figure['council__slug'],
                                 'council_type': figure['council__council_type__name'],
+                                'council_tier_level': figure['council__council_type__tier_level'],
+                                'council_tier_name': figure['council__council_type__tier_name'],
+                                'council_type_count_uk': figure['council__council_type__council_count'],
                                 'council_nation': figure['council__council_nation__name'],
+                                'nation_population': figure['council__council_nation__total_population'],
+                                'nation_council_count': figure['council__council_nation__council_count'],
+                                'nation_density': figure['council__council_nation__population_density'],
                                 'value': value
                             })
                         except (ValueError, TypeError):
@@ -549,6 +561,9 @@ class SitewideFactoidGenerator(AIFactoidGenerator):
     def _build_sitewide_analysis_prompt(self, data: Dict, limit: int) -> str:
         """Build AI prompt for site-wide cross-council analysis."""
         
+        # Add governance context for AI analysis
+        governance_context = self._build_governance_context()
+        
         # Format data for analysis
         json_data_str = json.dumps({
             'analysis_year': data['year'],
@@ -557,7 +572,8 @@ class SitewideFactoidGenerator(AIFactoidGenerator):
             'council_type_comparisons': data['type_comparisons'],
             'nation_comparisons': data['nation_comparisons'],
             'outlier_analysis': data.get('outlier_analysis', {}),
-            'efficiency_patterns': data.get('efficiency_analysis', {})
+            'efficiency_patterns': data.get('efficiency_analysis', {}),
+            'governance_context': governance_context
         }, indent=2)
         
         return f"""
@@ -574,13 +590,15 @@ ANALYSIS REQUIREMENTS:
 5. Use formats like: "[Council A] paid 30% more than [Council B] despite having lower population"
 6. Make council names clickable links using format: <a href="/councils/SLUG/">COUNCIL NAME</a>
 7. Keep each factoid to 1-2 sentences maximum
-8. Focus on unexpected patterns that challenge assumptions:
-   - Small councils outperforming large ones
-   - Efficiency surprises (large councils being surprisingly lean)
-   - Contrarian patterns (opposite of what you'd expect)
-   - Cross-metric efficiency patterns
+8. Focus on governance-aware patterns that consider council responsibilities:
+   - Tier-based comparisons: "Tier 1 (Unitary) vs Tier 2 (County) vs Tier 3 (District) efficiency"
+   - Nation-level insights leveraging population context: "England (57M population, 343 councils) vs Scotland (5.4M, 32 councils)"
+   - Size-adjusted comparisons using nation data: "Despite {nation} having {population:,} residents, {council} spends less than {other_council}"
+   - Governance complexity insights: "{council_type} authorities typically handle {tier_responsibilities} but {council} shows unusual pattern"
+   - Cross-nation governance: "Scottish {council_type}s consistently outperform English {council_type}s in {metric}"
+   - Population density patterns: Rural vs urban efficiency using nation density data
 9. Use UK English spelling and terminology
-10. Prefer insights that reveal genuine surprises over obvious comparisons
+10. Prefer insights that challenge governance assumptions over obvious size comparisons
 
 RESPONSE FORMAT:
 Return exactly {limit} factoids as a JSON array:
@@ -595,16 +613,65 @@ Return exactly {limit} factoids as a JSON array:
 
 INSIGHT TYPES:
 - "direct_comparison": Two specific councils compared
-- "type_comparison": Council types compared (metropolitan vs unitary)
-- "nation_comparison": Nations compared (England vs Scotland)
+- "type_comparison": Council types compared (Unitary vs County vs District)
+- "tier_comparison": Governance tier analysis (Tier 1 vs Tier 2 vs Tier 3 efficiency)
+- "nation_comparison": Nations compared using population and council count context
+- "governance_complexity": Analysis considering tier responsibilities and scope
+- "population_density_pattern": Urban vs rural efficiency insights
 - "outlier_analysis": Unusual patterns or outliers identified
-- "efficiency_surprise": Large council surprisingly efficient or small council surprisingly inefficient
-- "size_mismatch": Performance that contradicts council size expectations
-- "contrarian_pattern": Council behaving opposite to what size/type would suggest
-- "efficiency_leader": Council consistently outperforming across multiple metrics
+- "efficiency_surprise": Performance contradicting governance tier expectations
+- "size_mismatch": Performance that contradicts nation/tier size expectations
+- "contrarian_pattern": Council behaving opposite to governance structure expectations
+- "cross_nation_governance": Same tier types performing differently across nations
 
 Generate insights that would engage users and encourage them to explore specific councils.
 """
+    
+    def _build_governance_context(self) -> Dict[str, Any]:
+        """Build governance context for AI analysis."""
+        try:
+            from council_finance.models import CouncilType, CouncilNation
+            
+            # Get tier distribution
+            tier_distribution = {}
+            for tier in range(1, 6):
+                tier_types = CouncilType.objects.filter(tier_level=tier, is_active=True)
+                if tier_types.exists():
+                    tier_distribution[tier] = {
+                        'tier_name': tier_types.first().tier_name,
+                        'types': list(tier_types.values_list('name', flat=True)),
+                        'total_councils': sum(ct.council_count or 0 for ct in tier_types)
+                    }
+            
+            # Get nation statistics
+            nation_stats = {}
+            for nation in CouncilNation.objects.all():
+                nation_stats[nation.name] = {
+                    'population': nation.total_population,
+                    'councils': nation.council_count,
+                    'density': nation.population_density,
+                    'capital': nation.capital_city
+                }
+            
+            # Get council type complexities
+            type_complexities = {}
+            for ct in CouncilType.objects.filter(is_active=True):
+                type_complexities[ct.name] = {
+                    'tier': ct.tier_level,
+                    'tier_name': ct.tier_name,
+                    'count': ct.council_count,
+                    'scope': ct.description[:100] + '...' if ct.description and len(ct.description) > 100 else ct.description or ''
+                }
+            
+            return {
+                'tier_distribution': tier_distribution,
+                'nation_stats': nation_stats,
+                'type_complexities': type_complexities
+            }
+            
+        except Exception as e:
+            logger.error(f"Error building governance context: {e}")
+            return {}
     
     def _parse_ai_sitewide_response(self, content: str, data: Dict) -> List[Dict[str, Any]]:
         """Parse AI response into structured factoid data."""
