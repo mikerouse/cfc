@@ -37,7 +37,7 @@ class ActivityStoryGenerator:
                 return self._fallback_story(activity_log)
             
             # Generate story based on activity type and field
-            if activity_log.activity_type in ['create', 'update'] and 'field_name' in details:
+            if activity_log.activity_type in ['create', 'update', 'data_edit'] and 'field_name' in details:
                 return self._generate_financial_story(activity_log, details)
             else:
                 return self._fallback_story(activity_log)
@@ -120,7 +120,7 @@ class ActivityStoryGenerator:
                 value = Decimal(str(value))
             
             # Format based on field type and magnitude
-            if field.category in ['financial', 'income', 'balance_sheet', 'spending']:
+            if field.category in ['financial', 'income', 'balance_sheet', 'spending', 'calculated']:
                 if value >= 1_000_000:
                     return f"£{value / 1_000_000:.1f}m"
                 elif value >= 1_000:

@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Feed Display Enhancement Preview</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 p-8">
+    <div class="max-w-2xl mx-auto space-y-8">
+        <h1 class="text-3xl font-bold text-gray-900 mb-6">Feed Display Enhancement Preview</h1>
+        
+        <!-- Before (Cornwall issue) -->
+        <div class="space-y-4">
+            <h2 class="text-xl font-semibold text-red-600">❌ Before Fix (Cornwall-style issue)</h2>
+            <article class="bg-white rounded-xl border border-gray-200 p-6">
+                <div class="flex items-start justify-between mb-4">
+                    <div class="flex items-center gap-3">
+                        <div class="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center text-white font-semibold text-sm">C</div>
+                        <div>
+                            <h3 class="font-semibold text-gray-900">Cornwall Council</h3>
+                            <div class="flex items-center gap-2 text-sm text-gray-500">
+                                <span>7 hours ago</span>
+                                <span>•</span>
+                                <span>by admin</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-1 px-2 py-1 bg-blue-100 text-blue-700 rounded-md text-xs font-medium">
+                        <span>Updated</span>
+                    </div>
+                </div>
+                
+                <!-- Basic Story (No Financial Highlight) -->
+                <div class="mb-4">
+                    <p class="text-gray-900 leading-relaxed">Updated Current Liabilities for Cornwall Council (2024/25)</p>
+                </div>
+                
+                <div class="flex items-center justify-between pt-4 border-t border-gray-100">
+                    <div class="flex items-center gap-4">
+                        <button class="flex items-center gap-1 text-sm text-gray-500">
+                            <span>👍</span>
+                            <span>0</span>
+                        </button>
+                        <button class="flex items-center gap-1 text-sm text-gray-500">
+                            <span>💬</span>
+                            <span>0</span>
+                        </button>
+                    </div>
+                    <a href="#" class="text-sm text-blue-600 hover:text-blue-800 font-medium">View Council →</a>
+                </div>
+            </article>
+        </div>
+        
+        <!-- After (Enhanced with financial data) -->
+        <div class="space-y-4">
+            <h2 class="text-xl font-semibold text-green-600">✅ After Fix (Enhanced financial display)</h2>
+            <article class="bg-white rounded-xl border border-gray-200 p-6">
+                <div class="flex items-start justify-between mb-4">
+                    <div class="flex items-center gap-3">
+                        <div class="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center text-white font-semibold text-sm">C</div>
+                        <div>
+                            <h3 class="font-semibold text-gray-900">Cornwall Council</h3>
+                            <div class="flex items-center gap-2 text-sm text-gray-500">
+                                <span>7 hours ago</span>
+                                <span>•</span>
+                                <span>by admin</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-1 px-2 py-1 bg-blue-100 text-blue-700 rounded-md text-xs font-medium">
+                        <span>Updated</span>
+                    </div>
+                </div>
+                
+                <!-- Rich Financial Story -->
+                <div class="mb-4">
+                    <div class="space-y-3">
+                        <p class="text-gray-900 leading-relaxed">
+                            Cornwall Council's Current Liabilities for 2024/25 has been recorded as £50.0m. This was +11.1% increased from the previous period, representing a moderate change.
+                        </p>
+                        
+                        <!-- Enhanced Financial Highlight -->
+                        <div class="relative bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-100 rounded-xl p-6 overflow-hidden">
+                            <!-- Background Pattern -->
+                            <div class="absolute inset-0 opacity-5">
+                                <svg class="w-full h-full" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+                                    <defs>
+                                        <pattern id="grid" width="10" height="10" patternUnits="userSpaceOnUse">
+                                            <path d="M 10 0 L 0 0 0 10" fill="none" stroke="#3B82F6" stroke-width="0.5"/>
+                                        </pattern>
+                                    </defs>
+                                    <rect width="100" height="100" fill="url(#grid)" />
+                                </svg>
+                            </div>
+                            
+                            <div class="relative flex items-center justify-between">
+                                <div class="flex-1 min-w-0">
+                                    <div class="text-sm font-semibold text-blue-800 uppercase tracking-wide">Current Liabilities</div>
+                                    <div class="text-xs text-blue-600 font-medium mt-1">Financial Year 2024/25</div>
+                                    <div class="text-xs text-blue-500 mt-1">among the highest for Unitary Authority councils</div>
+                                </div>
+                                
+                                <div class="text-right ml-4">
+                                    <div class="text-2xl font-black text-blue-900 leading-none">£50.0m</div>
+                                    <div class="flex items-center justify-end mt-2">
+                                        <svg class="w-4 h-4 text-green-600 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                                            <path fill-rule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clip-rule="evenodd"/>
+                                        </svg>
+                                        <span class="text-sm font-bold text-green-600">+11.1%</span>
+                                    </div>
+                                    <div class="text-xs text-gray-600 mt-1">from previous year</div>
+                                </div>
+                            </div>
+                            
+                            <!-- Council Badge -->
+                            <div class="absolute top-2 right-2">
+                                <div class="bg-white/80 backdrop-blur-sm rounded-full px-2 py-1 text-xs font-medium text-blue-800 border border-blue-200">
+                                    Cornwall Council
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="flex items-center justify-between pt-4 border-t border-gray-100">
+                    <div class="flex items-center gap-4">
+                        <button class="flex items-center gap-1 text-sm text-gray-500 hover:text-blue-600 transition-colors">
+                            <span>👍</span>
+                            <span>0</span>
+                        </button>
+                        <button class="flex items-center gap-1 text-sm text-gray-500 hover:text-blue-600 transition-colors">
+                            <span>💬</span>
+                            <span>0</span>
+                        </button>
+                        <button class="flex items-center gap-1 text-sm text-gray-500 hover:text-blue-600 transition-colors">
+                            <span>🔗</span>
+                            <span>Share</span>
+                        </button>
+                    </div>
+                    <a href="#" class="text-sm text-blue-600 hover:text-blue-800 font-medium">View Council →</a>
+                </div>
+            </article>
+        </div>
+        
+        <!-- Aberdeen comparison (working case) -->
+        <div class="space-y-4">
+            <h2 class="text-xl font-semibold text-blue-600">✅ Aberdeen (Already working, for comparison)</h2>
+            <article class="bg-white rounded-xl border border-gray-200 p-6">
+                <div class="flex items-start justify-between mb-4">
+                    <div class="flex items-center gap-3">
+                        <div class="w-10 h-10 bg-red-600 rounded-lg flex items-center justify-center text-white font-semibold text-sm">A</div>
+                        <div>
+                            <h3 class="font-semibold text-gray-900">Aberdeen City Council</h3>
+                            <div class="flex items-center gap-2 text-sm text-gray-500">
+                                <span>1 day ago</span>
+                                <span>•</span>
+                                <span>by admin</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-1 px-2 py-1 bg-green-100 text-green-700 rounded-md text-xs font-medium">
+                        <span>Added</span>
+                    </div>
+                </div>
+                
+                <div class="mb-4">
+                    <p class="text-gray-900 leading-relaxed">Aberdeen City Council's Business Rates Income for 2024/25 has been recorded as £89.5m.</p>
+                    
+                    <!-- Simple highlight box (Aberdeen style) -->
+                    <div class="bg-gray-50 rounded-lg p-4 mt-3">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <div class="text-sm font-medium text-gray-700">Business Rates Income</div>
+                                <div class="text-xs text-gray-500">2024/25</div>
+                            </div>
+                            <div class="text-right">
+                                <div class="text-lg font-bold text-gray-900">£89.5m</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="flex items-center justify-between pt-4 border-t border-gray-100">
+                    <div class="flex items-center gap-4">
+                        <button class="flex items-center gap-1 text-sm text-gray-500">
+                            <span>👍</span>
+                            <span>0</span>
+                        </button>
+                        <button class="flex items-center gap-1 text-sm text-gray-500">
+                            <span>💬</span>
+                            <span>0</span>
+                        </button>
+                    </div>
+                    <a href="#" class="text-sm text-blue-600 hover:text-blue-800 font-medium">View Council →</a>
+                </div>
+            </article>
+        </div>
+    </div>
+    
+    <div class="max-w-2xl mx-auto mt-12 p-6 bg-blue-50 rounded-xl border border-blue-200">
+        <h3 class="font-semibold text-blue-900 mb-3">🎉 Summary of Improvements</h3>
+        <ul class="space-y-2 text-sm text-blue-800">
+            <li>✅ Cornwall entries now show financial values (£50.0m instead of just text)</li>
+            <li>✅ Enhanced visual design with gradients and patterns for better social media appeal</li>
+            <li>✅ Percentage changes shown with intuitive icons and colors</li>
+            <li>✅ Council badges and financial year context</li>
+            <li>✅ Ranking information when available</li>
+            <li>✅ More engaging and shareable format</li>
+        </ul>
+    </div>
+</body>
+</html>

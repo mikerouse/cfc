@@ -185,22 +185,56 @@
                                     {{ update.story }}
                                 </p>
                                 
-                                <!-- Financial Highlight -->
-                                <div class="bg-gray-50 rounded-lg p-4">
-                                    <div class="flex items-center justify-between">
-                                        <div>
-                                            <div class="text-sm font-medium text-gray-700">{{ update.field_name }}</div>
+                                <!-- Financial Highlight - Enhanced for social media -->
+                                <div class="relative bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-100 rounded-xl p-6 overflow-hidden">
+                                    <!-- Background Pattern -->
+                                    <div class="absolute inset-0 opacity-5">
+                                        <svg class="w-full h-full" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+                                            <defs>
+                                                <pattern id="grid" width="10" height="10" patternUnits="userSpaceOnUse">
+                                                    <path d="M 10 0 L 0 0 0 10" fill="none" stroke="#3B82F6" stroke-width="0.5"/>
+                                                </pattern>
+                                            </defs>
+                                            <rect width="100" height="100" fill="url(#grid)" />
+                                        </svg>
+                                    </div>
+                                    
+                                    <div class="relative flex items-center justify-between">
+                                        <div class="flex-1 min-w-0">
+                                            <div class="text-sm font-semibold text-blue-800 uppercase tracking-wide">{{ update.field_name }}</div>
                                             {% if update.year %}
-                                            <div class="text-xs text-gray-500">{{ update.year }}</div>
+                                            <div class="text-xs text-blue-600 font-medium mt-1">Financial Year {{ update.year }}</div>
+                                            {% endif %}
+                                            {% if update.context.ranking %}
+                                            <div class="text-xs text-blue-500 mt-1">{{ update.context.ranking }}</div>
                                             {% endif %}
                                         </div>
-                                        <div class="text-right">
-                                            <div class="text-lg font-bold text-gray-900">{{ update.value }}</div>
+                                        
+                                        <div class="text-right ml-4">
+                                            <div class="text-2xl font-black text-blue-900 leading-none">{{ update.value }}</div>
                                             {% if update.context.percentage_change %}
-                                            <div class="text-xs {% if '+' in update.context.percentage_change %}text-green-600{% else %}text-red-600{% endif %}">
-                                                {{ update.context.percentage_change }} from previous
+                                            <div class="flex items-center justify-end mt-2">
+                                                {% if '+' in update.context.percentage_change %}
+                                                <svg class="w-4 h-4 text-green-600 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                                                    <path fill-rule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clip-rule="evenodd"/>
+                                                </svg>
+                                                <span class="text-sm font-bold text-green-600">{{ update.context.percentage_change }}</span>
+                                                {% else %}
+                                                <svg class="w-4 h-4 text-red-600 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                                                    <path fill-rule="evenodd" d="M3 10a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1z" clip-rule="evenodd"/>
+                                                </svg>
+                                                <span class="text-sm font-bold text-red-600">{{ update.context.percentage_change }}</span>
+                                                {% endif %}
                                             </div>
+                                            <div class="text-xs text-gray-600 mt-1">from previous year</div>
                                             {% endif %}
+                                        </div>
+                                    </div>
+                                    
+                                    <!-- Council Badge -->
+                                    <div class="absolute top-2 right-2">
+                                        <div class="bg-white/80 backdrop-blur-sm rounded-full px-2 py-1 text-xs font-medium text-blue-800 border border-blue-200">
+                                            {{ update.council.name|truncatechars:15 }}
                                         </div>
                                     </div>
                                 </div>
