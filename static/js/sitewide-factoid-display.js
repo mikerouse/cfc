@@ -85,6 +85,16 @@ class SitewideFactoidDisplay {
      */
     async loadFactoids() {
         try {
+            // Check browser cache first (10 minutes cache)
+            const cacheKey = 'sitewide_ai_factoids';
+            const cached = this.getFromBrowserCache(cacheKey, 600000); // 10 minutes
+            if (cached) {
+                console.log('✅ Using browser cache for sitewide factoids');
+                this.factoids = cached.factoids;
+                this.retryCount = 0;
+                return true;
+            }
+            
             const response = await fetch(`${this.options.apiEndpoint}?limit=5`);
             
             if (!response.ok) {
@@ -96,6 +106,9 @@ class SitewideFactoidDisplay {
             if (data.success && data.factoids && data.factoids.length > 0) {
                 this.factoids = data.factoids;
                 this.retryCount = 0; // Reset retry count on success
+                
+                // Cache successful response in browser for 10 minutes
+                this.saveToBrowserCache(cacheKey, { factoids: this.factoids });
                 
                 console.log(`✅ Loaded ${this.factoids.length} site-wide factoids`);
                 return true;
@@ -313,6 +326,40 @@ class SitewideFactoidDisplay {
         }
         
         console.log('🗑️ Site-wide factoid display destroyed');
+    }
+    
+    getFromBrowserCache(key, maxAge) {
+        // Get data from browser localStorage with expiry
+        try {
+            const stored = localStorage.getItem(key);
+            if (!stored) return null;
+            
+            const data = JSON.parse(stored);
+            const now = Date.now();
+            
+            if (now - data.timestamp > maxAge) {
+                localStorage.removeItem(key);
+                return null;
+            }
+            
+            return data.value;
+        } catch (e) {
+            console.warn('Error reading from browser cache:', e);
+            return null;
+        }
+    }
+    
+    saveToBrowserCache(key, value) {
+        // Save data to browser localStorage with timestamp
+        try {
+            const data = {
+                value: value,
+                timestamp: Date.now()
+            };
+            localStorage.setItem(key, JSON.stringify(data));
+        } catch (e) {
+            console.warn('Error saving to browser cache:', e);
+        }
     }
 }
 

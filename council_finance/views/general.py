@@ -252,16 +252,19 @@ def home(request):
     # Determine the latest financial year for which we have debt figures
     latest_year = FinancialYear.objects.order_by("-label").first()
     
+    councils_with_debt_count = 0
     if latest_year:
         try:
             field = DataField.objects.filter(slug="total_debt").first()
             if field:
-                total_debt = (
-                    FinancialFigure.objects.filter(field=field, year=latest_year).aggregate(
-                        total=Sum("value")
-                    )["total"]
-                    or 0
-                )
+                # Get total debt and count of councils with non-zero debt data
+                debt_figures = FinancialFigure.objects.filter(
+                    field=field, 
+                    year=latest_year
+                ).exclude(value=0)
+                
+                total_debt = debt_figures.aggregate(total=Sum("value"))["total"] or 0
+                councils_with_debt_count = debt_figures.values('council').distinct().count()
             else:
                 logger.warning("DataField 'total_debt' not found in database")  
                 total_debt = 0
@@ -343,13 +346,18 @@ def home(request):
                 # Convert to list to enable indexing
                 remaining_list = list(remaining_councils.all())
                 # Validate indices are within bounds to prevent IndexError
-                valid_indices = [i for i in selected_indices[:5] if 0 <= i < len(remaining_list)]
-                if valid_indices:
-                    featured_councils_raw = [remaining_list[i] for i in valid_indices]
-                    featured_councils_raw.insert(0, council_of_the_day)  # Put council of the day first
-                else:
-                    # Fallback if no valid indices
-                    featured_councils_raw = [council_of_the_day]
+                # Ensure we don't select the same council twice by using set
+                selected_councils = set()
+                featured_councils_raw = [council_of_the_day]  # Start with council of the day
+                
+                for i in selected_indices[:5]:
+                    if 0 <= i < len(remaining_list):
+                        council = remaining_list[i]
+                        if council.id not in selected_councils and council.id != council_of_the_day.id:
+                            featured_councils_raw.append(council)
+                            selected_councils.add(council.id)
+                            if len(featured_councils_raw) >= 6:  # Max 6 councils total
+                                break
             else:
                 featured_councils_raw = [council_of_the_day]
             
@@ -545,6 +553,7 @@ def home(request):
         "total_debt": total_debt,
         "total_debt_billions": total_debt_billions,
         "total_councils": total_councils,
+        "councils_with_debt_count": councils_with_debt_count,
         "completion_percentage": completion_percentage,
         "council_of_the_day": council_of_the_day,
         "featured_councils": featured_councils,

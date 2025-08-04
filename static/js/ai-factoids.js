@@ -49,8 +49,18 @@ class AIFactoidPlaylist {
     }
     
     async loadFactoids() {
-        // Load AI factoids from the API
+        // Load AI factoids from the API with client-side caching
         if (this.isLoading) {
+            return;
+        }
+        
+        // Check browser cache first (10 minutes cache)
+        const cacheKey = `ai_factoids_${this.council}`;
+        const cached = this.getFromBrowserCache(cacheKey, 600000); // 10 minutes
+        if (cached) {
+            console.log(`✅ Using browser cache for ${this.council} factoids`);
+            this.factoids = cached.factoids;
+            this.hasError = false;
             return;
         }
         
@@ -93,6 +103,9 @@ class AIFactoidPlaylist {
                 if (data.factoids && data.factoids.length > 0) {
                     this.factoids = data.factoids;
                     this.hasError = false;
+                    
+                    // Cache successful response in browser for 10 minutes
+                    this.saveToBrowserCache(cacheKey, { factoids: this.factoids });
                 } else {
                     // Empty factoids array
                     console.log(`📭 Empty factoids response for ${this.council}`);
@@ -424,6 +437,40 @@ class AIFactoidPlaylist {
         const div = document.createElement('div');
         div.textContent = text;
         return div.innerHTML;
+    }
+    
+    getFromBrowserCache(key, maxAge) {
+        // Get data from browser localStorage with expiry
+        try {
+            const stored = localStorage.getItem(key);
+            if (!stored) return null;
+            
+            const data = JSON.parse(stored);
+            const now = Date.now();
+            
+            if (now - data.timestamp > maxAge) {
+                localStorage.removeItem(key);
+                return null;
+            }
+            
+            return data.value;
+        } catch (e) {
+            console.warn('Error reading from browser cache:', e);
+            return null;
+        }
+    }
+    
+    saveToBrowserCache(key, value) {
+        // Save data to browser localStorage with timestamp
+        try {
+            const data = {
+                value: value,
+                timestamp: Date.now()
+            };
+            localStorage.setItem(key, JSON.stringify(data));
+        } catch (e) {
+            console.warn('Error saving to browser cache:', e);
+        }
     }
     
     destroy() {

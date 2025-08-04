@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% load static %}
 
-{% block title %}Data Contribution Has Changed - Council Finance Counters{% endblock %}
+{% block title %}How to Contribute Data - Council Finance Counters{% endblock %}
 
 {% block content %}
 <div class="min-h-screen bg-gray-50 py-8">
@@ -14,9 +14,9 @@
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 21v-4m0 0V5a2 2 0 012-2h6.5l1 1H21l-3 6 3 6h-8.5l-1-1H5a2 2 0 00-2 2zm9-13.5V9"/>
                 </svg>
             </div>
-            <h1 class="text-3xl font-bold text-gray-900 mb-2">Data Contribution Has Changed</h1>
+            <h1 class="text-3xl font-bold text-gray-900 mb-2">How to Contribute Data</h1>
             <p class="text-xl text-gray-600 max-w-2xl mx-auto">
-                We've replaced the contribute queue with a more efficient system
+                Help improve council financial transparency by contributing data through our streamlined system
             </p>
         </div>
 
@@ -24,12 +24,12 @@
         <div class="bg-white rounded-lg shadow-lg overflow-hidden mb-8">
             <div class="px-6 py-8">
                 <div class="prose prose-lg max-w-none">
-                    <h2 class="text-2xl font-bold text-gray-900 mb-4">What's Changed?</h2>
+                    <h2 class="text-2xl font-bold text-gray-900 mb-4">Two Ways to Contribute</h2>
                     
                     <p class="text-gray-700 mb-6">
-                        The old contribute queue system had several issues including outdated data, 
-                        lack of real-time updates, and conflicts when multiple users edited the same data. 
-                        We've replaced it with a better approach.
+                        Our community-driven platform relies on contributions from users like you to maintain accurate, 
+                        up-to-date financial data for all UK councils. There are two main ways you can help improve 
+                        the data quality on our platform.
                     </p>
 
                     <div class="bg-blue-50 border-l-4 border-blue-400 p-4 mb-6">
@@ -41,16 +41,16 @@
                             </div>
                             <div class="ml-3">
                                 <h3 class="text-sm font-medium text-blue-800">
-                                    New System: Edit Directly + Flag Issues
+                                    Contributing is Easy and Transparent
                                 </h3>
                                 <div class="mt-2 text-sm text-blue-700">
-                                    <p>You can now edit council data directly through council pages, and flag any data issues you notice.</p>
+                                    <p>All contributions are tracked in the Activity Log, showing who made changes, when, and what was modified. This ensures complete transparency and accountability.</p>
                                 </div>
                             </div>
                         </div>
                     </div>
 
-                    <h3 class="text-xl font-semibold text-gray-900 mb-4">How to Contribute Data Now</h3>
+                    <h3 class="text-xl font-semibold text-gray-900 mb-4">How to Contribute</h3>
                     
                     <div class="grid md:grid-cols-2 gap-6 mb-8">
                         <div class="bg-gray-50 rounded-lg p-6">
@@ -58,12 +58,18 @@
                                 <div class="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center mr-3">
                                     <span class="text-green-600 font-bold text-sm">1</span>
                                 </div>
-                                <h4 class="text-lg font-semibold text-gray-900">Direct Editing</h4>
+                                <h4 class="text-lg font-semibold text-gray-900">Edit Council Data</h4>
                             </div>
-                            <p class="text-gray-700 text-sm">
-                                Visit any council page and click "Edit Council Data" to add or update 
-                                financial figures and council information directly.
+                            <p class="text-gray-700 text-sm mb-3">
+                                Visit any council's detail page and click the "Edit" button to add or update 
+                                financial figures, council characteristics, and other information.
                             </p>
+                            <ul class="text-gray-600 text-sm space-y-1 ml-4">
+                                <li>• Add missing financial data</li>
+                                <li>• Update outdated information</li>
+                                <li>• Correct inaccurate figures</li>
+                                <li>• Provide source references</li>
+                            </ul>
                             <a href="{% url 'council_list' %}" class="inline-flex items-center mt-3 text-blue-600 hover:text-blue-800 text-sm font-medium">
                                 Browse Councils
                                 <svg class="ml-1 w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -79,10 +85,16 @@
                                 </div>
                                 <h4 class="text-lg font-semibold text-gray-900">Flag Data Issues</h4>
                             </div>
-                            <p class="text-gray-700 text-sm">
-                                Found incorrect or suspicious data? Use the new flag system to report 
-                                issues directly to our moderation team for review.
+                            <p class="text-gray-700 text-sm mb-3">
+                                Notice something wrong but not sure how to fix it? Use the flag system to report 
+                                data issues for review by moderators or other contributors.
                             </p>
+                            <ul class="text-gray-600 text-sm space-y-1 ml-4">
+                                <li>• Report incorrect data</li>
+                                <li>• Flag suspicious values</li>
+                                <li>• Request verification</li>
+                                <li>• Suggest improvements</li>
+                            </ul>
                             <button id="demo-flag-btn" class="inline-flex items-center mt-3 text-orange-600 hover:text-orange-800 text-sm font-medium" aria-label="Show demo of flagging data issues">
                                 See How Flagging Works
                                 <svg class="ml-1 w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -92,34 +104,131 @@
                         </div>
                     </div>
 
-                    <h3 class="text-xl font-semibold text-gray-900 mb-4">Benefits of the New System</h3>
+                    <h3 class="text-xl font-semibold text-gray-900 mb-4">Activity Log: Complete Transparency</h3>
+                    
+                    <div class="bg-green-50 border-l-4 border-green-400 p-4 mb-6">
+                        <div class="flex">
+                            <div class="flex-shrink-0">
+                                <svg class="h-5 w-5 text-green-400" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+                                </svg>
+                            </div>
+                            <div class="ml-3">
+                                <p class="text-sm text-green-800">
+                                    <strong>Every change is tracked!</strong> Visit any council's detail page and check the Activity Log 
+                                    to see what changed, when it happened, how it was modified, and who made the contribution. 
+                                    This ensures complete accountability and helps build trust in our data.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <h3 class="text-xl font-semibold text-gray-900 mb-4">Why Your Contributions Matter</h3>
                     
                     <ul class="space-y-3 text-gray-700">
                         <li class="flex items-start">
                             <svg class="flex-shrink-0 h-5 w-5 text-green-500 mr-2 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
                                 <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
                             </svg>
-                            <span><strong>Real-Time Updates:</strong> Changes appear immediately without waiting in a queue</span>
+                            <span><strong>Transparency:</strong> Help citizens understand how their councils manage public finances</span>
                         </li>
                         <li class="flex items-start">
                             <svg class="flex-shrink-0 h-5 w-5 text-green-500 mr-2 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
                                 <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
                             </svg>
-                            <span><strong>Conflict Resolution:</strong> No more issues with multiple people editing the same data</span>
+                            <span><strong>Accountability:</strong> Enable better oversight of council spending and financial decisions</span>
                         </li>
                         <li class="flex items-start">
                             <svg class="flex-shrink-0 h-5 w-5 text-green-500 mr-2 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
                                 <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
                             </svg>
-                            <span><strong>Better Quality Control:</strong> Flag system allows targeted reporting of data issues</span>
+                            <span><strong>Community Impact:</strong> Your contributions help researchers, journalists, and citizens</span>
                         </li>
                         <li class="flex items-start">
                             <svg class="flex-shrink-0 h-5 w-5 text-green-500 mr-2 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
                                 <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
                             </svg>
-                            <span><strong>Universal Availability:</strong> Flagging works across all content types and pages</span>
+                            <span><strong>Data Quality:</strong> Every contribution improves the accuracy and completeness of our platform</span>
                         </li>
                     </ul>
+                </div>
+            </div>
+        </div>
+
+        <!-- Additional Information -->
+        <div class="bg-white rounded-lg shadow-lg overflow-hidden mb-8">
+            <div class="px-6 py-8">
+                <h3 class="text-xl font-semibold text-gray-900 mb-4">Contribution Guidelines</h3>
+                
+                <div class="grid md:grid-cols-2 gap-6">
+                    <div>
+                        <h4 class="font-medium text-gray-900 mb-2">Best Practices</h4>
+                        <ul class="text-gray-700 text-sm space-y-1">
+                            <li class="flex items-start">
+                                <svg class="flex-shrink-0 h-4 w-4 text-blue-500 mr-2 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+                                </svg>
+                                Always provide sources for financial data
+                            </li>
+                            <li class="flex items-start">
+                                <svg class="flex-shrink-0 h-4 w-4 text-blue-500 mr-2 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+                                </svg>
+                                Double-check figures before submitting
+                            </li>
+                            <li class="flex items-start">
+                                <svg class="flex-shrink-0 h-4 w-4 text-blue-500 mr-2 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+                                </svg>
+                                Use official council documents when possible
+                            </li>
+                            <li class="flex items-start">
+                                <svg class="flex-shrink-0 h-4 w-4 text-blue-500 mr-2 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+                                </svg>
+                                Include notes for complex calculations
+                            </li>
+                        </ul>
+                    </div>
+                    
+                    <div>
+                        <h4 class="font-medium text-gray-900 mb-2">Moderation Process</h4>
+                        <ul class="text-gray-700 text-sm space-y-1">
+                            <li class="flex items-start">
+                                <svg class="flex-shrink-0 h-4 w-4 text-green-500 mr-2 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+                                </svg>
+                                Light-touch moderation for most edits
+                            </li>
+                            <li class="flex items-start">
+                                <svg class="flex-shrink-0 h-4 w-4 text-green-500 mr-2 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+                                </svg>
+                                Key data changes reviewed by moderators
+                            </li>
+                            <li class="flex items-start">
+                                <svg class="flex-shrink-0 h-4 w-4 text-green-500 mr-2 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+                                </svg>
+                                Community can validate contributions
+                            </li>
+                            <li class="flex items-start">
+                                <svg class="flex-shrink-0 h-4 w-4 text-green-500 mr-2 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+                                </svg>
+                                All changes tracked in Activity Log
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+                
+                <div class="mt-6 p-4 bg-gray-50 rounded-lg">
+                    <p class="text-sm text-gray-700">
+                        <strong>Remember:</strong> This is a community platform built on the Wikipedia model. 
+                        Your contributions help create a comprehensive, transparent view of UK council finances 
+                        that benefits everyone. Whether you're adding a single data point or updating an entire 
+                        council's information, every contribution matters!
+                    </p>
                 </div>
             </div>
         </div>
@@ -128,11 +237,15 @@
         <div class="text-center">
             <a href="{% url 'council_list' %}" 
                class="inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 transition-colors">
-                Start Contributing Data
+                Browse Councils & Start Contributing
                 <svg class="ml-2 -mr-1 w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
                     <path fill-rule="evenodd" d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z" clip-rule="evenodd"/>
                 </svg>
             </a>
+            
+            <p class="mt-4 text-sm text-gray-600">
+                Need help? Check out a council page to see the Edit button and Activity Log in action.
+            </p>
         </div>
     </div>
 </div>
