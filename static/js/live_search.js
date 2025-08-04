@@ -4,7 +4,6 @@
     let searchResults;
     let searchTimeout;
     let currentFocus = -1;
-    let isSearching = false;
     // Map to track searching state for different elements
     const isSearchingMap = new Map();
 
