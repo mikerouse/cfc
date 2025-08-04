@@ -31,7 +31,92 @@ from ..models import (
 from ..smart_data_quality import generate_missing_data_issues_for_council
 from ..activity_logging import log_activity
 
+# Import Event Viewer for comprehensive error reporting and analytics
+try:
+    from event_viewer.models import SystemEvent
+    EVENT_VIEWER_AVAILABLE = True
+except ImportError:
+    EVENT_VIEWER_AVAILABLE = False
+
 logger = logging.getLogger(__name__)
+
+
+def log_council_management_event(request, level, category, title, message, details=None, council=None):
+    """
+    Log council management events to Event Viewer system for comprehensive monitoring.
+    
+    Args:
+        request: HTTP request object
+        level: Event level ('debug', 'info', 'warning', 'error', 'critical')  
+        category: Event category ('user_activity', 'performance', 'exception', etc.)
+        title: Brief event title
+        message: Detailed event message
+        details: Optional dictionary of additional event details
+        council: Optional Council object for context
+    """
+    if not EVENT_VIEWER_AVAILABLE:
+        return
+        
+    try:
+        event_details = {
+            'module': 'council_management',
+            'function': request.resolver_match.url_name if hasattr(request, 'resolver_match') else 'unknown',
+            'user_tier': getattr(request.user.profile, 'tier', {}).get('level') if hasattr(request.user, 'profile') else None,
+            'request_method': request.method,
+            'query_params': dict(request.GET),
+        }
+        
+        if council:
+            event_details.update({
+                'council_id': council.id,
+                'council_name': council.name,
+                'council_slug': council.slug,
+                'council_type': council.council_type.name if council.council_type else None,
+                'council_nation': council.council_nation.name if council.council_nation else None,
+            })
+            
+        if details:
+            event_details.update(details)
+            
+        SystemEvent.objects.create(
+            source='council_management',
+            level=level,
+            category=category,
+            title=title,
+            message=message,
+            user=request.user if request.user.is_authenticated else None,
+            ip_address=request.META.get('REMOTE_ADDR'),
+            user_agent=request.META.get('HTTP_USER_AGENT', ''),
+            request_path=request.path,
+            request_method=request.method,
+            details=event_details
+        )
+        
+    except Exception as e:
+        # Silently fail event logging to prevent breaking main functionality
+        logger.error(f"Failed to log council management event: {e}")
+
+
+def track_performance(request, action, start_time, details=None):
+    """Track performance metrics for council management operations."""
+    import time
+    duration_ms = int((time.time() - start_time) * 1000)
+    
+    level = 'warning' if duration_ms > 2000 else 'info'
+    
+    log_council_management_event(
+        request, 
+        level, 
+        'performance',
+        f'Council Management Performance: {action}',
+        f'{action} completed in {duration_ms}ms',
+        {
+            'action': action,
+            'duration_ms': duration_ms,
+            'performance_threshold_exceeded': duration_ms > 2000,
+            **(details or {})
+        }
+    )
 
 
 def is_tier_5_user(user):
@@ -43,67 +128,202 @@ def is_tier_5_user(user):
 @user_passes_test(is_tier_5_user)
 def council_management_dashboard(request):
     """
-    Main council management dashboard with overview, search, and quick actions
-    """    # Get search and filter parameters
-    search_query = request.GET.get('q', '')
-    council_type_filter = request.GET.get('type', '')
-    nation_filter = request.GET.get('nation', '')
-    status_filter = request.GET.get('status', 'active')
+    Main council management dashboard with overview, search, and quick actions.
+    Enhanced with comprehensive error reporting and analytics logging.
+    """
+    import time
+    start_time = time.time()
     
-    # Build queryset with filters
-    councils = Council.objects.select_related('council_type', 'council_nation')
-    
-    if search_query:
-        councils = councils.filter(
-            Q(name__icontains=search_query) |
-            Q(slug__icontains=search_query)
+    try:
+        # Log dashboard access
+        log_council_management_event(
+            request, 
+            'info', 
+            'user_activity',
+            'Council Management Dashboard Accessed',
+            f'User {request.user.username} accessed council management dashboard',
+            {'access_time': timezone.now().isoformat()}
         )
-    
-    if council_type_filter:
-        councils = councils.filter(council_type__slug=council_type_filter)
-    
-    if nation_filter:
-        councils = councils.filter(council_nation__slug=nation_filter)
-    
-    if status_filter:
-        councils = councils.filter(status=status_filter)
-      # Order by name
-    councils = councils.order_by('name')
-    
-    # Pagination
-    paginator = Paginator(councils, 25)
-    page_number = request.GET.get('page')
-    page_obj = paginator.get_page(page_number)
-    
-    # Get statistics
-    total_councils = Council.objects.count()
-    active_councils = Council.objects.filter(status='active').count()
-    inactive_councils = Council.objects.filter(status='inactive').count()
-    councils_with_data = Council.objects.annotate(
-        data_count=Count('financial_figures') + Count('characteristics')
-    ).filter(data_count__gt=0).count()
-    
-    # Get dropdown options
-    council_types = CouncilType.objects.all().order_by('name')
-    nations = CouncilNation.objects.all().order_by('name')
-    
-    context = {
-        'page_obj': page_obj,
-        'search_query': search_query,
-        'council_type_filter': council_type_filter,
-        'nation_filter': nation_filter,
-        'status_filter': status_filter,
-        'council_types': council_types,
-        'nations': nations,
-        'stats': {
-            'total': total_councils,
-            'active': active_councils,
-            'inactive': inactive_councils,
-            'with_data': councils_with_data,
-        },
-    }
-    
-    return render(request, 'council_finance/council_management/dashboard.html', context)
+        
+        # Get search and filter parameters
+        search_query = request.GET.get('q', '')
+        council_type_filter = request.GET.get('type', '')
+        nation_filter = request.GET.get('nation', '')
+        status_filter = request.GET.get('status', 'active')
+        
+        # Log search/filter usage for analytics
+        if search_query or council_type_filter or nation_filter or status_filter != 'active':
+            log_council_management_event(
+                request,
+                'info',
+                'user_activity', 
+                'Council Search/Filter Applied',
+                f'User applied filters: query="{search_query}", type="{council_type_filter}", nation="{nation_filter}", status="{status_filter}"',
+                {
+                    'search_query': search_query,
+                    'council_type_filter': council_type_filter,
+                    'nation_filter': nation_filter,
+                    'status_filter': status_filter,
+                    'has_search': bool(search_query),
+                    'has_filters': bool(council_type_filter or nation_filter or status_filter != 'active')
+                }
+            )
+        
+        # Build queryset with filters - monitor database performance
+        db_start = time.time()
+        councils = Council.objects.select_related('council_type', 'council_nation')
+        
+        if search_query:
+            councils = councils.filter(
+                Q(name__icontains=search_query) |
+                Q(slug__icontains=search_query)
+            )
+        
+        if council_type_filter:
+            councils = councils.filter(council_type__slug=council_type_filter)
+        
+        if nation_filter:
+            councils = councils.filter(council_nation__slug=nation_filter)
+        
+        if status_filter:
+            councils = councils.filter(status=status_filter)
+            
+        # Order by name
+        councils = councils.order_by('name')
+        
+        # Pagination with performance monitoring
+        paginator = Paginator(councils, 25)
+        page_number = request.GET.get('page')
+        page_obj = paginator.get_page(page_number)
+        
+        db_duration = (time.time() - db_start) * 1000
+        if db_duration > 500:  # Log slow database queries
+            log_council_management_event(
+                request,
+                'warning',
+                'performance',
+                'Slow Database Query in Council Dashboard',
+                f'Council listing query took {db_duration:.2f}ms',
+                {
+                    'query_duration_ms': db_duration,
+                    'result_count': page_obj.paginator.count,
+                    'has_search': bool(search_query),
+                    'has_filters': bool(council_type_filter or nation_filter or status_filter != 'active')
+                }
+            )
+        
+        # Get statistics with error handling
+        try:
+            stats_start = time.time()
+            total_councils = Council.objects.count()
+            active_councils = Council.objects.filter(status='active').count()
+            inactive_councils = Council.objects.filter(status='inactive').count()
+            councils_with_data = Council.objects.annotate(
+                data_count=Count('financial_figures') + Count('characteristics')
+            ).filter(data_count__gt=0).count()
+            
+            stats_duration = (time.time() - stats_start) * 1000
+            if stats_duration > 1000:  # Log slow statistics queries
+                log_council_management_event(
+                    request,
+                    'warning',
+                    'performance',
+                    'Slow Statistics Query in Council Dashboard',
+                    f'Statistics calculation took {stats_duration:.2f}ms',
+                    {'stats_duration_ms': stats_duration}
+                )
+                
+        except Exception as e:
+            logger.error(f"Error calculating council statistics: {e}")
+            log_council_management_event(
+                request,
+                'error',
+                'exception',
+                'Council Statistics Calculation Failed',
+                f'Failed to calculate council statistics: {str(e)}',
+                {'error_type': type(e).__name__, 'error_message': str(e)}
+            )
+            # Provide fallback values
+            total_councils = active_councils = inactive_councils = councils_with_data = 0
+        
+        # Get dropdown options with error handling
+        try:
+            council_types = CouncilType.objects.all().order_by('name')
+            nations = CouncilNation.objects.all().order_by('name')
+        except Exception as e:
+            logger.error(f"Error loading dropdown options: {e}")
+            log_council_management_event(
+                request,
+                'error',
+                'exception',
+                'Dropdown Options Loading Failed',
+                f'Failed to load council types/nations: {str(e)}',
+                {'error_type': type(e).__name__, 'error_message': str(e)}
+            )
+            council_types = []
+            nations = []
+        
+        # Build context
+        context = {
+            'page_obj': page_obj,
+            'search_query': search_query,
+            'council_type_filter': council_type_filter,
+            'nation_filter': nation_filter,
+            'status_filter': status_filter,
+            'council_types': council_types,
+            'nations': nations,
+            'stats': {
+                'total': total_councils,
+                'active': active_councils,
+                'inactive': inactive_councils,
+                'with_data': councils_with_data,
+            },
+        }
+        
+        # Track overall performance
+        track_performance(
+            request, 
+            'dashboard_load', 
+            start_time,
+            {
+                'result_count': page_obj.paginator.count,
+                'current_page': page_obj.number,
+                'total_pages': page_obj.paginator.num_pages,
+                'has_search': bool(search_query),
+                'has_filters': bool(council_type_filter or nation_filter or status_filter != 'active')
+            }
+        )
+        
+        return render(request, 'council_finance/council_management/dashboard.html', context)
+        
+    except Exception as e:
+        logger.error(f"Critical error in council management dashboard: {e}")
+        log_council_management_event(
+            request,
+            'critical',
+            'exception',
+            'Council Management Dashboard Critical Error',
+            f'Critical error loading dashboard: {str(e)}',
+            {
+                'error_type': type(e).__name__,
+                'error_message': str(e),
+                'request_path': request.path,
+                'request_method': request.method
+            }
+        )
+        
+        # Provide minimal error context for fallback rendering
+        messages.error(request, 'An error occurred loading the council management dashboard. Please try again.')
+        return render(request, 'council_finance/council_management/dashboard.html', {
+            'page_obj': None,
+            'search_query': '',
+            'council_type_filter': '',
+            'nation_filter': '',
+            'status_filter': 'active',
+            'council_types': [],
+            'nations': [],
+            'stats': {'total': 0, 'active': 0, 'inactive': 0, 'with_data': 0},
+        })
 
 
 @login_required
