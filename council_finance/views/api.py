@@ -595,7 +595,7 @@ def emergency_cache_warming(request):
             }, status=400)
         
         # Log the detection
-        print(f"EMERGENCY: £0 counters detected on home page from {request_ip}")
+        print(f"EMERGENCY: £0 counters detected on home page from {client_ip}")
         print(f"Zero counters reported: {zero_counters}")
         
         # Get current cache status before warming
@@ -663,7 +663,7 @@ def emergency_cache_warming(request):
             'total_counters_checked': len(all_counters),
             'fixed_counters': fixed_counters,
             'cache_warming_duration': f"{warming_duration:.2f} seconds",
-            'request_ip': request_ip,
+            'request_ip': client_ip,
             'user_agent': user_agent,
             'cache_status_before': cache_status_before,
             'cache_status_after': cache_status_after,
