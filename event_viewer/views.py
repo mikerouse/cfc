@@ -108,13 +108,17 @@ def event_list(request):
     events = SystemEvent.objects.select_related('user', 'resolved_by').all()
     
     # Filtering
-    level_filter = request.GET.get('level')
-    source_filter = request.GET.get('source')
-    category_filter = request.GET.get('category')
-    resolved_filter = request.GET.get('resolved')
-    search_query = request.GET.get('search')
-    date_from = request.GET.get('date_from')
-    date_to = request.GET.get('date_to')
+    level_filter = request.GET.get('level', '').strip()
+    source_filter = request.GET.get('source', '').strip()
+    category_filter = request.GET.get('category', '').strip()
+    resolved_filter = request.GET.get('resolved', '').strip()
+    search_query = request.GET.get('search', '').strip()
+    date_from = request.GET.get('date_from', '').strip()
+    date_to = request.GET.get('date_to', '').strip()
+    
+    # Clean up "None" string values
+    if search_query == 'None':
+        search_query = ''
     
     if level_filter:
         events = events.filter(level=level_filter)
@@ -167,13 +171,13 @@ def event_list(request):
         'page_obj': page_obj,
         'filter_options': filter_options,
         'current_filters': {
-            'level': level_filter,
-            'source': source_filter,
-            'category': category_filter,
-            'resolved': resolved_filter,
-            'search': search_query,
-            'date_from': date_from,
-            'date_to': date_to,
+            'level': level_filter or '',
+            'source': source_filter or '',
+            'category': category_filter or '',
+            'resolved': resolved_filter or '',
+            'search': search_query or '',
+            'date_from': date_from or '',
+            'date_to': date_to or '',
         },
         'total_events': events.count(),
     }

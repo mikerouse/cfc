@@ -152,7 +152,7 @@
                 </div>
                 <div class="filter-group">
                     <label for="search">Search</label>
-                    <input type="text" name="search" id="search" value="{{ current_filters.search }}" placeholder="Search title or message...">
+                    <input type="text" name="search" id="search" value="{{ current_filters.search|default:'' }}" placeholder="Search title or message...">
                 </div>
             </div>
             <button type="submit" class="btn">Apply Filters</button>
@@ -222,8 +222,8 @@
     {% if page_obj.has_other_pages %}
     <div class="pagination">
         {% if page_obj.has_previous %}
-            <a href="?page=1{% for key, value in current_filters.items %}{% if value %}&{{ key }}={{ value }}{% endif %}{% endfor %}">&laquo; First</a>
-            <a href="?page={{ page_obj.previous_page_number }}{% for key, value in current_filters.items %}{% if value %}&{{ key }}={{ value }}{% endif %}{% endfor %}">&lsaquo; Previous</a>
+            <a href="?page=1{% for key, value in current_filters.items %}{% if value and value != 'None' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">&laquo; First</a>
+            <a href="?page={{ page_obj.previous_page_number }}{% for key, value in current_filters.items %}{% if value and value != 'None' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">&lsaquo; Previous</a>
         {% endif %}
 
         <span class="current">
@@ -231,8 +231,8 @@
         </span>
 
         {% if page_obj.has_next %}
-            <a href="?page={{ page_obj.next_page_number }}{% for key, value in current_filters.items %}{% if value %}&{{ key }}={{ value }}{% endif %}{% endfor %}">Next &rsaquo;</a>
-            <a href="?page={{ page_obj.paginator.num_pages }}{% for key, value in current_filters.items %}{% if value %}&{{ key }}={{ value }}{% endif %}{% endfor %}">Last &raquo;</a>
+            <a href="?page={{ page_obj.next_page_number }}{% for key, value in current_filters.items %}{% if value and value != 'None' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">Next &rsaquo;</a>
+            <a href="?page={{ page_obj.paginator.num_pages }}{% for key, value in current_filters.items %}{% if value and value != 'None' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">Last &raquo;</a>
         {% endif %}
     </div>
     {% endif %}
