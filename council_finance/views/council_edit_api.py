@@ -21,7 +21,75 @@ from council_finance.models import (
     FinancialYear, ActivityLog
 )
 
+# Event Viewer integration
+try:
+    from event_viewer.models import SystemEvent
+    EVENT_VIEWER_AVAILABLE = True
+except ImportError:
+    EVENT_VIEWER_AVAILABLE = False
+
 logger = logging.getLogger(__name__)
+
+
+def log_council_edit_event(request, level, category, title, message, details=None, council=None):
+    """Log council edit events to Event Viewer system"""
+    if not EVENT_VIEWER_AVAILABLE:
+        return
+    
+    try:
+        event_details = {
+            'module': 'council_edit_api',
+            'function': request.resolver_match.url_name if (hasattr(request, 'resolver_match') and request.resolver_match) else 'unknown',
+            'request_method': request.method,
+            'user_tier': getattr(request.user, 'tier', None) if hasattr(request.user, 'tier') else None,
+            'timestamp': timezone.now().isoformat(),
+        }
+        
+        if details:
+            event_details.update(details)
+        
+        SystemEvent.objects.create(
+            source='council_edit_api',
+            level=level,
+            category=category,
+            title=title,
+            message=message,
+            user=request.user if request.user.is_authenticated else None,
+            details=event_details
+        )
+        
+    except Exception as e:
+        logger.error(f"Failed to log Event Viewer event: {e}")
+
+
+def log_cache_operation(council_slug, operation_type, cache_keys, success=True, error_message=None, details=None):
+    """Log cache operations for debugging cache-related issues"""
+    if not EVENT_VIEWER_AVAILABLE:
+        return
+    
+    try:
+        event_details = {
+            'council_slug': council_slug,
+            'operation_type': operation_type,
+            'cache_keys': cache_keys if isinstance(cache_keys, list) else [cache_keys],
+            'success': success,
+            'timestamp': timezone.now().isoformat(),
+        }
+        
+        if details:
+            event_details.update(details)
+        
+        SystemEvent.objects.create(
+            source='cache_management',
+            level='info' if success else 'warning',
+            category='performance',
+            title=f'Cache {operation_type.title()} {"Successful" if success else "Failed"}',
+            message=f'Cache {operation_type} for {council_slug}: {"Success" if success else error_message}',
+            details=event_details
+        )
+        
+    except Exception as e:
+        logger.error(f"Failed to log cache operation event: {e}")
 
 @login_required
 @require_http_methods(['GET'])
@@ -92,6 +160,8 @@ def save_council_characteristic_api(request, council_slug):
         "category": "characteristics"
     }
     """
+    start_time = timezone.now()
+    
     try:
         council = get_object_or_404(Council, slug=council_slug)
         
@@ -101,72 +171,244 @@ def save_council_characteristic_api(request, council_slug):
         value = data.get('value', '').strip()
         
         if not field_slug:
+            log_council_edit_event(
+                request, 'warning', 'data_validation',
+                'Missing Field Slug in Council Edit',
+                f'User attempted to save characteristic for {council.name} without field slug',
+                details={'council_slug': council_slug, 'submitted_data': data}
+            )
             return JsonResponse({
                 'success': False,
                 'error': 'Field slug is required'
             }, status=400)
         
         # Get the field
-        field = get_object_or_404(DataField, slug=field_slug, category='characteristic')
-        
-        # Validate URL fields
-        if field.content_type == 'url' and value:
-            from council_finance.views.api import validate_url_api
-            
-            # Create a mock request for URL validation
-            mock_request = type('MockRequest', (), {
-                'body': json.dumps({'url': value, 'field_slug': field_slug}).encode(),
-                'method': 'POST'
-            })()
-            
-            validation_response = validate_url_api(mock_request)
-            validation_data = json.loads(validation_response.content)
-            
-            if not validation_data.get('valid', False):
-                return JsonResponse({
-                    'success': False,
-                    'error': validation_data.get('message', 'URL validation failed')
-                }, status=400)
-        
-        with transaction.atomic():
-            # Create or update characteristic
-            characteristic, created = CouncilCharacteristic.objects.get_or_create(
-                council=council,
-                field=field,
-                defaults={'value': value}
-            )
-            
-            if not created:
-                old_value = characteristic.value
-                characteristic.value = value
-                characteristic.save()
-            else:
-                old_value = None
-            
-            # Log the activity
-            ActivityLog.objects.create(
-                user=request.user,
-                activity_type='update',  # Changed from 'data_edit' to 'update' to match story generator
-                description=f"Updated {field.name} for {council.name}",
-                related_council=council,
+        try:
+            field = get_object_or_404(DataField, slug=field_slug, category='characteristic')
+        except Exception as e:
+            log_council_edit_event(
+                request, 'error', 'data_integrity',
+                'Invalid Field Reference in Council Edit',
+                f'Field {field_slug} not found for characteristic category: {str(e)}',
                 details={
-                    'field_name': field.slug,  # Use field.slug for field_name as story generator expects slug
-                    'field_display_name': field.name,  # Keep the human-readable name separately
-                    'old_value': str(old_value) if old_value is not None else None,
-                    'new_value': str(value),
-                    'content_type': field.content_type,
-                    'category': field.category
+                    'council_slug': council_slug,
+                    'field_slug': field_slug,
+                    'category_expected': 'characteristic',
+                    'error_type': type(e).__name__
                 }
             )
+            raise
+        
+        # Validate URL fields with Event Viewer logging
+        if field.content_type == 'url' and value:
+            url_validation_start = timezone.now()
+            
+            try:
+                from council_finance.views.api import validate_url_api
+                
+                # Create a mock request for URL validation
+                mock_request = type('MockRequest', (), {
+                    'body': json.dumps({'url': value, 'field_slug': field_slug}).encode(),
+                    'method': 'POST'
+                })()
+                
+                validation_response = validate_url_api(mock_request)
+                validation_data = json.loads(validation_response.content)
+                
+                url_validation_time = (timezone.now() - url_validation_start).total_seconds()
+                
+                if not validation_data.get('valid', False):
+                    log_council_edit_event(
+                        request, 'warning', 'data_validation',
+                        'URL Validation Failed in Council Edit',
+                        f'Invalid URL submitted for {field.name}: {validation_data.get("message", "Unknown validation error")}',
+                        details={
+                            'council_slug': council_slug,
+                            'field_slug': field_slug,
+                            'submitted_url': value,
+                            'validation_message': validation_data.get('message'),
+                            'validation_time_seconds': url_validation_time
+                        }
+                    )
+                    return JsonResponse({
+                        'success': False,
+                        'error': validation_data.get('message', 'URL validation failed')
+                    }, status=400)
+                else:
+                    # Log successful URL validation if it took a long time
+                    if url_validation_time > 3.0:
+                        log_council_edit_event(
+                            request, 'info', 'performance',
+                            'Slow URL Validation in Council Edit',
+                            f'URL validation took {url_validation_time:.2f}s for {field.name}',
+                            details={
+                                'council_slug': council_slug,
+                                'field_slug': field_slug,
+                                'url': value,
+                                'validation_time_seconds': url_validation_time
+                            }
+                        )
+                        
+            except Exception as url_error:
+                log_council_edit_event(
+                    request, 'error', 'integration',
+                    'URL Validation Service Error',
+                    f'URL validation service failed for {field.name}: {str(url_error)}',
+                    details={
+                        'council_slug': council_slug,
+                        'field_slug': field_slug,
+                        'submitted_url': value,
+                        'error_type': type(url_error).__name__
+                    }
+                )
+                # Continue with save - don't block on validation service failures
+                logger.warning(f"URL validation failed, proceeding with save: {url_error}")
+        
+        db_operation_start = timezone.now()
+        
+        with transaction.atomic():
+            try:
+                # Create or update characteristic
+                characteristic, created = CouncilCharacteristic.objects.get_or_create(
+                    council=council,
+                    field=field,
+                    defaults={'value': value}
+                )
+                
+                if not created:
+                    old_value = characteristic.value
+                    characteristic.value = value
+                    characteristic.save()
+                else:
+                    old_value = None
+                
+                # Log the activity
+                ActivityLog.objects.create(
+                    user=request.user,
+                    activity_type='update',  # Changed from 'data_edit' to 'update' to match story generator
+                    description=f"Updated {field.name} for {council.name}",
+                    related_council=council,
+                    details={
+                        'field_name': field.slug,  # Use field.slug for field_name as story generator expects slug
+                        'field_display_name': field.name,  # Keep the human-readable name separately
+                        'old_value': str(old_value) if old_value is not None else None,
+                        'new_value': str(value),
+                        'content_type': field.content_type,
+                        'category': field.category
+                    }
+                )
+                
+                db_operation_time = (timezone.now() - db_operation_start).total_seconds()
+                
+                # Log successful database operation
+                log_council_edit_event(
+                    request, 'info', 'data_integrity',
+                    'Council Characteristic Saved Successfully',
+                    f'Updated {field.name} for {council.name}' + (' (created new)' if created else ' (updated existing)'),
+                    details={
+                        'council_slug': council_slug,
+                        'field_slug': field_slug,
+                        'field_name': field.name,
+                        'old_value': str(old_value) if old_value is not None else None,
+                        'new_value': str(value),
+                        'created_new_record': created,
+                        'db_operation_time_seconds': db_operation_time,
+                        'content_type': field.content_type
+                    }
+                )
+                
+                # Log slow database operations
+                if db_operation_time > 2.0:
+                    log_council_edit_event(
+                        request, 'warning', 'performance',
+                        'Slow Database Operation in Council Edit',
+                        f'Database save took {db_operation_time:.2f}s for {field.name}',
+                        details={
+                            'council_slug': council_slug,
+                            'field_slug': field_slug,
+                            'operation_duration_seconds': db_operation_time,
+                            'operation_type': 'characteristic_save'
+                        }
+                    )
+                
+            except Exception as db_error:
+                log_council_edit_event(
+                    request, 'error', 'data_integrity',
+                    'Database Save Failed in Council Edit',
+                    f'Failed to save {field.name} for {council.name}: {str(db_error)}',
+                    details={
+                        'council_slug': council_slug,
+                        'field_slug': field_slug,
+                        'submitted_value': value,
+                        'error_type': type(db_error).__name__,
+                        'db_operation_time_seconds': (timezone.now() - db_operation_start).total_seconds()
+                    }
+                )
+                raise
         
         # Invalidate counter cache for all years since characteristics can affect all calculations
         # This is done outside the transaction to ensure database changes are committed first
-        from django.core.cache import cache
-        from council_finance.models import FinancialYear
-        for year in FinancialYear.objects.all():
-            cache_key = f"counter_values:{council.slug}:{year.label}"
-            cache.delete(cache_key)
-        logger.info(f"Invalidated counter cache for all years for council {council.slug}")
+        cache_invalidation_start = timezone.now()
+        cache_keys_to_invalidate = []
+        
+        try:
+            from django.core.cache import cache
+            from council_finance.models import FinancialYear
+            
+            for year in FinancialYear.objects.all():
+                cache_key = f"counter_values:{council.slug}:{year.label}"
+                cache_keys_to_invalidate.append(cache_key)
+                cache.delete(cache_key)
+            
+            cache_invalidation_time = (timezone.now() - cache_invalidation_start).total_seconds()
+            
+            # Log cache invalidation success
+            log_cache_operation(
+                council_slug, 'invalidation', cache_keys_to_invalidate, 
+                success=True,
+                details={
+                    'reason': 'characteristic_update',
+                    'field_slug': field_slug,
+                    'years_affected': len(cache_keys_to_invalidate),
+                    'invalidation_time_seconds': cache_invalidation_time
+                }
+            )
+            
+            logger.info(f"Invalidated {len(cache_keys_to_invalidate)} counter cache keys for council {council.slug}")
+            
+        except Exception as cache_error:
+            cache_invalidation_time = (timezone.now() - cache_invalidation_start).total_seconds()
+            
+            log_cache_operation(
+                council_slug, 'invalidation', cache_keys_to_invalidate,
+                success=False, error_message=str(cache_error),
+                details={
+                    'reason': 'characteristic_update',
+                    'field_slug': field_slug,
+                    'error_type': type(cache_error).__name__,
+                    'invalidation_time_seconds': cache_invalidation_time
+                }
+            )
+            
+            # Don't fail the request on cache errors, but log for investigation
+            logger.warning(f"Cache invalidation failed for {council_slug}: {cache_error}")
+        
+        # Calculate processing time
+        total_processing_time = (timezone.now() - start_time).total_seconds()
+        
+        # Log overall performance
+        if total_processing_time > 5.0:
+            log_council_edit_event(
+                request, 'warning', 'performance',
+                'Slow Council Edit Operation',
+                f'Total characteristic save took {total_processing_time:.2f}s for {council.name}',
+                details={
+                    'council_slug': council_slug,
+                    'field_slug': field_slug,
+                    'total_processing_time_seconds': total_processing_time,
+                    'operation_type': 'save_council_characteristic'
+                }
+            )
         
         # Calculate points (3 points for characteristics)
         points = 3
@@ -179,12 +421,36 @@ def save_council_characteristic_api(request, council_slug):
             'created': created
         })
         
-    except json.JSONDecodeError:
+    except json.JSONDecodeError as json_error:
+        log_council_edit_event(
+            request, 'error', 'data_validation',
+            'Invalid JSON in Council Edit Request',
+            f'Failed to parse JSON for council {council_slug}: {str(json_error)}',
+            details={
+                'council_slug': council_slug,
+                'error_type': 'JSONDecodeError',
+                'request_body_length': len(request.body) if request.body else 0
+            }
+        )
         return JsonResponse({
             'success': False,
             'error': 'Invalid JSON data'
         }, status=400)
     except Exception as e:
+        total_processing_time = (timezone.now() - start_time).total_seconds()
+        
+        log_council_edit_event(
+            request, 'error', 'system',
+            'Council Characteristic Save Failed',
+            f'Unexpected error saving characteristic for {council_slug}: {str(e)}',
+            details={
+                'council_slug': council_slug,
+                'error_type': type(e).__name__,
+                'total_processing_time_seconds': total_processing_time,
+                'operation_type': 'save_council_characteristic'
+            }
+        )
+        
         logger.error(f"Error saving characteristic for {council_slug}: {e}")
         return JsonResponse({
             'success': False,
@@ -301,6 +567,8 @@ def save_temporal_data_api(request, council_slug, year_id):
         "category": "general"
     }
     """
+    start_time = timezone.now()
+    
     try:
         council = get_object_or_404(Council, slug=council_slug)
         year = get_object_or_404(FinancialYear, id=year_id)
@@ -312,28 +580,73 @@ def save_temporal_data_api(request, council_slug, year_id):
         category = data.get('category')
         
         if not field_slug or not category:
+            log_council_edit_event(
+                request, 'warning', 'data_validation',
+                'Missing Required Fields in Temporal Data Save',
+                f'User attempted to save temporal data for {council.name} ({year.label}) without required fields',
+                details={
+                    'council_slug': council_slug,
+                    'year_id': year_id,
+                    'year_label': year.label,
+                    'submitted_data': data,
+                    'missing_field_slug': not field_slug,
+                    'missing_category': not category
+                }
+            )
             return JsonResponse({
                 'success': False,
                 'error': 'Field slug and category are required'
             }, status=400)
         
         if category not in ['general', 'financial']:
+            log_council_edit_event(
+                request, 'warning', 'data_validation',
+                'Invalid Category in Temporal Data Save',
+                f'Invalid category "{category}" submitted for {council.name} ({year.label})',
+                details={
+                    'council_slug': council_slug,
+                    'year_id': year_id,
+                    'year_label': year.label,
+                    'field_slug': field_slug,
+                    'invalid_category': category,
+                    'valid_categories': ['general', 'financial']
+                }
+            )
             return JsonResponse({
                 'success': False,
                 'error': 'Category must be general or financial'
             }, status=400)
         
         # Get the field - map frontend categories to database categories
-        if category == 'financial':
-            # Frontend sends 'financial' for all balance_sheet, income, spending, calculated fields
-            field = get_object_or_404(
-                DataField, 
-                slug=field_slug, 
-                category__in=['balance_sheet', 'income', 'spending', 'calculated']
+        try:
+            if category == 'financial':
+                # Frontend sends 'financial' for all balance_sheet, income, spending, calculated fields
+                field = get_object_or_404(
+                    DataField, 
+                    slug=field_slug, 
+                    category__in=['balance_sheet', 'income', 'spending', 'calculated']
+                )
+            else:
+                # For general category, use as-is
+                field = get_object_or_404(DataField, slug=field_slug, category=category)
+                
+        except Exception as field_error:
+            # This is a critical point where Birmingham data issues could occur
+            log_council_edit_event(
+                request, 'error', 'data_integrity',
+                'Field Resolution Failed in Temporal Data Save',
+                f'Field {field_slug} not found for category {category}: {str(field_error)}',
+                details={
+                    'council_slug': council_slug,
+                    'year_id': year_id,
+                    'year_label': year.label,
+                    'field_slug': field_slug,
+                    'category_requested': category,
+                    'database_categories_expected': ['balance_sheet', 'income', 'spending', 'calculated'] if category == 'financial' else [category],
+                    'error_type': type(field_error).__name__
+                }
             )
-        else:
-            # For general category, use as-is
-            field = get_object_or_404(DataField, slug=field_slug, category=category)
+            raise
         
         # Validate URL fields for general category
         if category == 'general' and field.content_type == 'url' and value:
@@ -354,6 +667,8 @@ def save_temporal_data_api(request, council_slug, year_id):
                     'error': validation_data.get('message', 'URL validation failed')
                 }, status=400)
         
+        db_operation_start = timezone.now()
+        
         with transaction.atomic():
             # Determine which field to use based on content type
             # Numeric types: monetary, integer, percentage (regardless of category)
@@ -366,47 +681,148 @@ def save_temporal_data_api(request, council_slug, year_id):
                     # Convert to Decimal for proper storage
                     from decimal import Decimal
                     numeric_value = Decimal(str(value).replace(',', ''))
-                except (ValueError, TypeError):
+                    
+                    # Log numeric data conversion for Birmingham issue debugging
+                    log_council_edit_event(
+                        request, 'info', 'data_processing',
+                        'Numeric Data Conversion in Temporal Save',
+                        f'Converted "{value}" to {numeric_value} for {field.name} ({council.name}, {year.label})',
+                        details={
+                            'council_slug': council_slug,
+                            'year_label': year.label,
+                            'field_slug': field_slug,
+                            'field_content_type': field.content_type,
+                            'original_value': value,
+                            'converted_value': str(numeric_value),
+                            'is_numeric_field': True
+                        }
+                    )
+                    
+                except (ValueError, TypeError) as conversion_error:
+                    log_council_edit_event(
+                        request, 'error', 'data_validation',
+                        'Numeric Conversion Failed in Temporal Save',
+                        f'Failed to convert "{value}" to numeric for {field.name}: {str(conversion_error)}',
+                        details={
+                            'council_slug': council_slug,
+                            'year_label': year.label,
+                            'field_slug': field_slug,
+                            'field_content_type': field.content_type,
+                            'invalid_value': value,
+                            'error_type': type(conversion_error).__name__
+                        }
+                    )
                     return JsonResponse({
                         'success': False,
                         'error': f'Invalid numeric value: {value}'
                     }, status=400)
             else:
                 numeric_value = None
+                
+                # Log text data for debugging
+                if value:
+                    log_council_edit_event(
+                        request, 'info', 'data_processing',
+                        'Text Data Save in Temporal Save',
+                        f'Saving text value for {field.name} ({council.name}, {year.label})',
+                        details={
+                            'council_slug': council_slug,
+                            'year_label': year.label,
+                            'field_slug': field_slug,
+                            'field_content_type': field.content_type,
+                            'text_value_length': len(value),
+                            'is_numeric_field': False
+                        }
+                    )
             
-            # Create or update financial figure
-            if is_numeric:
-                # Use decimal value field for numeric data
-                figure, created = FinancialFigure.objects.get_or_create(
-                    council=council,
-                    year=year,
-                    field=field,
-                    defaults={'value': numeric_value, 'text_value': None}
-                )
-                
-                if not created:
-                    old_value = figure.value
-                    figure.value = numeric_value
-                    figure.text_value = None  # Clear text value when saving numeric
-                    figure.save()
+            # Create or update financial figure - critical for Birmingham data issue debugging
+            try:
+                if is_numeric:
+                    # Use decimal value field for numeric data
+                    figure, created = FinancialFigure.objects.get_or_create(
+                        council=council,
+                        year=year,
+                        field=field,
+                        defaults={'value': numeric_value, 'text_value': None}
+                    )
+                    
+                    if not created:
+                        old_value = figure.value
+                        figure.value = numeric_value
+                        figure.text_value = None  # Clear text value when saving numeric
+                        figure.save()
+                    else:
+                        old_value = None
+                        
+                    # Log successful numeric FinancialFigure save
+                    log_council_edit_event(
+                        request, 'info', 'data_integrity',
+                        'Financial Figure Saved (Numeric)',
+                        f'{"Created" if created else "Updated"} {field.name} for {council.name} ({year.label}): {numeric_value}',
+                        details={
+                            'council_slug': council_slug,
+                            'year_label': year.label,
+                            'field_slug': field_slug,
+                            'field_category': field.category,
+                            'old_value': str(old_value) if old_value is not None else None,
+                            'new_value': str(numeric_value),
+                            'created_new_record': created,
+                            'data_type': 'numeric'
+                        }
+                    )
+                    
                 else:
-                    old_value = None
-            else:
-                # Use text value field for URLs, text, etc.
-                figure, created = FinancialFigure.objects.get_or_create(
-                    council=council,
-                    year=year,
-                    field=field,
-                    defaults={'text_value': value, 'value': None}
+                    # Use text value field for URLs, text, etc.
+                    figure, created = FinancialFigure.objects.get_or_create(
+                        council=council,
+                        year=year,
+                        field=field,
+                        defaults={'text_value': value, 'value': None}
+                    )
+                    
+                    if not created:
+                        old_value = figure.text_value
+                        figure.text_value = value
+                        figure.value = None  # Clear numeric value when saving text
+                        figure.save()
+                    else:
+                        old_value = None
+                        
+                    # Log successful text FinancialFigure save
+                    log_council_edit_event(
+                        request, 'info', 'data_integrity',
+                        'Financial Figure Saved (Text)',
+                        f'{"Created" if created else "Updated"} {field.name} for {council.name} ({year.label})',
+                        details={
+                            'council_slug': council_slug,
+                            'year_label': year.label,
+                            'field_slug': field_slug,
+                            'field_category': field.category,
+                            'old_value': str(old_value) if old_value is not None else None,
+                            'new_value': value,
+                            'created_new_record': created,
+                            'data_type': 'text'
+                        }
+                    )
+                    
+            except Exception as figure_error:
+                # Critical error logging for Birmingham data issues
+                log_council_edit_event(
+                    request, 'error', 'data_integrity',
+                    'Financial Figure Save Failed',
+                    f'Failed to save {field.name} for {council.name} ({year.label}): {str(figure_error)}',
+                    details={
+                        'council_slug': council_slug,
+                        'year_label': year.label,
+                        'field_slug': field_slug,
+                        'field_category': field.category,
+                        'submitted_value': value,
+                        'is_numeric': is_numeric,
+                        'converted_numeric_value': str(numeric_value) if numeric_value is not None else None,
+                        'error_type': type(figure_error).__name__
+                    }
                 )
-                
-                if not created:
-                    old_value = figure.text_value
-                    figure.text_value = value
-                    figure.value = None  # Clear numeric value when saving text
-                    figure.save()
-                else:
-                    old_value = None
+                raise
             
             # Log the activity
             ActivityLog.objects.create(
@@ -427,10 +843,68 @@ def save_temporal_data_api(request, council_slug, year_id):
         
         # Invalidate counter cache so updated figures are immediately visible
         # This is done outside the transaction to ensure database changes are committed first
-        from django.core.cache import cache
-        cache_key_current = f"counter_values:{council.slug}:{year.label}"
-        cache.delete(cache_key_current)
-        logger.info(f"Invalidated counter cache: {cache_key_current}")
+        # This is CRITICAL for Birmingham data visibility issue
+        cache_invalidation_start = timezone.now()
+        
+        try:
+            from django.core.cache import cache
+            cache_key_current = f"counter_values:{council.slug}:{year.label}"
+            cache.delete(cache_key_current)
+            
+            cache_invalidation_time = (timezone.now() - cache_invalidation_start).total_seconds()
+            
+            # Log successful cache invalidation for Birmingham debugging
+            log_cache_operation(
+                council_slug, 'invalidation', [cache_key_current],
+                success=True,
+                details={
+                    'reason': 'temporal_data_update',
+                    'field_slug': field_slug,
+                    'year_label': year.label,
+                    'category': category,
+                    'invalidation_time_seconds': cache_invalidation_time
+                }
+            )
+            
+            logger.info(f"Invalidated counter cache: {cache_key_current}")
+            
+        except Exception as cache_error:
+            cache_invalidation_time = (timezone.now() - cache_invalidation_start).total_seconds()
+            
+            # Critical cache error logging - this could cause Birmingham "no data" issue
+            log_cache_operation(
+                council_slug, 'invalidation', [f"counter_values:{council.slug}:{year.label}"],
+                success=False, error_message=str(cache_error),
+                details={
+                    'reason': 'temporal_data_update',
+                    'field_slug': field_slug,
+                    'year_label': year.label,
+                    'category': category,
+                    'error_type': type(cache_error).__name__,
+                    'invalidation_time_seconds': cache_invalidation_time
+                }
+            )
+            
+            # Don't fail the request on cache errors, but log for investigation
+            logger.warning(f"Cache invalidation failed for {council_slug}/{year.label}: {cache_error}")
+        
+        # Calculate processing time
+        total_processing_time = (timezone.now() - start_time).total_seconds()
+        
+        # Log performance issues
+        if total_processing_time > 5.0:
+            log_council_edit_event(
+                request, 'warning', 'performance',
+                'Slow Temporal Data Save Operation',
+                f'Total temporal data save took {total_processing_time:.2f}s for {council.name} ({year.label})',
+                details={
+                    'council_slug': council_slug,
+                    'year_label': year.label,
+                    'field_slug': field_slug,
+                    'total_processing_time_seconds': total_processing_time,
+                    'operation_type': 'save_temporal_data'
+                }
+            )
         
         # Calculate points based on category
         if category == 'general':
@@ -446,12 +920,38 @@ def save_temporal_data_api(request, council_slug, year_id):
             'created': created
         })
         
-    except json.JSONDecodeError:
+    except json.JSONDecodeError as json_error:
+        log_council_edit_event(
+            request, 'error', 'data_validation',
+            'Invalid JSON in Temporal Data Save Request',
+            f'Failed to parse JSON for council {council_slug}/{year_id}: {str(json_error)}',
+            details={
+                'council_slug': council_slug,
+                'year_id': year_id,
+                'error_type': 'JSONDecodeError',
+                'request_body_length': len(request.body) if request.body else 0
+            }
+        )
         return JsonResponse({
             'success': False,
             'error': 'Invalid JSON data'
         }, status=400)
     except Exception as e:
+        total_processing_time = (timezone.now() - start_time).total_seconds()
+        
+        log_council_edit_event(
+            request, 'error', 'system',
+            'Temporal Data Save Failed',
+            f'Unexpected error saving temporal data for {council_slug}/{year_id}: {str(e)}',
+            details={
+                'council_slug': council_slug,
+                'year_id': year_id,
+                'error_type': type(e).__name__,
+                'total_processing_time_seconds': total_processing_time,
+                'operation_type': 'save_temporal_data'
+            }
+        )
+        
         logger.error(f"Error saving temporal data for {council_slug}/{year_id}: {e}")
         return JsonResponse({
             'success': False,
