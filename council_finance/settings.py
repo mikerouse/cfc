@@ -34,7 +34,7 @@ INSTALLED_APPS = [
     "council_finance",
     "channels",
     "heroicons",
-    "event_viewer",    # Event Viewer system for superadmin monitoring
+    "event_viewer",  # Event Viewer for system monitoring
 ]
 
 # Dynamically discover plugins

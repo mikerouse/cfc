@@ -38,7 +38,8 @@ class SiteTotalsAgent(AgentBase):
                         except (TypeError, ValueError):
                             pass
             year_label = sc.year.label if sc.year else "all"
-            cache.set(f"counter_total:{sc.slug}:{year_label}", value, None)
+            # Cache for 24 hours instead of forever to avoid stale data
+            cache.set(f"counter_total:{sc.slug}:{year_label}", value, 86400)
             if sc.year:
                 # Record the previous year's total so percentage change factoids
                 # can be generated without additional database work.
@@ -54,7 +55,7 @@ class SiteTotalsAgent(AgentBase):
                                     prev_value += float(data["value"])
                                 except (TypeError, ValueError):
                                     pass
-                        cache.set(f"counter_total:{sc.slug}:{year_label}:prev", prev_value, None)
+                        cache.set(f"counter_total:{sc.slug}:{year_label}:prev", prev_value, 86400)
 
         for gc in GroupCounter.objects.all():
             # Resolve the set of councils this group counter applies to.
@@ -77,7 +78,8 @@ class SiteTotalsAgent(AgentBase):
                         except (TypeError, ValueError):
                             pass
             year_label = gc.year.label if gc.year else "all"
-            cache.set(f"counter_total:{gc.slug}:{year_label}", value, None)
+            # Cache for 24 hours instead of forever to avoid stale data
+            cache.set(f"counter_total:{gc.slug}:{year_label}", value, 86400)
             if gc.year:
                 # And again store the previous year so the home page can
                 # illustrate change over time.
@@ -93,4 +95,4 @@ class SiteTotalsAgent(AgentBase):
                                     prev_value += float(data["value"])
                                 except (TypeError, ValueError):
                                     pass
-                        cache.set(f"counter_total:{gc.slug}:{year_label}:prev", prev_value, None)
+                        cache.set(f"counter_total:{gc.slug}:{year_label}:prev", prev_value, 86400)
