@@ -1,0 +1,63 @@
+{{ report_type|upper }} SYSTEM HEALTH REPORT
+{{ date|date:"F j, Y" }}
+
+SYSTEM HEALTH SCORE: {{ summary.health_score|floatformat:0 }}/100
+
+{% if summary.health_score >= 90 %}
+STATUS: EXCELLENT - System is operating excellently with minimal issues.
+{% elif summary.health_score >= 70 %}
+STATUS: GOOD - System is operating well with some minor issues.
+{% elif summary.health_score >= 50 %}
+STATUS: WARNING - System has moderate issues that require attention.
+{% else %}
+STATUS: CRITICAL - System has significant issues requiring immediate attention.
+{% endif %}
+
+KEY METRICS:
+- Total Events: {{ summary.total_events }}
+- Critical Events: {{ summary.critical_events }}
+- Error Events: {{ summary.error_events }}
+- Warning Events: {{ summary.warning_events }}
+- Info Events: {{ summary.info_events }}
+- Unique Users Affected: {{ summary.unique_users }}
+- Event Sources: {{ summary.unique_sources }}
+- Error Rate: {% if summary.total_events > 0 %}{{ summary.error_events|add:summary.critical_events|div:summary.total_events|mul:100|floatformat:1 }}%{% else %}0%{% endif %}
+
+{% if summary.top_sources %}
+TOP EVENT SOURCES:
+{% for source, count in summary.top_sources.items %}
+- {{ source|title }}: {{ count }} events
+{% endfor %}
+{% endif %}
+
+{% if summary.top_error_categories %}
+TOP ERROR CATEGORIES:
+{% for category, count in summary.top_error_categories.items %}
+- {{ category|title }}: {{ count }} errors
+{% endfor %}
+{% endif %}
+
+{% if top_errors %}
+TOP ERRORS FROM {{ report_type|upper }}:
+{% for event in top_errors %}
+[{{ event.level|upper }}] {{ event.title }}
+  Source: {{ event.source }} | Time: {{ event.timestamp|date:"H:i:s" }}
+  {% if event.user %}User: {{ event.user.username }} | {% endif %}Message: {{ event.message|truncatechars:100 }}
+
+{% endfor %}
+{% endif %}
+
+REPORT DETAILS:
+- Generated: {{ timestamp|date:"Y-m-d H:i:s T" }}
+- Period: {{ report_type }} report for {{ date|date:"F j, Y" }}
+
+{% if summary.health_score < 70 %}
+⚠️  ACTION REQUIRED: System health score is below optimal levels.
+Please review the Event Viewer dashboard for detailed analysis:
+{{ request.build_absolute_uri }}/system-events/
+{% endif %}
+
+View the full Event Viewer Dashboard:
+{{ request.build_absolute_uri }}/system-events/
+
+This is an automated health report from the Council Finance Event Viewer.

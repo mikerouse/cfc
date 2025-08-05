@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>System Alert</title>
+    <style>
+        body {
+            font-family: "GDS Transport", arial, sans-serif;
+            line-height: 1.6;
+            color: #0b0c0c;
+            margin: 0;
+            padding: 20px;
+            background-color: #f3f2f1;
+        }
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background-color: #ffffff;
+            border: 3px solid #ffdd00;
+            padding: 30px;
+        }
+        .header {
+            background-color: #d4351c;
+            color: #ffffff;
+            padding: 20px;
+            margin: -30px -30px 20px -30px;
+        }
+        .header h1 {
+            margin: 0;
+            font-size: 24px;
+            font-weight: 700;
+        }
+        .alert-summary {
+            background-color: #fef7f7;
+            border-left: 5px solid #d4351c;
+            padding: 20px;
+            margin: 20px 0;
+        }
+        .metric {
+            display: inline-block;
+            background-color: #f3f2f1;
+            padding: 10px 15px;
+            margin: 5px;
+            border-radius: 3px;
+        }
+        .metric-value {
+            font-size: 24px;
+            font-weight: 700;
+            color: #d4351c;
+        }
+        .metric-label {
+            font-size: 14px;
+            color: #626a6e;
+        }
+        .event-list {
+            margin: 20px 0;
+        }
+        .event-item {
+            border-left: 3px solid #b1b4b6;
+            padding: 10px 15px;
+            margin: 10px 0;
+            background-color: #f8f8f8;
+        }
+        .event-title {
+            font-weight: 700;
+            color: #0b0c0c;
+        }
+        .event-details {
+            font-size: 14px;
+            color: #626a6e;
+            margin-top: 5px;
+        }
+        .footer {
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 1px solid #b1b4b6;
+            font-size: 14px;
+            color: #626a6e;
+        }
+        .button {
+            display: inline-block;
+            background-color: #00703c;
+            color: #ffffff;
+            padding: 10px 20px;
+            text-decoration: none;
+            border-radius: 3px;
+            margin: 10px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🚨 System Alert</h1>
+        </div>
+        
+        <div class="alert-summary">
+            <h2>{{ subject }}</h2>
+            <p>{{ description }}</p>
+            
+            <div style="margin: 20px 0;">
+                <div class="metric">
+                    <div class="metric-value">{{ current_count }}</div>
+                    <div class="metric-label">Current Events</div>
+                </div>
+                <div class="metric">
+                    <div class="metric-value">{{ threshold }}</div>
+                    <div class="metric-label">Threshold</div>
+                </div>
+            </div>
+        </div>
+        
+        {% if recent_events %}
+        <div class="event-list">
+            <h3>Recent Events:</h3>
+            {% for event in recent_events %}
+            <div class="event-item">
+                <div class="event-title">{{ event.title }}</div>
+                <div class="event-details">
+                    <strong>Level:</strong> {{ event.level|upper }} |
+                    <strong>Source:</strong> {{ event.source }} |
+                    <strong>Time:</strong> {{ event.timestamp|date:"Y-m-d H:i:s" }}
+                    {% if event.user %}
+                    | <strong>User:</strong> {{ event.user.username }}
+                    {% endif %}
+                </div>
+                {% if event.message %}
+                <div class="event-details" style="margin-top: 10px;">
+                    {{ event.message|truncatechars:200 }}
+                </div>
+                {% endif %}
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+        
+        <div style="margin: 30px 0; text-align: center;">
+            <a href="{{ request.build_absolute_uri }}/system-events/" class="button">
+                View Event Viewer Dashboard
+            </a>
+        </div>
+        
+        <div class="footer">
+            <p>
+                <strong>Alert Generated:</strong> {{ timestamp|date:"Y-m-d H:i:s T" }}<br>
+                <strong>Threshold:</strong> {{ threshold_name|title|capfirst }}<br>
+                This is an automated system alert from the Council Finance Event Viewer.
+            </p>
+        </div>
+    </div>
+</body>
+</html>

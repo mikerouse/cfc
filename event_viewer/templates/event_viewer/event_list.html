@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ page_title }}</title>
+    <style>
+        body { 
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: #f3f2f1;
+            color: #0b0c0c;
+        }
+        .header { 
+            background: #1d70b8; 
+            color: white; 
+            padding: 15px 20px; 
+            margin: -20px -20px 20px -20px;
+        }
+        .header h1 { margin: 0; font-size: 24px; font-weight: bold; }
+        .nav { margin-bottom: 20px; }
+        .nav a { 
+            display: inline-block;
+            padding: 10px 15px;
+            background: #1d70b8;
+            color: white;
+            text-decoration: none;
+            margin-right: 10px;
+            font-weight: bold;
+        }
+        .nav a:hover { background: #144e81; }
+        .filters { 
+            background: white; 
+            border: 2px solid #b1b4b6; 
+            padding: 20px; 
+            margin-bottom: 20px;
+        }
+        .filter-row { 
+            display: grid; 
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); 
+            gap: 15px; 
+            margin-bottom: 15px;
+        }
+        .filter-group label { 
+            display: block; 
+            font-weight: bold; 
+            margin-bottom: 5px;
+        }
+        .filter-group select, .filter-group input { 
+            width: 100%; 
+            padding: 8px; 
+            border: 2px solid #626a6e;
+            font-size: 16px;
+        }
+        .btn { 
+            padding: 10px 20px; 
+            background: #00703c; 
+            color: white; 
+            border: none; 
+            font-weight: bold; 
+            cursor: pointer;
+        }
+        .btn:hover { background: #005a30; }
+        .events-table { 
+            background: white; 
+            border: 2px solid #b1b4b6; 
+            width: 100%;
+            border-collapse: collapse;
+        }
+        .events-table th, .events-table td { 
+            padding: 12px; 
+            text-align: left; 
+            border-bottom: 1px solid #b1b4b6;
+        }
+        .events-table th { 
+            background: #f3f2f1; 
+            font-weight: bold;
+        }
+        .event-level { 
+            padding: 4px 8px; 
+            font-size: 12px; 
+            font-weight: bold; 
+            text-transform: uppercase;
+        }
+        .level-error { background: #d4351c; color: white; }
+        .level-warning { background: #f47738; color: white; }
+        .level-info { background: #1d70b8; color: white; }
+        .level-critical { background: #942514; color: white; }
+        .level-debug { background: #626a6e; color: white; }
+        .pagination { 
+            margin: 20px 0; 
+            text-align: center;
+        }
+        .pagination a, .pagination span { 
+            display: inline-block; 
+            padding: 8px 12px; 
+            margin: 0 4px; 
+            background: #1d70b8; 
+            color: white; 
+            text-decoration: none;
+        }
+        .pagination .current { background: #00703c; }
+        .pagination a:hover { background: #144e81; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>{{ page_title }}</h1>
+        <span>{{ total_events }} total events</span>
+    </div>
+
+    <div class="nav">
+        <a href="{% url 'event_viewer:dashboard' %}">Dashboard</a>
+        <a href="{% url 'event_viewer:event_list' %}">All Events</a>
+        <a href="{% url 'event_viewer:analytics' %}">Analytics</a>
+        <a href="{% url 'event_viewer:export_events' %}">Export</a>
+    </div>
+
+    <div class="filters">
+        <form method="get">
+            <div class="filter-row">
+                <div class="filter-group">
+                    <label for="level">Level</label>
+                    <select name="level" id="level">
+                        <option value="">All levels</option>
+                        {% for value, label in filter_options.levels %}
+                            <option value="{{ value }}" {% if current_filters.level == value %}selected{% endif %}>
+                                {{ label }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="filter-group">
+                    <label for="source">Source</label>
+                    <select name="source" id="source">
+                        <option value="">All sources</option>
+                        {% for value, label in filter_options.sources %}
+                            <option value="{{ value }}" {% if current_filters.source == value %}selected{% endif %}>
+                                {{ label }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="filter-group">
+                    <label for="resolved">Status</label>
+                    <select name="resolved" id="resolved">
+                        <option value="">All events</option>
+                        <option value="false" {% if current_filters.resolved == "false" %}selected{% endif %}>Unresolved</option>
+                        <option value="true" {% if current_filters.resolved == "true" %}selected{% endif %}>Resolved</option>
+                    </select>
+                </div>
+                <div class="filter-group">
+                    <label for="search">Search</label>
+                    <input type="text" name="search" id="search" value="{{ current_filters.search }}" placeholder="Search title or message...">
+                </div>
+            </div>
+            <button type="submit" class="btn">Apply Filters</button>
+            <a href="{% url 'event_viewer:event_list' %}" class="btn" style="background: #626a6e; text-decoration: none;">Clear</a>
+        </form>
+    </div>
+
+    <table class="events-table">
+        <thead>
+            <tr>
+                <th>Level</th>
+                <th>Title</th>
+                <th>Source</th>
+                <th>User</th>
+                <th>Timestamp</th>
+                <th>Status</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for event in page_obj %}
+            <tr>
+                <td>
+                    <span class="event-level level-{{ event.level }}">
+                        {{ event.get_level_display }}
+                    </span>
+                </td>
+                <td>
+                    <strong>{{ event.title|truncatechars:60 }}</strong>
+                    {% if event.exception_type %}
+                        <br><small>{{ event.exception_type }}</small>
+                    {% endif %}
+                </td>
+                <td>{{ event.get_source_display }}</td>
+                <td>
+                    {% if event.user %}
+                        {{ event.user.username }}
+                    {% else %}
+                        System
+                    {% endif %}
+                </td>
+                <td>{{ event.timestamp|date:"M d, H:i" }}</td>
+                <td>
+                    {% if event.resolved %}
+                        <span style="color: #00703c;">✓ Resolved</span>
+                    {% else %}
+                        <span style="color: #d4351c;">○ Open</span>
+                    {% endif %}
+                </td>
+                <td>
+                    <a href="{% url 'event_viewer:event_detail' event.id %}">View</a>
+                    {% if not event.resolved %}
+                        | <a href="{% url 'event_viewer:resolve_event' event.id %}" onclick="return confirm('Mark as resolved?')">Resolve</a>
+                    {% endif %}
+                </td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="7" style="text-align: center; padding: 40px;">
+                    No events found matching your criteria.
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    {% if page_obj.has_other_pages %}
+    <div class="pagination">
+        {% if page_obj.has_previous %}
+            <a href="?page=1{% for key, value in current_filters.items %}{% if value %}&{{ key }}={{ value }}{% endif %}{% endfor %}">&laquo; First</a>
+            <a href="?page={{ page_obj.previous_page_number }}{% for key, value in current_filters.items %}{% if value %}&{{ key }}={{ value }}{% endif %}{% endfor %}">&lsaquo; Previous</a>
+        {% endif %}
+
+        <span class="current">
+            Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}
+        </span>
+
+        {% if page_obj.has_next %}
+            <a href="?page={{ page_obj.next_page_number }}{% for key, value in current_filters.items %}{% if value %}&{{ key }}={{ value }}{% endif %}{% endfor %}">Next &rsaquo;</a>
+            <a href="?page={{ page_obj.paginator.num_pages }}{% for key, value in current_filters.items %}{% if value %}&{{ key }}={{ value }}{% endif %}{% endfor %}">Last &raquo;</a>
+        {% endif %}
+    </div>
+    {% endif %}
+</body>
+</html>

@@ -11,6 +11,9 @@ from django.views.decorators.csrf import csrf_exempt
 from django.core.exceptions import ValidationError
 from django.db.models import Q
 import json
+import logging
+
+logger = logging.getLogger(__name__)
 
 from council_finance.models import (
     Council, DataField, ActivityLog, CounterDefinition, 
@@ -655,6 +658,45 @@ def emergency_cache_warming(request):
                     'before_value': before.get('value'),
                     'after_value': after.get('value')
                 })
+        
+        # Log to Event Viewer
+        from event_viewer.models import SystemEvent
+        
+        # Determine severity based on number of zero counters
+        if len(zero_counters) > 5:
+            level = 'error'
+        elif len(zero_counters) > 2:
+            level = 'warning'
+        else:
+            level = 'info'
+        
+        # Create SystemEvent for monitoring
+        SystemEvent.objects.create(
+            source='api',
+            level=level,
+            category='data_quality',
+            title='£0 Counters Detected on Home Page',
+            message=f"Detected {len(zero_counters)} counters showing £0. Fixed {len(fixed_counters)} counters after cache warming.",
+            user=request.user if request.user.is_authenticated else None,
+            request_path=request.path,
+            request_method=request.method,
+            details={
+                'zero_counters_reported': zero_counters,
+                'fixed_counters': fixed_counters,
+                'total_counters_checked': len(all_counters),
+                'cache_warming_duration': warming_duration,
+                'client_ip': client_ip,
+                'user_agent': user_agent,
+                'counters_before_after': {
+                    counter['slug']: {
+                        'before': counter['before_value'],
+                        'after': counter['after_value']
+                    } for counter in fixed_counters
+                }
+            },
+            tags=['zero-counter-detection', 'cache-warming', 'data-quality'],
+            fingerprint=f'zero_counters_home_page_{len(zero_counters)}'
+        )
         
         # Send email alert to administrators
         alert_context = {

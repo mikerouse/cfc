@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ page_title }}</title>
+    <style>
+        body { 
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: #f3f2f1;
+            color: #0b0c0c;
+        }
+        .header { 
+            background: #1d70b8; 
+            color: white; 
+            padding: 15px 20px; 
+            margin: -20px -20px 20px -20px;
+        }
+        .header h1 { margin: 0; font-size: 24px; font-weight: bold; }
+        .nav { margin-bottom: 20px; }
+        .nav a { 
+            display: inline-block;
+            padding: 10px 15px;
+            background: #1d70b8;
+            color: white;
+            text-decoration: none;
+            margin-right: 10px;
+            font-weight: bold;
+        }
+        .nav a:hover { background: #144e81; }
+        .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px; margin-bottom: 30px; }
+        .card { 
+            background: white; 
+            border: 2px solid #b1b4b6; 
+            padding: 20px;
+        }
+        .card h2 { margin: 0 0 10px 0; font-size: 18px; }
+        .stat { font-size: 32px; font-weight: bold; color: #1d70b8; }
+        .chart-placeholder { 
+            background: #f8f8f8; 
+            border: 2px solid #b1b4b6; 
+            padding: 40px; 
+            text-align: center; 
+            color: #626a6e;
+            margin-bottom: 20px;
+        }
+        .top-errors { 
+            background: white; 
+            border: 2px solid #b1b4b6; 
+            padding: 20px;
+        }
+        .error-item { 
+            display: flex; 
+            justify-content: space-between; 
+            padding: 10px 0; 
+            border-bottom: 1px solid #b1b4b6;
+        }
+        .error-item:last-child { border-bottom: none; }
+        .error-count { 
+            background: #d4351c; 
+            color: white; 
+            padding: 4px 8px; 
+            font-weight: bold; 
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>{{ page_title }}</h1>
+        <span>Last {{ date_range_days }} days</span>
+    </div>
+
+    <div class="nav">
+        <a href="{% url 'event_viewer:dashboard' %}">Dashboard</a>
+        <a href="{% url 'event_viewer:event_list' %}">All Events</a>
+        <a href="{% url 'event_viewer:analytics' %}">Analytics</a>
+        <a href="{% url 'event_viewer:export_events' %}">Export</a>
+    </div>
+
+    <div class="grid">
+        <div class="card">
+            <h2>Total Events</h2>
+            <div class="stat">{{ total_stats.total_events|default:0 }}</div>
+        </div>
+        <div class="card">
+            <h2>Total Errors</h2>
+            <div class="stat" style="color: #d4351c;">{{ total_stats.total_errors|default:0 }}</div>
+        </div>
+        <div class="card">
+            <h2>Total Warnings</h2>
+            <div class="stat" style="color: #f47738;">{{ total_stats.total_warnings|default:0 }}</div>
+        </div>
+        <div class="card">
+            <h2>Users Affected</h2>
+            <div class="stat" style="color: #626a6e;">{{ total_stats.unique_users_affected|default:0 }}</div>
+        </div>
+    </div>
+
+    <div class="chart-placeholder">
+        <h2>Event Trends</h2>
+        <p>Chart functionality would be implemented here using Chart.js or similar library.</p>
+        <p>Data available: {{ chart_data }}</p>
+    </div>
+
+    <div class="top-errors">
+        <h2>Top Error Types</h2>
+        {% for error in top_errors %}
+        <div class="error-item">
+            <div>
+                <strong>{{ error.exception_type|default:"Unknown Error" }}</strong>
+            </div>
+            <div>
+                <span class="error-count">{{ error.count }}</span>
+            </div>
+        </div>
+        {% empty %}
+        <p>No error data available for this period.</p>
+        {% endfor %}
+    </div>
+
+    <div style="margin-top: 20px; color: #626a6e; font-size: 14px;">
+        <p>Analytics period: {{ start_date|date:"F d, Y" }} to {{ end_date|date:"F d, Y" }}</p>
+    </div>
+</body>
+</html>

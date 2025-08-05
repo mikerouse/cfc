@@ -114,6 +114,7 @@ urlpatterns = [
     path("api/emergency-cache-warming/", api_views.emergency_cache_warming, name="emergency_cache_warming"),
     path("admin/", admin.site.urls),
     path("plugins/", include("core.urls")),
+    path("system-events/", include("event_viewer.urls")),  # Event Viewer for superadmins
     # Authentication endpoints
     path(
         "accounts/login/",

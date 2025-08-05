@@ -1,0 +1,24 @@
+SYSTEM ALERT: {{ subject }}
+
+{{ description }}
+
+ALERT DETAILS:
+- Current Events: {{ current_count }}
+- Threshold: {{ threshold }}
+- Alert Type: {{ threshold_name|title }}
+- Generated: {{ timestamp|date:"Y-m-d H:i:s T" }}
+
+{% if recent_events %}
+RECENT EVENTS:
+{% for event in recent_events %}
+- [{{ event.level|upper }}] {{ event.title }}
+  Source: {{ event.source }} | Time: {{ event.timestamp|date:"Y-m-d H:i:s" }}
+  {% if event.user %}User: {{ event.user.username }} | {% endif %}Message: {{ event.message|truncatechars:100 }}
+
+{% endfor %}
+{% endif %}
+
+View the Event Viewer Dashboard for more details:
+{{ request.build_absolute_uri }}/system-events/
+
+This is an automated system alert from the Council Finance Event Viewer.
