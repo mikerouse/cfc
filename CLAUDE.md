@@ -855,6 +855,10 @@ If you see "code-bracket is not a valid icon!" or similar errors, it's usually b
 - **Following**: Social media-style following of councils, lists, figures, and contributors
 - **Backend Management**: Custom control panel only (no Django admin for users)
 
+## Corrections System (REMOVED - 2025-08-05)
+
+The corrections system has been decommissioned and replaced by the comprehensive flagging system. Users can now report data issues directly from council pages using flag buttons next to financial counters and data fields. The flagging system provides better context, email notifications, and a more efficient moderation interface. See **FLAGGING_SYSTEM.md** for details.
+
 ## Factoids
 
 **CRITICAL**: Factoids are now AI-powered, NOT template-based. See **FACTOIDS.md** for complete implementation details.

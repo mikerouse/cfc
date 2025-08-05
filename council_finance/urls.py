@@ -383,7 +383,6 @@ urlpatterns = [
     path("about/", page_views.about, name="about"),
     path("terms/", page_views.terms_of_use, name="terms_of_use"),
     path("privacy/", page_views.privacy_cookies, name="privacy_cookies"),
-    path("corrections/", page_views.corrections, name="corrections"),
     # Management views for counters
     path("manage/counters/", admin_views.counter_definition_list, name="counter_definitions"),
     path("manage/counters/site/", admin_views.site_counter_list, name="site_counter_list"),

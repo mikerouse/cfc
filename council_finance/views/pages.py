@@ -133,19 +133,6 @@ def privacy_cookies(request):
     return render(request, 'council_finance/privacy_cookies.html')
 
 
-def corrections(request):
-    """Corrections and data accuracy page."""
-    # Get recent corrections/updates
-    recent_corrections = ActivityLog.objects.filter(
-        activity_type='correction',
-        public=True
-    ).order_by('-created_at')[:10]
-    
-    context = {
-        'recent_corrections': recent_corrections,
-    }
-    
-    return render(request, 'council_finance/corrections.html', context)
 
 
 @login_required
