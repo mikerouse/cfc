@@ -115,38 +115,30 @@ class SitewideFactoidGenerator(AIFactoidGenerator):
                     financial_figures = FinancialFigure.objects.filter(
                         field=field,
                         year=latest_year
-                    ).select_related('council', 'council__council_type', 'council__council_nation').values(
-                        'council__name', 
-                        'council__slug',
-                        'council__council_type__name',
-                        'council__council_type__tier_level',
-                        'council__council_type__tier_name',
-                        'council__council_type__council_count',
-                        'council__council_nation__name',
-                        'council__council_nation__total_population',
-                        'council__council_nation__council_count',
-                        'council__council_nation__population_density',
-                        'value'
-                    )
+                    ).select_related('council', 'council__council_type', 'council__council_nation')
                     
                     field_data = []
                     for figure in financial_figures:
                         try:
-                            value = float(figure['value'])
+                            value = float(figure.value)
+                            council = figure.council
+                            council_type = council.council_type if hasattr(council, 'council_type') else None
+                            council_nation = council.council_nation if hasattr(council, 'council_nation') else None
+                            
                             field_data.append({
-                                'council_name': figure['council__name'],
-                                'council_slug': figure['council__slug'],
-                                'council_type': figure['council__council_type__name'],
-                                'council_tier_level': figure['council__council_type__tier_level'],
-                                'council_tier_name': figure['council__council_type__tier_name'],
-                                'council_type_count_uk': figure['council__council_type__council_count'],
-                                'council_nation': figure['council__council_nation__name'],
-                                'nation_population': figure['council__council_nation__total_population'],
-                                'nation_council_count': figure['council__council_nation__council_count'],
-                                'nation_density': figure['council__council_nation__population_density'],
+                                'council_name': council.name,
+                                'council_slug': council.slug,
+                                'council_type': council_type.name if council_type else None,
+                                'council_tier_level': council_type.tier_level if council_type else None,
+                                'council_tier_name': council_type.tier_name if council_type else None,
+                                'council_type_count_uk': council_type.council_count if council_type else None,
+                                'council_nation': council_nation.name if council_nation else None,
+                                'nation_population': council_nation.total_population if council_nation else None,
+                                'nation_council_count': council_nation.council_count if council_nation else None,
+                                'nation_density': council_nation.population_density if council_nation else None,
                                 'value': value
                             })
-                        except (ValueError, TypeError):
+                        except (ValueError, TypeError, AttributeError):
                             continue
                     
                     if field_data:
@@ -577,54 +569,21 @@ class SitewideFactoidGenerator(AIFactoidGenerator):
         }, indent=2)
         
         return f"""
-You are analysing UK local government financial data across {data['total_councils']} councils for {data['year']}.
+Analyze UK local government data for {data['total_councils']} councils ({data['year']}):
 
-CROSS-COUNCIL DATASET (JSON):
 {json_data_str}
 
-ANALYSIS REQUIREMENTS:
-1. Generate {limit} engaging factoids that compare councils against each other
-2. **PRIORITIZE OUTLIERS & SURPRISES**: Use the outlier_analysis and efficiency_patterns data to find the most interesting insights
-3. Always mention specific council names when making comparisons
-4. Include both council names as hyperlinks in your response
-5. Use formats like: "[Council A] paid 30% more than [Council B] despite having lower population"
-6. Make council names clickable links using format: <a href="/councils/SLUG/">COUNCIL NAME</a>
-7. Keep each factoid to 1-2 sentences maximum
-8. Focus on governance-aware patterns that consider council responsibilities:
-   - Tier-based comparisons: "Tier 1 (Unitary) vs Tier 2 (County) vs Tier 3 (District) efficiency"
-   - Nation-level insights leveraging population context: "England (57M population, 343 councils) vs Scotland (5.4M, 32 councils)"
-   - Size-adjusted comparisons using nation data: "Despite {nation} having {population:,} residents, {council} spends less than {other_council}"
-   - Governance complexity insights: "{council_type} authorities typically handle {tier_responsibilities} but {council} shows unusual pattern"
-   - Cross-nation governance: "Scottish {council_type}s consistently outperform English {council_type}s in {metric}"
-   - Population density patterns: Rural vs urban efficiency using nation density data
-9. Use UK English spelling and terminology
-10. Prefer insights that challenge governance assumptions over obvious size comparisons
+Generate {limit} factoids with council comparisons:
+1. Use outlier_analysis and efficiency_patterns for interesting insights
+2. Include specific council names as hyperlinks: <a href="/councils/SLUG/">NAME</a>
+3. Focus on governance-aware patterns (tier levels, nation context)
+4. Consider council responsibilities and tier complexity
+5. Use UK English spelling
 
-RESPONSE FORMAT:
-Return exactly {limit} factoids as a JSON array:
-[
-  {{
-    "text": "Factoid text with <a href='/councils/council-slug/'>Council Name</a> links",
-    "councils_mentioned": ["council-slug-1", "council-slug-2"],
-    "field": "interest_payments",
-    "insight_type": "direct_comparison"
-  }}
-]
+Return JSON array:
+[{{"text": "Factoid with links", "councils_mentioned": ["slug"], "field": "field_name", "insight_type": "type"}}]
 
-INSIGHT TYPES:
-- "direct_comparison": Two specific councils compared
-- "type_comparison": Council types compared (Unitary vs County vs District)
-- "tier_comparison": Governance tier analysis (Tier 1 vs Tier 2 vs Tier 3 efficiency)
-- "nation_comparison": Nations compared using population and council count context
-- "governance_complexity": Analysis considering tier responsibilities and scope
-- "population_density_pattern": Urban vs rural efficiency insights
-- "outlier_analysis": Unusual patterns or outliers identified
-- "efficiency_surprise": Performance contradicting governance tier expectations
-- "size_mismatch": Performance that contradicts nation/tier size expectations
-- "contrarian_pattern": Council behaving opposite to governance structure expectations
-- "cross_nation_governance": Same tier types performing differently across nations
-
-Generate insights that would engage users and encourage them to explore specific councils.
+Types: direct_comparison, type_comparison, tier_comparison, nation_comparison, outlier_analysis
 """
     
     def _build_governance_context(self) -> Dict[str, Any]:
