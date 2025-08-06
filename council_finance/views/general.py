@@ -506,22 +506,41 @@ def home(request):
         logger.warning("Home page: Site counter cache is cold. Run 'python manage.py run_site_totals_agent' to populate cache.")
         # Don't run SiteTotalsAgent().run() here - it's too expensive!
 
-    # Now build the list of promoted counters using the cached totals. This may
-    # happen after the agent has populated the cache above.
+    # Use new hybrid counter cache service for fast, persistent counter loading
+    from council_finance.services.counter_cache_service import counter_cache_service
+    
+    # Build promoted counters using the new 3-tier caching system
     for sc in SiteCounter.objects.filter(promote_homepage=True):
-        year_label = sc.year.label if sc.year else "all"
-        value = cache.get(f"counter_total:{sc.slug}:{year_label}", 0)
+        year_label = sc.year.label if sc.year else None
+        
+        # Use hybrid cache service (Redis → Database → Calculate)
+        value = counter_cache_service.get_counter_value(
+            counter_slug=sc.counter.slug,
+            year_label=year_label
+        )
+        
+        # Previous year value (for change calculations)
         prev_value = 0
         if sc.year:
-            prev_value = cache.get(f"counter_total:{sc.slug}:{year_label}:prev", 0)
-        formatted = sc.counter.format_value(value)
+            try:
+                from council_finance.utils.year_utils import previous_year_label
+                prev_year_label = previous_year_label(sc.year.label)
+                if prev_year_label:
+                    prev_value = counter_cache_service.get_counter_value(
+                        counter_slug=sc.counter.slug,
+                        year_label=prev_year_label
+                    )
+            except Exception:
+                prev_value = 0
+        
+        formatted = sc.counter.format_value(float(value))
         promoted.append({
             "slug": sc.slug,
             "counter_slug": sc.counter.slug,
             "year": sc.year.label if sc.year else None,
             "name": sc.name,
             "formatted": formatted,
-            "raw": value,
+            "raw": float(value),
             "duration": sc.duration,
             "precision": sc.precision,
             "show_currency": sc.show_currency,
@@ -530,19 +549,36 @@ def home(request):
             "columns": sc.columns,
         })
 
-    # Group counters follow the same pattern but target a subset of councils.
+    # Group counters also use the new hybrid caching system
     for gc in GroupCounter.objects.filter(promote_homepage=True):
-        year_label = gc.year.label if gc.year else "all"
-        value = cache.get(f"counter_total:{gc.slug}:{year_label}", 0)
+        year_label = gc.year.label if gc.year else None
+        
+        # Use hybrid cache service for group counters too
+        value = counter_cache_service.get_counter_value(
+            counter_slug=gc.counter.slug,
+            year_label=year_label
+        )
+        
+        # Previous year value for group counters
         prev_value = 0
         if gc.year:
-            prev_value = cache.get(f"counter_total:{gc.slug}:{year_label}:prev", 0)
-        formatted = gc.counter.format_value(value)
+            try:
+                from council_finance.utils.year_utils import previous_year_label
+                prev_year_label = previous_year_label(gc.year.label)
+                if prev_year_label:
+                    prev_value = counter_cache_service.get_counter_value(
+                        counter_slug=gc.counter.slug,
+                        year_label=prev_year_label
+                    )
+            except Exception:
+                prev_value = 0
+        
+        formatted = gc.counter.format_value(float(value))
         promoted.append({
             "slug": gc.slug,
             "name": gc.name,
             "formatted": formatted,
-            "raw": value,
+            "raw": float(value),
             "duration": gc.duration,
             "precision": gc.precision,
             "show_currency": gc.show_currency,

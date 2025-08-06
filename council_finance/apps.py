@@ -14,3 +14,9 @@ class CouncilFinanceConfig(AppConfig):
             from .signals import factoid_signals  # noqa: F401
         except ImportError:
             pass
+        
+        # Import counter cache invalidation signals
+        try:
+            from .services import counter_invalidation_service  # noqa: F401
+        except ImportError:
+            pass

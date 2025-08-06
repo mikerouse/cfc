@@ -90,6 +90,7 @@ from .predictive_analytics import (
     PerformanceAnomaly,
     LoadBalancerConfig,
 )
+from .counter_result import CounterResult
 from .site_feedback import SiteFeedback, SiteAnnouncement
 
 __all__ = [
@@ -163,6 +164,7 @@ __all__ = [
     'CostForecast',
     'PerformanceAnomaly',
     'LoadBalancerConfig',
+    'CounterResult',
     'SiteFeedback',
     'SiteAnnouncement',
 ]
