@@ -856,3 +856,105 @@ class AgeVerificationForm(forms.Form):
         
         return dob
 
+
+class LocationInfoForm(forms.ModelForm):
+    """
+    Form for collecting location information from UK users.
+    Postcode is optional but helps provide location-specific features.
+    """
+    
+    postcode = forms.CharField(
+        max_length=20,
+        required=False,
+        widget=forms.TextInput(attrs={
+            'class': 'form-control form-control-lg',
+            'placeholder': 'e.g. SW1A 1AA',
+            'pattern': '[A-Za-z]{1,2}[0-9Rr][0-9A-Za-z]? [0-9][ABD-HJLNP-UW-Zabd-hjlnp-uw-z]{2}',
+        }),
+        help_text="Optional - helps us show you relevant local council information",
+        error_messages={
+            'invalid': 'Enter a valid UK postcode',
+        }
+    )
+    
+    postcode_refused = forms.BooleanField(
+        required=False,
+        label="I prefer not to provide my postcode",
+        help_text="Check this if you don't want to provide location information",
+        widget=forms.CheckboxInput(attrs={'class': 'form-check-input'})
+    )
+    
+    class Meta:
+        model = UserProfile
+        fields = ['postcode', 'postcode_refused']
+    
+    def clean(self):
+        """Custom validation to ensure either postcode is provided or refused"""
+        cleaned_data = super().clean()
+        postcode = cleaned_data.get('postcode')
+        postcode_refused = cleaned_data.get('postcode_refused')
+        
+        # If neither postcode nor refusal is provided, that's fine - user can skip
+        # But if both are provided, that's inconsistent
+        if postcode and postcode_refused:
+            raise forms.ValidationError(
+                "Please either provide your postcode or indicate you prefer not to share it, not both."
+            )
+        
+        return cleaned_data
+    
+    def clean_postcode(self):
+        """Validate UK postcode format"""
+        postcode = self.cleaned_data.get('postcode')
+        
+        if not postcode:
+            return postcode
+        
+        # Remove spaces and convert to uppercase for validation
+        postcode_clean = postcode.replace(' ', '').upper()
+        
+        # Basic UK postcode validation pattern
+        import re
+        uk_postcode_pattern = r'^[A-Z]{1,2}[0-9R][0-9A-Z]?[0-9][A-Z]{2}$'
+        
+        if not re.match(uk_postcode_pattern, postcode_clean):
+            raise forms.ValidationError(
+                "Enter a valid UK postcode (e.g. SW1A 1AA, M1 1AA, B33 8TH)"
+            )
+        
+        # Return properly formatted postcode (with space)
+        if len(postcode_clean) == 6:
+            return f"{postcode_clean[:3]} {postcode_clean[3:]}"
+        elif len(postcode_clean) == 7:
+            return f"{postcode_clean[:4]} {postcode_clean[4:]}"
+        else:
+            return postcode.upper()
+
+
+class CommunityGuidelinesForm(forms.Form):
+    """
+    Form for accepting community guidelines.
+    Required for all users to complete onboarding.
+    """
+    
+    accept_guidelines = forms.BooleanField(
+        required=True,
+        label="I accept the community guidelines",
+        help_text="You must accept our community guidelines to use this service",
+        widget=forms.CheckboxInput(attrs={'class': 'form-check-input form-check-input-lg'}),
+        error_messages={
+            'required': 'You must accept the community guidelines to continue',
+        }
+    )
+    
+    def clean_accept_guidelines(self):
+        """Ensure guidelines are accepted"""
+        accepted = self.cleaned_data.get('accept_guidelines')
+        
+        if not accepted:
+            raise forms.ValidationError(
+                "You must accept the community guidelines to use this service"
+            )
+        
+        return accepted
+

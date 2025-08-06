@@ -11,7 +11,7 @@ from django.views.decorators.http import require_http_methods
 from django.http import JsonResponse
 
 from council_finance.models import UserProfile
-from council_finance.forms import BasicDetailsForm, AgeVerificationForm
+from council_finance.forms import BasicDetailsForm, AgeVerificationForm, LocationInfoForm, CommunityGuidelinesForm
 from .general import log_activity
 
 logger = logging.getLogger(__name__)
@@ -235,25 +235,125 @@ def age_verification(request):
 
 
 @login_required
+@require_http_methods(["GET", "POST"])
 def location_info(request):
     """
     Step 4: Location information (conditional on UK status).
+    Only shown to UK users - collects optional postcode.
     """
-    # Placeholder - will implement in next phase
-    return render(request, 'onboarding/location_info.html', {
-        'progress': {'current': 4, 'total': 5}
-    })
+    profile = getattr(request.user, 'profile', None)
+    
+    if not profile or not profile.needs_onboarding():
+        return redirect('welcome')
+    
+    # Skip this step for non-UK users
+    if not profile.is_uk_user:
+        messages.info(request, "Location step skipped as you're not in the UK.")
+        return redirect('onboarding_guidelines')
+    
+    # Check if we already have location info or refusal
+    if profile.postcode or profile.postcode_refused:
+        messages.info(request, "Your location preferences have already been saved.")
+        return redirect('onboarding_guidelines')
+    
+    if request.method == 'POST':
+        form = LocationInfoForm(request.POST, instance=profile)
+        if form.is_valid():
+            form.save()
+            
+            # Log the outcome
+            if profile.postcode:
+                log_activity(
+                    request,
+                    activity=f"User provided postcode: {profile.postcode[:3]}*** (masked for privacy)"
+                )
+                messages.success(request, "Thanks! Your postcode will help us show you relevant local information.")
+            elif profile.postcode_refused:
+                log_activity(
+                    request,
+                    activity="User declined to provide postcode"
+                )
+                messages.success(request, "No problem! You can always add your postcode later in your profile settings.")
+            else:
+                log_activity(
+                    request,
+                    activity="User skipped postcode collection"
+                )
+                messages.success(request, "Location step completed.")
+            
+            return redirect('onboarding_guidelines')
+    else:
+        form = LocationInfoForm(instance=profile)
+    
+    # Calculate progress
+    total_steps = 5  # This step is only shown to UK users, so total is always 5
+    current_step = 4
+    progress_percent = int(round((current_step / total_steps) * 100))
+    
+    context = {
+        'form': form,
+        'progress': {
+            'current': current_step, 
+            'total': total_steps,
+            'percent': progress_percent
+        },
+        'is_uk_user': profile.is_uk_user,
+    }
+    
+    return render(request, 'onboarding/location_info.html', context)
 
 
 @login_required
+@require_http_methods(["GET", "POST"])
 def community_guidelines(request):
     """
     Step 5: Community guidelines acceptance.
+    Final step required for all users.
     """
-    # Placeholder - will implement in next phase
-    return render(request, 'onboarding/community_guidelines.html', {
-        'progress': {'current': 5, 'total': 5}
-    })
+    profile = getattr(request.user, 'profile', None)
+    
+    if not profile or not profile.needs_onboarding():
+        return redirect('welcome')
+    
+    # Check if guidelines already accepted
+    if profile.community_guidelines_accepted:
+        messages.info(request, "You have already accepted the community guidelines.")
+        return redirect('onboarding_complete')
+    
+    if request.method == 'POST':
+        form = CommunityGuidelinesForm(request.POST)
+        if form.is_valid():
+            # Mark guidelines as accepted
+            profile.community_guidelines_accepted = True
+            profile.community_guidelines_accepted_at = timezone.now()
+            profile.save()
+            
+            log_activity(
+                request,
+                activity="User accepted community guidelines - onboarding completed"
+            )
+            
+            messages.success(request, "Welcome to Council Finance Counters! Your account is now fully set up.")
+            return redirect('onboarding_complete')
+    else:
+        form = CommunityGuidelinesForm()
+    
+    # Calculate progress
+    total_steps = 5 if profile.is_uk_user else 4
+    current_step = total_steps  # This is the final step
+    progress_percent = int(round((current_step / total_steps) * 100))
+    
+    context = {
+        'form': form,
+        'progress': {
+            'current': current_step, 
+            'total': total_steps,
+            'percent': progress_percent
+        },
+        'is_uk_user': profile.is_uk_user,
+    }
+    
+    return render(request, 'onboarding/community_guidelines.html', context)
 
 
 @login_required
