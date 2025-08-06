@@ -179,6 +179,11 @@ urlpatterns = [
     # User preferences management
     path("accounts/preferences/", auth_views.user_preferences_view, name="user_preferences"),
     path("api/preferences/", api_views.user_preferences_ajax, name="user_preferences_ajax"),
+    # Enhanced auth functionality
+    path("accounts/logout/", auth_views.logout_view, name="logout_enhanced"),
+    path("accounts/password-reset/", auth_views.password_reset_view, name="password_reset_enhanced"),
+    path("accounts/delete-account/", auth_views.account_deletion_view, name="account_deletion"),
+    path("accounts/social-accounts/", auth_views.social_account_linking_view, name="social_accounts"),
     path("councils/", council_views.council_list, name="council_list"),
     path(
         "councils/<slug:slug>/counters/",

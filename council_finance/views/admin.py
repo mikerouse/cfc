@@ -830,6 +830,138 @@ def god_mode(request):
         'active_contributors': UserProfile.objects.filter(points__gt=0).count(),
     }
     
+    # Enhanced user authentication analytics
+    from django.contrib.auth.models import User
+    
+    try:
+        # Try to import SystemEvent from event_viewer, fall back to basic analytics if not available
+        try:
+            from event_viewer.models import SystemEvent
+            has_event_viewer = True
+        except ImportError:
+            has_event_viewer = False
+        
+        user_analytics = {
+            'total_authenticated_users': User.objects.filter(is_active=True).count(),
+            'auth0_users': UserProfile.objects.filter(auth0_user_id__isnull=False).count(),
+            'database_auth_users': UserProfile.objects.filter(auth0_user_id__isnull=True).count(),
+            'osa_restricted_users': UserProfile.objects.filter(can_access_comments=False).count(),
+            'unverified_emails': UserProfile.objects.filter(email_confirmed=False).count(),
+        }
+        
+        # Add Event Viewer analytics if available
+        if has_event_viewer:
+            try:
+                # Use explicit import to avoid model confusion
+                from event_viewer.models import SystemEvent as EventViewerSystemEvent
+                
+                user_analytics.update({
+                    'new_registrations_24h': EventViewerSystemEvent.objects.filter(
+                        source='user_onboarding',
+                        level='info',
+                        title='User Registration Completed',
+                        timestamp__gte=day_ago
+                    ).count(),
+                    'failed_logins_24h': EventViewerSystemEvent.objects.filter(
+                        source='user_auth',
+                        level='warning',
+                        category='security',
+                        title__icontains='login failed',
+                        timestamp__gte=day_ago
+                    ).count(),
+                    'password_resets_24h': EventViewerSystemEvent.objects.filter(
+                        source='user_auth',
+                        level='warning', 
+                        title='Password Reset Requested',
+                        timestamp__gte=day_ago
+                    ).count(),
+                    'account_deletions_7d': EventViewerSystemEvent.objects.filter(
+                        source='user_account',
+                        level__in=['warning', 'critical'],
+                        title__in=['Account Deactivated', 'Account Data Deleted'],
+                        timestamp__gte=week_ago
+                    ).count(),
+                })
+            except Exception as e:
+                logger.warning(f"Could not load Event Viewer analytics: {e}")
+                user_analytics.update({
+                    'new_registrations_24h': 0,
+                    'failed_logins_24h': 0,
+                    'password_resets_24h': 0,
+                    'account_deletions_7d': 0,
+                })
+        else:
+            # Fallback values when Event Viewer is not available
+            user_analytics.update({
+                'new_registrations_24h': 0,
+                'failed_logins_24h': 0,
+                'password_resets_24h': 0,
+                'account_deletions_7d': 0,
+            })
+        
+        # Handle PostgreSQL JSONB query for multiple social accounts
+        try:
+            users_with_multiple_accounts = UserProfile.objects.filter(
+                auth0_metadata__has_key='identities'
+            ).extra(
+                where=["jsonb_array_length(auth0_metadata->'identities') > 1"]
+            ).count()
+            user_analytics['users_with_multiple_social_accounts'] = users_with_multiple_accounts
+        except Exception as e:
+            logger.warning(f"Could not calculate users with multiple social accounts: {e}")
+            user_analytics['users_with_multiple_social_accounts'] = 0
+            
+    except Exception as e:
+        logger.error(f"Error calculating user analytics: {e}")
+        user_analytics = {
+            'total_authenticated_users': 0,
+            'auth0_users': 0,
+            'database_auth_users': 0,
+            'new_registrations_24h': 0,
+            'failed_logins_24h': 0,
+            'password_resets_24h': 0,
+            'account_deletions_7d': 0,
+            'osa_restricted_users': 0,
+            'unverified_emails': 0,
+            'users_with_multiple_social_accounts': 0,
+        }
+    
+    # Geographic user distribution (UK vs non-UK)
+    try:
+        geographic_analytics = {
+            'uk_users': UserProfile.objects.filter(is_uk_user=True).count(),
+            'non_uk_users': UserProfile.objects.filter(is_uk_user=False).count(),
+            'users_with_postcode': UserProfile.objects.filter(postcode__isnull=False).exclude(postcode='').count(),
+            'users_refused_postcode': UserProfile.objects.filter(postcode_refused=True).count(),
+        }
+    except Exception as e:
+        logger.error(f"Error calculating geographic analytics: {e}")
+        geographic_analytics = {
+            'uk_users': 0,
+            'non_uk_users': 0,
+            'users_with_postcode': 0,
+            'users_refused_postcode': 0,
+        }
+    
+    # Auth method distribution
+    auth_method_analytics = {}
+    try:
+        # Get last login methods from Auth0 users
+        auth_methods = UserProfile.objects.filter(
+            last_login_method__isnull=False
+        ).values('last_login_method').annotate(count=Count('last_login_method'))
+        
+        for method in auth_methods:
+            auth_method_analytics[method['last_login_method']] = method['count']
+    except:
+        auth_method_analytics = {'error': 'Unable to load auth method analytics'}
+    
+    system_insights.update({
+        'user_analytics': user_analytics,
+        'geographic_analytics': geographic_analytics, 
+        'auth_method_analytics': auth_method_analytics,
+    })
+    
     # Get high activity contributors with meaningful metrics
     top_contributors = UserProfile.objects.filter(
         points__gt=0
@@ -861,12 +993,88 @@ def god_mode(request):
         'consistency_score': 85,  # TODO: Implement actual consistency scoring
     }
     
-    # Security monitoring
-    security_monitoring = {
-        'bulk_operations_24h': 0,  # TODO: Implement bulk operation tracking
-        'admin_activities_24h': 0,  # TODO: Implement admin activity tracking
-        'unusual_patterns': 0,  # TODO: Implement unusual pattern detection
-    }
+    # Enhanced security monitoring with auth failure tracking
+    try:
+        if has_event_viewer:
+            try:
+                # Use EventViewerSystemEvent to avoid model confusion
+                security_monitoring = {
+                    'bulk_operations_24h': 0,  # TODO: Implement bulk operation tracking
+                    'admin_activities_24h': ActivityLog.objects.filter(
+                        created__gte=day_ago,  # ActivityLog uses 'created' not 'timestamp'
+                        user__is_superuser=True
+                    ).count(),
+                    'unusual_patterns': 0,  # TODO: Implement unusual pattern detection
+                    'auth_failures_24h': EventViewerSystemEvent.objects.filter(
+                        category='security',
+                        level__in=['warning', 'error', 'critical'],
+                        timestamp__gte=day_ago,
+                        tags__contains=['login_failed', 'password_reset', 'security_event']
+                    ).count(),
+                    'suspicious_ip_activity': EventViewerSystemEvent.objects.filter(
+                        category='security',
+                        level='warning',
+                        timestamp__gte=day_ago,
+                        title__icontains='security'
+                    ).values('details__ip_address').distinct().count(),
+                    'gdpr_requests_7d': EventViewerSystemEvent.objects.filter(
+                        source='user_account',
+                        category='data_privacy',
+                        timestamp__gte=week_ago
+                    ).count(),
+                    'email_security_violations': EventViewerSystemEvent.objects.filter(
+                        source='user_auth',
+                        title__icontains='security constraint violation',
+                        timestamp__gte=day_ago
+                    ).count(),
+                    'onboarding_security_events': EventViewerSystemEvent.objects.filter(
+                        source='user_onboarding',
+                        level__in=['warning', 'error'],
+                        timestamp__gte=day_ago
+                    ).count(),
+                }
+            except Exception as e:
+                logger.warning(f"Could not load Event Viewer security monitoring: {e}")
+                security_monitoring = {
+                    'bulk_operations_24h': 0,
+                    'admin_activities_24h': ActivityLog.objects.filter(
+                        created__gte=day_ago,
+                        user__is_superuser=True
+                    ).count(),
+                    'unusual_patterns': 0,
+                    'auth_failures_24h': 0,
+                    'suspicious_ip_activity': 0,
+                    'gdpr_requests_7d': 0,
+                    'email_security_violations': 0,
+                    'onboarding_security_events': 0,
+                }
+        else:
+            # Fallback when Event Viewer is not available
+            security_monitoring = {
+                'bulk_operations_24h': 0,
+                'admin_activities_24h': ActivityLog.objects.filter(
+                    created__gte=day_ago,
+                    user__is_superuser=True
+                ).count(),
+                'unusual_patterns': 0,
+                'auth_failures_24h': 0,
+                'suspicious_ip_activity': 0,
+                'gdpr_requests_7d': 0,
+                'email_security_violations': 0,
+                'onboarding_security_events': 0,
+            }
+    except Exception as e:
+        logger.error(f"Error in security monitoring: {e}")
+        security_monitoring = {
+            'bulk_operations_24h': 0,
+            'admin_activities_24h': 0,
+            'unusual_patterns': 0,
+            'auth_failures_24h': 0,
+            'suspicious_ip_activity': 0,
+            'gdpr_requests_7d': 0,
+            'email_security_violations': 0,
+            'onboarding_security_events': 0,
+        }
     
     # Council activity hotspots - councils with most recent data updates
     council_activity_hotspots = trending_councils

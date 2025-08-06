@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Security Alert - Council Finance Counters</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 0; padding: 20px; background-color: #f8f9fa; }
+        .container { max-width: 600px; margin: 0 auto; background: white; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        .header { background: linear-gradient(135deg, #dc3545, #c82333); color: white; padding: 20px; text-align: center; }
+        .header h1 { margin: 0; font-size: 24px; }
+        .content { padding: 30px; }
+        .alert { margin: 20px 0; padding: 15px; border-radius: 6px; border-left: 4px solid; }
+        .alert.high { background-color: #f8d7da; border-color: #dc3545; color: #721c24; }
+        .alert.medium { background-color: #fff3cd; border-color: #ffc107; color: #856404; }
+        .alert h3 { margin: 0 0 10px 0; font-size: 16px; }
+        .alert p { margin: 5px 0; font-size: 14px; }
+        .metrics { background-color: #f8f9fa; padding: 15px; border-radius: 6px; margin: 20px 0; }
+        .metrics h3 { margin: 0 0 15px 0; color: #495057; }
+        .metric-row { display: flex; justify-content: space-between; margin: 8px 0; font-size: 14px; }
+        .recommendation { background-color: #e7f3ff; padding: 12px; border-radius: 6px; border-left: 4px solid #007bff; margin-top: 10px; }
+        .footer { background-color: #6c757d; color: white; padding: 15px; text-align: center; font-size: 12px; }
+        .icon { font-size: 18px; margin-right: 8px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <h1>🚨 Authentication Security Alert</h1>
+            <p>Council Finance Counters - Security Monitoring</p>
+        </div>
+        
+        <!-- Content -->
+        <div class="content">
+            <p><strong>Alert Time:</strong> {{ timestamp|date:"Y-m-d H:i:s T" }}</p>
+            
+            {% if high_severity_count > 0 %}
+            <p style="color: #dc3545; font-weight: bold;">
+                ⚠️ <strong>{{ high_severity_count }} HIGH PRIORITY security issue{{ high_severity_count|pluralize }} detected!</strong>
+            </p>
+            {% endif %}
+            
+            {% if medium_severity_count > 0 %}
+            <p style="color: #856404;">
+                📋 {{ medium_severity_count }} medium priority issue{{ medium_severity_count|pluralize }} also detected.
+            </p>
+            {% endif %}
+            
+            <h2>🔍 Security Alert Details</h2>
+            
+            {% for alert in alerts %}
+            <div class="alert {{ alert.severity }}">
+                <h3>
+                    {% if alert.severity == 'high' %}🔴{% else %}🟡{% endif %}
+                    {{ alert.title }}
+                </h3>
+                <p><strong>{{ alert.message }}</strong></p>
+                
+                {% if alert.count and alert.threshold %}
+                <div class="metrics">
+                    <div class="metric-row">
+                        <span>Threshold:</span>
+                        <span>{{ alert.threshold }}</span>
+                    </div>
+                    <div class="metric-row">
+                        <span>Actual Count:</span>
+                        <span><strong>{{ alert.count }}</strong></span>
+                    </div>
+                    <div class="metric-row">
+                        <span>Period:</span>
+                        <span>{{ alert.details.period|default:"1h" }}</span>
+                    </div>
+                </div>
+                {% endif %}
+                
+                {% if alert.details.recommendation %}
+                <div class="recommendation">
+                    <strong>💡 Recommendation:</strong> {{ alert.details.recommendation }}
+                </div>
+                {% endif %}
+                
+                {% if alert.details.ip_address %}
+                <p><strong>IP Address:</strong> <code>{{ alert.details.ip_address }}</code></p>
+                {% endif %}
+            </div>
+            {% endfor %}
+            
+            <h2>🛡️ Recommended Actions</h2>
+            <ul>
+                {% if high_severity_count > 0 %}
+                <li><strong>Immediate:</strong> Review Event Viewer for detailed security logs</li>
+                <li><strong>Immediate:</strong> Check for patterns in failed login attempts</li>
+                <li><strong>Consider:</strong> Implementing IP blocking for repeat offenders</li>
+                {% endif %}
+                <li><strong>Monitor:</strong> Continue watching authentication patterns</li>
+                <li><strong>Review:</strong> User account activity for suspicious behavior</li>
+                <li><strong>Update:</strong> Security thresholds if needed</li>
+            </ul>
+            
+            <div style="margin-top: 30px; padding: 20px; background-color: #e7f3ff; border-radius: 6px;">
+                <h3 style="margin: 0 0 10px 0;">🔗 Quick Links</h3>
+                <p style="margin: 5px 0;">
+                    <strong>Event Viewer:</strong> <a href="{{ request.build_absolute_uri }}/system-events/">View Security Events</a>
+                </p>
+                <p style="margin: 5px 0;">
+                    <strong>God Mode:</strong> <a href="{{ request.build_absolute_uri }}/god-mode/">System Dashboard</a>
+                </p>
+                <p style="margin: 5px 0;">
+                    <strong>User Management:</strong> <a href="{{ request.build_absolute_uri }}/admin/">Admin Interface</a>
+                </p>
+            </div>
+        </div>
+        
+        <!-- Footer -->
+        <div class="footer">
+            <p>Council Finance Counters Security Monitoring System</p>
+            <p>This is an automated security alert. Do not reply to this email.</p>
+        </div>
+    </div>
+</body>
+</html>
