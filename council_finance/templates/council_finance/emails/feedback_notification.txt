@@ -1,0 +1,39 @@
+{% if is_urgent %}[URGENT] {% endif %}NEW FEEDBACK RECEIVED - {{ site_name }}
+
+Type: {{ feedback.get_feedback_type_display }}
+Severity: {{ feedback.get_severity_display }} (Priority Score: {{ priority_score }})
+Title: {{ feedback.title }}
+Submitted: {{ feedback.submitted_at|date:"F j, Y g:i A" }}
+
+{% if feedback.user %}User: {{ feedback.user.username }}{% if feedback.user.email %} ({{ feedback.user.email }}){% endif %}
+{% endif %}
+{% if feedback.contact_name or feedback.contact_email %}Contact: {% if feedback.contact_name %}{{ feedback.contact_name }}{% endif %}{% if feedback.contact_email %}{% if feedback.contact_name %} - {% endif %}{{ feedback.contact_email }}{% endif %}
+{% endif %}
+
+DESCRIPTION:
+{{ feedback.description }}
+
+{% if feedback.is_bug and feedback.steps_to_reproduce %}
+STEPS TO REPRODUCE:
+{{ feedback.steps_to_reproduce }}
+
+{% if feedback.expected_behaviour %}EXPECTED:
+{{ feedback.expected_behaviour }}
+
+{% endif %}{% if feedback.actual_behaviour %}ACTUAL:
+{{ feedback.actual_behaviour }}
+
+{% endif %}{% endif %}TECHNICAL CONTEXT:
+{% if feedback.page_url %}Page: {{ feedback.page_url }}
+{% endif %}{% if feedback.screen_resolution %}Screen: {{ feedback.screen_resolution }}
+{% endif %}{% if feedback.user_agent %}Browser: {{ feedback.user_agent|truncatechars:100 }}
+{% endif %}
+
+LINKS:
+Event Viewer: {{ dashboard_url }}
+Admin Panel: {{ feedback_detail_url }}
+
+---
+Feedback ID: #{{ feedback.id }}
+Status: {{ feedback.get_status_display }}
+{{ site_name }} Feedback System

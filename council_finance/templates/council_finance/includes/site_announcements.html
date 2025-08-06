@@ -1,0 +1,175 @@
+{% load heroicons %}
+
+{% comment %}
+Site-wide announcements banner
+Displays active announcements in GOV.UK notification banner style
+{% endcomment %}
+
+{% for announcement in active_announcements %}
+<div class="site-announcement mb-0" 
+     data-announcement-id="{{ announcement.id }}"
+     data-dismissible="{{ announcement.is_dismissible|yesno:'true,false' }}">
+    
+    <div class="mx-auto px-3 sm:px-4 xl:px-6 max-w-none xl:max-w-desktop">
+        <div class="{% if announcement.announcement_type == 'warning' or announcement.announcement_type == 'error' %}bg-red-50 border-red-200 text-red-800{% elif announcement.announcement_type == 'success' %}bg-green-50 border-green-200 text-green-800{% elif announcement.announcement_type == 'test' %}bg-amber-50 border-amber-200 text-amber-900{% else %}bg-gray-50 border-gray-200 text-gray-800{% endif %} border-l-4 rounded-lg p-4 mb-4">
+            
+            <div class="flex items-start justify-between">
+                <div class="flex items-start flex-1 min-w-0">
+                    
+                    <!-- Content -->
+                    <div class="flex-1 min-w-0">
+                        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-4">
+                            <div class="flex-1 min-w-0">
+                                <p class="font-semibold text-sm xl:text-base leading-tight">
+                                    {{ announcement.title }}
+                                </p>
+                                
+                                {% if announcement.description %}
+                                <p class="text-sm xl:text-base mt-1 text-opacity-90">
+                                    {{ announcement.description }}
+                                </p>
+                                {% endif %}
+                            </div>
+                            
+                            <!-- Action Link -->
+                            {% if announcement.link_text and announcement.link_url %}
+                            <div class="flex-shrink-0">
+                                <a href="{{ announcement.link_url }}" 
+                                   class="inline-flex items-center px-4 py-2 text-sm xl:text-base font-medium rounded-lg transition-colors min-h-[44px] {% if announcement.announcement_type == 'warning' or announcement.announcement_type == 'error' %}bg-red-100 hover:bg-red-200 text-red-800 border border-red-300{% elif announcement.announcement_type == 'success' %}bg-green-100 hover:bg-green-200 text-green-800 border border-green-300{% elif announcement.announcement_type == 'test' %}bg-amber-100 hover:bg-amber-200 text-amber-900 border border-amber-300{% else %}bg-gray-100 hover:bg-gray-200 text-gray-800 border border-gray-300{% endif %}"
+                                   onclick="trackAnnouncementClick({{ announcement.id }})">
+                                    {{ announcement.link_text }}
+                                </a>
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Dismiss Button -->
+                {% if announcement.is_dismissible %}
+                <div class="flex-shrink-0 ml-4">
+                    <button type="button" 
+                            class="dismiss-announcement inline-flex p-2 rounded-lg hover:bg-black hover:bg-opacity-10 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors min-h-[44px] min-w-[44px] items-center justify-center"
+                            data-announcement-id="{{ announcement.id }}"
+                            aria-label="Dismiss announcement">
+                        <svg class="w-4 h-4 xl:w-5 xl:h-5" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"/>
+                        </svg>
+                    </button>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endfor %}
+
+<!-- JavaScript for announcement interactions -->
+<script>
+// Track announcement clicks for analytics
+function trackAnnouncementClick(announcementId) {
+    fetch(`/api/announcements/${announcementId}/click/`, {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]')?.value || '',
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            'timestamp': new Date().toISOString()
+        })
+    }).catch(err => {
+        console.log('Failed to track announcement click:', err);
+    });
+}
+
+// Handle announcement dismissal
+document.addEventListener('DOMContentLoaded', function() {
+    // Check for dismissed announcements in localStorage
+    const dismissedAnnouncements = JSON.parse(localStorage.getItem('dismissedAnnouncements') || '[]');
+    
+    // Hide dismissed announcements
+    dismissedAnnouncements.forEach(id => {
+        const announcement = document.querySelector(`[data-announcement-id="${id}"]`);
+        if (announcement) {
+            announcement.style.display = 'none';
+        }
+    });
+    
+    // Handle dismiss buttons
+    document.querySelectorAll('.dismiss-announcement').forEach(button => {
+        button.addEventListener('click', function() {
+            const announcementId = this.dataset.announcementId;
+            const announcement = document.querySelector(`[data-announcement-id="${announcementId}"]`);
+            
+            if (announcement) {
+                // Fade out animation
+                announcement.style.transition = 'opacity 0.3s ease-out, transform 0.3s ease-out';
+                announcement.style.opacity = '0';
+                announcement.style.transform = 'translateY(-10px)';
+                
+                setTimeout(() => {
+                    announcement.style.display = 'none';
+                }, 300);
+                
+                // Store dismissal in localStorage
+                const dismissed = JSON.parse(localStorage.getItem('dismissedAnnouncements') || '[]');
+                if (!dismissed.includes(announcementId)) {
+                    dismissed.push(announcementId);
+                    localStorage.setItem('dismissedAnnouncements', JSON.stringify(dismissed));
+                }
+                
+                // Optional: Send dismissal to server for analytics
+                fetch(`/api/announcements/${announcementId}/dismiss/`, {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]')?.value || '',
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        'timestamp': new Date().toISOString()
+                    })
+                }).catch(err => {
+                    console.log('Failed to track announcement dismissal:', err);
+                });
+            }
+        });
+    });
+});
+</script>
+
+<style>
+/* GOV.UK inspired announcement banner styles */
+.site-announcement {
+    /* Ensure consistent spacing and responsive behavior */
+}
+
+.site-announcement .gov-uk-notification-banner {
+    /* Additional banner-specific styles if needed */
+    animation: slideDown 0.3s ease-out;
+}
+
+@keyframes slideDown {
+    from {
+        opacity: 0;
+        transform: translateY(-20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Focus styles for accessibility */
+.dismiss-announcement:focus {
+    outline: 2px solid #3b82f6;
+    outline-offset: 2px;
+}
+
+/* Responsive text sizing */
+@media (max-width: 640px) {
+    .site-announcement .gov-uk-notification-banner p {
+        font-size: 14px;
+        line-height: 1.4;
+    }
+}
+</style>

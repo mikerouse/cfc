@@ -40,6 +40,7 @@ class SystemEvent(models.Model):
         ('api', 'API Endpoint'),
         ('background_task', 'Background Task'),
         ('user_report', 'User Report'),
+        ('site_feedback', 'Site Feedback'),
         ('health_check', 'Health Check'),
     ]
     
@@ -62,6 +63,7 @@ class SystemEvent(models.Model):
         ('resource', 'Resource Issue'),
         ('configuration', 'Configuration Issue'),
         ('test_failure', 'Test Failure'),
+        ('user_feedback', 'User Feedback'),
     ]
     
     # Core fields

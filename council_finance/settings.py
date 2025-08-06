@@ -80,6 +80,7 @@ TEMPLATES = [
                 "council_finance.context_processors.debug_flag",
                 "council_finance.context_processors.tutorial_context",
                 "council_finance.context_processors.dev_cache_buster",
+                "council_finance.views.feedback.announcements_context_processor",
             ],
         },
     },
@@ -242,3 +243,21 @@ CORS_ALLOW_HEADERS = [
     'x-csrftoken',
     'x-requested-with',
 ]
+
+# ============================================================================
+# EMAIL CONFIGURATION
+# ============================================================================
+
+# Email settings for feedback notifications
+EMAIL_BACKEND = os.getenv('EMAIL_BACKEND', 'django.core.mail.backends.console.EmailBackend')
+EMAIL_HOST = os.getenv('EMAIL_HOST', 'localhost')
+EMAIL_PORT = int(os.getenv('EMAIL_PORT', '25'))
+EMAIL_USE_TLS = os.getenv('EMAIL_USE_TLS', 'False').lower() == 'true'
+EMAIL_USE_SSL = os.getenv('EMAIL_USE_SSL', 'False').lower() == 'true'
+EMAIL_HOST_USER = os.getenv('EMAIL_HOST_USER', '')
+EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD', '')
+DEFAULT_FROM_EMAIL = os.getenv('DEFAULT_FROM_EMAIL', 'counters@mikerouse.co.uk')
+SERVER_EMAIL = DEFAULT_FROM_EMAIL
+
+# Feedback notification settings
+FEEDBACK_EMAIL_ENABLED = os.getenv('FEEDBACK_EMAIL_ENABLED', 'True').lower() == 'true'

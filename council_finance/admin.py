@@ -148,3 +148,8 @@ admin.site.register(CouncilCounter)
 admin.site.register(SiteSetting)
 admin.site.register(CouncilCapability)
 admin.site.register(ActivityLog)
+
+# Site feedback and announcements
+from .models.site_feedback import SiteFeedback, SiteAnnouncement
+admin.site.register(SiteFeedback)
+admin.site.register(SiteAnnouncement)

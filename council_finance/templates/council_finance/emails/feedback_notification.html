@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>New Feedback Submission</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .header {
+            background: {% if is_urgent %}#d73527{% else %}#1d70b8{% endif %};
+            color: white;
+            padding: 20px;
+            text-align: center;
+            border-radius: 5px 5px 0 0;
+        }
+        .content {
+            background: #f8f9fa;
+            padding: 20px;
+            border: 1px solid #dee2e6;
+        }
+        .footer {
+            background: #e9ecef;
+            padding: 15px;
+            text-align: center;
+            border-radius: 0 0 5px 5px;
+            font-size: 14px;
+            color: #6c757d;
+        }
+        .priority-badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 15px;
+            font-size: 12px;
+            font-weight: bold;
+            {% if feedback.severity == 'critical' %}
+                background: #dc3545;
+                color: white;
+            {% elif feedback.severity == 'high' %}
+                background: #fd7e14;
+                color: white;
+            {% elif feedback.severity == 'medium' %}
+                background: #ffc107;
+                color: black;
+            {% else %}
+                background: #6c757d;
+                color: white;
+            {% endif %}
+        }
+        .feedback-type {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 15px;
+            font-size: 12px;
+            font-weight: bold;
+            {% if feedback.feedback_type == 'bug' %}
+                background: #dc3545;
+                color: white;
+            {% elif feedback.feedback_type == 'feature' %}
+                background: #0d6efd;
+                color: white;
+            {% elif feedback.feedback_type == 'improvement' %}
+                background: #198754;
+                color: white;
+            {% else %}
+                background: #6f42c1;
+                color: white;
+            {% endif %}
+        }
+        .detail-row {
+            margin: 10px 0;
+            padding: 8px 0;
+            border-bottom: 1px solid #e9ecef;
+        }
+        .detail-label {
+            font-weight: bold;
+            display: inline-block;
+            width: 120px;
+            vertical-align: top;
+        }
+        .button {
+            display: inline-block;
+            padding: 12px 24px;
+            background: #0d6efd;
+            color: white;
+            text-decoration: none;
+            border-radius: 5px;
+            font-weight: bold;
+            margin: 10px 5px;
+        }
+        .button:hover {
+            background: #0b5ed7;
+        }
+        .description-box {
+            background: white;
+            border: 1px solid #dee2e6;
+            padding: 15px;
+            margin: 15px 0;
+            border-radius: 5px;
+        }
+        .context-info {
+            background: #e7f3ff;
+            border: 1px solid #b8daff;
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 3px;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>{% if is_urgent %}[URGENT]{% else %}[FEEDBACK]{% endif %} New Feedback Received</h1>
+        <p style="margin: 5px 0 0 0;">{{ site_name }}</p>
+    </div>
+
+    <div class="content">
+        <div class="detail-row">
+            <span class="detail-label">Type:</span>
+            <span class="feedback-type">{{ feedback.get_feedback_type_display }}</span>
+        </div>
+
+        <div class="detail-row">
+            <span class="detail-label">Severity:</span>
+            <span class="priority-badge">{{ feedback.get_severity_display }}</span>
+            <small style="margin-left: 10px; color: #6c757d;">Priority Score: {{ priority_score }}</small>
+        </div>
+
+        <div class="detail-row">
+            <span class="detail-label">Title:</span>
+            <strong>{{ feedback.title }}</strong>
+        </div>
+
+        <div class="detail-row">
+            <span class="detail-label">Submitted:</span>
+            {{ feedback.submitted_at|date:"F j, Y g:i A" }}
+        </div>
+
+        {% if feedback.user %}
+        <div class="detail-row">
+            <span class="detail-label">User:</span>
+            {{ feedback.user.username }}{% if feedback.user.email %} ({{ feedback.user.email }}){% endif %}
+        </div>
+        {% endif %}
+
+        {% if feedback.contact_name or feedback.contact_email %}
+        <div class="detail-row">
+            <span class="detail-label">Contact:</span>
+            {% if feedback.contact_name %}{{ feedback.contact_name }}{% endif %}
+            {% if feedback.contact_email %}
+                {% if feedback.contact_name %} - {% endif %}
+                <a href="mailto:{{ feedback.contact_email }}">{{ feedback.contact_email }}</a>
+            {% endif %}
+        </div>
+        {% endif %}
+
+        <div class="description-box">
+            <h3 style="margin-top: 0;">Description:</h3>
+            <p>{{ feedback.description|linebreaks }}</p>
+        </div>
+
+        {% if feedback.is_bug and feedback.steps_to_reproduce %}
+        <div class="description-box">
+            <h4 style="margin-top: 0;">Steps to Reproduce:</h4>
+            <p>{{ feedback.steps_to_reproduce|linebreaks }}</p>
+            
+            {% if feedback.expected_behaviour %}
+            <h4>Expected:</h4>
+            <p>{{ feedback.expected_behaviour|linebreaks }}</p>
+            {% endif %}
+            
+            {% if feedback.actual_behaviour %}
+            <h4>Actual:</h4>
+            <p>{{ feedback.actual_behaviour|linebreaks }}</p>
+            {% endif %}
+        </div>
+        {% endif %}
+
+        <div class="context-info">
+            <strong>Technical Context:</strong><br>
+            {% if feedback.page_url %}Page: <a href="{{ feedback.page_url }}">{{ feedback.page_url }}</a><br>{% endif %}
+            {% if feedback.screen_resolution %}Screen: {{ feedback.screen_resolution }}<br>{% endif %}
+            {% if feedback.user_agent %}Browser: {{ feedback.user_agent|truncatechars:100 }}{% endif %}
+        </div>
+
+        <div style="text-align: center; margin: 20px 0;">
+            <a href="{{ dashboard_url }}" class="button">View in Event Viewer</a>
+            <a href="{{ feedback_detail_url }}" class="button">Edit in Admin</a>
+        </div>
+    </div>
+
+    <div class="footer">
+        <p>This notification was sent because new feedback was submitted to {{ site_name }}.</p>
+        <p>Feedback ID: #{{ feedback.id }} | Status: {{ feedback.get_status_display }}</p>
+    </div>
+</body>
+</html>

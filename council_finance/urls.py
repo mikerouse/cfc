@@ -19,6 +19,7 @@ from .views import (
     email_status as email_status_views,
     factoid_builder as factoid_builder_api,
     council_edit_api,
+    feedback as feedback_views,
 )
 # Import following functions directly from general to avoid circular import issues
 from .views.general import (
@@ -383,6 +384,10 @@ urlpatterns = [
     path("about/", page_views.about, name="about"),
     path("terms/", page_views.terms_of_use, name="terms_of_use"),
     path("privacy/", page_views.privacy_cookies, name="privacy_cookies"),
+    
+    # Site feedback system for pre-alpha testing
+    path("feedback/", feedback_views.feedback_form, name="feedback_form"),
+    path("feedback/thank-you/", feedback_views.feedback_thank_you, name="feedback_thank_you"),
     # Management views for counters
     path("manage/counters/", admin_views.counter_definition_list, name="counter_definitions"),
     path("manage/counters/site/", admin_views.site_counter_list, name="site_counter_list"),

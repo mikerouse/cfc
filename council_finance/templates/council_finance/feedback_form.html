@@ -1,0 +1,312 @@
+{% extends "council_finance/base.html" %}
+{% load heroicons %}
+
+{% block title %}Feedback - {{ block.super }}{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto">
+    <!-- Page Header -->
+    <div class="bg-blue-600 text-white rounded-xl p-6 mb-6">
+        <h1 class="text-2xl xl:text-3xl font-bold mb-2">Help us improve</h1>
+        <p class="text-blue-100 xl:text-lg">
+            This website is in pre-alpha testing. Your feedback helps us build better tools for understanding council finances.
+        </p>  
+    </div>
+
+    <!-- Messages -->
+    {% if messages %}
+        {% for message in messages %}
+        <div class="gov-uk-notification-banner mb-6 p-4 border border-l-4 rounded-lg {% if message.tags == 'success' %}border-green-500 bg-green-50 text-green-800{% elif message.tags == 'error' %}border-red-500 bg-red-50 text-red-800{% else %}border-blue-500 bg-blue-50 text-blue-800{% endif %}">
+            <p class="font-medium">{{ message }}</p>
+        </div>
+        {% endfor %}
+    {% endif %}
+
+    <!-- Feedback Form -->
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6 xl:p-8">
+        <form id="feedback-form" method="post" class="space-y-6">
+            {% csrf_token %}
+            
+            <!-- Hidden fields for context -->
+            <input type="hidden" id="page_url" name="page_url" value="{{ request.META.HTTP_REFERER|default:request.build_absolute_uri }}">
+            <input type="hidden" id="screen_resolution" name="screen_resolution" value="">
+            
+            <!-- Feedback Type -->
+            <div class="form-group">
+                <label for="feedback_type" class="form-label text-base xl:text-lg font-semibold text-gray-900 mb-3 block">
+                    What type of feedback is this? <span class="text-red-500">*</span>
+                </label>
+                <select id="feedback_type" name="feedback_type" required 
+                        class="form-select w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-base xl:text-lg min-h-[48px]">
+                    {% for value, label in feedback_types %}
+                    <option value="{{ value }}" {% if value == 'bug' %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+                <p class="text-sm text-gray-600 mt-2">Choose the category that best describes your feedback</p>
+            </div>
+
+            <!-- Title -->
+            <div class="form-group">
+                <label for="title" class="form-label text-base xl:text-lg font-semibold text-gray-900 mb-3 block">
+                    Brief summary <span class="text-red-500">*</span>
+                </label>
+                <input type="text" id="title" name="title" required maxlength="200"
+                       class="form-input w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-base xl:text-lg min-h-[48px]"
+                       placeholder="e.g., 'Search results not loading' or 'Add export to CSV feature'">
+                <p class="text-sm text-gray-600 mt-2">A clear, concise summary of your feedback</p>
+            </div>
+
+            <!-- Description -->
+            <div class="form-group">
+                <label for="description" class="form-label text-base xl:text-lg font-semibold text-gray-900 mb-3 block">
+                    Detailed description <span class="text-red-500">*</span>
+                </label>
+                <textarea id="description" name="description" required maxlength="2000" rows="5"
+                          class="form-textarea w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-base xl:text-lg resize-vertical"
+                          placeholder="Please provide as much detail as possible..."></textarea>
+                <p class="text-sm text-gray-600 mt-2">
+                    <span id="char-count">0</span>/2000 characters. 
+                    Include what happened, what you expected, and any other relevant information.
+                </p>
+            </div>
+
+            <!-- Severity -->
+            <div class="form-group">
+                <label for="severity" class="form-label text-base xl:text-lg font-semibold text-gray-900 mb-3 block">
+                    How important is this?
+                </label>
+                <div class="space-y-3">
+                    {% for value, label in severity_levels %}
+                    <div class="flex items-start">
+                        <input type="radio" id="severity_{{ value }}" name="severity" value="{{ value }}" 
+                               class="mt-1 w-4 h-4 text-blue-600 border-gray-300 focus:ring-blue-500" 
+                               {% if value == 'medium' %}checked{% endif %}>
+                        <label for="severity_{{ value }}" class="ml-3 text-base cursor-pointer">
+                            <span class="font-medium">{{ label }}</span>
+                        </label>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <!-- Bug-specific fields (hidden by default) -->
+            <div id="bug-fields" class="space-y-6 hidden">
+                <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                    <h3 class="text-lg font-semibold text-yellow-800 mb-3">
+                        Bug Report Details
+                    </h3>
+                    
+                    <!-- Steps to Reproduce -->
+                    <div class="form-group mb-4">
+                        <label for="steps_to_reproduce" class="form-label text-base font-semibold text-gray-900 mb-2 block">
+                            Steps to reproduce the issue
+                        </label>
+                        <textarea id="steps_to_reproduce" name="steps_to_reproduce" maxlength="1000" rows="4"
+                                  class="form-textarea w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-base resize-vertical"
+                                  placeholder="1. Go to...&#10;2. Click on...&#10;3. Notice that..."></textarea>
+                        <p class="text-sm text-gray-600 mt-2">Step-by-step instructions to reproduce the problem</p>
+                    </div>
+
+                    <!-- Expected Behaviour -->
+                    <div class="form-group mb-4">
+                        <label for="expected_behaviour" class="form-label text-base font-semibold text-gray-900 mb-2 block">
+                            What did you expect to happen?
+                        </label>
+                        <textarea id="expected_behaviour" name="expected_behaviour" maxlength="500" rows="2"
+                                  class="form-textarea w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-base resize-vertical"
+                                  placeholder="The page should load with council data..."></textarea>
+                    </div>
+
+                    <!-- Actual Behaviour -->
+                    <div class="form-group">
+                        <label for="actual_behaviour" class="form-label text-base font-semibold text-gray-900 mb-2 block">
+                            What actually happened?
+                        </label>
+                        <textarea id="actual_behaviour" name="actual_behaviour" maxlength="500" rows="2"
+                                  class="form-textarea w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-base resize-vertical"
+                                  placeholder="The page showed an error message..."></textarea>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Contact Information (Optional) -->
+            <div class="form-group">
+                <h3 class="text-lg font-semibold text-gray-900 mb-4">
+                    Contact information <span class="text-sm font-normal text-gray-600">(optional)</span>
+                </h3>
+                <p class="text-sm text-gray-600 mb-4">
+                    Leave your details if you'd like us to follow up on your feedback. This is completely optional.
+                </p>
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label for="contact_name" class="form-label text-base font-medium text-gray-900 mb-2 block">
+                            Name
+                        </label>
+                        <input type="text" id="contact_name" name="contact_name" maxlength="100"
+                               class="form-input w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-base min-h-[48px]"
+                               placeholder="Your name">
+                    </div>
+                    
+                    <div>
+                        <label for="contact_email" class="form-label text-base font-medium text-gray-900 mb-2 block">
+                            Email address
+                        </label>
+                        <input type="email" id="contact_email" name="contact_email"
+                               class="form-input w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-base min-h-[48px]"
+                               placeholder="your.email@example.com">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Submit Button -->
+            <div class="pt-4 border-t border-gray-200">
+                <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                    <div class="flex items-center text-sm text-gray-600">
+                        <span>Your feedback will be reviewed by our development team</span>
+                    </div>
+                    
+                    <div class="flex gap-3">
+                        <button type="button" onclick="window.history.back()" 
+                                class="px-6 py-3 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 min-h-[48px] min-w-[80px] font-medium transition-colors">
+                            Cancel
+                        </button>
+                        
+                        <button type="submit" id="submit-btn"
+                                class="px-8 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 min-h-[48px] min-w-[120px] font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+                            <span id="submit-text">Submit Feedback</span>
+                            <span id="submit-loading" class="hidden">
+                                Sending...
+                            </span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </form>
+    </div>
+
+    <!-- Help Text -->
+    <div class="mt-6 bg-gray-50 rounded-lg p-4 text-sm text-gray-700">
+        <h4 class="font-semibold mb-2">Tips for helpful feedback:</h4>
+        <ul class="list-disc list-inside space-y-1">
+            <li><strong>Be specific:</strong> Include details about what you were trying to do</li>
+            <li><strong>Include context:</strong> What browser and device are you using?</li>
+            <li><strong>Screenshots help:</strong> If you can, describe what you saw on screen</li>
+            <li><strong>Expected vs actual:</strong> Tell us what you expected to happen vs what actually happened</li>
+        </ul>
+    </div>
+</div>
+
+<!-- JavaScript for form enhancement -->
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.getElementById('feedback-form');
+    const feedbackType = document.getElementById('feedback_type');
+    const bugFields = document.getElementById('bug-fields');
+    const description = document.getElementById('description');
+    const charCount = document.getElementById('char-count');
+    const submitBtn = document.getElementById('submit-btn');
+    const submitText = document.getElementById('submit-text');
+    const submitLoading = document.getElementById('submit-loading');
+    
+    // Capture screen resolution
+    document.getElementById('screen_resolution').value = 
+        screen.width + 'x' + screen.height + ' (' + window.devicePixelRatio + 'x)';
+    
+    // Show/hide bug-specific fields
+    function toggleBugFields() {
+        if (feedbackType.value === 'bug' || feedbackType.value === 'performance') {
+            bugFields.classList.remove('hidden');
+        } else {
+            bugFields.classList.add('hidden');
+        }
+    }
+    
+    feedbackType.addEventListener('change', toggleBugFields);
+    toggleBugFields(); // Initial check
+    
+    // Character counter
+    function updateCharCount() {
+        const count = description.value.length;
+        charCount.textContent = count;
+        
+        if (count > 1900) {
+            charCount.className = 'text-red-600 font-medium';
+        } else if (count > 1500) {
+            charCount.className = 'text-yellow-600 font-medium';
+        } else {
+            charCount.className = '';
+        }
+    }
+    
+    description.addEventListener('input', updateCharCount);
+    updateCharCount(); // Initial count
+    
+    // Form submission
+    form.addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        // Disable submit button and show loading
+        submitBtn.disabled = true;
+        submitText.classList.add('hidden');
+        submitLoading.classList.remove('hidden');
+        
+        // Submit form
+        const formData = new FormData(form);
+        
+        fetch(form.action || window.location.pathname, {
+            method: 'POST',
+            body: formData,
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest',
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Show success message
+                const successHtml = `
+                    <div class="gov-uk-notification-banner mb-6 p-4 border border-l-4 border-green-500 bg-green-50 text-green-800 rounded-lg">
+                        <p class="font-medium">${data.message}</p>
+                        <p class="text-sm mt-1">Reference ID: ${data.feedback_id}</p>
+                    </div>
+                `;
+                
+                // Replace form with success message
+                form.parentElement.innerHTML = successHtml + 
+                    '<div class="text-center pt-4"><a href="/" class="text-blue-600 hover:text-blue-700 font-medium">← Back to homepage</a></div>';
+                
+                // Scroll to top
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+                
+            } else {
+                throw new Error(data.error || 'Submission failed');
+            }
+        })
+        .catch(error => {
+            console.error('Feedback submission error:', error);
+            
+            // Show error message
+            const errorHtml = `
+                <div class="gov-uk-notification-banner mb-6 p-4 border border-l-4 border-red-500 bg-red-50 text-red-800 rounded-lg">
+                    <p class="font-medium">Error submitting feedback</p>
+                    <p class="text-sm mt-1">${error.message || 'Please try again or contact support.'}</p>
+                </div>
+            `;
+            
+            // Insert error at top of form
+            form.insertAdjacentHTML('beforebegin', errorHtml);
+            
+            // Re-enable submit button
+            submitBtn.disabled = false;
+            submitText.classList.remove('hidden');
+            submitLoading.classList.add('hidden');
+            
+            // Scroll to error
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        });
+    });
+});
+</script>
+{% endblock %}
