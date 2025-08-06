@@ -719,3 +719,242 @@ class CouncilListForm(forms.ModelForm):
         self.fields['description'].help_text = "Add notes about what this list is for (optional)"
         self.fields['color'].help_text = "Choose a color theme for this list"
 
+
+# ============================================================================
+# ONBOARDING FORMS - Auth0 Integration & OSA Compliance
+# ============================================================================
+
+class BasicDetailsForm(forms.ModelForm):
+    """
+    Form for collecting basic user details (first name, last name).
+    GOV.UK-inspired styling and validation.
+    """
+    
+    first_name = forms.CharField(
+        max_length=150,
+        widget=forms.TextInput(attrs={
+            'class': 'form-control form-control-lg',
+            'placeholder': 'Enter your first name',
+            'autocomplete': 'given-name',
+        }),
+        help_text="Your first name as you'd like it to appear on your profile",
+        error_messages={
+            'required': 'Enter your first name',
+            'max_length': 'First name must be 150 characters or fewer',
+        }
+    )
+    
+    last_name = forms.CharField(
+        max_length=150,
+        widget=forms.TextInput(attrs={
+            'class': 'form-control form-control-lg',
+            'placeholder': 'Enter your last name',
+            'autocomplete': 'family-name',
+        }),
+        help_text="Your last name or surname",
+        error_messages={
+            'required': 'Enter your last name',
+            'max_length': 'Last name must be 150 characters or fewer',
+        }
+    )
+    
+    class Meta:
+        from django.contrib.auth import get_user_model
+        model = get_user_model()
+        fields = ['first_name', 'last_name']
+    
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        
+        # Add required asterisk to labels
+        for field_name, field in self.fields.items():
+            if field.required:
+                field.label = f"{field.label or field_name.replace('_', ' ').title()}"
+    
+    def clean_first_name(self):
+        """Validate first name field"""
+        first_name = self.cleaned_data.get('first_name', '').strip()
+        
+        if not first_name:
+            raise forms.ValidationError("Enter your first name")
+        
+        # Basic validation for reasonable names
+        if len(first_name) < 2:
+            raise forms.ValidationError("First name must be at least 2 characters long")
+        
+        # Check for obvious invalid entries
+        invalid_patterns = ['test', 'user', 'admin', '123', 'null', 'undefined']
+        if first_name.lower() in invalid_patterns:
+            raise forms.ValidationError("Please enter your real first name")
+        
+        return first_name.title()  # Capitalise properly
+    
+    def clean_last_name(self):
+        """Validate last name field"""
+        last_name = self.cleaned_data.get('last_name', '').strip()
+        
+        if not last_name:
+            raise forms.ValidationError("Enter your last name")
+        
+        if len(last_name) < 2:
+            raise forms.ValidationError("Last name must be at least 2 characters long")
+        
+        # Check for obvious invalid entries
+        invalid_patterns = ['test', 'user', 'admin', '123', 'null', 'undefined']
+        if last_name.lower() in invalid_patterns:
+            raise forms.ValidationError("Please enter your real last name")
+        
+        return last_name.title()  # Capitalise properly
+
+
+class AgeVerificationForm(forms.Form):
+    """
+    Form for age verification (date of birth collection).
+    Required for Online Safety Act compliance.
+    """
+    from datetime import date, timedelta
+    
+    date_of_birth = forms.DateField(
+        widget=forms.DateInput(attrs={
+            'type': 'date',
+            'class': 'form-control form-control-lg',
+            'max': date.today().isoformat(),  # Cannot be in future
+            'min': (date.today() - timedelta(days=365 * 120)).isoformat(),  # Max 120 years old
+        }),
+        help_text="We need this to comply with the Online Safety Act and ensure age-appropriate content",
+        error_messages={
+            'required': 'Enter your date of birth',
+            'invalid': 'Enter a valid date of birth',
+        }
+    )
+    
+    def clean_date_of_birth(self):
+        """Validate date of birth and check minimum age"""
+        from datetime import date
+        dob = self.cleaned_data.get('date_of_birth')
+        
+        if not dob:
+            raise forms.ValidationError("Enter your date of birth")
+        
+        # Check if date is not in future
+        if dob > date.today():
+            raise forms.ValidationError("Date of birth cannot be in the future")
+        
+        # Calculate age
+        today = date.today()
+        age = today.year - dob.year - ((today.month, today.day) < (dob.month, dob.day))
+        
+        # Check minimum age (13 for OSA compliance)
+        if age < 13:
+            raise forms.ValidationError(
+                "You must be at least 13 years old to use this service"
+            )
+        
+        # Check maximum reasonable age
+        if age > 120:
+            raise forms.ValidationError("Please check your date of birth is correct")
+        
+        return dob
+
+
+class LocationInfoForm(forms.ModelForm):
+    """
+    Form for collecting location information from UK users.
+    Postcode is optional but helps provide location-specific features.
+    """
+    
+    postcode = forms.CharField(
+        max_length=20,
+        required=False,
+        widget=forms.TextInput(attrs={
+            'class': 'form-control form-control-lg',
+            'placeholder': 'e.g. SW1A 1AA',
+            'pattern': '[A-Za-z]{1,2}[0-9Rr][0-9A-Za-z]? [0-9][ABD-HJLNP-UW-Zabd-hjlnp-uw-z]{2}',
+        }),
+        help_text="Optional - helps us show you relevant local council information",
+        error_messages={
+            'invalid': 'Enter a valid UK postcode',
+        }
+    )
+    
+    postcode_refused = forms.BooleanField(
+        required=False,
+        label="I prefer not to provide my postcode",
+        help_text="Check this if you don't want to provide location information",
+        widget=forms.CheckboxInput(attrs={'class': 'form-check-input'})
+    )
+    
+    class Meta:
+        model = UserProfile
+        fields = ['postcode', 'postcode_refused']
+    
+    def clean(self):
+        """Custom validation to ensure either postcode is provided or refused"""
+        cleaned_data = super().clean()
+        postcode = cleaned_data.get('postcode')
+        postcode_refused = cleaned_data.get('postcode_refused')
+        
+        # If neither postcode nor refusal is provided, that's fine - user can skip
+        # But if both are provided, that's inconsistent
+        if postcode and postcode_refused:
+            raise forms.ValidationError(
+                "Please either provide your postcode or indicate you prefer not to share it, not both."
+            )
+        
+        return cleaned_data
+    
+    def clean_postcode(self):
+        """Validate UK postcode format"""
+        postcode = self.cleaned_data.get('postcode')
+        
+        if not postcode:
+            return postcode
+        
+        # Remove spaces and convert to uppercase for validation
+        postcode_clean = postcode.replace(' ', '').upper()
+        
+        # Basic UK postcode validation pattern
+        import re
+        uk_postcode_pattern = r'^[A-Z]{1,2}[0-9R][0-9A-Z]?[0-9][A-Z]{2}$'
+        
+        if not re.match(uk_postcode_pattern, postcode_clean):
+            raise forms.ValidationError(
+                "Enter a valid UK postcode (e.g. SW1A 1AA, M1 1AA, B33 8TH)"
+            )
+        
+        # Return properly formatted postcode (with space)
+        if len(postcode_clean) == 6:
+            return f"{postcode_clean[:3]} {postcode_clean[3:]}"
+        elif len(postcode_clean) == 7:
+            return f"{postcode_clean[:4]} {postcode_clean[4:]}"
+        else:
+            return postcode.upper()
+
+
+class CommunityGuidelinesForm(forms.Form):
+    """
+    Form for accepting community guidelines.
+    Required for all users to complete onboarding.
+    """
+    
+    accept_guidelines = forms.BooleanField(
+        required=True,
+        label="I accept the community guidelines",
+        help_text="You must accept our community guidelines to use this service",
+        widget=forms.CheckboxInput(attrs={'class': 'form-check-input form-check-input-lg'}),
+        error_messages={
+            'required': 'You must accept the community guidelines to continue',
+        }
+    )
+    
+    def clean_accept_guidelines(self):
+        """Ensure guidelines are accepted"""
+        accepted = self.cleaned_data.get('accept_guidelines')
+        
+        if not accepted:
+            raise forms.ValidationError(
+                "You must accept the community guidelines to use this service"
+            )
+        
+        return accepted
+

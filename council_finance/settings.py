@@ -30,6 +30,8 @@ INSTALLED_APPS = [
     "django.contrib.humanize",  # Add humanize for template filters
     "rest_framework",  # Django REST Framework for React API
     "corsheaders",     # CORS headers for React frontend
+    "social_django",   # Auth0 integration via python-social-auth
+    "django_crontab",  # Cron job management
     "core",
     "council_finance",
     "channels",
@@ -56,6 +58,7 @@ MIDDLEWARE = [
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
+    "social_django.middleware.SocialAuthExceptionMiddleware",  # Handle social auth exceptions
     "council_finance.middleware.error_alerting.ErrorAlertingMiddleware",  # Email alerts for errors
 ]
 
@@ -81,6 +84,8 @@ TEMPLATES = [
                 "council_finance.context_processors.tutorial_context",
                 "council_finance.context_processors.dev_cache_buster",
                 "council_finance.views.feedback.announcements_context_processor",
+                # OSA compliance - user permissions for comments/feed access
+                "council_finance.context_processors.user_permissions",
             ],
         },
     },
@@ -119,6 +124,57 @@ LANGUAGE_CODE = "en-us"
 TIME_ZONE = "UTC"
 USE_I18N = True
 USE_TZ = True
+
+# ============================================================================
+# AUTH0 AUTHENTICATION CONFIGURATION
+# ============================================================================
+
+# Authentication backends
+AUTHENTICATION_BACKENDS = [
+    'social_core.backends.auth0.Auth0OAuth2',  # Use social-auth's built-in Auth0 backend
+    'django.contrib.auth.backends.ModelBackend',  # Keep default for admin/existing users
+]
+
+# Auth0 settings from environment
+AUTH0_DOMAIN = os.getenv('AUTH0_DOMAIN')
+AUTH0_CLIENT_ID = os.getenv('AUTH0_CLIENT_ID')
+AUTH0_CLIENT_SECRET = os.getenv('AUTH0_CLIENT_SECRET')
+
+# Social Auth configuration for Auth0OAuth2 backend
+SOCIAL_AUTH_AUTH0_DOMAIN = AUTH0_DOMAIN
+SOCIAL_AUTH_AUTH0_KEY = AUTH0_CLIENT_ID
+SOCIAL_AUTH_AUTH0_SECRET = AUTH0_CLIENT_SECRET
+SOCIAL_AUTH_AUTH0_SCOPE = [
+    'openid',
+    'profile', 
+    'email',
+]
+
+# Additional social-auth settings
+SOCIAL_AUTH_TRAILING_SLASH = False
+SOCIAL_AUTH_REDIRECT_IS_HTTPS = not DEBUG
+SOCIAL_AUTH_LOGIN_REDIRECT_URL = '/welcome/'
+SOCIAL_AUTH_LOGIN_ERROR_URL = '/accounts/login/'
+
+# Social Auth pipeline to integrate with existing UserProfile
+SOCIAL_AUTH_PIPELINE = (
+    'social_core.pipeline.social_auth.social_details',
+    'social_core.pipeline.social_auth.social_uid',
+    'social_core.pipeline.social_auth.auth_allowed',
+    'social_core.pipeline.social_auth.social_user',
+    'social_core.pipeline.user.get_username',
+    'social_core.pipeline.user.create_user',
+    'council_finance.auth0_pipeline.save_profile',  # Custom pipeline for UserProfile
+    'social_core.pipeline.social_auth.associate_user',
+    'social_core.pipeline.social_auth.load_extra_data',
+    'social_core.pipeline.user.user_details',
+    'council_finance.auth0_pipeline.redirect_to_onboarding',  # Check if onboarding needed
+)
+
+# Feature flags
+AUTH0_ENABLE_SOCIAL_LOGIN = os.getenv('AUTH0_ENABLE_SOCIAL_LOGIN', 'True').lower() == 'true'
+AUTH0_ENABLE_MFA = os.getenv('AUTH0_ENABLE_MFA', 'False').lower() == 'true'
+AUTH0_ENABLE_PASSWORDLESS = os.getenv('AUTH0_ENABLE_PASSWORDLESS', 'False').lower() == 'true'
 
 STATIC_URL = "/static/"
 
@@ -261,3 +317,26 @@ SERVER_EMAIL = DEFAULT_FROM_EMAIL
 
 # Feedback notification settings
 FEEDBACK_EMAIL_ENABLED = os.getenv('FEEDBACK_EMAIL_ENABLED', 'True').lower() == 'true'
+
+
+# ============================================================================
+# CRON JOB CONFIGURATION
+# ============================================================================
+
+CRONJOBS = [
+    # Registration digest at noon every day
+    ('0 12 * * *', 'django.core.management.call_command', ['send_registration_digest']),
+    
+    # Security monitoring every 15 minutes
+    ('*/15 * * * *', 'django.core.management.call_command', ['check_auth_security']),
+    
+    # Event Viewer health report at 6 AM daily
+    ('0 6 * * *', 'django.core.management.call_command', ['check_alerts', '--health-report']),
+    
+    # Create daily summaries at 1 AM
+    ('0 1 * * *', 'django.core.management.call_command', ['check_alerts', '--create-summaries']),
+    
+    # Clean up expired confirmation tokens weekly (Sunday at 3 AM)
+    ('0 3 * * 0', 'django.core.management.call_command', ['cleanup_expired_confirmations']),
+]
+

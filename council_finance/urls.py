@@ -12,6 +12,7 @@ from .views import (
     admin as admin_views,
     api as api_views,
     auth as auth_views,
+    onboarding_views,  # New onboarding views
     moderation as mod_views,
     councils as council_views,
     pages as page_views,
@@ -122,7 +123,19 @@ urlpatterns = [
     path("admin/", admin.site.urls),
     path("system-events/", include("event_viewer.urls")),  # Event Viewer for superadmins
     path("plugins/", include("core.urls")),
-    # Authentication endpoints
+    
+    # Auth0 authentication endpoints (via social-django)
+    path("auth/", include("social_django.urls", namespace="social")),
+    
+    # User onboarding endpoints
+    path("welcome/", onboarding_views.welcome, name="welcome"),
+    path("welcome/details/", onboarding_views.basic_details, name="onboarding_details"),
+    path("welcome/age/", onboarding_views.age_verification, name="onboarding_age"),
+    path("welcome/location/", onboarding_views.location_info, name="onboarding_location"),
+    path("welcome/guidelines/", onboarding_views.community_guidelines, name="onboarding_guidelines"),
+    path("welcome/complete/", onboarding_views.onboarding_complete, name="onboarding_complete"),
+    
+    # Legacy authentication endpoints (keep for backward compatibility)
     path(
         "accounts/login/",
         LoginView.as_view(template_name="registration/login.html"),
@@ -166,6 +179,11 @@ urlpatterns = [
     # User preferences management
     path("accounts/preferences/", auth_views.user_preferences_view, name="user_preferences"),
     path("api/preferences/", api_views.user_preferences_ajax, name="user_preferences_ajax"),
+    # Enhanced auth functionality
+    path("accounts/logout/", auth_views.logout_view, name="logout_enhanced"),
+    path("accounts/password-reset/", auth_views.password_reset_view, name="password_reset_enhanced"),
+    path("accounts/delete-account/", auth_views.account_deletion_view, name="account_deletion"),
+    path("accounts/social-accounts/", auth_views.social_account_linking_view, name="social_accounts"),
     path("councils/", council_views.council_list, name="council_list"),
     path(
         "councils/<slug:slug>/counters/",

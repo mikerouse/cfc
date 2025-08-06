@@ -1,0 +1,171 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Welcome to Council Finance Counters{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto py-8 px-4">
+    <!-- Success indicator -->
+    <div class="mb-8">
+        <div class="w-full bg-gray-200 rounded-full h-2">
+            <div class="bg-green-500 h-2 rounded-full transition-all duration-300" style="width: 100%"></div>
+        </div>
+        <div class="text-center text-sm text-gray-600 mt-2">
+            <span class="font-medium text-green-600">Setup complete!</span>
+        </div>
+    </div>
+
+    <!-- Welcome completion -->
+    <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-8 text-center">
+        <!-- Success icon -->
+        <div class="mx-auto flex items-center justify-center h-16 w-16 rounded-full bg-green-100 mb-6">
+            <svg class="h-8 w-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+            </svg>
+        </div>
+
+        <h1 class="text-3xl font-bold text-gray-900 mb-4">
+            Welcome, {{ user.first_name }}!
+        </h1>
+        
+        <p class="text-xl text-gray-600 mb-8">
+            Your account is now fully set up and ready to use.
+        </p>
+
+        <!-- Account summary -->
+        <div class="bg-gray-50 rounded-lg p-6 mb-8 text-left">
+            <h3 class="text-lg font-semibold text-gray-900 mb-4">Your account details</h3>
+            <div class="space-y-3">
+                <div class="flex justify-between">
+                    <span class="text-gray-600">Name:</span>
+                    <span class="font-medium">{{ user.first_name }} {{ user.last_name }}</span>
+                </div>
+                <div class="flex justify-between">
+                    <span class="text-gray-600">Email:</span>
+                    <span class="font-medium">{{ user.email }}</span>
+                </div>
+                <div class="flex justify-between">
+                    <span class="text-gray-600">Age verified:</span>
+                    <span class="font-medium text-green-600">Yes ({{ profile.age }} years old)</span>
+                </div>
+                {% if profile.is_uk_user %}
+                    <div class="flex justify-between">
+                        <span class="text-gray-600">Location:</span>
+                        <span class="font-medium">
+                            {% if profile.postcode %}
+                                UK ({{ profile.postcode }})
+                            {% else %}
+                                UK
+                            {% endif %}
+                        </span>
+                    </div>
+                {% endif %}
+                <div class="flex justify-between">
+                    <span class="text-gray-600">Community guidelines:</span>
+                    <span class="font-medium text-green-600">Accepted</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Access level notice -->
+        {% if profile.is_adult %}
+            <div class="bg-green-50 border border-green-200 rounded-lg p-6 mb-8">
+                <div class="flex items-start">
+                    <div class="flex-shrink-0">
+                        <svg class="h-6 w-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.5-3a9.002 9.002 0 0116.001 0c0 4.97-4.03 9-9 9s-9-4.03-9-9 4.03-9 9-9z"></path>
+                        </svg>
+                    </div>
+                    <div class="ml-3 text-left">
+                        <h4 class="text-lg font-medium text-green-900 mb-2">Full access enabled</h4>
+                        <p class="text-green-800">
+                            You have access to all features including comments, discussions, and community feeds. 
+                            You can contribute data, follow councils, and participate fully in the community.
+                        </p>
+                    </div>
+                </div>
+            </div>
+        {% else %}
+            <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-6 mb-8">
+                <div class="flex items-start">
+                    <div class="flex-shrink-0">
+                        <svg class="h-6 w-6 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.872-.833-2.464 0L3.34 16.5c-.77.833.192 2.5 1.732 2.5z"></path>
+                        </svg>
+                    </div>
+                    <div class="ml-3 text-left">
+                        <h4 class="text-lg font-medium text-yellow-900 mb-2">Age-appropriate access</h4>
+                        <p class="text-yellow-800">
+                            As you're under 18, some community features are restricted for your safety in compliance with the Online Safety Act. 
+                            You can still access all financial data, comparisons, and analytical tools - the core features of our platform.
+                        </p>
+                    </div>
+                </div>
+            </div>
+        {% endif %}
+
+        <!-- What's next -->
+        <div class="text-left mb-8">
+            <h3 class="text-lg font-semibold text-gray-900 mb-4">What you can do now</h3>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                    <div class="flex items-center mb-2">
+                        <svg class="h-5 w-5 text-blue-600 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v4a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+                        </svg>
+                        <span class="font-medium text-blue-900">Explore Council Data</span>
+                    </div>
+                    <p class="text-sm text-blue-800">Browse financial data from councils across the UK and compare spending patterns.</p>
+                </div>
+
+                <div class="bg-purple-50 border border-purple-200 rounded-lg p-4">
+                    <div class="flex items-center mb-2">
+                        <svg class="h-5 w-5 text-purple-600 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"></path>
+                        </svg>
+                        <span class="font-medium text-purple-900">Follow Councils</span>
+                    </div>
+                    <p class="text-sm text-purple-800">Follow councils you're interested in and get updates about their financial data.</p>
+                </div>
+
+                {% if profile.is_adult %}
+                    <div class="bg-green-50 border border-green-200 rounded-lg p-4">
+                        <div class="flex items-center mb-2">
+                            <svg class="h-5 w-5 text-green-600 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"></path>
+                            </svg>
+                            <span class="font-medium text-green-900">Create Lists</span>
+                        </div>
+                        <p class="text-sm text-green-800">Create custom lists of councils to track and compare their financial performance.</p>
+                    </div>
+
+                    <div class="bg-orange-50 border border-orange-200 rounded-lg p-4">
+                        <div class="flex items-center mb-2">
+                            <svg class="h-5 w-5 text-orange-600 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v4a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+                            </svg>
+                            <span class="font-medium text-orange-900">Compare Councils</span>
+                        </div>
+                        <p class="text-sm text-orange-800">Use our comparison tools to analyze financial data across multiple councils.</p>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Action buttons -->
+        <div class="space-y-4">
+            <a href="{% url 'council_list' %}" 
+               class="block w-full px-6 py-3 border border-transparent text-base font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors">
+                Start Exploring Councils
+            </a>
+            
+            <div class="flex space-x-4">
+                <a href="{% url 'profile' %}" 
+                   class="w-full px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 text-center">
+                    View Profile
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

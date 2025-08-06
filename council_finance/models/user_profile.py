@@ -42,6 +42,22 @@ class UserProfile(models.Model):
     email_confirmed_at = models.DateTimeField(null=True, blank=True)
     last_password_change = models.DateTimeField(null=True, blank=True)
     requires_reconfirmation = models.BooleanField(default=False, help_text="Requires email re-confirmation due to security changes")
+    
+    # Auth0 integration fields
+    auth0_user_id = models.CharField(max_length=255, unique=True, null=True, blank=True, help_text="Auth0 user identifier")
+    auth0_metadata = models.JSONField(default=dict, blank=True, help_text="Additional Auth0 user metadata")
+    last_login_method = models.CharField(max_length=50, blank=True, help_text="Last authentication method used")
+    
+    # OSA Compliance fields
+    date_of_birth = models.DateField(null=True, blank=True, help_text="Required for Online Safety Act compliance")
+    age_verified = models.BooleanField(default=False, help_text="User has completed age verification")
+    is_uk_user = models.BooleanField(default=True, help_text="User is based in the United Kingdom")
+    can_access_comments = models.BooleanField(default=True, help_text="User can access comments and feed sections")
+    community_guidelines_accepted = models.BooleanField(default=False, help_text="User has accepted community guidelines")
+    community_guidelines_accepted_at = models.DateTimeField(null=True, blank=True, help_text="When guidelines were accepted")
+    
+    # Geographic fields for enhanced location handling
+    country = models.CharField(max_length=2, blank=True, help_text="ISO country code")
     # Visibility of this profile. Friends is the default.
     VISIBILITY_CHOICES = [
         ("private", "Private"),
@@ -275,3 +291,49 @@ class UserProfile(models.Model):
             return "Maximum confirmation attempts exceeded - contact support"
         else:
             return "Email confirmation required"
+    
+    # --- Onboarding helpers ---------------------------------------------------
+    
+    def needs_onboarding(self) -> bool:
+        """Check if user needs to complete onboarding process."""
+        user = self.user
+        
+        # Must have first and last name
+        if not (user.first_name and user.last_name):
+            return True
+            
+        # Must have completed age verification (OSA compliance)
+        if not (self.date_of_birth and self.age_verified):
+            return True
+            
+        # Must have accepted community guidelines
+        if not self.community_guidelines_accepted:
+            return True
+        
+        return False
+    
+    # --- Age verification helpers (OSA compliance) ---------------------------
+    
+    def age(self) -> int:
+        """Calculate user's current age from date of birth."""
+        if not self.date_of_birth:
+            return None
+        
+        from datetime import date
+        today = date.today()
+        return today.year - self.date_of_birth.year - ((today.month, today.day) < (self.date_of_birth.month, self.date_of_birth.day))
+    
+    def is_adult(self) -> bool:
+        """Check if user is 18 or older."""
+        return self.age() >= 18 if self.age() is not None else False
+    
+    def is_legal_minimum_age(self) -> bool:
+        """Check if user meets minimum age requirement (13+) for the platform."""
+        return self.age() >= 13 if self.age() is not None else False
+    
+    def update_content_access(self):
+        """Update content access permissions based on age."""
+        if self.date_of_birth and self.age_verified:
+            # OSA compliance: Under 18s cannot access user-generated content
+            self.can_access_comments = self.is_adult()
+            self.save()

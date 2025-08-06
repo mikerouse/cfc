@@ -1,0 +1,222 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Community Guidelines - Council Finance Counters{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto py-8 px-4">
+    <!-- Progress indicator -->
+    <div class="mb-8">
+        <div class="flex items-center justify-between text-sm text-gray-600 mb-2">
+            <span>Step {{ progress.current|default:"?" }} of {{ progress.total|default:"?" }}</span>
+            <span>{{ progress.percent|default:"?" }}% complete</span>
+        </div>
+        <div class="w-full bg-gray-200 rounded-full h-2">
+            <div class="bg-blue-600 h-2 rounded-full transition-all duration-300" 
+                 style="width: {{ progress.percent }}%"></div>
+        </div>
+    </div>
+
+    <!-- Community guidelines form -->
+    <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-8">
+        <h1 class="text-3xl font-bold text-gray-900 mb-6">
+            Community Guidelines
+        </h1>
+        
+        <!-- Introduction -->
+        <div class="bg-blue-50 border border-blue-200 rounded-lg p-6 mb-6">
+            <div class="flex items-start">
+                <div class="flex-shrink-0">
+                    <svg class="h-6 w-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path>
+                    </svg>
+                </div>
+                <div class="ml-3">
+                    <h3 class="text-lg font-medium text-blue-900 mb-2">
+                        Building a respectful community
+                    </h3>
+                    <p class="text-blue-800">
+                        Council Finance Counters is a platform for constructive discussion about local government finances. 
+                        These guidelines help ensure our community remains welcoming, informative, and productive for everyone.
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Guidelines content -->
+        <div class="space-y-6 mb-8">
+            <div class="border-l-4 border-green-400 bg-green-50 p-6">
+                <h3 class="text-lg font-semibold text-green-900 mb-3">✅ What we encourage</h3>
+                <ul class="space-y-2 text-green-800">
+                    <li><strong>Evidence-based discussion:</strong> Back up claims with data and sources</li>
+                    <li><strong>Constructive criticism:</strong> Focus on policies and decisions, not individuals</li>
+                    <li><strong>Respectful debate:</strong> Disagree without being disagreeable</li>
+                    <li><strong>Helpful contributions:</strong> Share relevant knowledge and insights</li>
+                    <li><strong>Factual accuracy:</strong> Correct mistakes politely when you spot them</li>
+                </ul>
+            </div>
+
+            <div class="border-l-4 border-red-400 bg-red-50 p-6">
+                <h3 class="text-lg font-semibold text-red-900 mb-3">❌ What we don't allow</h3>
+                <ul class="space-y-2 text-red-800">
+                    <li><strong>Personal attacks:</strong> No harassment, insults, or targeting individuals</li>
+                    <li><strong>Misinformation:</strong> Don't spread false or misleading information</li>
+                    <li><strong>Spam or self-promotion:</strong> Keep content relevant to council finances</li>
+                    <li><strong>Political campaigning:</strong> This isn't a platform for partisan politics</li>
+                    <li><strong>Discrimination:</strong> No content that discriminates against any group</li>
+                </ul>
+            </div>
+
+            <div class="border-l-4 border-yellow-400 bg-yellow-50 p-6">
+                <h3 class="text-lg font-semibold text-yellow-900 mb-3">⚠️ Reporting and moderation</h3>
+                <div class="space-y-2 text-yellow-800">
+                    <p>If you see content that violates these guidelines:</p>
+                    <ul class="list-disc ml-6 space-y-1">
+                        <li>Use the "Flag" button to report it to our moderation team</li>
+                        <li>Don't engage with or respond to problematic content</li>
+                        <li>Our volunteer moderators will review reports promptly</li>
+                    </ul>
+                    <p class="mt-3">
+                        <strong>For users under 18:</strong> Comments and community features are restricted for your safety 
+                        in compliance with the Online Safety Act. You can still access all financial data and comparison tools.
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Form errors -->
+        {% if form.non_field_errors %}
+            <div class="bg-red-50 border border-red-200 rounded-lg p-4 mb-6" role="alert">
+                <div class="flex">
+                    <div class="flex-shrink-0">
+                        <svg class="h-5 w-5 text-red-400" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"></path>
+                        </svg>
+                    </div>
+                    <div class="ml-3">
+                        <h3 class="text-sm font-medium text-red-800">There is a problem</h3>
+                        <div class="mt-2 text-sm text-red-700">
+                            {{ form.non_field_errors }}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        {% endif %}
+
+        <!-- Acceptance form -->
+        <form method="post" novalidate>
+            {% csrf_token %}
+            
+            <div class="form-group{% if form.accept_guidelines.errors %} error{% endif %} mb-6">
+                <div class="flex items-start">
+                    <div class="flex items-center h-5">
+                        <input type="checkbox" 
+                               name="{{ form.accept_guidelines.name }}" 
+                               id="{{ form.accept_guidelines.id_for_label }}"
+                               {% if form.accept_guidelines.value %}checked{% endif %}
+                               required
+                               class="focus:ring-blue-500 h-5 w-5 text-blue-600 border-gray-300 rounded{% if form.accept_guidelines.errors %} border-red-300{% endif %}">
+                    </div>
+                    <div class="ml-3 text-sm">
+                        <label for="{{ form.accept_guidelines.id_for_label }}" class="text-lg font-medium text-gray-900">
+                            {{ form.accept_guidelines.label }}
+                        </label>
+                        {% if form.accept_guidelines.help_text %}
+                            <p class="text-gray-500 mt-1">{{ form.accept_guidelines.help_text }}</p>
+                        {% endif %}
+                        {% if form.accept_guidelines.errors %}
+                            <div class="mt-1">
+                                {% for error in form.accept_guidelines.errors %}
+                                    <span class="text-sm text-red-600">{{ error }}</span>
+                                {% endfor %}
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+
+            <!-- Additional information -->
+            <div class="bg-gray-50 border border-gray-200 rounded-lg p-4 mb-6">
+                <h3 class="text-sm font-medium text-gray-900 mb-2">Need help?</h3>
+                <p class="text-sm text-gray-700">
+                    If you have questions about these guidelines or need help using the platform, 
+                    you can contact our support team at any time from your profile settings.
+                </p>
+            </div>
+
+            <!-- Form actions -->
+            <div class="flex items-center justify-between pt-6 border-t border-gray-200">
+                {% if is_uk_user %}
+                    <a href="{% url 'onboarding_location' %}" 
+                       class="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                        <svg class="mr-2 -ml-1 w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M7.707 14.707a1 1 0 01-1.414 0L2.586 11H10a1 1 0 010 2H2.586l3.707 3.707a1 1 0 11-1.414 1.414L.172 13.414A2 2 0 010 12a2 2 0 01.172-1.414L4.879.879a1 1 0 111.414 1.414L2.586 10H10a1 1 0 010 2L7.707 14.707z" clip-rule="evenodd"></path>
+                        </svg>
+                        Back
+                    </a>
+                {% else %}
+                    <a href="{% url 'onboarding_age' %}" 
+                       class="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                        <svg class="mr-2 -ml-1 w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M7.707 14.707a1 1 0 01-1.414 0L2.586 11H10a1 1 0 010 2H2.586l3.707 3.707a1 1 0 11-1.414 1.414L.172 13.414A2 2 0 010 12a2 2 0 01.172-1.414L4.879.879a1 1 0 111.414 1.414L2.586 10H10a1 1 0 010 2L7.707 14.707z" clip-rule="evenodd"></path>
+                        </svg>
+                        Back
+                    </a>
+                {% endif %}
+                
+                <button type="submit" 
+                        class="inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-md text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-colors">
+                    Complete Setup
+                    <svg class="ml-2 -mr-1 w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"></path>
+                    </svg>
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+// Add validation feedback for checkbox
+document.addEventListener('DOMContentLoaded', function() {
+    const checkbox = document.querySelector('input[type="checkbox"][required]');
+    const form = document.querySelector('form');
+    
+    if (checkbox && form) {
+        form.addEventListener('submit', function(e) {
+            if (!checkbox.checked) {
+                e.preventDefault();
+                
+                // Add visual feedback
+                checkbox.classList.add('border-red-500');
+                
+                // Show error message if not already shown
+                const existingError = document.querySelector('.checkbox-error');
+                if (!existingError) {
+                    const errorDiv = document.createElement('div');
+                    errorDiv.className = 'checkbox-error text-sm text-red-600 mt-2';
+                    errorDiv.textContent = 'You must accept the community guidelines to continue';
+                    checkbox.closest('.form-group').appendChild(errorDiv);
+                }
+                
+                // Scroll to checkbox
+                checkbox.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                
+                return false;
+            }
+        });
+        
+        // Remove error styling when checkbox is checked
+        checkbox.addEventListener('change', function() {
+            if (this.checked) {
+                this.classList.remove('border-red-500');
+                const errorMsg = document.querySelector('.checkbox-error');
+                if (errorMsg) {
+                    errorMsg.remove();
+                }
+            }
+        });
+    }
+});
+</script>
+{% endblock %}

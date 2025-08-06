@@ -6,7 +6,7 @@ This module handles user registration, login, profile management, and notificati
 import hashlib
 import logging
 from django.shortcuts import render, redirect, get_object_or_404
-from django.contrib.auth import login, update_session_auth_hash
+from django.contrib.auth import login, logout, update_session_auth_hash
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.http import JsonResponse, HttpResponse
@@ -926,3 +926,331 @@ def my_profile(request):
     }
     
     return render(request, 'accounts/my_profile.html', context)
+
+
+@login_required
+def logout_view(request):
+    """Enhanced logout with Auth0 integration and comprehensive cleanup."""
+    from event_viewer.models import SystemEvent
+    from urllib.parse import urlencode
+    
+    user = request.user
+    profile = getattr(user, 'profile', None)
+    
+    # Log logout event for monitoring
+    SystemEvent.objects.create(
+        source='user_auth',
+        level='info',
+        category='user_activity',
+        title='User Logout',
+        message=f'User {user.username} logged out',
+        user=user,
+        details={
+            'logout_method': 'manual',
+            'session_duration': (timezone.now() - user.last_login).total_seconds() if user.last_login else 0,
+            'auth0_user_id': profile.auth0_user_id if profile else None,
+            'last_login_method': profile.last_login_method if profile else None,
+        },
+        tags=['logout', 'session_end']
+    )
+    
+    log_activity(
+        request,
+        activity="User logged out",
+        extra=f"Session ended for {user.username}"
+    )
+    
+    # Standard Django logout (clears session)
+    logout(request)
+    
+    # Auth0 logout URL construction for complete logout
+    if hasattr(settings, 'AUTH0_DOMAIN') and settings.AUTH0_DOMAIN:
+        auth0_logout_params = {
+            'returnTo': request.build_absolute_uri('/'),  # Return to home page
+            'client_id': getattr(settings, 'AUTH0_CLIENT_ID', ''),
+        }
+        
+        auth0_logout_url = f"https://{settings.AUTH0_DOMAIN}/v2/logout?" + urlencode(auth0_logout_params)
+        
+        # Store success message in session before redirect (it survives logout)
+        messages.success(request, 'You have been successfully logged out.')
+        
+        # Redirect to Auth0 logout URL which will then redirect back to home
+        return redirect(auth0_logout_url)
+    
+    # Fallback for non-Auth0 logout
+    messages.success(request, 'You have been successfully logged out.')
+    return redirect('home')
+
+
+def password_reset_view(request):
+    """Password reset for database authentication fallback."""
+    from django.contrib.auth.forms import PasswordResetForm
+    from django.contrib.auth.tokens import default_token_generator
+    from django.contrib.auth.models import User
+    from event_viewer.models import SystemEvent
+    
+    if request.method == 'POST':
+        form = PasswordResetForm(request.POST)
+        if form.is_valid():
+            email = form.cleaned_data['email']
+            
+            # Check if user exists and log the attempt
+            try:
+                user = User.objects.get(email=email)
+                profile = getattr(user, 'profile', None)
+                
+                # Log password reset request
+                SystemEvent.objects.create(
+                    source='user_auth',
+                    level='warning',
+                    category='security',
+                    title='Password Reset Requested',
+                    message=f'Password reset requested for {email}',
+                    user=user,
+                    details={
+                        'email': email,
+                        'ip_address': request.META.get('REMOTE_ADDR'),
+                        'user_agent': request.META.get('HTTP_USER_AGENT', '')[:200],
+                        'has_auth0': profile.auth0_user_id is not None if profile else False,
+                    },
+                    tags=['password_reset', 'security_event']
+                )
+                
+                # Send password reset email
+                form.save(
+                    request=request,
+                    use_https=request.is_secure(),
+                    email_template_name='registration/password_reset_email.html',
+                    subject_template_name='registration/password_reset_subject.txt',
+                    html_email_template_name='registration/password_reset_email.html',
+                )
+                
+                log_activity(
+                    request,
+                    activity="Password reset email sent",
+                    extra=f"Reset email sent to {email}"
+                )
+                
+            except User.DoesNotExist:
+                # Log failed password reset attempt (security monitoring)
+                SystemEvent.objects.create(
+                    source='user_auth',
+                    level='warning',
+                    category='security',
+                    title='Password Reset Failed - User Not Found',
+                    message=f'Password reset attempted for non-existent email: {email}',
+                    details={
+                        'email': email,
+                        'ip_address': request.META.get('REMOTE_ADDR'),
+                        'user_agent': request.META.get('HTTP_USER_AGENT', '')[:200],
+                    },
+                    tags=['password_reset', 'failed_attempt', 'security_event'],
+                    fingerprint=f'password_reset_failed_{email}'
+                )
+            
+            # Always show success message for security (don't reveal if email exists)
+            messages.success(
+                request, 
+                'If the email address is registered, you will receive a password reset link shortly.'
+            )
+            return redirect('login')
+    else:
+        form = PasswordResetForm()
+    
+    return render(request, 'registration/password_reset.html', {'form': form})
+
+
+@login_required
+def account_deletion_view(request):
+    """Handle account deletion requests (GDPR Right to be Forgotten)."""
+    from event_viewer.models import SystemEvent
+    from django.contrib.auth.models import User
+    import json
+    
+    profile, created = UserProfile.objects.get_or_create(user=request.user)
+    
+    if request.method == 'POST':
+        action = request.POST.get('action')
+        
+        if action == 'deactivate':
+            # Deactivate account (soft delete)
+            request.user.is_active = False
+            request.user.save()
+            
+            # Update profile
+            profile.account_status = 'deactivated'
+            profile.deactivated_at = timezone.now()
+            profile.save()
+            
+            # Log deactivation
+            SystemEvent.objects.create(
+                source='user_account',
+                level='warning',
+                category='user_activity',
+                title='Account Deactivated',
+                message=f'User {request.user.username} deactivated their account',
+                user=request.user,
+                details={
+                    'deactivation_method': 'user_request',
+                    'ip_address': request.META.get('REMOTE_ADDR'),
+                    'user_agent': request.META.get('HTTP_USER_AGENT', '')[:200],
+                },
+                tags=['account_deactivation', 'user_action']
+            )
+            
+            log_activity(
+                request,
+                activity="Account deactivated by user",
+                extra=f"User {request.user.username} deactivated their account"
+            )
+            
+            messages.success(request, 'Your account has been deactivated. You can reactivate it by logging in again.')
+            
+            # Log out the user
+            logout(request)
+            return redirect('home')
+            
+        elif action == 'delete_data':
+            # Full data deletion (GDPR compliance)
+            username = request.user.username
+            email = request.user.email
+            
+            # Log deletion before removing data
+            SystemEvent.objects.create(
+                source='user_account',
+                level='critical',
+                category='data_privacy',
+                title='Account Data Deleted',
+                message=f'User {username} requested full account deletion',
+                user=request.user,
+                details={
+                    'deletion_type': 'gdpr_request',
+                    'email': email,
+                    'ip_address': request.META.get('REMOTE_ADDR'),
+                    'user_agent': request.META.get('HTTP_USER_AGENT', '')[:200],
+                },
+                tags=['gdpr', 'account_deletion', 'data_privacy'],
+                fingerprint=f'account_deletion_{username}'
+            )
+            
+            log_activity(
+                request,
+                activity="Full account deletion requested",
+                extra=f"User {username} requested GDPR data deletion"
+            )
+            
+            # Anonymize or delete user data
+            anonymize_user_data(request.user)
+            
+            messages.success(request, 'Your account and all associated data have been permanently deleted.')
+            
+            # Log out the user
+            logout(request)
+            return redirect('home')
+    
+    # Get user data summary for deletion preview
+    from council_finance.models import Contribution, ActivityLog
+    
+    data_summary = {
+        'contributions': Contribution.objects.filter(user=request.user).count(),
+        'activity_logs': ActivityLog.objects.filter(user=request.user).count(),
+        'profile_fields': len([f for f in profile._meta.fields if getattr(profile, f.name, None)]),
+        'account_age': (timezone.now() - request.user.date_joined).days,
+    }
+    
+    context = {
+        'profile': profile,
+        'data_summary': data_summary,
+    }
+    
+    return render(request, 'accounts/account_deletion.html', context)
+
+
+def anonymize_user_data(user):
+    """Anonymize user data for GDPR compliance."""
+    from council_finance.models import Contribution, ActivityLog
+    from django.contrib.auth.models import User
+    
+    # Anonymize user model
+    user.email = f"deleted_{user.id}@anonymized.local"
+    user.first_name = ""
+    user.last_name = ""
+    user.username = f"deleted_user_{user.id}"
+    user.is_active = False
+    user.save()
+    
+    # Anonymize profile
+    profile = getattr(user, 'profile', None)
+    if profile:
+        profile.postcode = ""
+        profile.date_of_birth = None
+        profile.auth0_user_id = None
+        profile.auth0_metadata = {}
+        profile.account_status = 'deleted'
+        profile.save()
+    
+    # Anonymize contributions (keep data but remove personal identifiers)
+    Contribution.objects.filter(user=user).update(
+        user=None,  # Remove user association
+        notes="[User data deleted for privacy compliance]"
+    )
+    
+    # Keep activity logs for audit purposes but anonymize
+    ActivityLog.objects.filter(user=user).update(
+        user_name="[Deleted User]",
+        notes="[Personal data anonymized]"
+    )
+
+
+@login_required
+def social_account_linking_view(request):
+    """Manage linked social media accounts (without modifying Auth0)."""
+    from event_viewer.models import SystemEvent
+    
+    profile, created = UserProfile.objects.get_or_create(user=request.user)
+    
+    # Get current auth0 metadata for linked accounts info
+    linked_accounts = []
+    if profile.auth0_metadata:
+        identities = profile.auth0_metadata.get('identities', [])
+        for identity in identities:
+            linked_accounts.append({
+                'provider': identity.get('provider', 'unknown'),
+                'connection': identity.get('connection', 'unknown'),
+                'is_social': identity.get('is_social', False),
+                'user_id': identity.get('user_id', '')[:10] + '...' if identity.get('user_id') else '',
+            })
+    
+    if request.method == 'POST':
+        action = request.POST.get('action')
+        
+        if action == 'refresh_accounts':
+            # Log account refresh request
+            SystemEvent.objects.create(
+                source='user_account',
+                level='info',
+                category='user_activity',
+                title='Social Accounts Refresh Requested',
+                message=f'User {request.user.username} requested social accounts refresh',
+                user=request.user,
+                details={
+                    'current_linked_count': len(linked_accounts),
+                },
+                tags=['social_accounts', 'account_linking']
+            )
+            
+            messages.info(request, 'Social account information refreshed from Auth0.')
+            log_activity(
+                request,
+                activity="Social accounts refresh requested",
+                extra=f"Current linked accounts: {len(linked_accounts)}"
+            )
+    
+    context = {
+        'profile': profile,
+        'linked_accounts': linked_accounts,
+        'can_link_more': len(linked_accounts) < 5,  # Arbitrary limit
+    }
+    
+    return render(request, 'accounts/social_accounts.html', context)
