@@ -37,7 +37,7 @@ class SitewideFactoidRateThrottle(AnonRateThrottle):
 @api_view(['GET'])
 @permission_classes([AllowAny])
 @throttle_classes([SitewideFactoidRateThrottle])
-@cache_page(1800)  # Cache for 30 minutes
+@cache_page(getattr(settings, 'SITEWIDE_FACTOID_CACHE_DURATION', 86400))  # From environment variable
 def get_sitewide_factoids(request):
     """
     Get AI-generated cross-council factoids for homepage display.
@@ -81,7 +81,7 @@ def get_sitewide_factoids(request):
             'generated_at': timezone.now().isoformat(),
             'cache_info': {
                 'cached': True,
-                'expires_in_minutes': 30
+                'expires_in_seconds': getattr(settings, 'SITEWIDE_FACTOID_CACHE_DURATION', 86400)
             }
         }
         
@@ -146,7 +146,7 @@ def get_sitewide_factoids_health(request):
 # Legacy Django view support (for backwards compatibility)
 @require_http_methods(["GET"])
 @csrf_exempt  
-@cache_page(1800)
+@cache_page(getattr(settings, 'SITEWIDE_FACTOID_CACHE_DURATION', 86400))  # From environment variable
 def sitewide_factoids_view(request):
     """
     Django view wrapper for site-wide factoids API.

@@ -35,7 +35,7 @@ class SitewideFactoidGenerator(AIFactoidGenerator):
     def __init__(self):
         """Initialize with site-wide analysis capabilities."""
         super().__init__()
-        self.cache_timeout = 1800  # 30 minutes cache for site-wide factoids
+        self.cache_timeout = getattr(settings, 'SITEWIDE_FACTOID_CACHE_DURATION', 86400)  # From environment variable
         self.comparison_fields = [
             'interest-paid',
             'total-debt', 
@@ -60,7 +60,7 @@ class SitewideFactoidGenerator(AIFactoidGenerator):
         Returns:
             List of factoid dictionaries with text, councils, and metadata
         """
-        cache_key = f"sitewide_factoids_{limit}"
+        cache_key = "sitewide_factoids"  # Single cache entry regardless of limit
         cached_factoids = cache.get(cache_key)
         
         if cached_factoids:
@@ -528,7 +528,7 @@ class SitewideFactoidGenerator(AIFactoidGenerator):
         
         try:
             response = self.client.chat.completions.create(
-                model="gpt-4",
+                model=self.model,  # Use configured model (gpt-4o-mini)
                 messages=[
                     {
                         "role": "system", 

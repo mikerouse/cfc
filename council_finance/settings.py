@@ -109,6 +109,9 @@ DATABASES = {
 # AI Service Configuration
 OPENAI_API_KEY = os.getenv('OPENAI_API_KEY')
 ANTHROPIC_API_KEY = os.getenv('ANTHROPIC_API_KEY')
+OPENAI_MODEL = os.getenv('OPENAI_MODEL', 'gpt-4o-mini')
+DEFAULT_FACTOID_COUNT = int(os.getenv('DEFAULT_FACTOID_COUNT', '3'))
+SITEWIDE_FACTOID_CACHE_DURATION = int(os.getenv('SITEWIDE_FACTOID_CACHE_DURATION', '86400'))
 
 # SQLite configuration (for rollback if needed)
 # DATABASES = {

@@ -228,11 +228,12 @@ def ai_council_factoids(request, council_slug):
                     data_gatherer = CouncilDataGatherer()
                     council_data = data_gatherer.gather_council_data(council)
                     
-                    # Generate AI insights - increased to 10 factoids as requested
+                    # Generate AI insights - using environment configured count
                     ai_generator = AIFactoidGenerator()
+                    factoid_limit = getattr(settings, 'DEFAULT_FACTOID_COUNT', 3)
                     factoids = ai_generator.generate_insights(
                         council_data=council_data,
-                        limit=10,
+                        limit=factoid_limit,
                         style='news_ticker'
                     )
                     
