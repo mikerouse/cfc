@@ -796,41 +796,101 @@ def bulk_import(request):
                 file_extension = import_file.name.lower().split('.')[-1] if import_file else 'unknown'
                 
                 try:
-                    if import_file.name.endswith('.csv'):
-                        # Use native CSV parsing - always available
+                    if import_file.name.endswith('.csv') or import_file.name.endswith('.txt'):
+                        # Use native CSV parsing for both CSV and TXT files
+                        file_type = 'CSV' if import_file.name.endswith('.csv') else 'TXT'
                         import_file.seek(0)  # Reset file pointer
-                        try:
-                            content = import_file.read().decode('utf-8')
-                        except UnicodeDecodeError as e:
+                        
+                        # Enhanced encoding detection
+                        content = None
+                        encodings_to_try = ['utf-8', 'utf-8-sig', 'latin-1', 'cp1252', 'iso-8859-1']
+                        used_encoding = None
+                        
+                        for encoding in encodings_to_try:
+                            try:
+                                import_file.seek(0)
+                                content = import_file.read().decode(encoding)
+                                used_encoding = encoding
+                                break
+                            except UnicodeDecodeError:
+                                continue
+                        
+                        if content is None:
                             log_council_management_event(
                                 request,
                                 'error',
                                 'data_quality',
-                                'Council Import: CSV Encoding Error',
-                                f'Failed to decode CSV file as UTF-8: {str(e)}',
+                                f'Council Import: {file_type} Encoding Error',
+                                f'Failed to decode {file_type} file with any supported encoding',
                                 {
                                     'file_name': import_file.name,
                                     'file_size': import_file.size,
-                                    'encoding_error': str(e)
+                                    'attempted_encodings': encodings_to_try,
+                                    'file_type': file_type.lower()
                                 }
                             )
-                            messages.error(request, "CSV file encoding error. Please ensure file is saved as UTF-8.")
+                            messages.error(request, f"{file_type} file encoding error. Please ensure file is saved as UTF-8.")
                             return redirect('bulk_import_councils')
+                        
+                        # Auto-detect delimiter for TXT files
+                        delimiter = ','
+                        if import_file.name.endswith('.txt'):
+                            # Sample first few lines to detect delimiter
+                            first_lines = content.split('\n')[:5]  # Use more lines for better detection
+                            sample_text = '\n'.join(first_lines)
                             
-                        csv_reader = csv.DictReader(io.StringIO(content))
+                            # Test different delimiters
+                            delimiters = ['\t', ',', ';', '|']  # Tab, comma, semicolon, pipe
+                            best_delimiter = ','
+                            best_field_count = 0
+                            
+                            for test_delim in delimiters:
+                                try:
+                                    test_reader = csv.DictReader(io.StringIO(sample_text), delimiter=test_delim)
+                                    first_row = next(test_reader, None)
+                                    if first_row:
+                                        # Count non-empty fields
+                                        field_count = len([v for v in first_row.values() if v and v.strip()])
+                                        if field_count > best_field_count:
+                                            best_field_count = field_count
+                                            best_delimiter = test_delim
+                                except:
+                                    continue
+                            
+                            delimiter = best_delimiter
+                            
+                            log_council_management_event(
+                                request,
+                                'info',
+                                'data_processing',
+                                'Council Import: TXT Delimiter Detection',
+                                f'Auto-detected delimiter for TXT file: "{repr(delimiter)}" with {best_field_count} fields',
+                                {
+                                    'file_name': import_file.name,
+                                    'detected_delimiter': repr(delimiter),
+                                    'field_count': best_field_count,
+                                    'tested_delimiters': [repr(d) for d in delimiters]
+                                }
+                            )
+                        
+                        # Parse the file
+                        csv_reader = csv.DictReader(io.StringIO(content), delimiter=delimiter)
                         data_records = list(csv_reader)
                         
                         log_council_management_event(
                             request,
                             'info',
                             'data_processing',
-                            'Council Import: CSV Parsed Successfully',
-                            f'Successfully parsed CSV file with {len(data_records)} records',
+                            f'Council Import: {file_type} Parsed Successfully',
+                            f'Successfully parsed {file_type} file with {len(data_records)} records using {used_encoding} encoding',
                             {
                                 'file_name': import_file.name,
                                 'file_size': import_file.size,
                                 'record_count': len(data_records),
-                                'columns': list(data_records[0].keys()) if data_records else []
+                                'encoding_used': used_encoding,
+                                'delimiter_used': repr(delimiter) if import_file.name.endswith('.txt') else 'comma',
+                                'columns': list(data_records[0].keys()) if data_records else [],
+                                'file_type': file_type.lower()
                             }
                         )
                         
@@ -931,10 +991,10 @@ def bulk_import(request):
                             {
                                 'file_name': import_file.name,
                                 'file_extension': file_extension,
-                                'supported_formats': ['csv', 'xlsx', 'json']
+                                'supported_formats': ['csv', 'txt', 'xlsx', 'json']
                             }
                         )
-                        messages.error(request, "Unsupported file format. Please use CSV, Excel (.xlsx), or JSON.")
+                        messages.error(request, "Unsupported file format. Please use CSV, TXT (tab or comma delimited), Excel (.xlsx), or JSON.")
                         return redirect('bulk_import_councils')
                         
                 except Exception as e:
@@ -1091,29 +1151,76 @@ def bulk_import(request):
                     str_val = str(value).strip()
                     return str_val and str_val.lower() not in ['nan', 'none', 'null', '']
                 
-                with transaction.atomic():
-                    for index, row in enumerate(data_records):
-                        try:
-                            council_name = str(row.get('name', '')).strip()
-                            if not council_name or council_name.lower() in ['nan', 'none', '']:
-                                continue
-                                
-                            council_slug = slugify(row.get('slug', council_name))
-                            
-                            # Check if council already exists
-                            if not Council.objects.filter(Q(name=council_name) | Q(slug=council_slug)).exists():
-                                # Validate required business fields before creating council
-                                validation_errors = []
-                                
-                                # Website is now considered required for new councils
-                                if not ('website' in row and is_valid_value(row['website'])):
-                                    validation_errors.append("Website is required")
-                                
-                                # Skip validation if we have critical errors
-                                if validation_errors:
-                                    error_count += 1
-                                    errors.append(f"Row {index + 1} ({council_name}): {', '.join(validation_errors)}")
+                # Batch processing for large imports (400+ records)
+                BATCH_SIZE = 50  # Process in chunks to avoid memory issues and long transactions
+                total_records = len(data_records)
+                
+                log_council_management_event(
+                    request,
+                    'info',
+                    'data_processing',
+                    'Council Import: Batch Processing Started',
+                    f'Starting batch import of {total_records} records using batch size {BATCH_SIZE}',
+                    {
+                        'import_id': import_id,
+                        'total_records': total_records,
+                        'batch_size': BATCH_SIZE,
+                        'estimated_batches': (total_records + BATCH_SIZE - 1) // BATCH_SIZE
+                    }
+                )
+                
+                # Process records in batches
+                for batch_start in range(0, total_records, BATCH_SIZE):
+                    batch_end = min(batch_start + BATCH_SIZE, total_records)
+                    batch_records = data_records[batch_start:batch_end]
+                    batch_number = (batch_start // BATCH_SIZE) + 1
+                    
+                    batch_start_time = time.time()
+                    batch_created = 0
+                    batch_skipped = 0
+                    batch_errors = 0
+                    
+                    log_council_management_event(
+                        request,
+                        'info',
+                        'data_processing',
+                        f'Council Import: Processing Batch {batch_number}',
+                        f'Processing records {batch_start + 1} to {batch_end} of {total_records}',
+                        {
+                            'import_id': import_id,
+                            'batch_number': batch_number,
+                            'batch_start': batch_start + 1,
+                            'batch_end': batch_end,
+                            'batch_size': len(batch_records)
+                        }
+                    )
+                    
+                    # Process this batch in a transaction
+                    with transaction.atomic():
+                        for index, row in enumerate(batch_records):
+                            absolute_index = batch_start + index  # Global index for error reporting
+                            try:
+                                council_name = str(row.get('name', '')).strip()
+                                if not council_name or council_name.lower() in ['nan', 'none', '']:
                                     continue
+                                
+                                council_slug = slugify(row.get('slug', council_name))
+                                
+                                # Check if council already exists
+                                if not Council.objects.filter(Q(name=council_name) | Q(slug=council_slug)).exists():
+                                    # Validate required business fields before creating council
+                                    validation_errors = []
+                                
+                                    # Website is now considered required for new councils
+                                    if not ('website' in row and is_valid_value(row['website'])):
+                                        validation_errors.append("Website is required")
+                                    
+                                    # Skip validation if we have critical errors
+                                    if validation_errors:
+                                        error_count += 1
+                                        batch_errors += 1
+                                        errors.append(f"Row {absolute_index + 1} ({council_name}): {', '.join(validation_errors)}")
+                                        continue
                                 
                                 # Get related objects - use proper None checking instead of pd.notna()
                                 council_type = None
@@ -1273,38 +1380,60 @@ def bulk_import(request):
                                         except Exception as e:
                                             logger.warning(f"Could not save characteristic {field.slug} during import for council {council.name}: {e}")
                                 
-                                new_councils.append(council)
-                                created_count += 1
-                            else:
-                                skipped_count += 1
+                                    new_councils.append(council)
+                                    created_count += 1
+                                    batch_created += 1
+                                else:
+                                    skipped_count += 1
+                                    batch_skipped += 1
+                                    
+                            except Exception as e:
+                                error_count += 1
+                                batch_errors += 1
+                                error_message = str(e)
+                                errors.append(f"Row {absolute_index + 1}: {error_message}")
+                                logger.error(f"Error importing council from row {absolute_index + 1}: {e}")
                                 
-                        except Exception as e:
-                            error_count += 1
-                            error_message = str(e)
-                            errors.append(f"Row {index + 1}: {error_message}")
-                            logger.error(f"Error importing council from row {index + 1}: {e}")
-                            
-                            # Log each import error to Event Viewer immediately
-                            log_council_management_event(
-                                request=request,
-                                level='error',
-                                category='data_processing',
-                                title=f'Council Import Error - Row {index + 1}',
-                                message=f'Failed to import council from row {index + 1}: {error_message}',
-                                details={
-                                    'row_number': index + 1,
-                                    'error_type': type(e).__name__,
-                                    'council_name': row.get('name', 'Unknown'),
-                                    'council_website': row.get('website', ''),
-                                    'council_type': row.get('council_type', ''),
-                                    'nation': row.get('nation', ''),
-                                    'available_council_types': [ct.name for ct in available_council_types],
-                                    'available_nations': [n.name for n in available_nations],
-                                    'import_session': import_id,
-                                    'total_processed': index + 1,
-                                    'errors_so_far': error_count
-                                }
-                            )
+                                # Log each import error to Event Viewer immediately
+                                log_council_management_event(
+                                    request=request,
+                                    level='error',
+                                    category='data_processing',
+                                    title=f'Council Import Error - Row {absolute_index + 1}',
+                                    message=f'Failed to import council from row {absolute_index + 1}: {error_message}',
+                                    details={
+                                        'row_number': absolute_index + 1,
+                                        'error_type': type(e).__name__,
+                                        'council_name': row.get('name', 'Unknown'),
+                                        'council_website': row.get('website', ''),
+                                        'council_type': row.get('council_type', ''),
+                                        'nation': row.get('nation', ''),
+                                        'import_session': import_id,
+                                        'batch_number': batch_number,
+                                        'total_processed': absolute_index + 1,
+                                        'errors_so_far': error_count
+                                    }
+                                )
+                    
+                    # Log batch completion
+                    batch_duration = time.time() - batch_start_time
+                    log_council_management_event(
+                        request,
+                        'info',
+                        'data_processing',
+                        f'Council Import: Batch {batch_number} Completed',
+                        f'Batch {batch_number}/{(total_records + BATCH_SIZE - 1) // BATCH_SIZE} completed: {batch_created} created, {batch_skipped} skipped, {batch_errors} errors in {batch_duration:.2f}s',
+                        {
+                            'import_id': import_id,
+                            'batch_number': batch_number,
+                            'batch_created': batch_created,
+                            'batch_skipped': batch_skipped,
+                            'batch_errors': batch_errors,
+                            'batch_duration_seconds': batch_duration,
+                            'records_processed': len(batch_records),
+                            'progress_percent': round((batch_end / total_records) * 100, 1)
+                        }
+                    )
                 
                 # Calculate processing time
                 processing_time = time.time() - import_start_time
@@ -1315,7 +1444,7 @@ def bulk_import(request):
                     level='info' if error_count == 0 else 'warning',
                     category='data_processing',
                     title=f'Bulk Council Import Completed',
-                    message=f'Import session {import_id} completed: {created_count} created, {skipped_count} skipped, {error_count} errors',
+                    message=f'Import session {import_id} completed with batch processing: {created_count} created, {skipped_count} skipped, {error_count} errors in {processing_time:.2f}s',
                     details={
                         'import_session': import_id,
                         'councils_created': created_count,
@@ -1323,6 +1452,8 @@ def bulk_import(request):
                         'errors_encountered': error_count,
                         'total_rows_processed': len(data_records),
                         'processing_time_seconds': processing_time,
+                        'batch_size_used': BATCH_SIZE,
+                        'total_batches': (total_records + BATCH_SIZE - 1) // BATCH_SIZE,
                         'file_name': file_name,
                         'new_council_ids': [c.id for c in new_councils],
                         'error_summary': errors[:10] if errors else [],  # First 10 errors for summary

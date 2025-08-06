@@ -22,7 +22,7 @@
           <h1 class="text-2xl font-bold text-gray-900">Import Councils</h1>
         </div>
         <p class="mt-2 text-sm text-gray-600">
-          Bulk import councils from CSV, Excel, or JSON files with automatic contribution queue generation
+          Bulk import councils from CSV, TXT, Excel, or JSON files with automatic contribution queue generation
         </p>
       </div>
     </div>
@@ -51,11 +51,11 @@
                 <div class="flex text-sm text-gray-600">
                   <label for="councilImportFile" class="relative cursor-pointer bg-white rounded-md font-medium text-blue-600 hover:text-blue-500 focus-within:outline-none focus-within:ring-2 focus-within:ring-offset-2 focus-within:ring-blue-500">
                     <span>Upload a file</span>
-                    <input id="councilImportFile" name="council_import_file" type="file" accept=".csv,.json,.xlsx" class="sr-only" required>
+                    <input id="councilImportFile" name="council_import_file" type="file" accept=".csv,.txt,.json,.xlsx" class="sr-only" required>
                   </label>
                   <p class="pl-1">or drag and drop</p>
                 </div>
-                <p class="text-xs text-gray-500">CSV, Excel (.xlsx), or JSON up to {{ max_file_size }}</p>
+                <p class="text-xs text-gray-500">CSV, TXT (tab/comma delimited), Excel (.xlsx), or JSON up to {{ max_file_size }}</p>
               </div>
             </div>
             
