@@ -136,7 +136,10 @@ class Command(BaseCommand):
         warmed_count = 0
         failed_count = 0
         
-        counter_slugs = ['total-debt', 'current-liabilities', 'long-term-liabilities', 'interest-paid']
+        # Warm ALL default counters shown on council detail page
+        from council_finance.models import CounterDefinition
+        default_counters = CounterDefinition.objects.filter(show_by_default=True)
+        counter_slugs = [c.slug for c in default_counters]
         years = ['2024/25', '2023/24']
         
         for counter_slug in counter_slugs:

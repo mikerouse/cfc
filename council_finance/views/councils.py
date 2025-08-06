@@ -29,7 +29,7 @@ from council_finance.models import (
     CouncilCharacteristicHistory, CouncilFollow, Contribution,
     CouncilType, CouncilNation
 )
-from council_finance.agents.counter_agent import CounterAgent
+# from council_finance.agents.counter_agent import CounterAgent  # No longer needed - using cached service
 
 # Import utility functions we'll need
 from .general import log_activity, current_financial_year_label
@@ -112,7 +112,14 @@ def council_list(request):
 
 def council_detail(request, slug):
     """Display detailed information about a council."""
+    import time
+    import logging
+    logger = logging.getLogger(__name__)
+    
+    view_start_time = time.time()
+    
     council = get_object_or_404(Council, slug=slug)
+    logger.info(f"Council lookup took {time.time() - view_start_time:.2f}s")
     
     # Handle share link parameters
     share_data = None
@@ -183,52 +190,49 @@ def council_detail(request, slug):
         show_by_default=True
     ).order_by('name')
     
-    # Calculate counter values using the CounterAgent
+    # Calculate counter values using the CACHED Counter Service for performance
+    from council_finance.services.counter_cache_service import counter_cache_service
+    
     counters = []
     if counter_definitions:
-        counter_agent = CounterAgent()
-        
-        # Get all counter results for this council and year
-        try:
-            if council_year:
-                counter_results = counter_agent.run(
-                    council_slug=council.slug,
-                    year_label=current_year
-                )
-            else:
-                counter_results = {}
+        # Create combined data structure for template
+        for counter_def in counter_definitions:
+            counter_data = {
+                'counter': counter_def,
+                'value': None,
+                'formatted': 'No data',
+                'error': None,
+                'factoids': []
+            }
             
-            # Create combined data structure for template
-            for counter_def in counter_definitions:
-                counter_data = {
-                    'counter': counter_def,
-                    'value': None,
-                    'formatted': 'No data',
-                    'error': None,
-                    'factoids': []
-                }
+            try:
+                # Use the cached counter service for FAST lookups
+                value = counter_cache_service.get_counter_value(
+                    counter_slug=counter_def.slug,
+                    council_slug=council.slug,
+                    year_label=current_year if council_year else None
+                )
                 
-                # Get the calculated result if available
-                if counter_def.slug in counter_results:
-                    result = counter_results[counter_def.slug]
-                    if isinstance(result, dict):
-                        counter_data.update(result)
+                if value is not None:
+                    counter_data['value'] = value
+                    # Format the value using counter definition formatting
+                    if hasattr(counter_def, 'format_value'):
+                        counter_data['formatted'] = counter_def.format_value(value)
                     else:
-                        counter_data['value'] = result
-                        counter_data['formatted'] = counter_def.format_value(result) if hasattr(counter_def, 'format_value') else str(result)
+                        # Default formatting for currency values
+                        counter_data['formatted'] = f"£{value:,.0f}"
+                    
+            except Exception as e:
+                # Log but don't fail the whole page
+                counter_data['error'] = str(e)
+                counter_data['formatted'] = 'No data'
                 
-                counters.append(counter_data)
-                
-        except Exception as e:
-            # If counter calculation fails, still show counters without values
-            for counter_def in counter_definitions:
-                counters.append({
-                    'counter': counter_def,
-                    'value': None,
-                    'formatted': 'No data',
-                    'error': str(e),
-                    'factoids': []
-                })
+                # Only log to console in debug mode to avoid Event Viewer performance hit
+                import logging
+                logger = logging.getLogger(__name__)
+                logger.debug(f'Counter {counter_def.slug} failed for {council.slug}: {str(e)}')
+            
+            counters.append(counter_data)
     
     # Check if user is following this council
     is_following = False
@@ -333,7 +337,7 @@ def council_counters(request, slug):
     
     counters = []
     if selected_year:
-        from council_finance.agents.counter_agent import CounterAgent
+        # from council_finance.agents.counter_agent import CounterAgent  # No longer needed - using cached service
         agent = CounterAgent()
         
         # Compute all counter values for this council/year using the agent
