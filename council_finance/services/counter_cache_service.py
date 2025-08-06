@@ -93,7 +93,8 @@ class CounterCacheService:
                          counter_slug: str, 
                          council_slug: Optional[str] = None, 
                          year_label: Optional[str] = None,
-                         use_stale_if_needed: bool = True) -> Decimal:
+                         use_stale_if_needed: bool = True,
+                         allow_expensive_calculation: bool = False) -> Decimal:
         """
         Get counter value using 3-tier caching strategy.
         
@@ -177,7 +178,8 @@ class CounterCacheService:
             
             # Tier 3: Live calculation (expensive)
             cache_tier_used = "calculation"
-            value = self._calculate_fresh_value(counter_slug, council_slug, year_label)
+            value = self._calculate_fresh_value(counter_slug, council_slug, year_label, 
+                                               allow_expensive=allow_expensive_calculation)
             
             if value is not None:
                 # Store in both Redis and Database
@@ -293,7 +295,7 @@ class CounterCacheService:
             db_result.record_cache_hit()
     
     def _calculate_fresh_value(self, counter_slug: str, council_slug: Optional[str], 
-                             year_label: Optional[str]) -> Optional[Decimal]:
+                             year_label: Optional[str], allow_expensive: bool = False) -> Optional[Decimal]:
         """Calculate counter value fresh using appropriate agent"""
         try:
             if council_slug:
@@ -303,7 +305,25 @@ class CounterCacheService:
                 if counter_data and counter_data.get("value") is not None:
                     return Decimal(str(counter_data["value"]))
             else:
-                # Site-wide calculation - this is expensive!
+                # Site-wide calculation - only run if explicitly allowed
+                if not allow_expensive:
+                    log_cache_event(
+                        'warning', 'performance',
+                        'Site-Wide Calculation Skipped - Cache Cold',
+                        f'Skipping expensive site-wide calculation for {counter_slug} to prevent page timeout',
+                        details={
+                            'counter_slug': counter_slug,
+                            'year_label': year_label,
+                            'operation': 'site_totals_agent_skipped',
+                            'recommendation': 'Run "python manage.py warmup_counter_cache" to populate cache'
+                        }
+                    )
+                    
+                    # Return 0 instead of running expensive calculation
+                    # This prevents the homepage from timing out
+                    return Decimal('0.00')
+                
+                # Only run expensive calculation when explicitly allowed (e.g., during cache warming)
                 log_cache_event(
                     'warning', 'performance',
                     'Expensive Site-Wide Calculation Started',
@@ -311,7 +331,8 @@ class CounterCacheService:
                     details={
                         'counter_slug': counter_slug,
                         'year_label': year_label,
-                        'operation': 'site_totals_agent_run'
+                        'operation': 'site_totals_agent_run',
+                        'allowed_by': 'explicit_flag'
                     }
                 )
                 
@@ -426,7 +447,8 @@ class CounterCacheService:
                         value = self.get_counter_value(
                             counter_slug=sc.counter.slug,
                             year_label=year_label,
-                            use_stale_if_needed=False
+                            use_stale_if_needed=False,
+                            allow_expensive_calculation=True  # Allow expensive site-wide calculations
                         )
                         
                         counter_time = time.time() - counter_start

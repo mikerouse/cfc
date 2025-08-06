@@ -257,7 +257,7 @@ def home(request):
     councils_with_debt_count = 0
     if latest_year:
         try:
-            field = DataField.objects.filter(slug="total_debt").first()
+            field = DataField.objects.filter(slug="total-debt").first()
             if field:
                 # Get total debt and count of councils with non-zero debt data
                 debt_figures = FinancialFigure.objects.filter(
