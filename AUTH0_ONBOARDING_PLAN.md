@@ -260,7 +260,357 @@ urlpatterns = [
 - **Performance**: Onboarding should be fast and lightweight
 - **Monitoring**: Track onboarding completion rates and drop-off points
 
+# EVENT VIEWER INTEGRATION & MONITORING PLAN
+
+## User Registration Event Logging
+
+### Registration Event Types
+
+**All onboarding events will be logged to the Event Viewer system for monitoring and analytics.**
+
+#### 1. User Registration Events
+```python
+# New user starts onboarding (via Auth0)
+SystemEvent.objects.create(
+    source='user_onboarding',
+    level='info',
+    category='user_activity',
+    title='New User Registration Started',
+    message=f'User {user.email} began onboarding via Auth0',
+    user=user,
+    details={
+        'auth0_user_id': profile.auth0_user_id,
+        'country_detected': profile.is_uk_user,
+        'email_verified': profile.email_confirmed,
+        'registration_method': 'auth0',
+        'user_agent': request.META.get('HTTP_USER_AGENT', ''),
+    },
+    tags=['onboarding', 'auth0', 'registration'],
+    fingerprint=f'user_registration_started_{user.id}_{date.today()}'
+)
+
+# Onboarding step completion
+SystemEvent.objects.create(
+    source='user_onboarding',
+    level='info', 
+    category='user_activity',
+    title=f'Onboarding Step Completed: {step_name}',
+    message=f'User {user.username} completed {step_name} step',
+    user=user,
+    details={
+        'step_name': step_name,
+        'step_number': step_number,
+        'total_steps': total_steps,
+        'completion_time_seconds': completion_time,
+        'skip_reasons': skip_reasons,  # If steps were skipped
+    },
+    tags=['onboarding', 'step_completion', step_name.lower()],
+    fingerprint=f'onboarding_step_{step_name}_{user.id}'
+)
+```
+
+#### 2. OSA Compliance Events
+```python
+# Age verification completed
+SystemEvent.objects.create(
+    source='osa_compliance',
+    level='info',
+    category='compliance',
+    title='Age Verification Completed',
+    message=f'User verified age: {age} years old',
+    user=user,
+    details={
+        'age': age,
+        'date_of_birth': dob.isoformat(),
+        'is_adult': age >= 18,
+        'verification_method': 'self_declared',
+    },
+    tags=['osa', 'age_verification', 'compliance'],
+    fingerprint=f'age_verification_{user.id}'
+)
+
+# Content restrictions applied
+SystemEvent.objects.create(
+    source='osa_compliance',
+    level='warning' if age < 18 else 'info',
+    category='compliance',
+    title='OSA Content Restrictions Applied',
+    message=f'User under 18 - Feed/comments blocked per OSA requirements',
+    user=user,
+    details={
+        'age': age,
+        'restrictions_applied': ['feed_blocked', 'comments_blocked'],
+        'compliance_reason': 'online_safety_act',
+    },
+    tags=['osa', 'content_restriction', 'minor_protection'],
+    fingerprint=f'content_restrictions_{user.id}'
+)
+```
+
+#### 3. Security & Validation Events
+```python
+# Suspicious registration patterns
+SystemEvent.objects.create(
+    source='security',
+    level='warning',
+    category='security',
+    title='Suspicious Registration Pattern Detected',
+    message=f'Multiple registrations from IP {ip} in short timeframe',
+    details={
+        'ip_address': ip,
+        'registration_count': count,
+        'timeframe_hours': timeframe,
+        'user_agents': user_agents,
+    },
+    tags=['security', 'fraud_detection', 'registration'],
+    fingerprint=f'suspicious_registration_{ip}_{date.today()}'
+)
+
+# Data validation failures
+SystemEvent.objects.create(
+    source='data_validation',
+    level='warning',
+    category='data_quality',
+    title='User Registration Data Validation Failed',
+    message=f'Invalid data submitted: {error_description}',
+    user=user,
+    details={
+        'validation_errors': errors,
+        'submitted_data': sanitized_data,
+        'form_step': step_name,
+    },
+    tags=['validation', 'data_quality', 'form_errors'],
+    fingerprint=f'validation_failure_{step_name}_{user.id}'
+)
+```
+
+## Email Alert System Integration
+
+### Midday Registration Digest
+
+**Implementation**: Create a management command that sends a daily digest of new registrations at 12:00 PM.
+
+#### Management Command Structure
+```python
+# management/commands/send_registration_digest.py
+class Command(BaseCommand):
+    help = 'Send daily digest of new user registrations'
+    
+    def handle(self, *args, **options):
+        # Get yesterday's registrations
+        yesterday = timezone.now() - timedelta(days=1)
+        today = timezone.now()
+        
+        registration_events = SystemEvent.objects.filter(
+            source='user_onboarding',
+            title='New User Registration Started',
+            timestamp__gte=yesterday.replace(hour=0, minute=0, second=0),
+            timestamp__lt=today.replace(hour=0, minute=0, second=0)
+        ).order_by('-timestamp')
+        
+        if registration_events.exists():
+            self._send_digest_email(registration_events)
+```
+
+#### Email Template (`templates/emails/registration_digest.html`)
+```html
+<h2>Daily Registration Summary - {{ date|date:"F j, Y" }}</h2>
+
+<div class="summary-stats">
+    <p><strong>{{ total_registrations }}</strong> new users registered</p>
+    <p><strong>{{ uk_users }}</strong> UK users, <strong>{{ non_uk_users }}</strong> international</p>
+    <p><strong>{{ adult_users }}</strong> adults (18+), <strong>{{ minor_users }}</strong> minors (&lt;18)</p>
+    <p><strong>{{ email_verified }}</strong> had pre-verified emails from Auth0</p>
+</div>
+
+<h3>Registration Details</h3>
+<table class="registration-table">
+    <thead>
+        <tr>
+            <th>Time</th>
+            <th>User</th>
+            <th>Location</th>
+            <th>Age</th>
+            <th>Method</th>
+            <th>Status</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for reg in registrations %}
+        <tr>
+            <td>{{ reg.timestamp|date:"H:i" }}</td>
+            <td>{{ reg.user.first_name }} {{ reg.user.last_name }} ({{ reg.user.email }})</td>
+            <td>{{ reg.details.country_detected|yesno:"UK,International" }}</td>
+            <td>{{ reg.details.age|default:"Pending" }}</td>
+            <td>Auth0</td>
+            <td>{{ reg.details.onboarding_status|default:"In Progress" }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+<h3>Weekly Trends</h3>
+<p>{{ weekly_comparison }}</p>
+
+<hr>
+<p><small>View full details at <a href="{{ base_url }}/system-events/">Event Viewer Dashboard</a></small></p>
+```
+
+#### Cron Job Configuration
+```bash
+# Add to crontab for daily execution at 12:00 PM
+0 12 * * * /path/to/python manage.py send_registration_digest
+```
+
+### Alert Thresholds for Registration Events
+
+#### Custom Registration Alert Thresholds
+```python
+# In settings.py - extend existing EVENT_VIEWER_SETTINGS
+EVENT_VIEWER_SETTINGS = {
+    # ... existing settings ...
+    'REGISTRATION_ALERT_THRESHOLDS': {
+        'unusual_registration_spike': {
+            'threshold': 10,  # More than 10 registrations per hour
+            'timeframe_hours': 1,
+            'alert_level': 'warning',
+        },
+        'potential_fraud': {
+            'same_ip_registrations': 5,  # 5+ registrations from same IP
+            'timeframe_hours': 24,
+            'alert_level': 'critical',
+        },
+        'failed_validations': {
+            'threshold': 20,  # 20+ validation failures per day
+            'timeframe_hours': 24,
+            'alert_level': 'warning',
+        },
+        'onboarding_abandonment': {
+            'threshold_percent': 70,  # >70% abandon onboarding
+            'alert_level': 'info',
+        }
+    }
+}
+```
+
+## Implementation Timeline
+
+### Phase 1: Event Logging Integration (2-3 hours)
+- [ ] Add SystemEvent logging to all onboarding views
+- [ ] Create event logging helper functions
+- [ ] Add OSA compliance event tracking
+- [ ] Test event creation and Event Viewer display
+
+### Phase 2: Registration Digest System (3-4 hours)
+- [ ] Create management command for digest generation
+- [ ] Design email template with registration statistics
+- [ ] Implement weekly comparison analytics
+- [ ] Test email delivery and formatting
+- [ ] Set up cron job for automated execution
+
+### Phase 3: Advanced Monitoring & Alerts (2-3 hours)
+- [ ] Implement fraud detection patterns
+- [ ] Add onboarding abandonment tracking
+- [ ] Create custom alert thresholds for registration events
+- [ ] Integrate with existing alert system
+- [ ] Test alert generation and delivery
+
+### Phase 4: Analytics Dashboard Enhancement (2 hours)
+- [ ] Add registration-specific analytics to Event Viewer
+- [ ] Create onboarding funnel analysis
+- [ ] Add geographical distribution charts
+- [ ] Implement age demographics tracking
+
+## Event Logging Helper Functions
+
+### Onboarding Event Logger
+```python
+# council_finance/services/onboarding_logger.py
+class OnboardingLogger:
+    @staticmethod
+    def log_registration_started(user, request, profile):
+        from event_viewer.models import SystemEvent
+        SystemEvent.objects.create(
+            source='user_onboarding',
+            level='info',
+            category='user_activity', 
+            title='New User Registration Started',
+            message=f'User {user.email} began onboarding via Auth0',
+            user=user,
+            request_path=request.path,
+            ip_address=request.META.get('REMOTE_ADDR'),
+            user_agent=request.META.get('HTTP_USER_AGENT', ''),
+            details={
+                'auth0_user_id': profile.auth0_user_id,
+                'country_detected': profile.is_uk_user,
+                'email_verified': profile.email_confirmed,
+                'registration_method': 'auth0',
+                'detection_data': {
+                    'locale': profile.auth0_metadata.get('locale', ''),
+                    'email_domain': user.email.split('@')[1] if user.email else '',
+                }
+            },
+            tags=['onboarding', 'auth0', 'registration'],
+            fingerprint=f'user_registration_started_{user.id}_{date.today()}'
+        )
+    
+    @staticmethod
+    def log_step_completion(user, request, step_name, step_number, total_steps, details=None):
+        from event_viewer.models import SystemEvent
+        SystemEvent.objects.create(
+            source='user_onboarding',
+            level='info',
+            category='user_activity',
+            title=f'Onboarding Step Completed: {step_name}',
+            message=f'User {user.username or user.email} completed {step_name} step ({step_number}/{total_steps})',
+            user=user,
+            request_path=request.path,
+            ip_address=request.META.get('REMOTE_ADDR'),
+            details={
+                'step_name': step_name,
+                'step_number': step_number,
+                'total_steps': total_steps,
+                'progress_percent': round((step_number / total_steps) * 100),
+                **(details or {})
+            },
+            tags=['onboarding', 'step_completion', step_name.lower().replace(' ', '_')],
+            fingerprint=f'onboarding_step_{step_name.lower()}_{user.id}'
+        )
+```
+
+## Integration Points
+
+### Existing System Compatibility
+- **Email System**: Uses existing `ERROR_ALERTS_EMAIL_ADDRESS` configuration
+- **Activity Logging**: Complements (doesn't replace) existing ActivityLog system
+- **User Management**: Integrates with existing UserProfile and trust tier system
+- **Event Viewer**: Utilizes existing monitoring infrastructure
+
+### Data Privacy Considerations
+- **GDPR Compliance**: Registration events include only necessary data
+- **Data Retention**: Follow existing Event Viewer retention policies
+- **User Consent**: Registration logging covered by terms of service
+- **Anonymization**: Personal data can be anonymized in older events
+
+---
+
+## SUCCESS METRICS
+
+### Registration Monitoring KPIs
+- **Registration Volume**: Daily/weekly registration trends
+- **Completion Rate**: Percentage completing full onboarding
+- **Drop-off Points**: Which steps cause abandonment
+- **Geographic Distribution**: UK vs international user patterns  
+- **Age Demographics**: Adult vs minor user breakdown
+- **Verification Success**: Auth0 email verification rates
+
+### Alert Effectiveness
+- **False Positive Rate**: <5% for fraud detection alerts
+- **Response Time**: <2 hours for critical registration issues
+- **Digest Delivery**: 100% successful daily digest delivery
+- **Event Capture**: >99% of registration events logged
+
 ---
 
 *Last updated: 2025-08-06*
-*Status: Planning phase - ready for implementation*
+*Status: Ready for Event Viewer integration implementation*

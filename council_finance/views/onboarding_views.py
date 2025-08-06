@@ -83,7 +83,7 @@ def welcome(request):
     # Calculate progress
     total_steps = 5 if is_uk_user else 4
     current_step = 1
-    progress_percent = round((current_step / total_steps) * 100)
+    progress_percent = int(round((current_step / total_steps) * 100))
     
     context = {
         'user_data': user_data,
@@ -146,7 +146,7 @@ def basic_details(request):
     # Calculate progress
     total_steps = 5 if profile.is_uk_user else 4
     current_step = 2
-    progress_percent = round((current_step / total_steps) * 100)
+    progress_percent = int(round((current_step / total_steps) * 100))
     
     context = {
         'form': form,
