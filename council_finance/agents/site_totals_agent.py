@@ -24,19 +24,42 @@ class SiteTotalsAgent(AgentBase):
         # years to be aggregated without additional queries later.
         all_years = list(FinancialYear.objects.order_by("-label"))
 
+        # Import the counter cache service for faster lookups
+        from council_finance.services.counter_cache_service import counter_cache_service
+        
         for sc in SiteCounter.objects.all():
             # Sum the value of ``sc.counter`` across either a specific year or
             # every year when none is selected.
             value = 0.0
             years = [sc.year] if sc.year else all_years
+            
+            print(f"Calculating {sc.name} for {Council.objects.count()} councils...")
+            council_count = 0
+            
             for council in Council.objects.all():
                 for yr in years:
-                    data = agent.run(council_slug=council.slug, year_label=yr.label).get(sc.counter.slug)
-                    if data and data.get("value") is not None:
-                        try:
-                            value += float(data["value"])
-                        except (TypeError, ValueError):
-                            pass
+                    try:
+                        # Use the cached counter service instead of agent.run() for performance
+                        cached_value = counter_cache_service.get_counter_value(
+                            counter_slug=sc.counter.slug,
+                            council_slug=council.slug,
+                            year_label=yr.label,
+                            allow_expensive_calculation=False  # Don't trigger recursive calculations
+                        )
+                        if cached_value and cached_value > 0:
+                            value += float(cached_value)
+                    except Exception as e:
+                        # Fallback to original method if cache service fails
+                        data = agent.run(council_slug=council.slug, year_label=yr.label).get(sc.counter.slug)
+                        if data and data.get("value") is not None:
+                            try:
+                                value += float(data["value"])
+                            except (TypeError, ValueError):
+                                pass
+                
+                council_count += 1
+                if council_count % 50 == 0:
+                    print(f"  Processed {council_count}/{Council.objects.count()} councils...")
             year_label = sc.year.label if sc.year else "all"
             # Cache for 24 hours instead of forever to avoid stale data
             cache.set(f"counter_total:{sc.slug}:{year_label}", value, 86400)
@@ -48,13 +71,26 @@ class SiteTotalsAgent(AgentBase):
                     prev_year = FinancialYear.objects.filter(label=prev_label).first()
                     if prev_year:
                         prev_value = 0.0
+                        print(f"Calculating {sc.name} previous year ({prev_label})...")
                         for council in Council.objects.all():
-                            data = agent.run(council_slug=council.slug, year_label=prev_year.label).get(sc.counter.slug)
-                            if data and data.get("value") is not None:
-                                try:
-                                    prev_value += float(data["value"])
-                                except (TypeError, ValueError):
-                                    pass
+                            try:
+                                # Use cached service for previous year too
+                                cached_value = counter_cache_service.get_counter_value(
+                                    counter_slug=sc.counter.slug,
+                                    council_slug=council.slug,
+                                    year_label=prev_year.label,
+                                    allow_expensive_calculation=False
+                                )
+                                if cached_value and cached_value > 0:
+                                    prev_value += float(cached_value)
+                            except Exception as e:
+                                # Fallback
+                                data = agent.run(council_slug=council.slug, year_label=prev_year.label).get(sc.counter.slug)
+                                if data and data.get("value") is not None:
+                                    try:
+                                        prev_value += float(data["value"])
+                                    except (TypeError, ValueError):
+                                        pass
                         cache.set(f"counter_total:{sc.slug}:{year_label}:prev", prev_value, 86400)
 
         for gc in GroupCounter.objects.all():
@@ -69,14 +105,28 @@ class SiteTotalsAgent(AgentBase):
 
             value = 0.0
             years = [gc.year] if gc.year else all_years
+            print(f"Calculating group counter {gc.name} for {councils.count()} councils...")
+            
             for council in councils:
                 for yr in years:
-                    data = agent.run(council_slug=council.slug, year_label=yr.label).get(gc.counter.slug)
-                    if data and data.get("value") is not None:
-                        try:
-                            value += float(data["value"])
-                        except (TypeError, ValueError):
-                            pass
+                    try:
+                        # Use cached service for group counters too
+                        cached_value = counter_cache_service.get_counter_value(
+                            counter_slug=gc.counter.slug,
+                            council_slug=council.slug,
+                            year_label=yr.label,
+                            allow_expensive_calculation=False
+                        )
+                        if cached_value and cached_value > 0:
+                            value += float(cached_value)
+                    except Exception as e:
+                        # Fallback
+                        data = agent.run(council_slug=council.slug, year_label=yr.label).get(gc.counter.slug)
+                        if data and data.get("value") is not None:
+                            try:
+                                value += float(data["value"])
+                            except (TypeError, ValueError):
+                                pass
             year_label = gc.year.label if gc.year else "all"
             # Cache for 24 hours instead of forever to avoid stale data
             cache.set(f"counter_total:{gc.slug}:{year_label}", value, 86400)

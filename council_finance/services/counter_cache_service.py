@@ -32,6 +32,11 @@ from council_finance.models import (
 )
 from council_finance.agents.counter_agent import CounterAgent
 from council_finance.agents.site_totals_agent import SiteTotalsAgent
+try:
+    from council_finance.agents.site_totals_agent_optimized import SiteTotalsAgentOptimized
+    USE_OPTIMIZED_AGENT = True
+except ImportError:
+    USE_OPTIMIZED_AGENT = False
 
 # Event Viewer integration
 try:
@@ -87,7 +92,10 @@ class CounterCacheService:
     
     def __init__(self):
         self.counter_agent = CounterAgent()
-        self.site_totals_agent = SiteTotalsAgent()
+        if USE_OPTIMIZED_AGENT:
+            self.site_totals_agent = SiteTotalsAgentOptimized()
+        else:
+            self.site_totals_agent = SiteTotalsAgent()
     
     def get_counter_value(self, 
                          counter_slug: str, 
