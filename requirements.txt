@@ -58,3 +58,4 @@ tzdata==2025.2
 urllib3==2.5.0
 whitenoise==6.9.0
 django-crontab==0.7.1
+uvicorn==0.34.0
