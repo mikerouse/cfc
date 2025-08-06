@@ -12,6 +12,7 @@ from django.http import JsonResponse
 
 from council_finance.models import UserProfile
 from council_finance.forms import BasicDetailsForm, AgeVerificationForm, LocationInfoForm, CommunityGuidelinesForm
+from council_finance.services.onboarding_logger import OnboardingLogger
 from .general import log_activity
 
 logger = logging.getLogger(__name__)
@@ -96,6 +97,10 @@ def welcome(request):
         }
     }
     
+    # Log to Event Viewer
+    OnboardingLogger.log_registration_started(request.user, request, profile)
+    
+    # Also log to activity log for backwards compatibility
     log_activity(
         request,
         activity=f"User started onboarding - UK: {is_uk_user}, has name: {bool(user_data['first_name'])}"
@@ -124,6 +129,19 @@ def basic_details(request):
         form = BasicDetailsForm(request.POST, instance=request.user)
         if form.is_valid():
             user = form.save()
+            
+            # Log to Event Viewer
+            OnboardingLogger.log_step_completion(
+                user=request.user,
+                request=request,
+                step_name='Basic Details',
+                step_number=2,
+                total_steps=5 if profile.is_uk_user else 4,
+                details={
+                    'first_name_provided': bool(user.first_name),
+                    'last_name_provided': bool(user.last_name),
+                }
+            )
             
             log_activity(
                 request,
@@ -197,6 +215,21 @@ def age_verification(request):
             today = date.today()
             age = today.year - dob.year - ((today.month, today.day) < (dob.month, dob.day))
             
+            # Log to Event Viewer
+            OnboardingLogger.log_age_verification(request.user, request, profile, age)
+            OnboardingLogger.log_step_completion(
+                user=request.user,
+                request=request,
+                step_name='Age Verification',
+                step_number=3,
+                total_steps=5 if profile.is_uk_user else 4,
+                details={
+                    'age': age,
+                    'is_adult': profile.is_adult(),
+                    'osa_compliant': age >= 13,
+                }
+            )
+            
             log_activity(
                 request,
                 activity=f"User completed age verification: {age} years old, adult: {profile.is_adult()}"
@@ -248,6 +281,7 @@ def location_info(request):
     
     # Skip this step for non-UK users
     if not profile.is_uk_user:
+        OnboardingLogger.log_location_collection(request.user, request, profile, 'non-uk')
         messages.info(request, "Location step skipped as you're not in the UK.")
         return redirect('onboarding_guidelines')
     
@@ -263,23 +297,39 @@ def location_info(request):
             
             # Log the outcome
             if profile.postcode:
+                OnboardingLogger.log_location_collection(request.user, request, profile, 'provided')
                 log_activity(
                     request,
                     activity=f"User provided postcode: {profile.postcode[:3]}*** (masked for privacy)"
                 )
                 messages.success(request, "Thanks! Your postcode will help us show you relevant local information.")
             elif profile.postcode_refused:
+                OnboardingLogger.log_location_collection(request.user, request, profile, 'refused')
                 log_activity(
                     request,
                     activity="User declined to provide postcode"
                 )
                 messages.success(request, "No problem! You can always add your postcode later in your profile settings.")
             else:
+                OnboardingLogger.log_location_collection(request.user, request, profile, 'skipped')
                 log_activity(
                     request,
                     activity="User skipped postcode collection"
                 )
                 messages.success(request, "Location step completed.")
+            
+            # Log step completion
+            OnboardingLogger.log_step_completion(
+                user=request.user,
+                request=request,
+                step_name='Location Information',
+                step_number=4,
+                total_steps=5,  # Always 5 for UK users who see this step
+                details={
+                    'postcode_provided': bool(profile.postcode),
+                    'postcode_refused': profile.postcode_refused,
+                }
+            )
             
             return redirect('onboarding_guidelines')
     else:
@@ -327,6 +377,21 @@ def community_guidelines(request):
             profile.community_guidelines_accepted = True
             profile.community_guidelines_accepted_at = timezone.now()
             profile.save()
+            
+            # Log to Event Viewer
+            OnboardingLogger.log_guidelines_acceptance(request.user, request, profile)
+            OnboardingLogger.log_step_completion(
+                user=request.user,
+                request=request,
+                step_name='Community Guidelines',
+                step_number=5 if profile.is_uk_user else 4,
+                total_steps=5 if profile.is_uk_user else 4,
+                details={
+                    'guidelines_version': '1.0',
+                    'is_final_step': True,
+                }
+            )
+            OnboardingLogger.log_onboarding_completed(request.user, request, profile)
             
             log_activity(
                 request,
