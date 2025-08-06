@@ -11,6 +11,7 @@ applyTo: '**'
 - **AGENTS.md** - Counter agent system and calculation logic
 - **LEADERBOARDS.md** - Complete leaderboards system implementation, API, and enhancement roadmap
 - **EVENT_VIEWER.md** - Comprehensive monitoring, logging, and debugging system
+- **COUNTER_CACHING.md** - Database-backed 3-tier counter caching system with smart invalidation
 - **README.md** - Project setup and deployment instructions
 
 ## Documentation Organization:

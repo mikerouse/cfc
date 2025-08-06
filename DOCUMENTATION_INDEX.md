@@ -40,6 +40,12 @@
 - **Contains**: Page-specific rules, user permissions, workflows
 - **Status**: ✅ Comprehensive
 
+#### **COUNTER_CACHING.md** - *Performance & Caching*
+- **Purpose**: Database-backed 3-tier counter caching system with smart invalidation
+- **Audience**: Developers working on counter performance, caching, or debugging £0 counter issues
+- **Contains**: Architecture overview, implementation details, monitoring procedures, troubleshooting
+- **Status**: ✅ Comprehensive - Resolves homepage £0 counter issue with persistent database caching
+
 ### **3. FEATURE SYSTEM DOCUMENTATION**
 
 #### **FACTOIDS.md** - *AI Content System*
