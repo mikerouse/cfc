@@ -150,7 +150,7 @@ SOCIAL_AUTH_AUTH0_SCOPE = [
 # Additional social-auth settings
 SOCIAL_AUTH_TRAILING_SLASH = False
 SOCIAL_AUTH_REDIRECT_IS_HTTPS = not DEBUG
-SOCIAL_AUTH_LOGIN_REDIRECT_URL = '/accounts/profile/'
+SOCIAL_AUTH_LOGIN_REDIRECT_URL = '/welcome/'
 SOCIAL_AUTH_LOGIN_ERROR_URL = '/accounts/login/'
 
 # Social Auth pipeline to integrate with existing UserProfile
@@ -165,6 +165,7 @@ SOCIAL_AUTH_PIPELINE = (
     'social_core.pipeline.social_auth.associate_user',
     'social_core.pipeline.social_auth.load_extra_data',
     'social_core.pipeline.user.user_details',
+    'council_finance.auth0_pipeline.redirect_to_onboarding',  # Check if onboarding needed
 )
 
 # Feature flags

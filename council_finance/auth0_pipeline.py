@@ -51,3 +51,18 @@ def save_profile(backend, user, response, *args, **kwargs):
         logger.info(f"Updated UserProfile for Auth0 user {user.username}")
     
     return {'profile': profile}
+
+
+def redirect_to_onboarding(strategy, details, user=None, *args, **kwargs):
+    """
+    Redirect new users to onboarding if they need it.
+    This runs at the end of the pipeline.
+    """
+    if user and hasattr(user, 'profile'):
+        profile = user.profile
+        if profile.needs_onboarding():
+            # Store the fact that this user needs onboarding
+            strategy.session_set('needs_onboarding', True)
+            # The redirect will be handled by middleware or view logic
+    
+    return {}

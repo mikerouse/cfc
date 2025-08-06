@@ -1,0 +1,212 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Your Details - Council Finance Counters{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto py-8 px-4">
+    <!-- Progress indicator -->
+    <div class="mb-8">
+        <div class="flex items-center justify-between text-sm text-gray-600 mb-2">
+            <span>Step {{ progress.current }} of {{ progress.total }}</span>
+            <span>{{ progress.percent }}% complete</span>
+        </div>
+        <div class="w-full bg-gray-200 rounded-full h-2">
+            <div class="bg-blue-600 h-2 rounded-full transition-all duration-300" 
+                 style="width: {{ progress.percent }}%"></div>
+        </div>
+    </div>
+
+    <!-- Back navigation -->
+    <div class="mb-6">
+        <a href="{% url 'welcome' %}" 
+           class="inline-flex items-center text-blue-600 hover:text-blue-800 transition-colors">
+            <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
+            </svg>
+            Back
+        </a>
+    </div>
+
+    <!-- Form content -->
+    <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-8">
+        <!-- Error summary (GOV.UK pattern) -->
+        {% if form.errors %}
+            <div class="error-summary bg-red-50 border border-red-200 rounded-lg p-4 mb-6" role="alert" tabindex="-1">
+                <h2 class="text-lg font-medium text-red-800 mb-3">There is a problem</h2>
+                <ul class="list-disc list-inside space-y-1 text-red-700">
+                    {% for field, errors in form.errors.items %}
+                        {% for error in errors %}
+                            <li>
+                                <a href="#id_{{ field }}" class="underline hover:no-underline">
+                                    {{ error }}
+                                </a>
+                            </li>
+                        {% endfor %}
+                    {% endfor %}
+                </ul>
+            </div>
+        {% endif %}
+
+        <form method="post" class="space-y-6" novalidate>
+            {% csrf_token %}
+            
+            <!-- Main heading -->
+            <div>
+                <h1 class="text-2xl font-bold text-gray-900 mb-2">What's your name?</h1>
+                <p class="text-gray-600">
+                    We'll use this to personalise your experience and show it on your profile.
+                </p>
+            </div>
+
+            <!-- First name field -->
+            <div class="form-group{% if form.first_name.errors %} error{% endif %}">
+                <label for="{{ form.first_name.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-2">
+                    {{ form.first_name.label }}
+                    <span class="text-red-500">*</span>
+                </label>
+                
+                {% if form.first_name.help_text %}
+                    <div class="text-sm text-gray-500 mb-2">
+                        {{ form.first_name.help_text }}
+                    </div>
+                {% endif %}
+                
+                {% if form.first_name.errors %}
+                    <div class="error-message text-sm text-red-600 mb-2" role="alert">
+                        {% for error in form.first_name.errors %}
+                            <span class="font-medium">{{ error }}</span>
+                        {% endfor %}
+                    </div>
+                {% endif %}
+                
+                {{ form.first_name }}
+            </div>
+
+            <!-- Last name field -->
+            <div class="form-group{% if form.last_name.errors %} error{% endif %}">
+                <label for="{{ form.last_name.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-2">
+                    {{ form.last_name.label }}
+                    <span class="text-red-500">*</span>
+                </label>
+                
+                {% if form.last_name.help_text %}
+                    <div class="text-sm text-gray-500 mb-2">
+                        {{ form.last_name.help_text }}
+                    </div>
+                {% endif %}
+                
+                {% if form.last_name.errors %}
+                    <div class="error-message text-sm text-red-600 mb-2" role="alert">
+                        {% for error in form.last_name.errors %}
+                            <span class="font-medium">{{ error }}</span>
+                        {% endfor %}
+                    </div>
+                {% endif %}
+                
+                {{ form.last_name }}
+            </div>
+
+            <!-- Privacy notice -->
+            <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                <div class="flex">
+                    <div class="flex-shrink-0">
+                        <svg class="h-5 w-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                        </svg>
+                    </div>
+                    <div class="ml-3">
+                        <h3 class="text-sm font-medium text-blue-800">Your name will be:</h3>
+                        <div class="mt-2 text-sm text-blue-700">
+                            <ul class="list-disc list-inside space-y-1">
+                                <li>Displayed on your public profile</li>
+                                <li>Used when you comment or contribute data</li>
+                                <li>Never shared with third parties</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Form actions -->
+            <div class="flex justify-between items-center pt-6 border-t border-gray-200">
+                <a href="{% url 'welcome' %}" 
+                   class="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors">
+                    <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
+                    </svg>
+                    Back
+                </a>
+                
+                <button type="submit" 
+                        class="inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors">
+                    Continue
+                    <svg class="ml-2 -mr-1 w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z" clip-rule="evenodd"></path>
+                    </svg>
+                </button>
+            </div>
+        </form>
+    </div>
+
+    <!-- Required fields notice -->
+    <div class="mt-4 text-center">
+        <p class="text-sm text-gray-500">
+            Fields marked with <span class="text-red-500">*</span> are required
+        </p>
+    </div>
+</div>
+
+<style>
+    /* GOV.UK-inspired form styling */
+    .form-control {
+        @apply block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500;
+    }
+    
+    .form-control-lg {
+        @apply text-lg py-3 px-4;
+    }
+    
+    .form-group.error .form-control {
+        @apply border-red-500 focus:ring-red-500 focus:border-red-500;
+    }
+    
+    .error-summary {
+        animation: slideDown 0.3s ease-out;
+    }
+    
+    @keyframes slideDown {
+        from {
+            opacity: 0;
+            transform: translateY(-10px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+</style>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Focus on first error field if there are errors
+        const firstErrorField = document.querySelector('.form-group.error input');
+        if (firstErrorField) {
+            firstErrorField.focus();
+        }
+        
+        // Auto-capitalise names as user types
+        const nameFields = document.querySelectorAll('input[name="first_name"], input[name="last_name"]');
+        nameFields.forEach(field => {
+            field.addEventListener('input', function(e) {
+                // Capitalise first letter of each word
+                const words = e.target.value.split(' ');
+                const capitalised = words.map(word => 
+                    word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()
+                );
+                e.target.value = capitalised.join(' ');
+            });
+        });
+    });
+</script>
+{% endblock %}

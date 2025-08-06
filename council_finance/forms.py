@@ -719,3 +719,140 @@ class CouncilListForm(forms.ModelForm):
         self.fields['description'].help_text = "Add notes about what this list is for (optional)"
         self.fields['color'].help_text = "Choose a color theme for this list"
 
+
+# ============================================================================
+# ONBOARDING FORMS - Auth0 Integration & OSA Compliance
+# ============================================================================
+
+class BasicDetailsForm(forms.ModelForm):
+    """
+    Form for collecting basic user details (first name, last name).
+    GOV.UK-inspired styling and validation.
+    """
+    
+    first_name = forms.CharField(
+        max_length=150,
+        widget=forms.TextInput(attrs={
+            'class': 'form-control form-control-lg',
+            'placeholder': 'Enter your first name',
+            'autocomplete': 'given-name',
+        }),
+        help_text="Your first name as you'd like it to appear on your profile",
+        error_messages={
+            'required': 'Enter your first name',
+            'max_length': 'First name must be 150 characters or fewer',
+        }
+    )
+    
+    last_name = forms.CharField(
+        max_length=150,
+        widget=forms.TextInput(attrs={
+            'class': 'form-control form-control-lg',
+            'placeholder': 'Enter your last name',
+            'autocomplete': 'family-name',
+        }),
+        help_text="Your last name or surname",
+        error_messages={
+            'required': 'Enter your last name',
+            'max_length': 'Last name must be 150 characters or fewer',
+        }
+    )
+    
+    class Meta:
+        from django.contrib.auth import get_user_model
+        model = get_user_model()
+        fields = ['first_name', 'last_name']
+    
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        
+        # Add required asterisk to labels
+        for field_name, field in self.fields.items():
+            if field.required:
+                field.label = f"{field.label or field_name.replace('_', ' ').title()}"
+    
+    def clean_first_name(self):
+        """Validate first name field"""
+        first_name = self.cleaned_data.get('first_name', '').strip()
+        
+        if not first_name:
+            raise forms.ValidationError("Enter your first name")
+        
+        # Basic validation for reasonable names
+        if len(first_name) < 2:
+            raise forms.ValidationError("First name must be at least 2 characters long")
+        
+        # Check for obvious invalid entries
+        invalid_patterns = ['test', 'user', 'admin', '123', 'null', 'undefined']
+        if first_name.lower() in invalid_patterns:
+            raise forms.ValidationError("Please enter your real first name")
+        
+        return first_name.title()  # Capitalise properly
+    
+    def clean_last_name(self):
+        """Validate last name field"""
+        last_name = self.cleaned_data.get('last_name', '').strip()
+        
+        if not last_name:
+            raise forms.ValidationError("Enter your last name")
+        
+        if len(last_name) < 2:
+            raise forms.ValidationError("Last name must be at least 2 characters long")
+        
+        # Check for obvious invalid entries
+        invalid_patterns = ['test', 'user', 'admin', '123', 'null', 'undefined']
+        if last_name.lower() in invalid_patterns:
+            raise forms.ValidationError("Please enter your real last name")
+        
+        return last_name.title()  # Capitalise properly
+
+
+class AgeVerificationForm(forms.Form):
+    """
+    Form for age verification (date of birth collection).
+    Required for Online Safety Act compliance.
+    """
+    from datetime import date, timedelta
+    
+    date_of_birth = forms.DateField(
+        widget=forms.DateInput(attrs={
+            'type': 'date',
+            'class': 'form-control form-control-lg',
+            'max': date.today().isoformat(),  # Cannot be in future
+            'min': (date.today() - timedelta(days=365 * 120)).isoformat(),  # Max 120 years old
+        }),
+        help_text="We need this to comply with the Online Safety Act and ensure age-appropriate content",
+        error_messages={
+            'required': 'Enter your date of birth',
+            'invalid': 'Enter a valid date of birth',
+        }
+    )
+    
+    def clean_date_of_birth(self):
+        """Validate date of birth and check minimum age"""
+        from datetime import date
+        dob = self.cleaned_data.get('date_of_birth')
+        
+        if not dob:
+            raise forms.ValidationError("Enter your date of birth")
+        
+        # Check if date is not in future
+        if dob > date.today():
+            raise forms.ValidationError("Date of birth cannot be in the future")
+        
+        # Calculate age
+        today = date.today()
+        age = today.year - dob.year - ((today.month, today.day) < (dob.month, dob.day))
+        
+        # Check minimum age (13 for OSA compliance)
+        if age < 13:
+            raise forms.ValidationError(
+                "You must be at least 13 years old to use this service"
+            )
+        
+        # Check maximum reasonable age
+        if age > 120:
+            raise forms.ValidationError("Please check your date of birth is correct")
+        
+        return dob
+

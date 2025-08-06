@@ -12,6 +12,7 @@ from .views import (
     admin as admin_views,
     api as api_views,
     auth as auth_views,
+    onboarding_views,  # New onboarding views
     moderation as mod_views,
     councils as council_views,
     pages as page_views,
@@ -125,6 +126,14 @@ urlpatterns = [
     
     # Auth0 authentication endpoints (via social-django)
     path("auth/", include("social_django.urls", namespace="social")),
+    
+    # User onboarding endpoints
+    path("welcome/", onboarding_views.welcome, name="welcome"),
+    path("welcome/details/", onboarding_views.basic_details, name="onboarding_details"),
+    path("welcome/age/", onboarding_views.age_verification, name="onboarding_age"),
+    path("welcome/location/", onboarding_views.location_info, name="onboarding_location"),
+    path("welcome/guidelines/", onboarding_views.community_guidelines, name="onboarding_guidelines"),
+    path("welcome/complete/", onboarding_views.onboarding_complete, name="onboarding_complete"),
     
     # Legacy authentication endpoints (keep for backward compatibility)
     path(

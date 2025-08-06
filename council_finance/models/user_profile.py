@@ -280,3 +280,22 @@ class UserProfile(models.Model):
             return "Maximum confirmation attempts exceeded - contact support"
         else:
             return "Email confirmation required"
+    
+    # --- Onboarding helpers ---------------------------------------------------
+    
+    def needs_onboarding(self) -> bool:
+        """Check if user needs to complete onboarding process."""
+        # For now, check if basic info is missing
+        # Will expand this when we add more onboarding fields
+        user = self.user
+        
+        # Must have first and last name
+        if not (user.first_name and user.last_name):
+            return True
+            
+        # TODO: Add checks for other onboarding requirements:
+        # - Date of birth (OSA compliance)
+        # - Community guidelines acceptance
+        # - Location info (for UK users)
+        
+        return False
