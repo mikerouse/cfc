@@ -36,6 +36,7 @@ from brevo_python.rest import ApiException
 
 from council_finance.emails import send_confirmation_email, send_email
 from council_finance.notifications import create_notification
+from council_finance.decorators import comments_access_required
 
 # Import the constant containing valid field names for counter formulas.
 from council_finance.forms import (
@@ -3503,7 +3504,7 @@ def like_update(request, update_id):
     return JsonResponse({'status': 'success', 'message': 'Like functionality coming soon'})
 
 
-@login_required
+@comments_access_required
 @require_POST
 def comment_update(request, update_id):
     """Comment on an update - placeholder."""  
@@ -3540,7 +3541,7 @@ def get_feed_updates_api(request):
 
 # ActivityLog Comment API Endpoints
 
-@login_required
+@comments_access_required
 @require_POST
 def comment_on_activity_log(request, activity_log_id):
     """
@@ -3631,7 +3632,7 @@ def comment_on_activity_log(request, activity_log_id):
         }, status=500)
 
 
-@login_required
+@comments_access_required
 @require_GET
 def get_activity_log_comments(request, activity_log_id):
     """
@@ -3717,7 +3718,7 @@ def get_activity_log_comments(request, activity_log_id):
         }, status=500)
 
 
-@login_required  
+@comments_access_required 
 @require_POST
 def like_activity_log_comment(request, comment_id):
     """

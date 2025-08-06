@@ -83,6 +83,8 @@ TEMPLATES = [
                 "council_finance.context_processors.tutorial_context",
                 "council_finance.context_processors.dev_cache_buster",
                 "council_finance.views.feedback.announcements_context_processor",
+                # OSA compliance - user permissions for comments/feed access
+                "council_finance.context_processors.user_permissions",
             ],
         },
     },

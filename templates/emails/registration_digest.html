@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Daily Registration Summary - {{ date|date:"F j, Y" }}</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            padding: 30px;
+        }
+        h1 {
+            color: #1e40af;
+            margin-bottom: 10px;
+        }
+        h2 {
+            color: #374151;
+            border-bottom: 2px solid #e5e7eb;
+            padding-bottom: 10px;
+            margin-top: 30px;
+        }
+        h3 {
+            color: #4b5563;
+            margin-top: 20px;
+        }
+        .summary-stats {
+            background-color: #f3f4f6;
+            border-radius: 6px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+        .stat-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 0;
+            border-bottom: 1px solid #e5e7eb;
+        }
+        .stat-row:last-child {
+            border-bottom: none;
+        }
+        .stat-label {
+            font-weight: 500;
+            color: #6b7280;
+        }
+        .stat-value {
+            font-weight: 700;
+            color: #1f2937;
+        }
+        .registration-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        .registration-table th {
+            background-color: #f9fafb;
+            padding: 12px;
+            text-align: left;
+            font-weight: 600;
+            color: #374151;
+            border-bottom: 2px solid #e5e7eb;
+        }
+        .registration-table td {
+            padding: 12px;
+            border-bottom: 1px solid #e5e7eb;
+        }
+        .registration-table tr:hover {
+            background-color: #f9fafb;
+        }
+        .badge {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+        .badge-uk {
+            background-color: #dbeafe;
+            color: #1e40af;
+        }
+        .badge-international {
+            background-color: #fce7f3;
+            color: #be185d;
+        }
+        .badge-completed {
+            background-color: #d1fae5;
+            color: #065f46;
+        }
+        .badge-progress {
+            background-color: #fef3c7;
+            color: #92400e;
+        }
+        .weekly-trend {
+            background-color: #eff6ff;
+            border-left: 4px solid #3b82f6;
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 0 6px 6px 0;
+        }
+        .footer {
+            margin-top: 40px;
+            padding-top: 20px;
+            border-top: 1px solid #e5e7eb;
+            text-align: center;
+            color: #6b7280;
+            font-size: 14px;
+        }
+        .footer a {
+            color: #3b82f6;
+            text-decoration: none;
+        }
+        .footer a:hover {
+            text-decoration: underline;
+        }
+        .alert {
+            padding: 15px;
+            border-radius: 6px;
+            margin: 20px 0;
+        }
+        .alert-warning {
+            background-color: #fef3c7;
+            border-left: 4px solid #f59e0b;
+            color: #92400e;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Daily Registration Summary</h1>
+        <p style="color: #6b7280; margin-top: 0;">{{ date|date:"l, F j, Y" }}</p>
+
+        <div class="summary-stats">
+            <h3 style="margin-top: 0;">Summary Statistics</h3>
+            <div class="stat-row">
+                <span class="stat-label">Total Registrations</span>
+                <span class="stat-value">{{ total_registrations }}</span>
+            </div>
+            <div class="stat-row">
+                <span class="stat-label">Completed Onboarding</span>
+                <span class="stat-value">{{ total_completed }} ({{ completion_rate|floatformat:1 }}%)</span>
+            </div>
+            <div class="stat-row">
+                <span class="stat-label">Geographic Distribution</span>
+                <span class="stat-value">{{ uk_users }} UK, {{ international_users }} International</span>
+            </div>
+            <div class="stat-row">
+                <span class="stat-label">Age Demographics</span>
+                <span class="stat-value">{{ adult_users }} Adults (18+), {{ minor_users }} Minors (&lt;18)</span>
+            </div>
+            <div class="stat-row">
+                <span class="stat-label">Pre-verified Emails</span>
+                <span class="stat-value">{{ email_verified }}</span>
+            </div>
+        </div>
+
+        {% if weekly_comparison %}
+        <div class="weekly-trend">
+            <strong>Weekly Trend:</strong> {{ weekly_comparison }}
+        </div>
+        {% endif %}
+
+        {% if minor_users > 0 %}
+        <div class="alert alert-warning">
+            <strong>OSA Compliance Note:</strong> {{ minor_users }} minor user{{ minor_users|pluralize }} registered. 
+            Content restrictions have been automatically applied.
+        </div>
+        {% endif %}
+
+        <h2>Registration Details</h2>
+        
+        {% if registrations %}
+        <table class="registration-table">
+            <thead>
+                <tr>
+                    <th>Time</th>
+                    <th>User</th>
+                    <th>Location</th>
+                    <th>Age</th>
+                    <th>Provider</th>
+                    <th>Status</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for reg in registrations %}
+                <tr>
+                    <td>{{ reg.timestamp|date:"H:i" }}</td>
+                    <td>
+                        {% if reg.user %}
+                            {{ reg.user.first_name|default:"" }} {{ reg.user.last_name|default:"" }}
+                            {% if reg.user.first_name or reg.user.last_name %}
+                                <br>
+                            {% endif %}
+                            <span style="color: #6b7280; font-size: 14px;">{{ reg.email }}</span>
+                        {% else %}
+                            {{ reg.email }}
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if reg.location == "UK" %}
+                            <span class="badge badge-uk">UK</span>
+                        {% else %}
+                            <span class="badge badge-international">International</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if reg.age %}
+                            {{ reg.age }} years
+                        {% else %}
+                            <span style="color: #9ca3af;">Pending</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if reg.auth0_provider %}
+                            {{ reg.auth0_provider|title }}
+                        {% else %}
+                            Auth0
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if reg.completed %}
+                            <span class="badge badge-completed">Completed</span>
+                        {% else %}
+                            <span class="badge badge-progress">In Progress</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <p style="color: #6b7280; text-align: center; padding: 40px 0;">
+            No registration details available.
+        </p>
+        {% endif %}
+
+        <h2>Key Insights</h2>
+        <ul style="color: #4b5563;">
+            {% if completion_rate < 50 %}
+                <li><strong>Low completion rate:</strong> Only {{ completion_rate|floatformat:1 }}% of users completed onboarding. Consider reviewing the onboarding flow for friction points.</li>
+            {% elif completion_rate > 80 %}
+                <li><strong>High completion rate:</strong> {{ completion_rate|floatformat:1 }}% of users successfully completed onboarding!</li>
+            {% endif %}
+            
+            {% if international_users > uk_users %}
+                <li><strong>International growth:</strong> More international users ({{ international_users }}) than UK users ({{ uk_users }}) registered.</li>
+            {% endif %}
+            
+            {% if minor_users > 0 %}
+                <li><strong>Young users:</strong> {{ minor_users }} user{{ minor_users|pluralize }} under 18 registered. OSA content restrictions applied automatically.</li>
+            {% endif %}
+            
+            {% if email_verified == total_registrations %}
+                <li><strong>Email verification:</strong> All users had pre-verified email addresses via Auth0.</li>
+            {% elif email_verified == 0 %}
+                <li><strong>Email verification needed:</strong> No users had pre-verified emails. Monitor for potential spam registrations.</li>
+            {% endif %}
+        </ul>
+
+        <div class="footer">
+            <p>
+                <a href="{{ base_url }}/system-events/">View detailed events in Event Viewer</a> |
+                <a href="{{ base_url }}/admin/">Admin Dashboard</a>
+            </p>
+            <p style="margin-top: 20px;">
+                This is an automated daily digest sent at 12:00 PM.<br>
+                To update email preferences, contact your system administrator.
+            </p>
+        </div>
+    </div>
+</body>
+</html>
