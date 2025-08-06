@@ -9,7 +9,7 @@
     <div class="mb-8">
         <div class="flex items-center justify-between text-sm text-gray-600 mb-2">
             <span>Step {{ progress.current|default:"?" }} of {{ progress.total|default:"?" }}</span>
-            <span>{{ progress.percent|default:"?" }}% complete</span>
+            <span>{{ progress.percent }}% complete</span>
         </div>
         <div class="w-full bg-gray-200 rounded-full h-2">
             <div class="bg-blue-600 h-2 rounded-full transition-all duration-300" 
