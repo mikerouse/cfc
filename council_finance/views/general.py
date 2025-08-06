@@ -345,21 +345,16 @@ def home(request):
                     index = int(index_seed[:8], 16) % council_count_remaining
                     selected_indices.append(index)
                 
-                # Convert to list to enable indexing
-                remaining_list = list(remaining_councils.all())
-                # Validate indices are within bounds to prevent IndexError
-                # Ensure we don't select the same council twice by using set
-                selected_councils = set()
+                # Use database-level selection instead of loading all councils into memory
                 featured_councils_raw = [council_of_the_day]  # Start with council of the day
                 
-                for i in selected_indices[:5]:
-                    if 0 <= i < len(remaining_list):
-                        council = remaining_list[i]
-                        if council.id not in selected_councils and council.id != council_of_the_day.id:
-                            featured_councils_raw.append(council)
-                            selected_councils.add(council.id)
-                            if len(featured_councils_raw) >= 6:  # Max 6 councils total
-                                break
+                # Select random councils efficiently using database ORDER BY RANDOM() with LIMIT
+                # This is much faster than loading all councils into memory
+                random_councils = remaining_councils.order_by('?')[:5]
+                for council in random_councils:
+                    featured_councils_raw.append(council)
+                    if len(featured_councils_raw) >= 6:  # Max 6 councils total
+                        break
             else:
                 featured_councils_raw = [council_of_the_day]
             
@@ -376,43 +371,41 @@ def home(request):
             if cached_featured is not None:
                 featured_councils = cached_featured
             else:
-                # Only run expensive operations if not cached
-                from council_finance.agents.counter_agent import CounterAgent
-                agent = CounterAgent()
+                # Use the CACHED counter service for featured councils
+                from council_finance.services.counter_cache_service import counter_cache_service
+                from council_finance.models.counter import CounterDefinition
+                
+                # Pre-fetch counter definition once (not in loop)
+                counter_def = CounterDefinition.objects.filter(slug='current-liabilities').first()
                 
                 for council in featured_councils_raw:
                     council_data = {'council': council, 'financial_years': []}
                     
                     # Get current liabilities data for available years (limited to reduce load)
                     for year in all_years[:2]:  # Reduced from 3 to 2 years for performance
-                        # Check cache first for this specific council/year combination
-                        council_year_key = f"council_data_{council.slug}_{year.label}"
-                        cached_result = cache.get(council_year_key)
-                        
-                        if cached_result is not None:
-                            result = cached_result
-                        else:
-                            try:
-                                result = agent.run(council_slug=council.slug, year_label=year.label)
-                                # Cache individual council/year results for 10 minutes
-                                cache.set(council_year_key, result, 600)
-                            except Exception as e:
-                                logger.warning(f"CounterAgent failed for {council.slug}/{year.label}: {e}")
-                                result = {}  # Provide fallback empty result
-                        
-                        current_liabilities = result.get('current-liabilities')
-                        
-                        if current_liabilities and current_liabilities.get('value') and current_liabilities.get('value') > 0:
-                            # Use friendly format for carousel display
-                            from council_finance.models.counter import CounterDefinition
-                            counter_def = CounterDefinition.objects.filter(slug='current-liabilities').first()
-                            if counter_def:
-                                friendly_value = counter_def.format_value(current_liabilities['value'])
+                        try:
+                            # Use the cached counter service for FAST lookups
+                            value = counter_cache_service.get_counter_value(
+                                counter_slug='current-liabilities',
+                                council_slug=council.slug,
+                                year_label=year.label
+                            )
+                            
+                            if value and value > 0:
+                                # Use friendly format for carousel display
+                                if counter_def:
+                                    friendly_value = counter_def.format_value(float(value))
+                                else:
+                                    friendly_value = f"£{value:,.0f}"
+                                    
                                 council_data['financial_years'].append({
                                     'year': year.label,
                                     'value': friendly_value,
-                                    'raw_value': current_liabilities['value']
+                                    'raw_value': float(value)
                                 })
+                        except Exception as e:
+                            logger.debug(f"Counter lookup failed for {council.slug}/{year.label}: {e}")
+                            # Continue to next year without failing
                     
                     featured_councils.append(council_data)
                 
