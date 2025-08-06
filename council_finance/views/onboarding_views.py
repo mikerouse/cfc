@@ -11,7 +11,7 @@ from django.views.decorators.http import require_http_methods
 from django.http import JsonResponse
 
 from council_finance.models import UserProfile
-from council_finance.forms import BasicDetailsForm
+from council_finance.forms import BasicDetailsForm, AgeVerificationForm
 from .general import log_activity
 
 logger = logging.getLogger(__name__)
@@ -162,15 +162,76 @@ def basic_details(request):
 
 
 @login_required
+@require_http_methods(["GET", "POST"])
 def age_verification(request):
     """
     Step 3: Age verification (date of birth collection).
     Required for OSA compliance.
     """
-    # Placeholder - will implement in next phase
-    return render(request, 'onboarding/age_verification.html', {
-        'progress': {'current': 3, 'total': 5}
-    })
+    profile = getattr(request.user, 'profile', None)
+    
+    if not profile or not profile.needs_onboarding():
+        return redirect('welcome')
+    
+    # Check if we already have age verification
+    if profile.date_of_birth and profile.age_verified:
+        messages.info(request, "Your age has already been verified.")
+        return redirect('onboarding_location' if profile.is_uk_user else 'onboarding_guidelines')
+    
+    if request.method == 'POST':
+        form = AgeVerificationForm(request.POST)
+        if form.is_valid():
+            dob = form.cleaned_data['date_of_birth']
+            
+            # Update profile with age information
+            profile.date_of_birth = dob
+            profile.age_verified = True
+            
+            # Update content access based on age (OSA compliance)
+            profile.update_content_access()
+            
+            profile.save()
+            
+            # Calculate age for logging
+            from datetime import date
+            today = date.today()
+            age = today.year - dob.year - ((today.month, today.day) < (dob.month, dob.day))
+            
+            log_activity(
+                request,
+                activity=f"User completed age verification: {age} years old, adult: {profile.is_adult()}"
+            )
+            
+            # Show appropriate success message based on age
+            if profile.is_adult():
+                messages.success(request, "Age verified! You have full access to all features.")
+            else:
+                messages.success(request, "Age verified! Some features may be restricted for your safety.")
+            
+            # Navigate to next step
+            if profile.is_uk_user:
+                return redirect('onboarding_location')
+            else:
+                return redirect('onboarding_guidelines')
+    else:
+        form = AgeVerificationForm()
+    
+    # Calculate progress
+    total_steps = 5 if profile.is_uk_user else 4
+    current_step = 3
+    progress_percent = int(round((current_step / total_steps) * 100))
+    
+    context = {
+        'form': form,
+        'progress': {
+            'current': current_step, 
+            'total': total_steps,
+            'percent': progress_percent
+        },
+        'is_uk_user': profile.is_uk_user,
+    }
+    
+    return render(request, 'onboarding/age_verification.html', context)
 
 
 @login_required
