@@ -323,6 +323,34 @@ FEEDBACK_EMAIL_ENABLED = os.getenv('FEEDBACK_EMAIL_ENABLED', 'True').lower() == 
 
 
 # ============================================================================
+# COUNTER CACHE CONFIGURATION 
+# ============================================================================
+
+# Database-backed counter caching system with 3-tier hybrid architecture:
+# Tier 1: Redis cache (fastest, volatile)
+# Tier 2: Database cache (persistent across restarts) 
+# Tier 3: Live calculation (slowest, last resort)
+#
+# Rate limiting prevents excessive recalculation during bulk data edits.
+# Event Viewer integration provides comprehensive monitoring.
+#
+# Cache warming schedule:
+# - Every 15 minutes: Critical counters (homepage promoted)
+# - Daily at 2 AM: All counters (comprehensive warming)
+#
+# Manual cache management:
+# - python manage.py warmup_counter_cache --stats    # Show cache statistics
+# - python manage.py warmup_counter_cache            # Warm critical counters
+# - python manage.py warmup_counter_cache --all      # Warm all counters
+#
+# Counter cache results persist across server restarts, solving the £0 
+# homepage counter issue that occurred with Redis-only caching.
+#
+# DEPLOYMENT: Run 'python manage.py crontab add' to install cron jobs
+# View active jobs: 'python manage.py crontab show'
+# Remove jobs: 'python manage.py crontab remove'
+
+# ============================================================================
 # CRON JOB CONFIGURATION
 # ============================================================================
 
@@ -332,6 +360,12 @@ CRONJOBS = [
     
     # Security monitoring every 15 minutes
     ('*/15 * * * *', 'django.core.management.call_command', ['check_auth_security']),
+    
+    # Counter cache warming every 15 minutes (critical counters only)
+    ('*/15 * * * *', 'django.core.management.call_command', ['warmup_counter_cache']),
+    
+    # Full counter cache warming at 2 AM daily (all counters)
+    ('0 2 * * *', 'django.core.management.call_command', ['warmup_counter_cache', '--all']),
     
     # Event Viewer health report at 6 AM daily
     ('0 6 * * *', 'django.core.management.call_command', ['check_alerts', '--health-report']),
