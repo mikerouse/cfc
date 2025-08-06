@@ -1,13 +1,53 @@
 {% extends "base.html" %}
+{% load static %}
 {% block title %}Log in - Council Finance Counters{% endblock %}
 {% block content %}
-<h1 class="text-2xl font-bold mb-4">Please sign in</h1>
-{% if form.errors %}
-    <p class="text-red-600">Invalid username or password.</p>
-{% endif %}
-<form method="post" class="space-y-4">
-    {% csrf_token %}
-    {{ form.as_p }}
-    <input type="submit" value="Log in" class="bg-blue-600 text-white px-4 py-1 rounded" />
-</form>
+<div class="max-w-md mx-auto mt-8">
+    <h1 class="text-2xl font-bold mb-6 text-center">Please sign in</h1>
+    
+    <!-- Auth0 Sign In Option -->
+    <div class="mb-6">
+        <a href="{% url 'social:begin' 'auth0' %}" 
+           class="w-full flex justify-center py-3 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+            <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path>
+            </svg>
+            Sign in with Auth0
+        </a>
+        
+        <div class="mt-4 text-center text-sm text-gray-600">
+            Includes Google, Microsoft, and GitHub sign-in
+        </div>
+    </div>
+    
+    <!-- Divider -->
+    <div class="relative my-6">
+        <div class="absolute inset-0 flex items-center">
+            <div class="w-full border-t border-gray-300"></div>
+        </div>
+        <div class="relative flex justify-center text-sm">
+            <span class="px-2 bg-white text-gray-500">Or sign in with username</span>
+        </div>
+    </div>
+    
+    <!-- Traditional Login Form -->
+    {% if form.errors %}
+        <p class="text-red-600 mb-4">Invalid username or password.</p>
+    {% endif %}
+    <form method="post" class="space-y-4">
+        {% csrf_token %}
+        {{ form.as_p }}
+        <input type="submit" value="Log in" class="w-full bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700" />
+    </form>
+    
+    <!-- Sign up link -->
+    <div class="mt-6 text-center">
+        <span class="text-sm text-gray-600">
+            Don't have an account?
+            <a href="{% url 'social:begin' 'auth0' %}?screen_hint=signup" class="font-medium text-indigo-600 hover:text-indigo-500">
+                Sign up
+            </a>
+        </span>
+    </div>
+</div>
 {% endblock %}

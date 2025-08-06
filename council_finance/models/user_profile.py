@@ -42,6 +42,11 @@ class UserProfile(models.Model):
     email_confirmed_at = models.DateTimeField(null=True, blank=True)
     last_password_change = models.DateTimeField(null=True, blank=True)
     requires_reconfirmation = models.BooleanField(default=False, help_text="Requires email re-confirmation due to security changes")
+    
+    # Auth0 integration fields
+    auth0_user_id = models.CharField(max_length=255, unique=True, null=True, blank=True, help_text="Auth0 user identifier")
+    auth0_metadata = models.JSONField(default=dict, blank=True, help_text="Additional Auth0 user metadata")
+    last_login_method = models.CharField(max_length=50, blank=True, help_text="Last authentication method used")
     # Visibility of this profile. Friends is the default.
     VISIBILITY_CHOICES = [
         ("private", "Private"),

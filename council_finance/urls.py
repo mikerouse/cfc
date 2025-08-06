@@ -122,7 +122,11 @@ urlpatterns = [
     path("admin/", admin.site.urls),
     path("system-events/", include("event_viewer.urls")),  # Event Viewer for superadmins
     path("plugins/", include("core.urls")),
-    # Authentication endpoints
+    
+    # Auth0 authentication endpoints (via social-django)
+    path("auth/", include("social_django.urls", namespace="social")),
+    
+    # Legacy authentication endpoints (keep for backward compatibility)
     path(
         "accounts/login/",
         LoginView.as_view(template_name="registration/login.html"),
