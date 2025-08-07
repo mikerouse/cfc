@@ -3132,12 +3132,25 @@ def add_favourite(request):
                     'slug': council.slug,
                     'population': council.latest_population or 0,
                     'type': council.council_type.name if council.council_type else 'Unknown',
-                    'nation': council.nation.name if council.nation else 'Unknown',
+                    'nation': council.council_nation.name if council.council_nation else 'Unknown',
                     'logo_url': council.logo.url if hasattr(council, 'logo') and council.logo else None,
                 }
             })
         else:
-            return JsonResponse({'success': False, 'error': 'Council already in favourites'})
+            # Council already in favourites - return success (idempotent operation)
+            return JsonResponse({
+                'success': True, 
+                'message': f'{council.name} is already in your favourites',
+                'council': {
+                    'id': council.id,
+                    'name': council.name,
+                    'slug': council.slug,
+                    'population': council.latest_population or 0,
+                    'type': council.council_type.name if council.council_type else 'Unknown',
+                    'nation': council.council_nation.name if council.council_nation else 'Unknown',
+                    'logo_url': council.logo.url if hasattr(council, 'logo') and council.logo else None,
+                }
+            })
             
     except Council.DoesNotExist:
         return JsonResponse({'success': False, 'error': 'Council not found'})

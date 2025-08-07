@@ -16,29 +16,18 @@
         </a>
         
         <div class="mt-4 text-center text-sm text-gray-600">
-            Includes Google, Microsoft, and GitHub sign-in
+            Secure authentication via Auth0
+        </div>
+        
+        <div class="mt-6 space-y-2 text-center text-sm text-gray-500">
+            <p>Sign in with:</p>
+            <div class="flex justify-center space-x-4">
+                <span>• Google</span>
+                <span>• Microsoft</span>
+                <span>• GitHub</span>
+            </div>
         </div>
     </div>
-    
-    <!-- Divider -->
-    <div class="relative my-6">
-        <div class="absolute inset-0 flex items-center">
-            <div class="w-full border-t border-gray-300"></div>
-        </div>
-        <div class="relative flex justify-center text-sm">
-            <span class="px-2 bg-white text-gray-500">Or sign in with username</span>
-        </div>
-    </div>
-    
-    <!-- Traditional Login Form -->
-    {% if form.errors %}
-        <p class="text-red-600 mb-4">Invalid username or password.</p>
-    {% endif %}
-    <form method="post" class="space-y-4">
-        {% csrf_token %}
-        {{ form.as_p }}
-        <input type="submit" value="Log in" class="w-full bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700" />
-    </form>
     
     <!-- Sign up link -->
     <div class="mt-6 text-center">
@@ -48,6 +37,12 @@
                 Sign up
             </a>
         </span>
+    </div>
+    
+    <!-- Help text -->
+    <div class="mt-8 text-center text-xs text-gray-500">
+        <p>Having trouble signing in?</p>
+        <p>Contact support at support@councillor.pro</p>
     </div>
 </div>
 {% endblock %}

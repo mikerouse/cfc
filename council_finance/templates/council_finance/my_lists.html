@@ -130,7 +130,7 @@ if(sInput){
         sResults.classList.remove('hidden');});});
   document.addEventListener('click',e=>{if(!sResults.contains(e.target)&&e.target!==sInput){sResults.classList.add('hidden');}});
   sResults.addEventListener('click',e=>{
-    if(e.target.classList.contains('add-fav')){const slug=e.target.dataset.slug;fetch('{% url "add_favourite" %}',{method:'POST',headers:{'X-CSRFToken':csrftoken,'Content-Type':'application/x-www-form-urlencoded'},body:`council=${slug}`}).then(r=>r.json()).then(()=>{flash('Added to favourites');});}
+    if(e.target.classList.contains('add-fav')){const slug=e.target.dataset.slug;fetch('{% url "add_favourite" %}',{method:'POST',headers:{'X-CSRFToken':csrftoken,'Content-Type':'application/x-www-form-urlencoded'},body:`council=${slug}`}).then(r=>r.json()).then(data=>{if(data.success){flash(data.message || 'Added to favourites');}else{flash(data.error || 'Failed to add to favourites');}}).catch(err=>{flash('Error adding to favourites');console.error('Add favourite error:', err);});}
     if(e.target.classList.contains('add-list')){const slug=e.target.dataset.slug;const sel=e.target.previousElementSibling;fetch(`/lists/${sel.value}/add/`,{method:'POST',headers:{'X-CSRFToken':csrftoken,'Content-Type':'application/x-www-form-urlencoded'},body:`council=${slug}`}).then(r=>r.json()).then(()=>{flash('Added to list');});}
   });
 }
