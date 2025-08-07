@@ -484,6 +484,10 @@ def _fetch_google_models():
     ]
 
 
+# DEPRECATED: This emergency system is obsolete due to new proactive cache warming
+# with "Calculating..." states. The old system was reactive (fix £0 after users see it)
+# while the new system is proactive (prevent £0 from appearing). 
+# Scheduled for removal after monitoring period. See EMERGENCY_SYSTEM_REMOVAL_PLAN.md
 @require_POST
 def emergency_cache_warming(request):
     """

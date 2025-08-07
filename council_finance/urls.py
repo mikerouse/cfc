@@ -100,6 +100,13 @@ from .views.ai_monitoring_dashboard import (
 # Import comparison API views
 from .api import comparison_api
 
+# Import cache warming API views
+from .api.cache_warming_api import (
+    cache_warming_progress,
+    trigger_cache_warming,
+    counter_health_check
+)
+
 # Import leaderboard API views
 from .api.leaderboard_api import (
     get_leaderboard,
@@ -116,6 +123,11 @@ urlpatterns = [
     path("search/", general_views.search_results, name="search_results"),
     path("api/councils/search/", api_views.search_councils, name="search_councils"),
     path("api/emergency-cache-warming/", api_views.emergency_cache_warming, name="emergency_cache_warming"),
+    
+    # Cache warming API endpoints
+    path("api/cache-warming/progress/", cache_warming_progress, name="cache_warming_progress"),
+    path("api/cache-warming/trigger/", trigger_cache_warming, name="trigger_cache_warming"),
+    path("api/counter-health/", counter_health_check, name="counter_health_check"),
     
     # GitHub API endpoints for About page
     path("api/github/stats/", github_stats_api, name="github_stats_api"),

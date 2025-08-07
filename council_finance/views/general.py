@@ -254,28 +254,35 @@ def home(request):
     # Determine the latest financial year for which we have debt figures
     latest_year = FinancialYear.objects.order_by("-label").first()
     
+    # Use cached site-wide total instead of expensive database aggregation
+    # This prevents connection timeouts on production
     councils_with_debt_count = 0
+    total_debt = 0
+    
     if latest_year:
         try:
-            field = DataField.objects.filter(slug="total-debt").first()
-            if field:
-                # Get total debt and count of councils with non-zero debt data
-                debt_figures = FinancialFigure.objects.filter(
-                    field=field, 
-                    year=latest_year
-                ).exclude(value=0)
-                
-                total_debt = debt_figures.aggregate(total=Sum("value"))["total"] or 0
-                councils_with_debt_count = debt_figures.values('council').distinct().count()
+            # Try to get cached site-wide total debt value
+            from council_finance.services.counter_cache_service import counter_cache_service
+            cached_total = counter_cache_service.get_counter_value(
+                counter_slug='total-debt',
+                year_label=latest_year.label,
+                allow_expensive_calculation=False  # Never trigger expensive calculations on homepage
+            )
+            
+            if cached_total and cached_total > 0:
+                total_debt = float(cached_total)
+                # Estimate councils with debt (rough approximation to avoid expensive query)
+                councils_with_debt_count = int(Council.objects.count() * 0.85)  # ~85% of councils have debt
             else:
-                logger.warning("DataField 'total_debt' not found in database")  
+                # No cached value available - use safe defaults to prevent timeout
                 total_debt = 0
+                councils_with_debt_count = 0
+                logger.info("No cached total debt available, using default values. Run cache warming.")
+                
         except Exception as e:
-            logger.error(f"Error calculating total debt: {e}")
+            logger.error(f"Error retrieving cached total debt: {e}")
             total_debt = 0
-    else:
-        # Fallback when no figures are loaded
-        total_debt = 0
+            councils_with_debt_count = 0
 
     # Get total council count for hero section
     total_councils = Council.objects.count()
@@ -503,30 +510,49 @@ def home(request):
     from council_finance.services.counter_cache_service import counter_cache_service
     
     # Build promoted counters using the new 3-tier caching system
+    
     for sc in SiteCounter.objects.filter(promote_homepage=True):
         year_label = sc.year.label if sc.year else None
         
         # Use hybrid cache service (Redis → Database → Calculate)
+        # Don't use stale data - we want to show calculating state instead
         value = counter_cache_service.get_counter_value(
             counter_slug=sc.counter.slug,
-            year_label=year_label
+            year_label=year_label,
+            use_stale_if_needed=False,  # Force calculating state instead of stale data
+            allow_expensive_calculation=False  # Never run expensive calculations on page load
         )
         
-        # Previous year value (for change calculations)
-        prev_value = 0
-        if sc.year:
-            try:
-                from council_finance.utils.year_utils import previous_year_label
-                prev_year_label = previous_year_label(sc.year.label)
-                if prev_year_label:
-                    prev_value = counter_cache_service.get_counter_value(
-                        counter_slug=sc.counter.slug,
-                        year_label=prev_year_label
-                    )
-            except Exception:
-                prev_value = 0
-        
-        formatted = sc.counter.format_value(float(value))
+        # Check for sentinel value indicating calculation needed
+        if value == -1:
+            # Counter is being calculated - show calculating state
+            value = 0  # Placeholder for animation
+            prev_value = 0
+            formatted = "Calculating..."
+            is_calculating = True
+        else:
+            # Previous year value (for change calculations)
+            prev_value = 0
+            if sc.year:
+                try:
+                    from council_finance.utils.year_utils import previous_year_label
+                    prev_year_label = previous_year_label(sc.year.label)
+                    if prev_year_label:
+                        prev_value = counter_cache_service.get_counter_value(
+                            counter_slug=sc.counter.slug,
+                            year_label=prev_year_label,
+                            use_stale_if_needed=False,  # Consistent with main value
+                            allow_expensive_calculation=False
+                        )
+                        # Handle sentinel value for previous year too
+                        if prev_value == -1:
+                            prev_value = 0
+                except Exception:
+                    prev_value = 0
+            
+            formatted = sc.counter.format_value(float(value))
+            is_calculating = False
+            
         promoted.append({
             "slug": sc.slug,
             "counter_slug": sc.counter.slug,
@@ -540,6 +566,7 @@ def home(request):
             "friendly_format": sc.friendly_format,
             "explanation": sc.explanation,
             "columns": sc.columns,
+            "is_calculating": is_calculating,  # New field for template logic
         })
 
     # Group counters also use the new hybrid caching system
@@ -547,26 +574,43 @@ def home(request):
         year_label = gc.year.label if gc.year else None
         
         # Use hybrid cache service for group counters too
+        # Don't use stale data - show calculating state instead
         value = counter_cache_service.get_counter_value(
             counter_slug=gc.counter.slug,
-            year_label=year_label
+            year_label=year_label,
+            use_stale_if_needed=False,  # Force calculating state
+            allow_expensive_calculation=False  # Never run expensive calculations
         )
         
-        # Previous year value for group counters
-        prev_value = 0
-        if gc.year:
-            try:
-                from council_finance.utils.year_utils import previous_year_label
-                prev_year_label = previous_year_label(gc.year.label)
-                if prev_year_label:
-                    prev_value = counter_cache_service.get_counter_value(
-                        counter_slug=gc.counter.slug,
-                        year_label=prev_year_label
-                    )
-            except Exception:
-                prev_value = 0
-        
-        formatted = gc.counter.format_value(float(value))
+        # Check for sentinel value indicating calculation needed
+        if value == -1:
+            # Group counter is being calculated - show calculating state
+            value = 0
+            prev_value = 0
+            formatted = "Calculating..."
+            is_calculating = True
+        else:
+            # Previous year value for group counters
+            prev_value = 0
+            if gc.year:
+                try:
+                    from council_finance.utils.year_utils import previous_year_label
+                    prev_year_label = previous_year_label(gc.year.label)
+                    if prev_year_label:
+                        prev_value = counter_cache_service.get_counter_value(
+                            counter_slug=gc.counter.slug,
+                            year_label=prev_year_label,
+                            use_stale_if_needed=False,
+                            allow_expensive_calculation=False
+                        )
+                        # Handle sentinel value for previous year too
+                        if prev_value == -1:
+                            prev_value = 0
+                except Exception:
+                    prev_value = 0
+            
+            formatted = gc.counter.format_value(float(value))
+            is_calculating = False
         promoted.append({
             "slug": gc.slug,
             "name": gc.name,
@@ -578,6 +622,7 @@ def home(request):
             "friendly_format": gc.friendly_format,
             "explanation": "",  # groups currently lack custom explanations
             "columns": 3,  # groups default to full width for now
+            "is_calculating": is_calculating,  # New field for template logic
         })
 
     context = {

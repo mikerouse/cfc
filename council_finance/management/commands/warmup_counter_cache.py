@@ -12,6 +12,7 @@ Usage:
 """
 
 from django.core.management.base import BaseCommand
+from django.core.cache import cache
 from django.utils import timezone
 from council_finance.services.counter_cache_service import counter_cache_service
 from council_finance.services.counter_invalidation_service import counter_invalidation_service
@@ -19,7 +20,7 @@ from council_finance.models import Council, CounterResult, SiteCounter
 
 
 class Command(BaseCommand):
-    help = 'Warm up counter cache for fast page loads'
+    help = 'Warm up counter cache for fast page loads. RECOMMENDATION: Kill running Python services first to prevent conflicts.'
 
     def add_arguments(self, parser):
         parser.add_argument(
@@ -49,33 +50,123 @@ class Command(BaseCommand):
         )
 
     def handle(self, *args, **options):
+        # Check for concurrency protection unless --force is used
+        if not options.get('force', False):
+            # Check if another warming command is already running
+            command_lock_key = "warmup_counter_cache_command_lock"
+            
+            if cache.get(command_lock_key):
+                self.stdout.write(
+                    self.style.WARNING(
+                        'WARNING: Another cache warming command is already running.\n'
+                        'Use --force to override this protection, but be aware this may cause:\n'
+                        '- Database connection timeouts\n'
+                        '- Conflicting cache updates\n'
+                        '- Inconsistent counter values\n'
+                        'Recommended: Wait for current warming to complete.'
+                    )
+                )
+                return
+            
+            # Set command lock with 30 minute timeout (comprehensive warming can take a while)
+            cache.set(command_lock_key, True, 1800)  # 30 minutes
+            
+            self.stdout.write(
+                self.style.SUCCESS('Acquired concurrency lock - starting cache warming')
+            )
+        else:
+            self.stdout.write(
+                self.style.WARNING('WARNING: --force used - skipping concurrency protection')
+            )
+            command_lock_key = None
+        
         start_time = timezone.now()
         
         if options['stats']:
             self._show_statistics()
+            if command_lock_key:
+                cache.delete(command_lock_key)
             return
         
+        # Add prominent recommendation about killing services
         self.stdout.write(
-            self.style.SUCCESS('Starting Counter Cache Warming')
+            self.style.WARNING('=' * 75)
+        )
+        self.stdout.write(
+            self.style.WARNING('WARNING  RECOMMENDATION: Kill all running Python services first!')
+        )
+        self.stdout.write('')
+        self.stdout.write(
+            self.style.WARNING('On Windows:'))
+        self.stdout.write(
+            self.style.WARNING('  taskkill /f /im python.exe'))
+        self.stdout.write(
+            self.style.WARNING('  taskkill /f /im pythonw.exe'))
+        self.stdout.write('')
+        self.stdout.write(
+            self.style.WARNING('On Linux/Mac:'))
+        self.stdout.write(
+            self.style.WARNING('  pkill -f python'))
+        self.stdout.write(
+            self.style.WARNING('  pkill -f manage.py'))
+        self.stdout.write('')
+        self.stdout.write(
+            self.style.WARNING('Why? This prevents:'))
+        self.stdout.write(
+            self.style.WARNING('• Database connection conflicts and timeouts'))
+        self.stdout.write(
+            self.style.WARNING('• Competing cache warming operations'))
+        self.stdout.write(
+            self.style.WARNING('• Resource exhaustion from multiple processes'))
+        self.stdout.write(
+            self.style.WARNING('=' * 75)
+        )
+        self.stdout.write('')
+        
+        self.stdout.write(
+            self.style.SUCCESS('Starting Counter Cache Warming (10 councils per batch)')
         )
         
-        if options['council']:
-            self._warm_council_counters(options['council'], options['verbose'])
-        elif options['all']:
-            self._warm_all_counters(options['force'], options['verbose'])
-        else:
-            self._warm_critical_counters(options['verbose'])
-        
-        total_time = (timezone.now() - start_time).total_seconds()
-        self.stdout.write(
-            self.style.SUCCESS(f'Cache warming completed in {total_time:.2f}s')
-        )
+        try:
+            if options['council']:
+                self._warm_council_counters(options['council'], options['verbose'])
+            elif options['all']:
+                self._warm_all_counters(options['force'], options['verbose'])
+            else:
+                self._warm_critical_counters(options['verbose'])
+            
+            total_time = (timezone.now() - start_time).total_seconds()
+            self.stdout.write('')
+            self.stdout.write(
+                self.style.SUCCESS(f'SUCCESS Cache warming completed in {total_time:.2f}s')
+            )
+            self.stdout.write(
+                self.style.SUCCESS('Processed all councils in batches of 10 for better progress visibility')
+            )
+            
+        finally:
+            # Always release the command lock if we acquired one
+            if command_lock_key:
+                try:
+                    cache.delete(command_lock_key)
+                    self.stdout.write('Released concurrency lock')
+                except Exception as e:
+                    self.stdout.write(
+                        self.style.WARNING(f'Failed to release lock: {e}')
+                    )
     
     def _warm_critical_counters(self, verbose=False):
         """Warm critical counters (homepage promoted)"""
         self.stdout.write('Warming critical counters (homepage promoted)...')
         
         results = counter_cache_service.warm_critical_counters()
+        
+        # Handle different result statuses
+        if results.get('status') == 'already_running':
+            self.stdout.write(
+                self.style.WARNING(f'SKIPPED: {results.get("message", "Another warming session is in progress")}')
+            )
+            return
         
         self.stdout.write(
             f'Warmed {results["counters_warmed"]} critical counters in {results["total_time_seconds"]}s'
@@ -84,6 +175,11 @@ class Command(BaseCommand):
         if results['counters_failed'] > 0:
             self.stdout.write(
                 self.style.WARNING(f'WARNING: {results["counters_failed"]} counters failed to warm')
+            )
+        
+        if results.get('status') == 'failed':
+            self.stdout.write(
+                self.style.ERROR('ERROR: Critical counter warming encountered failures')
             )
         
         if verbose:

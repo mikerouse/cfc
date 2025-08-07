@@ -17,6 +17,13 @@ Features:
 import time
 from decimal import Decimal
 from typing import Optional, Dict, Any, List
+
+
+class CounterCalculatingError(Exception):
+    """Raised when counter value is being calculated and not yet available."""
+    def __init__(self, counter_slug, message="Counter calculation in progress"):
+        self.counter_slug = counter_slug
+        super().__init__(message)
 from django.core.cache import cache
 from django.db import transaction
 from django.utils import timezone
@@ -257,6 +264,11 @@ class CounterCacheService:
             
             return Decimal('0.00')
             
+        except CounterCalculatingError:
+            # Re-raise CounterCalculatingError so views can handle it
+            # Don't catch this as a generic exception
+            raise
+            
         except Exception as e:
             lookup_time = (time.time() - start_time) * 1000
             
@@ -327,9 +339,10 @@ class CounterCacheService:
                         }
                     )
                     
-                    # Return 0 instead of running expensive calculation
-                    # This prevents the homepage from timing out
-                    return Decimal('0.00')
+                    # Return special sentinel value to indicate calculation needed
+                    # This allows the frontend to show "Calculating..." instead of £0
+                    # Using -1 as sentinel since counter values are never negative
+                    return Decimal('-1')
                 
                 # Only run expensive calculation when explicitly allowed (e.g., during cache warming)
                 log_cache_event(
@@ -344,8 +357,55 @@ class CounterCacheService:
                     }
                 )
                 
-                # Run the expensive site totals calculation
-                self.site_totals_agent.run()
+                # Concurrency protection for expensive site-wide calculation
+                site_totals_lock_key = "site_totals_agent_run_lock"
+                
+                # Check if another SiteTotalsAgent is already running
+                if cache.get(site_totals_lock_key):
+                    log_cache_event(
+                        'warning', 'concurrency',
+                        'SiteTotalsAgent Already Running',
+                        f'Skipping site-wide calculation for {counter_slug} - another SiteTotalsAgent is running',
+                        details={
+                            'counter_slug': counter_slug,
+                            'year_label': year_label,
+                            'reason': 'concurrent_protection'
+                        }
+                    )
+                    
+                    # Return sentinel to indicate calculation is needed but not available right now
+                    return Decimal('-1')
+                
+                # Set lock with 20 minute timeout (site-wide calcs can take a long time)
+                cache.set(site_totals_lock_key, True, 1200)  # 20 minutes
+                
+                try:
+                    # Run the expensive site totals calculation
+                    calculation_start = time.time()
+                    self.site_totals_agent.run()
+                    calculation_duration = time.time() - calculation_start
+                    
+                    log_cache_event(
+                        'info', 'performance',
+                        'SiteTotalsAgent Completed',
+                        f'Site-wide calculation completed in {calculation_duration:.2f}s',
+                        details={
+                            'counter_slug': counter_slug,
+                            'year_label': year_label,
+                            'calculation_time_seconds': calculation_duration
+                        }
+                    )
+                    
+                finally:
+                    # Always release the SiteTotalsAgent lock
+                    try:
+                        cache.delete(site_totals_lock_key)
+                    except Exception as lock_error:
+                        log_cache_event(
+                            'warning', 'concurrency',
+                            'Failed to Release SiteTotalsAgent Lock',
+                            f'Could not release site totals agent lock: {str(lock_error)}'
+                        )
                 
                 # Get the cached result
                 cache_key = f"counter_total:{counter_slug}:{year_label or 'all'}"
@@ -420,22 +480,49 @@ class CounterCacheService:
         """
         Warm cache for critical counters (homepage promoted counters).
         
+        Prevents concurrent warming sessions to avoid database overload and
+        conflicting cache updates during server restarts.
+        
         Returns:
             Dict with warming results and statistics
         """
+        # Concurrency protection - prevent multiple warming sessions
+        lock_key = "critical_counter_warming_lock"
+        
+        # Try to acquire distributed lock with 15-minute timeout
+        if cache.get(lock_key):
+            log_cache_event(
+                'warning', 'maintenance',
+                'Critical Counter Warming Already in Progress',
+                'Skipping critical counter warming - another session is already running'
+            )
+            return {
+                'counters_warmed': 0,
+                'counters_failed': 0,
+                'total_time_seconds': 0,
+                'warmed_counters': [],
+                'failed_counters': [],
+                'status': 'already_running',
+                'message': 'Another warming session is already in progress'
+            }
+        
+        # Set lock with 15 minute timeout (site-wide calculations can take a while)
+        cache.set(lock_key, True, 900)  # 15 minutes
+        
         start_time = time.time()
         results = {
             'counters_warmed': 0,
             'counters_failed': 0,
             'total_time_seconds': 0,
             'warmed_counters': [],
-            'failed_counters': []
+            'failed_counters': [],
+            'status': 'completed'
         }
         
         log_cache_event(
             'info', 'maintenance',
             'Critical Counter Cache Warming Started',
-            'Starting background warming of critical counters'
+            'Starting background warming of critical counters (lock acquired)'
         )
         
         try:
@@ -529,6 +616,7 @@ class CounterCacheService:
             
         except Exception as e:
             results['total_time_seconds'] = round(time.time() - start_time, 2)
+            results['status'] = 'failed'
             
             log_cache_event(
                 'error', 'maintenance',
@@ -542,6 +630,23 @@ class CounterCacheService:
             )
             
             return results
+        
+        finally:
+            # Always release the lock, even if an exception occurred
+            try:
+                cache.delete(lock_key)
+                log_cache_event(
+                    'info', 'maintenance',
+                    'Critical Counter Warming Lock Released',
+                    'Released concurrency lock for critical counter warming'
+                )
+            except Exception as e:
+                # Don't let lock cleanup failure affect the main operation
+                log_cache_event(
+                    'warning', 'maintenance',
+                    'Failed to Release Warming Lock',
+                    f'Could not release critical counter warming lock: {str(e)}'
+                )
     
     def get_cache_statistics(self, hours_back: int = 24) -> Dict[str, Any]:
         """Get comprehensive cache performance statistics"""
