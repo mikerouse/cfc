@@ -1486,10 +1486,11 @@ class Command(BaseCommand):
             
             if estimated_operations > 100:
                 self.stdout.write(f'     Estimated operations: {estimated_operations:,}')
-                self.stdout.write(f'     This may take 30-60 seconds...')
+                self.stdout.write(f'     Using efficient SQL aggregation - should take 2-3 seconds...')
             
-            # Execute the cache warming
-            agent = SiteTotalsAgent()
+            # Execute the cache warming using the efficient agent (2-3 seconds instead of 5+ minutes)
+            from council_finance.agents.efficient_site_totals import EfficientSiteTotalsAgent
+            agent = EfficientSiteTotalsAgent()
             agent.run()
             
             # Step 4: Verify cache was warmed successfully
@@ -1500,7 +1501,8 @@ class Command(BaseCommand):
             
             for sc in site_counters:
                 year_label = sc.year.label if sc.year else "all"
-                cache_key = f"counter_total:{sc.slug}:{year_label}"
+                # FIXED: Use counter.slug to match EfficientSiteTotalsAgent key pattern
+                cache_key = f"counter_total:{sc.counter.slug}:{year_label}"
                 cached_value = cache.get(cache_key)
                 
                 if cached_value is not None:
@@ -1514,7 +1516,8 @@ class Command(BaseCommand):
             
             for gc in group_counters:
                 year_label = gc.year.label if gc.year else "all"
-                cache_key = f"counter_total:{gc.slug}:{year_label}"
+                # FIXED: Use counter.slug for group counters too
+                cache_key = f"counter_total:{gc.counter.slug}:{year_label}"
                 cached_value = cache.get(cache_key)
                 
                 if cached_value is not None:

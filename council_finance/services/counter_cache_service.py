@@ -99,10 +99,9 @@ class CounterCacheService:
     
     def __init__(self):
         self.counter_agent = CounterAgent()
-        if USE_OPTIMIZED_AGENT:
-            self.site_totals_agent = SiteTotalsAgentOptimized()
-        else:
-            self.site_totals_agent = SiteTotalsAgent()
+        # Always use the efficient agent for fast performance
+        from council_finance.agents.efficient_site_totals import EfficientSiteTotalsAgent
+        self.site_totals_agent = EfficientSiteTotalsAgent()
     
     def get_counter_value(self, 
                          counter_slug: str, 
@@ -134,6 +133,7 @@ class CounterCacheService:
             else:
                 redis_key = f"counter_total:{counter_slug}:{year_key}"
                 lookup_type = "sitewide"
+            
             
             # Tier 1: Check Redis cache (fastest)
             redis_value = cache.get(redis_key)

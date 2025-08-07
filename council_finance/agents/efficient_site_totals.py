@@ -8,9 +8,11 @@ Takes 2-3 seconds instead of 5+ minutes.
 """
 
 import time
+from decimal import Decimal
 from django.core.cache import cache
 from django.db import connection
-from council_finance.models import SiteCounter, GroupCounter, FinancialYear
+from django.utils import timezone
+from council_finance.models import SiteCounter, GroupCounter, FinancialYear, CounterResult
 
 
 class EfficientSiteTotalsAgent:
@@ -46,9 +48,29 @@ class EfficientSiteTotalsAgent:
             # Calculate the value
             value = calc_func(year_label)
             
-            # Cache for 24 hours
-            cache_key = f"counter_total:{sc.slug}:{year_label or 'all'}"
+            # Cache for 24 hours using the same key pattern that homepage expects
+            cache_key = f"counter_total:{sc.counter.slug}:{year_label or 'all'}"
             cache.set(cache_key, value, 86400)
+            
+            # Also save to database cache for persistence (convert to Decimal)
+            decimal_value = Decimal(str(value))
+            counter_result, created = CounterResult.objects.get_or_create(
+                counter=sc.counter,
+                council=None,  # Site-wide total
+                year=sc.year,
+                defaults={
+                    'value': decimal_value,
+                    'calculated_at': timezone.now(),
+                    'is_stale': False,
+                }
+            )
+            
+            if not created:
+                # Update existing record
+                counter_result.value = decimal_value
+                counter_result.calculated_at = timezone.now()
+                counter_result.is_stale = False
+                counter_result.save()
             
             print(f"SUCCESS {sc.name}: £{value:,.0f} ({year_label or 'all years'})")
             calculated_count += 1
@@ -63,8 +85,28 @@ class EfficientSiteTotalsAgent:
             council_type_id = getattr(gc, 'council_type_id', None) if hasattr(gc, 'council_type') else None
             value = calc_func(year_label, council_type_id)
             
-            cache_key = f"counter_total:{gc.slug}:{year_label or 'all'}"
+            cache_key = f"counter_total:{gc.counter.slug}:{year_label or 'all'}"
             cache.set(cache_key, value, 86400)
+            
+            # Also save to database cache for group counters (convert to Decimal)
+            decimal_value = Decimal(str(value))
+            counter_result, created = CounterResult.objects.get_or_create(
+                counter=gc.counter,
+                council=None,  # Site-wide total
+                year=gc.year,
+                defaults={
+                    'value': decimal_value,
+                    'calculated_at': timezone.now(),
+                    'is_stale': False,
+                }
+            )
+            
+            if not created:
+                # Update existing record
+                counter_result.value = decimal_value
+                counter_result.calculated_at = timezone.now()
+                counter_result.is_stale = False
+                counter_result.save()
             
             print(f"SUCCESS {gc.name}: £{value:,.0f} ({year_label or 'all years'})")
             calculated_count += 1

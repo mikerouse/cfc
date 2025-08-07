@@ -621,9 +621,10 @@ def emergency_cache_warming(request):
                 'counter_name': counter.name
             }
         
-        # Run emergency cache warming
+        # Run emergency cache warming using efficient agent
         start_time = time.time()
-        agent = SiteTotalsAgent()
+        from council_finance.agents.efficient_site_totals import EfficientSiteTotalsAgent
+        agent = EfficientSiteTotalsAgent()
         agent.run()
         warming_duration = time.time() - start_time
         

@@ -365,59 +365,14 @@ def home(request):
             else:
                 featured_councils_raw = [council_of_the_day]
             
-            # Enhance featured councils with financial data carousel
-            # Use caching to avoid expensive CounterAgent calls on every page load
-            from django.core.cache import cache
-            import hashlib
-            
+            # PERFORMANCE: Temporarily disable financial data for featured councils
+            # The individual council calculations are taking 1.3+ seconds each,
+            # causing 20+ second homepage loads (6 councils × 2 years = 12+ seconds)
+            # TODO: Replace with direct database queries or pre-computed values
             featured_councils = []
-            councils_ids_str = ','.join([str(c.id) for c in featured_councils_raw])
-            councils_cache_key = f"featured_councils_{hashlib.md5(councils_ids_str.encode()).hexdigest()}"
-            cached_featured = cache.get(councils_cache_key)
-            
-            if cached_featured is not None:
-                featured_councils = cached_featured
-            else:
-                # Use the CACHED counter service for featured councils
-                from council_finance.services.counter_cache_service import counter_cache_service
-                from council_finance.models.counter import CounterDefinition
-                
-                # Pre-fetch counter definition once (not in loop)
-                counter_def = CounterDefinition.objects.filter(slug='current-liabilities').first()
-                
-                for council in featured_councils_raw:
-                    council_data = {'council': council, 'financial_years': []}
-                    
-                    # Get current liabilities data for available years (limited to reduce load)
-                    for year in all_years[:2]:  # Reduced from 3 to 2 years for performance
-                        try:
-                            # Use the cached counter service for FAST lookups
-                            value = counter_cache_service.get_counter_value(
-                                counter_slug='current-liabilities',
-                                council_slug=council.slug,
-                                year_label=year.label
-                            )
-                            
-                            if value and value > 0:
-                                # Use friendly format for carousel display
-                                if counter_def:
-                                    friendly_value = counter_def.format_value(float(value))
-                                else:
-                                    friendly_value = f"£{value:,.0f}"
-                                    
-                                council_data['financial_years'].append({
-                                    'year': year.label,
-                                    'value': friendly_value,
-                                    'raw_value': float(value)
-                                })
-                        except Exception as e:
-                            logger.debug(f"Counter lookup failed for {council.slug}/{year.label}: {e}")
-                            # Continue to next year without failing
-                    
-                    featured_councils.append(council_data)
-                
-                # Cache featured councils for 15 minutes
-                cache.set(councils_cache_key, featured_councils, 900)
+            for council in featured_councils_raw:
+                council_data = {'council': council, 'financial_years': []}
+                featured_councils.append(council_data)
 
     # Get recent activity for the homepage
     recent_contributions = Contribution.objects.filter(
@@ -473,29 +428,45 @@ def home(request):
     # totals immediately to avoid empty counters.
     for sc in SiteCounter.objects.filter(promote_homepage=True):
         year_label = sc.year.label if sc.year else "all"
-        key = f"counter_total:{sc.slug}:{year_label}"
+        
+        # FIXED: Use counter.slug to match EfficientSiteTotalsAgent key pattern
+        key = f"counter_total:{sc.counter.slug}:{year_label}"
+        
         val = cache.get(key)
+        
         if val is None:
+            logger.warning(f"Cache MISS for {sc.name} - key '{key}' not found")
             missing_cache = True
         elif val == 0 and (FinancialFigure.objects.exists() or CouncilCharacteristic.objects.exists()):
             # A zero total with actual figures likely means the cache was
             # populated before data was loaded. Trigger a refresh so visitors
             # see correct values without manual intervention.
+            logger.warning(f"Cache HIT but zero value for {sc.name} - triggering refresh")
             missing_cache = True
+            
         if sc.year and cache.get(f"{key}:prev") is None:
+            logger.warning(f"Previous year cache MISS for {sc.name}")
             missing_cache = True
 
     for gc in GroupCounter.objects.filter(promote_homepage=True):
         year_label = gc.year.label if gc.year else "all"
-        key = f"counter_total:{gc.slug}:{year_label}"
+        
+        # FIXED: Use counter.slug to match EfficientSiteTotalsAgent key pattern
+        key = f"counter_total:{gc.counter.slug}:{year_label}"
+        
+        val = cache.get(key)
+        
         # Group counters may be restricted to subsets of councils. We apply the
         # same logic as above to ensure the totals reflect loaded data.
-        val = cache.get(key)
         if val is None:
+            logger.warning(f"GROUP cache MISS for {gc.name} - key '{key}' not found")
             missing_cache = True
         elif val == 0 and (FinancialFigure.objects.exists() or CouncilCharacteristic.objects.exists()):
+            logger.warning(f"GROUP cache HIT but zero value for {gc.name} - triggering refresh")
             missing_cache = True
+            
         if gc.year and cache.get(f"{key}:prev") is None:
+            logger.warning(f"GROUP previous year cache MISS for {gc.name}")
             missing_cache = True
 
     # When any counter total is missing, use fallback values instead of 
@@ -503,8 +474,9 @@ def home(request):
     # run via scheduled task or management command, not on page load.
     if missing_cache:
         # Log the issue for admin awareness but don't block page rendering
-        logger.warning("Home page: Site counter cache is cold. Run 'python manage.py run_site_totals_agent' to populate cache.")
-        # Don't run SiteTotalsAgent().run() here - it's too expensive!
+        logger.warning("Home page: Site counter cache is cold. Run 'python manage.py reload' to populate cache.")
+        # Instead of running expensive calculations on page load, use fallback values
+        # The EfficientSiteTotalsAgent should be run via reload command or scheduled task
 
     # Use new hybrid counter cache service for fast, persistent counter loading
     from council_finance.services.counter_cache_service import counter_cache_service
