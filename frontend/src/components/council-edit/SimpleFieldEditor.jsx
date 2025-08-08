@@ -113,7 +113,21 @@ const SimpleFieldEditor = ({
         : 'Current population of the council area',
       'households': 'Number of households in the council area',
       'council_hq_post_code': 'Postcode for the main council headquarters',
-      // Legacy descriptions for fields that might be added later
+      
+      // Financial field descriptions with statement reading guidance
+      'current-liabilities': 'Short-term financial obligations due within one year (from Balance Sheet)',
+      'long-term-liabilities': 'Financial obligations due after one year (from Balance Sheet)', 
+      'usable-reserves': 'Funds available for council use (from Balance Sheet)',
+      'unusable-reserves': 'Restricted funds not available for general use (from Balance Sheet)',
+      'finance-leases-pfi-liabilities': 'PFI and lease obligations (from Balance Sheet)',
+      'total-income': 'All revenue received during the financial year (from Income & Expenditure)',
+      'total-expenditure': 'All spending during the financial year (from Income & Expenditure)',
+      'business-rates-income': 'Revenue from business rates (from Income & Expenditure)',
+      'council-tax-income': 'Revenue from council tax (from Income & Expenditure)',
+      'non-ring-fenced-government-grants-income': 'Government grants without spending restrictions (from Income & Expenditure)',
+      'interest-paid': 'Interest payments on borrowing (from Income & Expenditure)',
+      
+      // Legacy descriptions for fields that might be added later  
       'website': 'Official council website URL',
       'council-type': 'Type of local authority',
       'nation': 'Country within the UK',
@@ -161,6 +175,35 @@ const SimpleFieldEditor = ({
   };
 
   /**
+   * Get financial statement guidance for monetary fields
+   */
+  const getFinancialStatementGuidance = () => {
+    if (field.contentType !== 'monetary') return null;
+
+    return (
+      <div className="mt-2 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+        <p className="text-sm text-amber-800">
+          📋 <strong>Reading Financial Statements</strong>
+        </p>
+        <div className="text-xs text-amber-700 mt-1 space-y-1">
+          <p>
+            <strong>Balance Sheet Format:</strong> Figures are often shown in thousands. 
+            If you see "£247.3" in the statement, enter "247.3" here (we expect millions).
+          </p>
+          <p>
+            <strong>Group vs Entity:</strong> For councils with subsidiaries, use the 
+            <em>Group</em> figures rather than Entity-only figures.
+          </p>
+          <p>
+            <strong>Example:</strong> If the balance sheet shows "Current Liabilities (268.9)", 
+            enter "268.9" in this field.
+          </p>
+        </div>
+      </div>
+    );
+  };
+
+  /**
    * Render input based on field type
    */
   const renderInput = () => {
@@ -204,6 +247,29 @@ const SimpleFieldEditor = ({
             inputMode="numeric"
             pattern="[0-9]*"
           />
+        );
+
+      case 'monetary':
+        return (
+          <div className="relative">
+            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+              <span className="text-gray-500 sm:text-sm">£</span>
+            </div>
+            <input
+              type="number"
+              value={currentValue}
+              onChange={(e) => handleInputChange(e.target.value)}
+              className={`${baseClasses} pl-7`}
+              placeholder="0.00"
+              min="0"
+              step="0.01"
+              disabled={saving || disabled}
+              inputMode="decimal"
+            />
+            <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+              <span className="text-gray-400 text-xs">millions</span>
+            </div>
+          </div>
         );
 
       case 'postcode':
@@ -300,6 +366,9 @@ const SimpleFieldEditor = ({
       
       {/* Population Context Help */}
       {showPopulationContext && getPopulationContextHelp()}
+      
+      {/* Financial Statement Guidance */}
+      {getFinancialStatementGuidance()}
     </div>
   );
 };

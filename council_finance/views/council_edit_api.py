@@ -482,12 +482,12 @@ def council_temporal_data_api(request, council_slug, year_id):
         year = get_object_or_404(FinancialYear, id=year_id)
         
         # Get all temporal data for this council and year
-        # Financial categories: balance_sheet, income, spending, calculated
+        # Financial categories: balance_sheet, income, spending (exclude calculated - these are auto-generated)
         # General categories: general
         temporal_data_qs = FinancialFigure.objects.filter(
             council=council,
             year=year,
-            field__category__in=['general', 'balance_sheet', 'income', 'spending', 'calculated']
+            field__category__in=['general', 'balance_sheet', 'income', 'spending']
         ).select_related('field')
         
         # Separate general and financial data
@@ -503,12 +503,12 @@ def council_temporal_data_api(request, council_slug, year_id):
             
             if figure.field.category == 'general':
                 general_data[figure.field.slug] = figure_value
-            elif figure.field.category in ['balance_sheet', 'income', 'spending', 'calculated']:
+            elif figure.field.category in ['balance_sheet', 'income', 'spending']:
                 financial_data[figure.field.slug] = figure_value
         
-        # Get available fields for this temporal data
+        # Get available fields for this temporal data (exclude calculated fields - they're auto-generated)
         general_fields = DataField.objects.filter(category='general')
-        financial_fields = DataField.objects.filter(category__in=['balance_sheet', 'income', 'spending', 'calculated'])
+        financial_fields = DataField.objects.filter(category__in=['balance_sheet', 'income', 'spending'])
         
         return JsonResponse({
             'success': True,
