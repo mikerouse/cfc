@@ -373,23 +373,47 @@ CouncilEditApp.jsx
 
 ## Implementation Priority
 
-### Phase 1: Core Redesign
-1. New landing page
-2. Characteristics section
-3. Year selection wizard
-4. Manual entry form
+### Phase 1: Core Redesign (Next)
+1. **Landing page redesign** - Replace tabs with choice cards
+2. **Characteristics section** - Simple form for non-temporal data
+3. **Year selection wizard** - GOV.UK style step-by-step process
+4. **Manual entry improvements** - Better field grouping and progress tracking
 
-### Phase 2: PDF Integration
-1. PDF upload interface
-2. Processing status display
-3. Data review interface
-4. Apply extracted data
+### Phase 2: PDF Integration (After Phase 1)
+1. PDF upload interface in financial wizard
+2. Processing status display with real-time updates
+3. Data review interface for AI-extracted values
+4. Apply extracted data to financial fields
 
-### Phase 3: Enhancements
-1. Progress tracking
-2. Draft saves
-3. Bulk operations
-4. Advanced validation
+### Phase 3: Advanced Features (Future)
+1. Progress tracking across all sections
+2. Draft saves and auto-save functionality
+3. Bulk operations for multiple years
+4. Advanced validation and data quality checks
+
+## Population Integration Status
+
+### ✅ Backend Complete (2025-01-07)
+- Year-specific population storage implemented
+- Per capita calculations use correct population by year
+- Management command created for data migration
+- All historical population data populated
+
+### 🔄 Frontend Integration Needed
+The new UI will include population fields in both sections:
+
+**Characteristics Section:**
+```
+Current Population: [1,144,900] 
+ℹ️ This is the current population for display on council pages
+```
+
+**Financial Data Section (per year):**
+```
+Population (2024/25): [1,141,374]
+ℹ️ Used for per capita calculations in this financial year
+💡 Different from current population due to historical changes
+```
 
 ## Testing Requirements
 

@@ -1,43 +1,42 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useDeviceType } from './hooks/useDeviceType';
-import EditHeader from './council-edit/EditHeader';
-import TabNavigation from './council-edit/TabNavigation';
-import CharacteristicsTab from './council-edit/CharacteristicsTab';
-import GeneralDataTab from './council-edit/GeneralDataTab';
-import FinancialDataTab from './council-edit/FinancialDataTab';
-import YearSelector from './council-edit/YearSelector';
-import ValidationSystem from './council-edit/ValidationSystem';
-import ProgressTracker from './council-edit/ProgressTracker';
+import CouncilEditLanding from './council-edit/CouncilEditLanding';
+import CharacteristicsEditor from './council-edit/CharacteristicsEditor';
+import FinancialWizard from './council-edit/FinancialWizard';
+import FieldEditor from './council-edit/FieldEditor';
 import LoadingSpinner from './LoadingSpinner';
 
 /**
- * Mobile-First Council Edit Interface
+ * GOV.UK-Style Council Edit Interface
  * 
- * Separates editing into three clear categories:
- * 1. Characteristics (non-temporal): Website, Nation, Type, etc.
- * 2. General Data (temporal): Link to Financial Statement, Political Control
- * 3. Financial Data (temporal): Debt, Expenditure, Revenue, etc.
+ * Uses landing page with choice cards instead of confusing tabs:
+ * 1. Landing Page: Choose between Council Details or Financial Data
+ * 2. Council Details: Simple form for characteristics (non-temporal)
+ * 3. Financial Data: Wizard flow (Year → Method → Entry)
  */
 const CouncilEditApp = ({ councilData, initialYears, csrfToken }) => {
   const { isMobile, isTablet } = useDeviceType();
   
-  // State management
-  const [activeTab, setActiveTab] = useState('characteristics');
-  const [selectedYear, setSelectedYear] = useState(initialYears?.[0] || null);
+  // Navigation state - replaces old tab system
+  const [currentView, setCurrentView] = useState('landing'); // landing, characteristics, financial
+  const [selectedYear, setSelectedYear] = useState(null);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [errors, setErrors] = useState({});
-  const [progress, setProgress] = useState({ completed: 0, total: 0, points: 0 });
+  const [progress, setProgress] = useState({ 
+    characteristics: 0, 
+    financial: 0, 
+    total: 0, 
+    points: 0 
+  });
   
-  // Data state
+  // Data state - simplified for new architecture
   const [characteristics, setCharacteristics] = useState({});
-  const [generalData, setGeneralData] = useState({});
   const [financialData, setFinancialData] = useState({});
   
   // Available fields from the API
   const [availableFields, setAvailableFields] = useState({
     characteristics: [],
-    general: [],
     financial: []
   });
   
@@ -54,13 +53,13 @@ const CouncilEditApp = ({ councilData, initialYears, csrfToken }) => {
   }, [councilData?.slug]);
 
   /**
-   * Load year-specific data when year changes
+   * Load year-specific data when year changes and we're in financial view
    */
   useEffect(() => {
-    if (selectedYear && (activeTab === 'general' || activeTab === 'financial')) {
-      loadTemporalData(selectedYear);
+    if (selectedYear && currentView === 'financial') {
+      loadFinancialData(selectedYear);
     }
-  }, [selectedYear, activeTab]);
+  }, [selectedYear, currentView]);
 
   /**
    * Fetch all council data from the backend
@@ -79,6 +78,15 @@ const CouncilEditApp = ({ councilData, initialYears, csrfToken }) => {
         setAvailableFields(prev => ({
           ...prev,
           characteristics: charData.available_fields || []
+        }));
+        
+        // Update progress for characteristics
+        const completedCount = Object.keys(charData.characteristics || {}).length;
+        const totalCount = (charData.available_fields || []).length;
+        setProgress(prev => ({
+          ...prev,
+          characteristics: completedCount,
+          total: prev.total + totalCount
         }));
       }
 
@@ -107,9 +115,9 @@ const CouncilEditApp = ({ councilData, initialYears, csrfToken }) => {
   }, [councilData?.slug, csrfToken]);
 
   /**
-   * Load temporal data for a specific year
+   * Load financial data for a specific year
    */
-  const loadTemporalData = useCallback(async (year) => {
+  const loadFinancialData = useCallback(async (year) => {
     if (!year?.id) return;
     
     setLoading(true);
@@ -120,21 +128,27 @@ const CouncilEditApp = ({ councilData, initialYears, csrfToken }) => {
       
       if (response.ok) {
         const data = await response.json();
-        setGeneralData(data.general || {});
         setFinancialData(data.financial || {});
         
-        // Update available fields for temporal data
-        if (data.available_fields) {
+        // Update available fields for financial data
+        if (data.available_fields?.financial) {
           setAvailableFields(prev => ({
             ...prev,
-            general: data.available_fields.general || [],
             financial: data.available_fields.financial || []
+          }));
+          
+          // Update progress for financial data
+          const completedCount = Object.keys(data.financial || {}).length;
+          const totalCount = data.available_fields.financial.length;
+          setProgress(prev => ({
+            ...prev,
+            financial: completedCount
           }));
         }
       }
     } catch (error) {
-      console.error('Error loading temporal data:', error);
-      setErrors({ temporal: 'Failed to load year-specific data.' });
+      console.error('Error loading financial data:', error);
+      setErrors({ financial: 'Failed to load financial data.' });
     } finally {
       setLoading(false);
     }
@@ -143,14 +157,15 @@ const CouncilEditApp = ({ councilData, initialYears, csrfToken }) => {
   /**
    * Save field data with optimistic updates
    */
-  const saveField = useCallback(async (category, fieldSlug, value, yearId = null) => {
+  const saveField = useCallback(async (fieldSlug, value, yearId = null) => {
     setSaving(true);
+    
+    // Determine category from current view
+    const category = currentView === 'characteristics' ? 'characteristics' : 'financial';
     
     // Optimistic update
     if (category === 'characteristics') {
       setCharacteristics(prev => ({ ...prev, [fieldSlug]: value }));
-    } else if (category === 'general') {
-      setGeneralData(prev => ({ ...prev, [fieldSlug]: value }));
     } else if (category === 'financial') {
       setFinancialData(prev => ({ ...prev, [fieldSlug]: value }));
     }
@@ -208,7 +223,7 @@ const CouncilEditApp = ({ councilData, initialYears, csrfToken }) => {
     } finally {
       setSaving(false);
     }
-  }, [councilData?.slug, csrfToken, loadCouncilData]);
+  }, [councilData?.slug, csrfToken, loadCouncilData, currentView]);
 
   /**
    * Validate URL fields with backend security checks
@@ -236,23 +251,38 @@ const CouncilEditApp = ({ councilData, initialYears, csrfToken }) => {
   }, [csrfToken]);
 
   /**
-   * Update progress tracking
+   * Navigation handlers for new landing page system
+   */
+  const handleChoiceSelect = useCallback((choice) => {
+    if (choice === 'characteristics') {
+      setCurrentView('characteristics');
+    } else if (choice === 'financial') {
+      setCurrentView('financial');
+    }
+  }, []);
+
+  const handleBackToLanding = useCallback(() => {
+    setCurrentView('landing');
+    setSelectedYear(null);
+    setErrors({});
+  }, []);
+
+  /**
+   * Update progress tracking (simplified for new system)
    */
   const updateProgress = useCallback(() => {
     const charCount = Object.keys(characteristics).length;
-    const generalCount = Object.keys(generalData).length;
     const financialCount = Object.keys(financialData).length;
     
-    const totalCompleted = charCount + generalCount + financialCount;
-    const estimatedTotal = 20; // Rough estimate, could be dynamic
+    const totalCompleted = charCount + financialCount;
     const pointsEarned = totalCompleted * 3; // 3 points per field
     
-    setProgress({
-      completed: totalCompleted,
-      total: estimatedTotal,
+    setProgress(prev => ({
+      ...prev,
+      total: totalCompleted,
       points: pointsEarned
-    });
-  }, [characteristics, generalData, financialData]);
+    }));
+  }, [characteristics, financialData]);
 
   /**
    * Show success message with auto-hide
@@ -262,30 +292,8 @@ const CouncilEditApp = ({ councilData, initialYears, csrfToken }) => {
     console.log('Success:', message);
   }, []);
 
-  /**
-   * Handle tab change with validation
-   */
-  const handleTabChange = useCallback((newTab) => {
-    // Clear any tab-specific errors
-    setErrors(prev => {
-      const newErrors = { ...prev };
-      delete newErrors.temporal;
-      delete newErrors.general;
-      return newErrors;
-    });
-    
-    setActiveTab(newTab);
-  }, []);
-
-  /**
-   * Handle year change for temporal data
-   */
-  const handleYearChange = useCallback((newYear) => {
-    setSelectedYear(newYear);
-  }, []);
-
   // Show loading spinner during initial load
-  if (loading && !characteristics && !generalData && !financialData) {
+  if (loading && Object.keys(characteristics).length === 0 && Object.keys(financialData).length === 0) {
     return (
       <div id="council-edit-loading" className="flex items-center justify-center min-h-screen">
         <LoadingSpinner size="large" message="Loading council data..." />
@@ -295,107 +303,61 @@ const CouncilEditApp = ({ councilData, initialYears, csrfToken }) => {
 
   return (
     <div id="council-edit-main-container" className="min-h-screen bg-gray-50">
-      {/* Fixed Header */}
-      <EditHeader 
-        council={councilData}
-        progress={progress}
-        saving={saving}
-        className="sticky top-0 z-40"
-      />
-
-      {/* Main Content Container */}
-      <div id="council-edit-content" className="mx-auto px-3 sm:px-4 xl:px-6 py-4 xl:py-8 max-w-none xl:max-w-desktop">
-        
-        {/* Progress Tracker - Mobile optimized */}
-        <ProgressTracker 
+      {/* Landing Page - Choose between Council Details or Financial Data */}
+      {currentView === 'landing' && (
+        <CouncilEditLanding
+          councilData={councilData}
           progress={progress}
-          isMobile={isMobile}
-          className="mb-6"
+          onChoiceSelect={handleChoiceSelect}
+          className="min-h-screen"
         />
+      )}
 
-        {/* Year Selector - Only for temporal tabs */}
-        {(activeTab === 'general' || activeTab === 'financial') && (
-          <YearSelector
-            years={years}
-            selectedYear={selectedYear}
-            onChange={handleYearChange}
-            isMobile={isMobile}
-            className="mb-6"
-          />
-        )}
+      {/* Council Details Editor */}
+      {currentView === 'characteristics' && (
+        <CharacteristicsEditor
+          councilData={councilData}
+          characteristics={characteristics}
+          availableFields={availableFields.characteristics}
+          onSave={saveField}
+          onValidate={validateField}
+          onBack={handleBackToLanding}
+          errors={errors}
+          loading={loading}
+          className="min-h-screen"
+        />
+      )}
 
-        {/* Tab Content */}
-        <div id="council-edit-tab-content" className="bg-white rounded-lg shadow-sm border border-gray-200">
-          {activeTab === 'characteristics' && (
-            <CharacteristicsTab
-              characteristics={characteristics}
-              availableFields={availableFields.characteristics}
-              onSave={(fieldSlug, value) => saveField('characteristics', fieldSlug, value)}
-              onValidate={validateField}
-              errors={errors}
-              loading={loading}
-              isMobile={isMobile}
-            />
-          )}
-          
-          {activeTab === 'general' && selectedYear && (
-            <GeneralDataTab
-              generalData={generalData}
-              availableFields={availableFields.general}
-              selectedYear={selectedYear}
-              onSave={(fieldSlug, value) => saveField('general', fieldSlug, value, selectedYear.id)}
-              onValidate={validateField}
-              errors={errors}
-              loading={loading}
-              isMobile={isMobile}
-            />
-          )}
-          
-          {activeTab === 'financial' && selectedYear && (
-            <FinancialDataTab
-              financialData={financialData}
-              availableFields={availableFields.financial}
-              selectedYear={selectedYear}
-              onSave={(fieldSlug, value) => saveField('financial', fieldSlug, value, selectedYear.id)}
-              onValidate={validateField}
-              errors={errors}
-              loading={loading}
-              isMobile={isMobile}
-            />
-          )}
-        </div>
+      {/* Financial Data Wizard */}
+      {currentView === 'financial' && (
+        <FinancialWizard
+          councilData={councilData}
+          years={years}
+          onBack={handleBackToLanding}
+          onSave={(fieldSlug, value) => saveField(fieldSlug, value, selectedYear?.id)}
+          onValidate={validateField}
+          csrfToken={csrfToken}
+          className="min-h-screen"
+        />
+      )}
 
-        {/* Global Error Display */}
-        {errors.general && (
-          <div id="council-edit-error" className="mt-4 p-4 bg-red-50 border border-red-200 rounded-lg">
-            <div className="flex items-center">
-              <svg className="w-5 h-5 text-red-400 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-              <p className="text-red-800">{errors.general}</p>
-            </div>
+      {/* Global Error Display */}
+      {errors.general && (
+        <div id="council-edit-error" className="fixed bottom-4 left-4 right-4 z-50 p-4 bg-red-50 border border-red-200 rounded-lg shadow-lg">
+          <div className="flex items-center">
+            <svg className="w-5 h-5 text-red-400 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <p className="text-red-800">{errors.general}</p>
+            <button 
+              onClick={() => setErrors(prev => ({ ...prev, general: null }))}
+              className="ml-auto text-red-600 hover:text-red-800"
+            >
+              ×
+            </button>
           </div>
-        )}
-      </div>
-
-      {/* Bottom Navigation - Mobile First */}
-      <TabNavigation
-        activeTab={activeTab}
-        onChange={handleTabChange}
-        isMobile={isMobile}
-        progress={progress}
-        className="sticky bottom-0 z-40"
-      />
-
-      {/* Validation System */}
-      <ValidationSystem 
-        errors={errors}
-        onClearError={(field) => setErrors(prev => {
-          const newErrors = { ...prev };
-          delete newErrors[field];
-          return newErrors;
-        })}
-      />
+        </div>
+      )}
     </div>
   );
 };
