@@ -62,6 +62,36 @@ const SimpleFieldEditor = ({
   }, [saveTimeout, value, onSave]);
 
   /**
+   * Format currency value for preview
+   */
+  const formatCurrencyPreview = useCallback((value) => {
+    if (!value || value === '') return null;
+    
+    const numValue = parseFloat(value);
+    if (isNaN(numValue)) return null;
+    
+    // Convert millions to actual value
+    const actualValue = numValue * 1000000;
+    
+    // Format with commas
+    const formatted = new Intl.NumberFormat('en-GB', {
+      style: 'currency',
+      currency: 'GBP',
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0
+    }).format(actualValue);
+    
+    // Also show millions format
+    const millionsFormat = `£${numValue}m`;
+    
+    return {
+      full: formatted,
+      millions: millionsFormat,
+      actualValue: actualValue
+    };
+  }, []);
+
+  /**
    * Handle input change
    */
   const handleInputChange = useCallback((newValue) => {
@@ -69,7 +99,8 @@ const SimpleFieldEditor = ({
     setValidationMessage('');
     
     // Basic client-side validation
-    if (field.contentType === 'url' && newValue) {
+    const contentType = field.contentType || field.content_type;
+    if (contentType === 'url' && newValue) {
       try {
         new URL(newValue);
         setValidationMessage('');
@@ -78,7 +109,7 @@ const SimpleFieldEditor = ({
       }
     }
     
-    if (field.contentType === 'integer' && newValue) {
+    if (contentType === 'integer' && newValue) {
       if (!/^\d+$/.test(newValue)) {
         setValidationMessage('⚠ Please enter numbers only');
       }
@@ -178,7 +209,8 @@ const SimpleFieldEditor = ({
    * Get financial statement guidance for monetary fields
    */
   const getFinancialStatementGuidance = () => {
-    if (field.contentType !== 'monetary') return null;
+    const contentType = field.contentType || field.content_type;
+    if (contentType !== 'monetary') return null;
 
     return (
       <div className="mt-2 p-3 bg-amber-50 border border-amber-200 rounded-lg">
@@ -187,16 +219,19 @@ const SimpleFieldEditor = ({
         </p>
         <div className="text-xs text-amber-700 mt-1 space-y-1">
           <p>
-            <strong>Balance Sheet Format:</strong> Figures are often shown in thousands. 
-            If you see "£247.3" in the statement, enter "247.3" here (we expect millions).
+            <strong>Important:</strong> Enter values in millions. The system will automatically 
+            convert to the full amount.
+          </p>
+          <p>
+            <strong>Balance Sheet Format:</strong> If the statement shows "£247,300" (in thousands), 
+            enter "247.3" here.
           </p>
           <p>
             <strong>Group vs Entity:</strong> For councils with subsidiaries, use the 
             <em>Group</em> figures rather than Entity-only figures.
           </p>
           <p>
-            <strong>Example:</strong> If the balance sheet shows "Current Liabilities (268.9)", 
-            enter "268.9" in this field.
+            <strong>Example:</strong> Statement shows "(268,900)" → Enter "268.9" → Saves as £268,900,000
           </p>
         </div>
       </div>
@@ -207,6 +242,8 @@ const SimpleFieldEditor = ({
    * Render input based on field type
    */
   const renderInput = () => {
+    const contentType = field.contentType || field.content_type;
+    
     const baseClasses = `
       block w-full border rounded-lg px-3 py-2
       transition-all duration-200 min-h-[44px] text-base
@@ -218,7 +255,7 @@ const SimpleFieldEditor = ({
       ${error ? '!border-red-500' : ''}
     `;
 
-    switch (field.contentType) {
+    switch (contentType) {
       case 'url':
         return (
           <input
@@ -342,6 +379,24 @@ const SimpleFieldEditor = ({
           {renderInput()}
         </div>
       </label>
+      
+      {/* Currency Preview for Monetary Fields */}
+      {(field.contentType === 'monetary' || field.content_type === 'monetary') && currentValue && (() => {
+        const preview = formatCurrencyPreview(currentValue);
+        if (preview) {
+          return (
+            <div className="mt-2 p-2 bg-gray-50 border border-gray-200 rounded-md">
+              <p className="text-xs text-gray-700">
+                <span className="font-medium">Preview:</span> {preview.full} or {preview.millions}
+              </p>
+              <p className="text-xs text-gray-500 mt-1">
+                If this doesn't look right, adjust the figure above.
+              </p>
+            </div>
+          );
+        }
+        return null;
+      })()}
       
       {/* Status Messages */}
       {validationMessage && (
