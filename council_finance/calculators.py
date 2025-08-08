@@ -312,6 +312,11 @@ def get_data_context_for_council(council, year=None, counter_slug=None):
         context['characteristic'][field_name] = char.value
         variables[field_name] = char.value
     
+    # Add latest_population as fallback if not in characteristics
+    if 'population' not in context['characteristic'] and council.latest_population:
+        context['characteristic']['population'] = str(council.latest_population)
+        variables['population'] = council.latest_population
+    
     # 2. Add financial figures for the specified year
     if year:
         financial_figures = FinancialFigure.objects.filter(
@@ -323,8 +328,21 @@ def get_data_context_for_council(council, year=None, counter_slug=None):
             field_name = figure.field.slug.replace('-', '_')
             context['financial'][field_name] = figure.value
             variables[field_name] = figure.value
+            
+        # IMPORTANT: Override population with year-specific value if available
+        from council_finance.utils.population_year import get_population_for_year
+        year_population = get_population_for_year(council, year)
+        if year_population:
+            context['financial']['population'] = str(year_population)
+            variables['population'] = year_population
+            # Also set in characteristic context for compatibility
+            context['characteristic']['population'] = str(year_population)
     else:
         context['financial'] = {}
+        # When no year is specified, use latest_population
+        if council.latest_population:
+            context['characteristic']['population'] = str(council.latest_population)
+            variables['population'] = council.latest_population
     
     # 4. Calculate and add all calculated fields with dependency resolution
     calculated_fields = DataField.objects.filter(category='calculated')
