@@ -1,5 +1,5 @@
 import React, { useState, useCallback } from 'react';
-import FieldEditor from './FieldEditor';
+import SimpleFieldEditor from './SimpleFieldEditor';
 
 /**
  * Manual data entry component for financial data
@@ -110,7 +110,7 @@ const ManualDataEntry = ({
         <div className="space-y-4">
           {group.fields.map(field => (
             <div key={field.slug} className="bg-gray-50 rounded-lg p-4">
-              <FieldEditor
+              <SimpleFieldEditor
                 field={field}
                 value={getFieldValue(field.slug)}
                 onSave={(value) => handleSave(field.slug, value)}

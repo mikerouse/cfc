@@ -1,5 +1,5 @@
 import React, { useState, useCallback } from 'react';
-import FieldEditor from './FieldEditor';
+import SimpleFieldEditor from './SimpleFieldEditor';
 
 /**
  * Simple form for editing council characteristics (non-temporal data)
@@ -20,37 +20,37 @@ const CharacteristicsEditor = ({
   const [successMessage, setSuccessMessage] = useState('');
 
   // Group fields by category for better organization
+  // Note: Working with actual available fields from backend
   const fieldGroups = {
     basic: {
       title: 'Basic Information',
       description: 'Core council details',
       fields: availableFields.filter(field => 
-        ['name', 'council-type', 'nation', 'population'].includes(field.slug)
+        ['population', 'households'].includes(field.slug)
       )
     },
-    contact: {
-      title: 'Contact Information',
-      description: 'How to reach the council',
+    location: {
+      title: 'Location & Contact',
+      description: 'Physical location information',
       fields: availableFields.filter(field => 
-        ['website', 'contact-url', 'email'].includes(field.slug)
-      )
-    },
-    leadership: {
-      title: 'Leadership',
-      description: 'Key people and political control',
-      fields: availableFields.filter(field => 
-        ['chief-executive', 'leader', 'political-control'].includes(field.slug)
+        ['council_hq_post_code'].includes(field.slug)
       )
     },
     other: {
-      title: 'Other Information',
-      description: 'Additional council details',
+      title: 'Other Available Fields',
+      description: 'Additional characteristic data',
       fields: availableFields.filter(field => 
-        !['name', 'council-type', 'nation', 'population', 'website', 'contact-url', 
-          'email', 'chief-executive', 'leader', 'political-control'].includes(field.slug)
+        !['population', 'households', 'council_hq_post_code'].includes(field.slug)
       )
     }
   };
+
+  // Remove empty groups
+  Object.keys(fieldGroups).forEach(key => {
+    if (fieldGroups[key].fields.length === 0) {
+      delete fieldGroups[key];
+    }
+  });
 
   const handleSave = useCallback(async (fieldSlug, value) => {
     setSaving(true);
@@ -101,7 +101,7 @@ const CharacteristicsEditor = ({
         <div className="space-y-4">
           {group.fields.map(field => (
             <div key={field.slug} className="bg-gray-50 rounded-lg p-4">
-              <FieldEditor
+              <SimpleFieldEditor
                 field={field}
                 value={getFieldValue(field.slug)}
                 onSave={(value) => handleSave(field.slug, value)}
@@ -174,8 +174,26 @@ const CharacteristicsEditor = ({
 
         {/* Field Groups */}
         <div id="characteristics-field-groups">
-          {Object.entries(fieldGroups).map(([groupKey, group]) => 
-            renderFieldGroup(group, groupKey)
+          {Object.keys(fieldGroups).length > 0 ? (
+            Object.entries(fieldGroups).map(([groupKey, group]) => 
+              renderFieldGroup(group, groupKey)
+            )
+          ) : (
+            <div className="text-center py-8 bg-gray-50 rounded-lg">
+              <div className="text-gray-500">
+                <svg className="w-12 h-12 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                </svg>
+                <h3 className="text-lg font-medium mb-2">Limited Characteristic Fields Available</h3>
+                <p className="text-sm mb-4">
+                  Currently, only basic demographic data can be edited here. 
+                  More council information fields will be added in future updates.
+                </p>
+                <p className="text-xs text-gray-400">
+                  Available fields: Population, Households, and HQ Postcode
+                </p>
+              </div>
+            </div>
           )}
         </div>
 
