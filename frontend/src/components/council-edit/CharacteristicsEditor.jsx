@@ -110,6 +110,7 @@ const CharacteristicsEditor = ({
                 disabled={saving}
                 showHelp={true}
                 showPopulationContext={field.slug === 'population'}
+                allFieldValues={characteristics}
               />
             </div>
           ))}

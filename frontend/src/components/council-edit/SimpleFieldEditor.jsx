@@ -19,47 +19,131 @@ const SimpleFieldEditor = ({
   showHelp = true,
   showPopulationContext = false,
   yearContext = null,
+  allFieldValues = {}, // For cross-field validation
   className = ""
 }) => {
   const [currentValue, setCurrentValue] = useState(value || '');
   const [saving, setSaving] = useState(false);
   const [validationMessage, setValidationMessage] = useState('');
   const [saveTimeout, setSaveTimeout] = useState(null);
+  const [lastSavedValue, setLastSavedValue] = useState(value || '');
+  const [showRevertDialog, setShowRevertDialog] = useState(false);
+  const [saveError, setSaveError] = useState(null);
+  const [retryCount, setRetryCount] = useState(0);
 
   // Update current value when prop value changes
   useEffect(() => {
     setCurrentValue(value || '');
+    setLastSavedValue(value || '');
   }, [value]);
 
   /**
-   * Auto-save with debouncing
+   * Server-side validation with debouncing
    */
-  const debouncedSave = useCallback(async (newValue) => {
+  const debouncedValidation = useCallback(async (newValue) => {
+    // Only validate if we have a validation function and the value has changed
+    if (!onValidate || newValue === value || !newValue.trim()) {
+      return;
+    }
+
+    try {
+      const validationResult = await onValidate(field.slug, newValue);
+      if (validationResult) {
+        const serverMessage = validationResult.message || '';
+        const serverType = validationResult.type || 'info';
+        
+        // Combine with client-side validation if both exist
+        const clientValidation = validateMonetaryField(newValue, field.slug);
+        if (clientValidation && clientValidation.type === 'error') {
+          // Client error takes precedence
+          setValidationMessage(clientValidation.message);
+        } else if (serverMessage) {
+          // Use server validation message
+          setValidationMessage(`🌐 ${serverMessage}`);
+        }
+      }
+    } catch (error) {
+      console.warn('Server validation failed:', error);
+      // Continue with client-side validation only
+    }
+  }, [value, onValidate, field.slug]);
+
+  /**
+   * Auto-save with debouncing and error recovery
+   */
+  const debouncedSave = useCallback(async (newValue, isRetry = false) => {
     if (saveTimeout) {
       clearTimeout(saveTimeout);
     }
 
     const timeout = setTimeout(async () => {
-      if (newValue !== value && newValue.trim() !== '') {
+      if (newValue !== lastSavedValue && newValue.trim() !== '') {
         setSaving(true);
         setValidationMessage('');
+        setSaveError(null);
         
         try {
+          // Run server-side validation before save
+          await debouncedValidation(newValue);
+          
           const result = await onSave(newValue);
           if (result?.success) {
             setValidationMessage('✓ Saved automatically');
+            setLastSavedValue(newValue);
+            setRetryCount(0);
             setTimeout(() => setValidationMessage(''), 2000);
+          } else if (result?.error) {
+            throw new Error(result.error);
           }
         } catch (error) {
-          setValidationMessage(error.message || 'Failed to save');
+          console.error('Save error:', error);
+          setSaveError(error.message || 'Failed to save');
+          
+          // Implement retry logic for network errors
+          if (!isRetry && retryCount < 3 && error.message?.includes('network')) {
+            setRetryCount(prev => prev + 1);
+            setValidationMessage(`⚠️ Network error - retrying (${retryCount + 1}/3)...`);
+            setTimeout(() => debouncedSave(newValue, true), 2000);
+          } else {
+            setValidationMessage(
+              error.message?.includes('network') 
+                ? '❌ Network error - please check your connection'
+                : `❌ ${error.message || 'Failed to save - please try again'}`
+            );
+          }
         } finally {
           setSaving(false);
         }
       }
-    }, 1000); // 1 second debounce
+    }, isRetry ? 500 : 1000); // Shorter delay for retries
 
     setSaveTimeout(timeout);
-  }, [saveTimeout, value, onSave]);
+  }, [saveTimeout, lastSavedValue, onSave, debouncedValidation, retryCount]);
+
+  /**
+   * Handle reverting to last saved value
+   */
+  const handleRevert = useCallback(() => {
+    setCurrentValue(lastSavedValue);
+    setValidationMessage('↩ Reverted to last saved value');
+    setSaveError(null);
+    setShowRevertDialog(false);
+    setTimeout(() => setValidationMessage(''), 2000);
+  }, [lastSavedValue]);
+
+  /**
+   * Handle clearing field value with confirmation
+   */
+  const handleClear = useCallback(() => {
+    if (currentValue && currentValue.trim()) {
+      if (window.confirm(`Are you sure you want to clear the ${field.name || field.slug} field?`)) {
+        setCurrentValue('');
+        debouncedSave('');
+        setValidationMessage('🗑 Field cleared');
+        setTimeout(() => setValidationMessage(''), 2000);
+      }
+    }
+  }, [currentValue, field, debouncedSave]);
 
   /**
    * Format currency value for preview
@@ -92,34 +176,240 @@ const SimpleFieldEditor = ({
   }, []);
 
   /**
-   * Handle input change
+   * Cross-field validation for financial consistency
+   */
+  const validateCrossField = useCallback((value, fieldSlug, allFieldValues = {}) => {
+    if (!value || value === '') return null;
+    
+    const numValue = parseFloat(value);
+    if (isNaN(numValue)) return null;
+
+    // Enhanced cross-field validation rules with helpful guidance
+    const crossFieldRules = {
+      'total-expenditure': {
+        'total-income': {
+          check: (expenditure, income) => Math.abs(expenditure - income) / Math.max(expenditure, income) > 0.5,
+          message: 'Large difference between income and expenditure may indicate data entry error',
+          guidance: 'Check: Are both values from the same statement year? Include all income/expenditure categories?'
+        }
+      },
+      'current-liabilities': {
+        'usable-reserves': {
+          check: (liabilities, reserves) => liabilities > reserves * 2,
+          message: 'Current liabilities significantly exceed usable reserves',
+          guidance: 'This ratio suggests potential liquidity concerns. Verify both figures are from the Balance Sheet.'
+        }
+      },
+      'interest-paid': {
+        'long-term-liabilities': {
+          check: (interest, debt) => debt > 0 && (interest / debt) > 0.1,
+          message: 'Interest rate appears unusually high (>10%)',
+          guidance: 'Double-check: Is interest from annual I&E statement? Is debt the total outstanding balance?'
+        }
+      },
+      'interest-payments': {
+        'long-term-liabilities': {
+          check: (interest, debt) => debt > 0 && (interest / debt) > 0.1,
+          message: 'Interest payments seem high relative to debt',
+          guidance: 'Ensure interest is annual amount and debt is total outstanding (not just annual repayment).'
+        }
+      },
+      'business-rates-income': {
+        'total-income': {
+          check: (rates, total) => rates > total * 0.8,
+          message: 'Business rates seem unusually high compared to total income',
+          guidance: 'Check if total income includes all sources (grants, fees, charges, etc.).'
+        }
+      },
+      'council-tax-income': {
+        'total-income': {
+          check: (tax, total) => tax > total * 0.9,
+          message: 'Council tax seems unusually high compared to total income',
+          guidance: 'Verify total income includes government grants and other revenue sources.'
+        }
+      },
+      'long-term-liabilities': {
+        'current-liabilities': {
+          check: (longTerm, current) => current > longTerm * 2,
+          message: 'Current liabilities exceed long-term liabilities significantly',
+          guidance: 'This is unusual but possible. Verify classification of liabilities by maturity date.'
+        }
+      },
+      'usable-reserves': {
+        'unusable-reserves': {
+          check: (usable, unusable) => usable > unusable,
+          message: 'Usable reserves exceed unusable reserves',
+          guidance: 'This is uncommon. Check if reserves are correctly classified (revaluation reserves are unusable).'
+        }
+      }
+    };
+
+    const rules = crossFieldRules[fieldSlug];
+    if (!rules) return null;
+
+    // Check each related field with enhanced guidance
+    for (const [relatedField, rule] of Object.entries(rules)) {
+      const relatedValue = parseFloat(allFieldValues[relatedField]);
+      if (!isNaN(relatedValue) && rule.check(numValue, relatedValue)) {
+        return {
+          type: 'warning',
+          message: `⚖️ ${rule.message}`,
+          guidance: rule.guidance
+        };
+      }
+    }
+
+    return null;
+  }, []);
+
+  /**
+   * Smart validation for monetary fields based on field type and value ranges
+   */
+  const validateMonetaryField = useCallback((value, fieldSlug, allFieldValues = {}) => {
+    if (!value || value === '') return null;
+    
+    const numValue = parseFloat(value);
+    if (isNaN(numValue)) {
+      return { type: 'error', message: '⚠ Please enter a valid number' };
+    }
+
+    // First check cross-field validation
+    const crossFieldValidation = validateCrossField(value, fieldSlug, allFieldValues);
+    if (crossFieldValidation && crossFieldValidation.type === 'warning') {
+      return crossFieldValidation;
+    }
+
+    // Enhanced field ranges with council-size awareness
+    const fieldRanges = {
+      'current-liabilities': { min: 1, max: 5000, typical: [10, 500], unit: 'millions' },
+      'long-term-liabilities': { min: 0, max: 10000, typical: [20, 1000], unit: 'millions' },
+      'total-income': { min: 5, max: 20000, typical: [50, 2000], unit: 'millions' },
+      'total-expenditure': { min: 5, max: 20000, typical: [50, 2000], unit: 'millions' },
+      'business-rates-income': { min: 0.1, max: 5000, typical: [10, 500], unit: 'millions' },
+      'council-tax-income': { min: 1, max: 10000, typical: [20, 800], unit: 'millions' },
+      'interest-paid': { min: 0, max: 500, typical: [1, 50], unit: 'millions' },
+      'interest-payments': { min: 0, max: 500, typical: [1, 50], unit: 'millions' },
+      'usable-reserves': { min: -500, max: 2000, typical: [5, 200], unit: 'millions', canBeNegative: true },
+      'unusable-reserves': { min: -5000, max: 10000, typical: [50, 1000], unit: 'millions', canBeNegative: true },
+      'total-reserves': { min: -1000, max: 12000, typical: [50, 1200], unit: 'millions', canBeNegative: true },
+      'finance-leases-pfi-liabilities': { min: 0, max: 2000, typical: [0, 100], unit: 'millions' },
+      'finance-leases': { min: 0, max: 2000, typical: [0, 100], unit: 'millions' },
+      'current-assets': { min: 1, max: 5000, typical: [20, 500], unit: 'millions' },
+      'capital-expenditure': { min: 0, max: 2000, typical: [5, 200], unit: 'millions' },
+      'pension-liability': { min: 0, max: 10000, typical: [50, 2000], unit: 'millions' },
+      'total-debt': { min: 0, max: 15000, typical: [20, 1500], unit: 'millions' }
+    };
+
+    const range = fieldRanges[fieldSlug];
+    if (!range) return null; // No validation for unknown fields
+
+    // Check for negative values where not allowed
+    if (numValue < 0 && !range.canBeNegative) {
+      return { 
+        type: 'error', 
+        message: `❌ ${field.name} cannot be negative. Use positive values only.`,
+        guidance: 'If the statement shows brackets (negative), enter as positive for liabilities.'
+      };
+    }
+
+    // Check for extremely low values
+    if (numValue < range.min) {
+      return { 
+        type: 'warning', 
+        message: `⚠ This seems quite low for ${field.name}. Are you sure this is in millions?`,
+        guidance: 'Common error: Entering thousands instead of millions. £247,300k should be entered as 247.3'
+      };
+    }
+
+    // Check for extremely high values
+    if (numValue > range.max) {
+      return { 
+        type: 'warning', 
+        message: `⚠ This seems unusually high for ${field.name}. Please double-check the figure.`,
+        guidance: 'Verify: Is this the Group total (not just Entity)? Is it definitely in millions?'
+      };
+    }
+
+    // Check if outside typical range (gentle warning with better guidance)
+    if (numValue < range.typical[0] || numValue > range.typical[1]) {
+      const isLow = numValue < range.typical[0];
+      const suggestion = isLow ? 
+        'This is lower than typical for most councils.' :
+        'This is higher than typical for most councils.';
+      const guidance = isLow ?
+        'Double-check: Are you using Group figures? Is the value in millions (not thousands)?' :
+        'Large councils or those with significant PFI/housing stock may have higher values. Verify the figure.';
+      
+      return { 
+        type: 'info', 
+        message: `ℹ️ ${suggestion}`,
+        guidance: guidance
+      };
+    }
+
+    // Value is in acceptable range
+    return { type: 'success', message: '✓ Value looks reasonable' };
+  }, [field]);
+
+  /**
+   * Handle input change with enhanced validation
    */
   const handleInputChange = useCallback((newValue) => {
     setCurrentValue(newValue);
     setValidationMessage('');
     
-    // Basic client-side validation
     const contentType = field.contentType || field.content_type;
+    
+    // Enhanced validation based on field type
     if (contentType === 'url' && newValue) {
       try {
         new URL(newValue);
-        setValidationMessage('');
+        setValidationMessage('✓ Valid URL format');
       } catch {
         setValidationMessage('⚠ Invalid URL format');
       }
-    }
-    
-    if (contentType === 'integer' && newValue) {
+    } else if (contentType === 'integer' && newValue) {
       if (!/^\d+$/.test(newValue)) {
         setValidationMessage('⚠ Please enter numbers only');
+      } else {
+        setValidationMessage('✓ Valid number');
+        // Trigger server validation for additional checks
+        if (onValidate && !disabled) {
+          setTimeout(() => debouncedValidation(newValue), 500);
+        }
       }
+    } else if (contentType === 'monetary' && newValue) {
+      // Basic monetary validation (avoid circular dependency)
+      const numValue = parseFloat(newValue);
+      if (isNaN(numValue)) {
+        setValidationMessage('⚠ Please enter a valid number');
+      } else if (numValue < 0) {
+        setValidationMessage('⚠ Please enter a positive value');
+      } else {
+        setValidationMessage('✓ Valid monetary amount');
+        // Trigger server validation for additional checks
+        if (onValidate && !disabled) {
+          setTimeout(() => debouncedValidation(newValue), 500);
+        }
+      }
+    } else if (contentType === 'postcode' && newValue) {
+      // UK postcode validation
+      const postcodeRegex = /^[A-Z]{1,2}[0-9][A-Z0-9]?\s?[0-9][A-Z]{2}$/i;
+      if (postcodeRegex.test(newValue)) {
+        setValidationMessage('✓ Valid UK postcode');
+      } else {
+        setValidationMessage('⚠ Please enter a valid UK postcode (e.g., SW1A 1AA)');
+      }
+    } else if (newValue && onValidate && !disabled) {
+      // For other field types, trigger server validation after a delay
+      setTimeout(() => debouncedValidation(newValue), 500);
     }
 
-    // Trigger auto-save
+    // Trigger auto-save with slight delay to avoid excessive calls
     if (!disabled) {
       debouncedSave(newValue);
     }
-  }, [field.contentType, debouncedSave, disabled]);
+  }, [field, debouncedSave, debouncedValidation, onValidate, disabled, allFieldValues]);
 
   /**
    * Get field label with proper formatting
@@ -245,11 +535,13 @@ const SimpleFieldEditor = ({
     const contentType = field.contentType || field.content_type;
     
     const baseClasses = `
-      block w-full border rounded-lg px-3 py-2
-      transition-all duration-200 min-h-[44px] text-base
+      block w-full border border-gray-300 px-3 py-2
+      text-base min-h-[44px] font-normal bg-white
+      focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:outline-none
+      transition-colors duration-200
       ${disabled ? 
-        'border-gray-200 bg-gray-50 text-gray-500 cursor-not-allowed' : 
-        'border-gray-300 bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500'}
+        'border-gray-300 bg-gray-100 text-gray-600 cursor-not-allowed' : 
+        'hover:border-gray-400'}
       ${validationMessage.startsWith('✓') ? '!border-green-500' : 
         validationMessage.startsWith('⚠') ? '!border-yellow-500' : ''}
       ${error ? '!border-red-500' : ''}
@@ -259,6 +551,7 @@ const SimpleFieldEditor = ({
       case 'url':
         return (
           <input
+            id={`field-${field.slug}`}
             type="url"
             value={currentValue}
             onChange={(e) => handleInputChange(e.target.value)}
@@ -273,6 +566,7 @@ const SimpleFieldEditor = ({
       case 'integer':
         return (
           <input
+            id={`field-${field.slug}`}
             type="number"
             value={currentValue}
             onChange={(e) => handleInputChange(e.target.value)}
@@ -289,29 +583,31 @@ const SimpleFieldEditor = ({
       case 'monetary':
         return (
           <div className="relative">
-            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-              <span className="text-gray-500 sm:text-sm">£</span>
-            </div>
+            <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500 pointer-events-none">
+              £
+            </span>
             <input
+              id={`field-${field.slug}`}
               type="number"
               value={currentValue}
               onChange={(e) => handleInputChange(e.target.value)}
-              className={`${baseClasses} pl-7`}
+              className={`${baseClasses} pl-7 pr-20`}
               placeholder="0.00"
               min="0"
               step="0.01"
               disabled={saving || disabled}
               inputMode="decimal"
             />
-            <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
-              <span className="text-gray-400 text-xs">millions</span>
-            </div>
+            <span className="absolute right-3 top-1/2 transform -translate-y-1/2 text-sm text-gray-500 pointer-events-none">
+              millions
+            </span>
           </div>
         );
 
       case 'postcode':
         return (
           <input
+            id={`field-${field.slug}`}
             type="text"
             value={currentValue}
             onChange={(e) => handleInputChange(e.target.value.toUpperCase())}
@@ -328,6 +624,7 @@ const SimpleFieldEditor = ({
         const options = field.choices || [];
         return (
           <select
+            id={`field-${field.slug}`}
             value={currentValue}
             onChange={(e) => handleInputChange(e.target.value)}
             className={baseClasses}
@@ -345,6 +642,7 @@ const SimpleFieldEditor = ({
       default:
         return (
           <input
+            id={`field-${field.slug}`}
             type="text"
             value={currentValue}
             onChange={(e) => handleInputChange(e.target.value)}
@@ -360,25 +658,23 @@ const SimpleFieldEditor = ({
   return (
     <div className={`space-y-2 ${className}`}>
       {/* Field Label */}
-      <label className="block">
-        <span className="text-sm font-medium text-gray-900">
-          {getFieldLabel()}
-          {field.required && <span className="text-red-500 ml-1">*</span>}
-          {saving && <span className="text-xs text-gray-500 ml-2">(saving...)</span>}
-        </span>
-        
-        {/* Field Description */}
-        {showHelp && (
-          <p className="text-xs text-gray-600 mt-1 mb-2">
-            {getFieldDescription()}
-          </p>
-        )}
-        
-        {/* Input */}
-        <div className="mt-1">
-          {renderInput()}
-        </div>
+      <label className="block text-sm font-medium text-gray-900" htmlFor={`field-${field.slug}`}>
+        {getFieldLabel()}
+        {field.required && <span className="text-red-500 ml-1">*</span>}
+        {saving && <span className="text-xs text-gray-500 ml-2">(saving...)</span>}
       </label>
+      
+      {/* Field Description */}
+      {showHelp && (
+        <p className="text-sm text-gray-600">
+          {getFieldDescription()}
+        </p>
+      )}
+      
+      {/* Input */}
+      <div>
+        {renderInput()}
+      </div>
       
       {/* Currency Preview for Monetary Fields */}
       {(field.contentType === 'monetary' || field.content_type === 'monetary') && currentValue && (() => {
@@ -400,23 +696,61 @@ const SimpleFieldEditor = ({
       
       {/* Status Messages */}
       {validationMessage && (
-        <p className={`text-xs ${
+        <div className={`text-xs space-y-1 ${
           validationMessage.startsWith('✓') ? 'text-green-600' : 
-          validationMessage.startsWith('⚠') ? 'text-yellow-600' : 
+          validationMessage.startsWith('⚠') ? 'text-yellow-600' :
+          validationMessage.startsWith('ℹ️') ? 'text-blue-600' :
+          validationMessage.startsWith('🌐') ? 'text-purple-600' :
+          validationMessage.startsWith('↩') ? 'text-gray-600' :
+          validationMessage.startsWith('🗑') ? 'text-gray-600' :
           'text-red-600'
         }`}>
-          {validationMessage}
-        </p>
+          {validationMessage.split('\n').map((line, idx) => (
+            <p key={idx}>{line}</p>
+          ))}
+        </div>
+      )}
+      
+      {/* Error Recovery Options */}
+      {saveError && (
+        <div className="mt-2 p-2 bg-red-50 border border-red-200 rounded-md">
+          <p className="text-xs text-red-700 mb-2">🚨 Unable to save changes</p>
+          <div className="flex space-x-2">
+            <button
+              onClick={() => debouncedSave(currentValue, true)}
+              className="text-xs px-2 py-1 bg-red-600 text-white rounded hover:bg-red-700 transition-colors"
+              disabled={saving}
+            >
+              Retry Save
+            </button>
+            <button
+              onClick={handleRevert}
+              className="text-xs px-2 py-1 bg-gray-600 text-white rounded hover:bg-gray-700 transition-colors"
+            >
+              Revert Changes
+            </button>
+          </div>
+        </div>
       )}
       
       {/* Error Message */}
       {error && (
-        <p className="text-xs text-red-600 flex items-center">
-          <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
-          </svg>
+        <p className="text-sm text-red-600 mt-1">
           {error}
         </p>
+      )}
+      
+      {/* Clear Field Option (for non-empty fields) */}
+      {currentValue && currentValue.trim() && !disabled && (
+        <div className="mt-2">
+          <button
+            onClick={handleClear}
+            className="text-xs text-gray-500 hover:text-gray-700 underline"
+            type="button"
+          >
+            Clear this field
+          </button>
+        </div>
       )}
       
       {/* Population Context Help */}

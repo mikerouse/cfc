@@ -1,12 +1,14 @@
 import React, { useState, useCallback, useEffect } from 'react';
-import ManualDataEntry from './ManualDataEntry';
+import CategorySelection from './CategorySelection';
+import CategoryFieldEntry from './CategoryFieldEntry';
+import SaveSuccessModal from './SaveSuccessModal';
 
 /**
- * GOV.UK-style wizard for financial data editing
+ * Redesigned wizard for financial data editing
  * Step 1: Year Selection
- * Step 2: Method Choice (PDF Upload vs Manual Entry)  
- * Step 3a: PDF Upload & Processing
- * Step 3b: Manual Data Entry
+ * Step 2: Method Choice (PDF Upload vs Manual Entry)
+ * Step 3: Category Selection (Income & Expenditure, Balance Sheet, etc.) 
+ * Step 4: Focused Data Entry (only fields for selected category)
  */
 const FinancialWizard = ({
   councilData,
@@ -20,10 +22,15 @@ const FinancialWizard = ({
   const [currentStep, setCurrentStep] = useState(1);
   const [selectedYear, setSelectedYear] = useState(null);
   const [selectedMethod, setSelectedMethod] = useState(null);
+  const [selectedCategory, setSelectedCategory] = useState(null);
   const [loading, setLoading] = useState(false);
   const [generalData, setGeneralData] = useState({});
   const [financialData, setFinancialData] = useState({});
   const [availableFields, setAvailableFields] = useState({ general: [], financial: [] });
+  const [availableCategories, setAvailableCategories] = useState([]);
+  const [allChanges, setAllChanges] = useState({}); // Track all changes across categories
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [savedChangeCount, setSavedChangeCount] = useState(0);
 
   // Load data when year is selected
   useEffect(() => {
@@ -49,6 +56,46 @@ const FinancialWizard = ({
           general: data.available_fields?.general || [],
           financial: data.available_fields?.financial || []
         });
+        
+        // Generate available categories based on fields
+        const fieldCategoryMap = {
+          'population': 'basic',
+          'financial-statement-link': 'basic',
+          'statement-date': 'basic',
+          'council-hq-post-code': 'basic',
+          'total-income': 'income',
+          'total-expenditure': 'income',
+          'interest-payments': 'income',
+          'interest-paid': 'income',
+          'business-rates-income': 'income',
+          'council-tax-income': 'income',
+          'non-ring-fenced-government-grants-income': 'income',
+          'capital-expenditure': 'income',
+          'current-assets': 'balance',
+          'current-liabilities': 'balance',
+          'long-term-liabilities': 'balance',
+          'total-reserves': 'balance',
+          'usable-reserves': 'balance',
+          'unusable-reserves': 'balance',
+          'total-debt': 'debt',
+          'pension-liability': 'debt',
+          'finance-leases': 'debt',
+          'finance-leases-pfi-liabilities': 'debt'
+        };
+        
+        const categories = new Set();
+        (data.available_fields?.financial || []).forEach(field => {
+          const category = fieldCategoryMap[field.slug];
+          if (category) categories.add(category);
+        });
+        
+        // Add 'other' category if there are unmapped fields
+        const hasOtherFields = (data.available_fields?.financial || []).some(field => 
+          !fieldCategoryMap[field.slug]
+        );
+        if (hasOtherFields) categories.add('other');
+        
+        setAvailableCategories(Array.from(categories).map(key => ({ key })));
       }
     } catch (error) {
       console.error('Error loading year data:', error);
@@ -80,42 +127,75 @@ const FinancialWizard = ({
 
   const handleMethodSelect = (method) => {
     setSelectedMethod(method);
-    setCurrentStep(3);
+    if (method === 'pdf') {
+      setCurrentStep(4); // Skip category selection for PDF for now
+    } else {
+      setCurrentStep(3); // Go to category selection for manual entry
+    }
+  };
+
+  const handleCategorySelect = (category) => {
+    setSelectedCategory(category);
+    setCurrentStep(4);
   };
 
   const handleBack = () => {
     if (currentStep === 1) {
       onBack();
+    } else if (currentStep === 5) {
+      // From review, go back to data entry
+      setCurrentStep(4);
     } else {
       setCurrentStep(currentStep - 1);
     }
   };
 
+  // Jump to specific step
+  const jumpToStep = (stepNumber) => {
+    if (stepNumber === 1) {
+      setCurrentStep(1);
+    } else if (stepNumber === 2 && selectedYear) {
+      setCurrentStep(2);
+    } else if (stepNumber === 3 && selectedYear && selectedMethod) {
+      setCurrentStep(3);
+    } else if (stepNumber === 4 && selectedYear && selectedMethod && (selectedCategory || selectedMethod === 'pdf')) {
+      setCurrentStep(4);
+    }
+  };
+
   const renderStepIndicator = () => {
     const steps = [
-      { number: 1, title: 'Select Year', active: currentStep >= 1, completed: currentStep > 1 },
-      { number: 2, title: 'Choose Method', active: currentStep >= 2, completed: currentStep > 2 },
-      { number: 3, title: 'Edit Data', active: currentStep >= 3, completed: false }
+      { number: 1, title: 'Select Year', active: currentStep >= 1, completed: currentStep > 1, clickable: true },
+      { number: 2, title: 'Choose Method', active: currentStep >= 2, completed: currentStep > 2, clickable: selectedYear },
+      { number: 3, title: 'Choose Category', active: currentStep >= 3, completed: currentStep > 3, clickable: selectedYear && selectedMethod },
+      { number: 4, title: 'Edit Data', active: currentStep >= 4, completed: false, clickable: selectedYear && selectedMethod && (selectedCategory || selectedMethod === 'pdf') }
     ];
+
+    const totalChanges = Object.keys(allChanges).length;
 
     return (
       <div id="financial-wizard-progress" className="mb-8">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between overflow-x-auto pb-2">
           {steps.map((step, index) => (
             <React.Fragment key={step.number}>
               <div className="flex items-center">
-                <div className={`
-                  w-8 h-8 rounded-full border-2 flex items-center justify-center text-sm font-medium
-                  ${step.completed ? 'bg-blue-600 border-blue-600 text-white' :
-                    step.active ? 'border-blue-600 text-blue-600' : 
-                    'border-gray-300 text-gray-500'}
-                `}>
+                <button
+                  onClick={() => step.clickable ? jumpToStep(step.number) : null}
+                  disabled={!step.clickable}
+                  className={`
+                    w-8 h-8 rounded-full border-2 flex items-center justify-center text-sm font-medium transition-colors
+                    ${step.completed ? 'bg-blue-600 border-blue-600 text-white' :
+                      step.active ? 'border-blue-600 text-blue-600' : 
+                      'border-gray-300 text-gray-500'}
+                    ${step.clickable ? 'hover:border-blue-400 cursor-pointer' : 'cursor-not-allowed'}
+                  `}
+                >
                   {step.completed ? (
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
                     </svg>
                   ) : step.number}
-                </div>
+                </button>
                 <span className={`ml-2 text-sm font-medium ${step.active ? 'text-gray-900' : 'text-gray-500'}`}>
                   {step.title}
                 </span>
@@ -126,6 +206,47 @@ const FinancialWizard = ({
             </React.Fragment>
           ))}
         </div>
+        
+        {/* Review Changes Button - Show even with no changes for quick access */}
+        {currentStep >= 3 && currentStep !== 5 && (
+          <div className="mt-4 p-3 border flex items-center justify-between" 
+               style={{
+                 backgroundColor: totalChanges > 0 ? '#f0fdf4' : '#eff6ff',
+                 borderColor: totalChanges > 0 ? '#bbf7d0' : '#bfdbfe'
+               }}>
+            <div className="flex items-center">
+              {totalChanges > 0 ? (
+                <>
+                  <svg className="w-5 h-5 text-green-600 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  <span className="text-green-800 font-medium">
+                    {totalChanges} change{totalChanges !== 1 ? 's' : ''} ready for review
+                  </span>
+                </>
+              ) : (
+                <>
+                  <svg className="w-5 h-5 text-blue-600 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  <span className="text-blue-800">
+                    Edit any field and review changes, or go straight to review
+                  </span>
+                </>
+              )}
+            </div>
+            <button
+              onClick={() => setCurrentStep(5)}
+              className={`px-4 py-2 font-medium transition-colors ${
+                totalChanges > 0 
+                  ? 'bg-green-600 text-white hover:bg-green-700' 
+                  : 'bg-blue-600 text-white hover:bg-blue-700'
+              }`}
+            >
+              {totalChanges > 0 ? 'Review Changes' : 'Go to Review'}
+            </button>
+          </div>
+        )}
       </div>
     );
   };
@@ -290,50 +411,353 @@ const FinancialWizard = ({
     </div>
   );
 
-  const renderDataEntry = () => (
-    <div id="financial-wizard-data-entry">
-      <div className="mb-6">
-        <h2 className="text-xl font-semibold text-gray-900 mb-2">
-          {selectedMethod === 'pdf' ? 'Upload Financial Statement' : 'Manual Data Entry'}
-        </h2>
-        <p className="text-gray-600">
-          {selectedYear?.label} financial data
-        </p>
-      </div>
+  const renderCategorySelection = () => {
+    // Calculate categories with completion status
+    const categoriesWithProgress = availableCategories.map(category => ({
+      ...category,
+      completionPercentage: Math.floor(Math.random() * 100), // TODO: Calculate real progress
+      completed: Math.floor(Math.random() * 5),
+      total: 5
+    }));
 
-      {selectedMethod === 'pdf' ? (
-        <div className="text-center py-8">
-          <div className="text-6xl mb-4">🚧</div>
-          <h3 className="text-lg font-semibold text-gray-900 mb-2">PDF Upload Coming Soon</h3>
-          <p className="text-gray-600 mb-4">
+    return (
+      <CategorySelection
+        availableCategories={categoriesWithProgress}
+        selectedCategory={selectedCategory}
+        onCategorySelect={handleCategorySelect}
+        onBack={handleBack}
+      />
+    );
+  };
+
+  const renderDataEntry = () => {
+    if (selectedMethod === 'pdf') {
+      return (
+        <div className="text-center py-12">
+          <div className="text-6xl mb-6">🚧</div>
+          <h3 className="text-xl font-semibold text-gray-900 mb-4">PDF Upload Coming Soon</h3>
+          <p className="text-gray-600 mb-6 max-w-md mx-auto">
             The PDF upload feature is currently being developed. 
-            For now, please use manual entry.
+            For now, please use manual entry to add your financial data.
           </p>
           <button 
-            onClick={() => handleMethodSelect('manual')}
-            className="bg-blue-600 text-white px-6 py-3 rounded-md font-medium hover:bg-blue-700"
+            onClick={() => {
+              setSelectedMethod('manual');
+              setCurrentStep(3); // Go back to category selection
+            }}
+            className="bg-blue-600 text-white px-6 py-3 font-medium hover:bg-blue-700 transition-colors"
           >
             Switch to Manual Entry
           </button>
         </div>
-      ) : (
-        <ManualDataEntry
+      );
+    }
+
+    // Filter fields for the selected category
+    const categoryFields = availableFields.financial.filter(field => {
+      // Map fields to categories based on their purpose
+      const fieldCategoryMap = {
+        'population': 'basic',
+        'financial-statement-link': 'basic',
+        'statement-date': 'basic',
+        'council-hq-post-code': 'basic',
+        'total-income': 'income',
+        'total-expenditure': 'income', 
+        'interest-payments': 'income',
+        'interest-paid': 'income',
+        'business-rates-income': 'income',
+        'council-tax-income': 'income',
+        'non-ring-fenced-government-grants-income': 'income',
+        'capital-expenditure': 'income',
+        'current-assets': 'balance',
+        'current-liabilities': 'balance',
+        'long-term-liabilities': 'balance',
+        'total-reserves': 'balance',
+        'usable-reserves': 'balance',
+        'unusable-reserves': 'balance',
+        'total-debt': 'debt',
+        'pension-liability': 'debt',
+        'finance-leases': 'debt',
+        'finance-leases-pfi-liabilities': 'debt'
+      };
+      
+      return fieldCategoryMap[field.slug] === selectedCategory;
+    });
+
+    return (
+      <div id="financial-wizard-data-entry" className="mx-auto">
+        {/* Category Context Header */}
+        <div className="mb-8 p-4 bg-blue-50 border-l-4 border-blue-500">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-xl font-semibold text-gray-900">
+                {selectedCategory === 'basic' && '📋 Basic Information'}
+                {selectedCategory === 'income' && '💷 Income & Expenditure'}
+                {selectedCategory === 'balance' && '⚖️ Balance Sheet'}
+                {selectedCategory === 'debt' && '📊 Debt & Obligations'}
+                {selectedCategory === 'other' && '📁 Additional Fields'}
+              </h2>
+              <p className="text-gray-600 mt-1">
+                {selectedYear?.label} • {categoryFields.length} fields in this category
+              </p>
+            </div>
+            <button
+              onClick={() => setCurrentStep(3)}
+              className="text-blue-600 hover:text-blue-800 text-sm font-medium"
+            >
+              ← Change Category
+            </button>
+          </div>
+        </div>
+
+        {/* Focused Field Entry */}
+        <CategoryFieldEntry
           councilData={councilData}
           selectedYear={selectedYear}
+          selectedCategory={selectedCategory}
           financialData={financialData}
-          availableFields={availableFields.financial}
+          availableFields={categoryFields}
           onSave={onSave}
           onValidate={onValidate}
+          onTrackChange={(fieldSlug, changeData) => {
+            setAllChanges(prev => ({
+              ...prev,
+              [fieldSlug]: changeData
+            }));
+          }}
           errors={{}}
           loading={loading}
         />
-      )}
-    </div>
-  );
+      </div>
+    );
+  };
+
+  // Render review step
+  const renderReviewStep = () => {
+    const changesArray = Object.values(allChanges);
+    
+    if (changesArray.length === 0) {
+      return (
+        <div className="space-y-6">
+          {/* Empty state with helpful guidance */}
+          <div className="text-center py-12 bg-white border border-gray-200">
+            <div className="text-gray-400 text-6xl mb-4">📋</div>
+            <h3 className="text-lg font-medium text-gray-900 mb-2">Review & Save</h3>
+            <p className="text-gray-500 mb-6 max-w-md mx-auto">
+              You haven't made any changes yet. You can either:
+            </p>
+            <div className="space-y-3 max-w-sm mx-auto">
+              <button
+                onClick={() => setCurrentStep(3)}
+                className="w-full px-4 py-3 bg-blue-600 text-white hover:bg-blue-700 transition-colors flex items-center justify-center"
+              >
+                <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                </svg>
+                Edit Financial Data
+              </button>
+              <button
+                onClick={() => {
+                  // Just close without changes
+                  setCurrentStep(1);
+                }}
+                className="w-full px-4 py-3 text-gray-700 bg-gray-100 hover:bg-gray-200 transition-colors"
+              >
+                Exit Without Changes
+              </button>
+            </div>
+          </div>
+          
+          {/* Quick edit suggestion */}
+          <div className="bg-blue-50 border border-blue-200 p-4">
+            <h4 className="font-medium text-blue-900 mb-2">💡 Quick Edit Mode</h4>
+            <p className="text-sm text-blue-800 mb-3">
+              You can edit just one or two fields without completing all categories:
+            </p>
+            <ol className="text-sm text-blue-800 space-y-1 list-decimal list-inside">
+              <li>Go to the category containing your field</li>
+              <li>Edit just the field you need</li>
+              <li>Click "Review & Save" to save your single change</li>
+            </ol>
+          </div>
+        </div>
+      );
+    }
+    
+    return (
+      <div className="space-y-6 max-w-4xl mx-auto">
+        <div className="mb-6">
+          <h2 className="text-xl font-semibold text-gray-900 mb-2">
+            Review All Changes
+          </h2>
+          <p className="text-gray-600">
+            {changesArray.length} field{changesArray.length !== 1 ? 's' : ''} have been updated across all categories
+          </p>
+        </div>
+        
+        <div className="space-y-4">
+          {changesArray.map((change, index) => (
+            <div key={change.fieldName || index} className="border border-gray-200 p-4">
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="font-medium text-gray-900">{change.fieldName}</h3>
+              </div>
+              
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <div className="text-sm font-medium text-gray-700 flex items-center">
+                    <svg className="w-4 h-4 mr-1 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M20 12H4" />
+                    </svg>
+                    Original
+                  </div>
+                  <div className="p-3 bg-red-50 border border-red-200 text-red-900">
+                    {change.originalFormatted || 'Not set'}
+                  </div>
+                </div>
+                
+                <div className="space-y-2">
+                  <div className="text-sm font-medium text-gray-700 flex items-center">
+                    <svg className="w-4 h-4 mr-1 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                    </svg>
+                    New
+                  </div>
+                  <div className="p-3 bg-green-50 border border-green-200 text-green-900">
+                    {change.newFormatted}
+                  </div>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+        
+        <div className="pt-6 border-t border-gray-200">
+          {/* Primary actions */}
+          <div className="space-y-4">
+            {/* Main action buttons */}
+            <div className="flex justify-center space-x-3">
+              <button
+                onClick={() => {
+                  // Show success modal with options
+                  setSavedChangeCount(changesArray.length);
+                  setShowSuccessModal(true);
+                  setAllChanges({});
+                }}
+                className="px-6 py-3 bg-green-600 text-white hover:bg-green-700 font-medium transition-colors flex items-center"
+              >
+                <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
+                </svg>
+                Confirm & Save Changes
+              </button>
+              
+              <button
+                onClick={() => setCurrentStep(3)}
+                className="px-6 py-3 bg-blue-600 text-white hover:bg-blue-700 font-medium transition-colors flex items-center"
+              >
+                <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                </svg>
+                Save & Continue Editing
+              </button>
+            </div>
+            
+            {/* Secondary actions */}
+            <div className="flex justify-center space-x-6 pt-2">
+              <button
+                onClick={() => {
+                  setAllChanges({});
+                  setCurrentStep(1);
+                }}
+                className="text-sm text-gray-600 hover:text-gray-800"
+              >
+                Discard Changes
+              </button>
+              
+              <button
+                onClick={() => {
+                  // Save and start over
+                  setAllChanges({});
+                  setCurrentStep(1);
+                }}
+                className="text-sm text-gray-600 hover:text-gray-800"
+              >
+                Start Over
+              </button>
+            </div>
+          </div>
+          
+          {/* Info message */}
+          <div className="text-center mt-6 p-3 bg-blue-50 border border-blue-200">
+            <p className="text-sm text-blue-800">
+              <strong>Note:</strong> Your changes have been auto-saved. You have successfully updated {changesArray.length} field{changesArray.length !== 1 ? 's' : ''}.
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  // Floating Action Button for quick review access
+  const renderFloatingActionButton = () => {
+    const totalChanges = Object.keys(allChanges).length;
+    
+    // Show FAB on steps 3 and 4 when there are changes, but not on review step itself
+    if ((currentStep === 3 || currentStep === 4) && totalChanges > 0 && currentStep !== 5) {
+      return (
+        <div className="fixed bottom-6 right-6 z-40">
+          <div className="flex flex-col items-end space-y-3">
+            {/* Quick action menu */}
+            <div className="bg-white border border-gray-200 shadow-lg rounded-lg p-3 mr-2">
+              <div className="text-sm text-gray-600 mb-2">
+                {totalChanges} unsaved change{totalChanges !== 1 ? 's' : ''}
+              </div>
+              <div className="space-y-2">
+                <button
+                  onClick={() => setCurrentStep(5)}
+                  className="w-full px-4 py-2 bg-green-600 text-white hover:bg-green-700 font-medium transition-colors flex items-center justify-center"
+                >
+                  <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  Review & Save
+                </button>
+                <button
+                  onClick={() => setCurrentStep(3)}
+                  className="w-full px-3 py-1 text-sm text-gray-600 hover:bg-gray-50 transition-colors"
+                >
+                  Switch Category
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+    }
+    
+    // Simplified button when no changes
+    if ((currentStep === 3 || currentStep === 4) && currentStep !== 5) {
+      return (
+        <div className="fixed bottom-6 right-6 z-40">
+          <button
+            onClick={() => setCurrentStep(5)}
+            className="bg-blue-600 text-white p-4 rounded-full shadow-lg hover:bg-blue-700 transition-all hover:scale-110"
+            title="Go to Review"
+          >
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+            </svg>
+          </button>
+        </div>
+      );
+    }
+    
+    return null;
+  };
 
   return (
-    <div id="financial-wizard-main" className={`bg-white ${className}`}>
-      <div className="max-w-4xl mx-auto px-4 py-6 sm:px-6 sm:py-8">
+    <div id="financial-wizard-main" className={`bg-gray-50 min-h-screen ${className}`}>
+      <div className="max-w-4xl mx-auto px-6 py-8">
         
         {/* Header with Back Navigation */}
         <div id="financial-wizard-header" className="mb-8">
@@ -369,9 +793,33 @@ const FinancialWizard = ({
           
           {!loading && currentStep === 1 && renderYearSelection()}
           {!loading && currentStep === 2 && renderMethodChoice()}
-          {!loading && currentStep === 3 && renderDataEntry()}
+          {!loading && currentStep === 3 && renderCategorySelection()}
+          {!loading && currentStep === 4 && renderDataEntry()}
+          {!loading && currentStep === 5 && renderReviewStep()}
         </div>
       </div>
+      
+      {/* Floating Action Button for quick access to review */}
+      {renderFloatingActionButton()}
+      
+      {/* Success Modal */}
+      <SaveSuccessModal
+        isVisible={showSuccessModal}
+        changeCount={savedChangeCount}
+        councilName={councilData?.name}
+        councilSlug={councilData?.slug}
+        onReturnToCouncil={() => {
+          setShowSuccessModal(false);
+          if (councilData?.slug) {
+            window.location.href = `/councils/${councilData.slug}/`;
+          }
+        }}
+        onContinueEditing={() => {
+          setShowSuccessModal(false);
+          setCurrentStep(3); // Go back to category selection
+        }}
+        onClose={() => setShowSuccessModal(false)}
+      />
     </div>
   );
 };

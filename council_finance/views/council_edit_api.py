@@ -1074,3 +1074,173 @@ def council_edit_context_api(request, council_slug):
             'success': False,
             'error': 'Failed to load edit context'
         }, status=500)
+
+
+@login_required
+@require_http_methods(['GET'])
+def council_completion_percentage_api(request, council_slug, year_id=None):
+    """
+    Calculate accurate completion percentages for council data using database queries.
+    
+    Returns:
+    {
+        "success": true,
+        "completion": {
+            "overall": {
+                "total_fields": 45,
+                "complete": 23, 
+                "percentage": 51
+            },
+            "by_category": {
+                "characteristics": {"total": 8, "complete": 6, "percentage": 75},
+                "financial": {"total": 32, "complete": 15, "percentage": 47},
+                "general": {"total": 5, "complete": 2, "percentage": 40}
+            }
+        }
+    }
+    """
+    try:
+        council = get_object_or_404(Council, slug=council_slug)
+        
+        # If year_id provided, get the specific year; otherwise get current year
+        if year_id:
+            year = get_object_or_404(FinancialYear, id=year_id)
+        else:
+            # Get current financial year (or most recent if no current year)
+            year = FinancialYear.objects.filter(is_current=True).first()
+            if not year:
+                year = FinancialYear.objects.order_by('-start_date').first()
+                
+        if not year:
+            return JsonResponse({
+                'success': False,
+                'error': 'No financial years available'
+            }, status=400)
+        
+        # Debug logging to identify None values
+        if council is None:
+            logger.error(f"Council is None for slug: {council_slug}")
+            raise ValueError("Council is None")
+        if year is None:
+            logger.error(f"Year is None for year_id: {year_id}")
+            raise ValueError("Year is None")
+        
+        completion_data = {}
+        
+        # Calculate characteristics completion (non-temporal data)
+        characteristics_fields = DataField.objects.filter(category='characteristics')
+        characteristics_with_data = CouncilCharacteristic.objects.filter(
+            council=council,
+            field__in=characteristics_fields
+        ).values_list('field_id', flat=True)
+        
+        characteristics_stats = {
+            'total': characteristics_fields.count(),
+            'complete': len(set(characteristics_with_data)),
+        }
+        characteristics_stats['percentage'] = (
+            round((characteristics_stats['complete'] / characteristics_stats['total']) * 100)
+            if characteristics_stats['total'] > 0 else 0
+        )
+        
+        # Calculate financial data completion (temporal data) - FOCUS ON CURRENT YEAR ONLY
+        financial_fields = DataField.objects.filter(
+            category__in=['balance_sheet', 'income', 'spending']  # Exclude calculated fields
+        )
+        financial_with_data = FinancialFigure.objects.filter(
+            council=council,
+            year=year,
+            field__in=financial_fields
+        ).values_list('field_id', flat=True)
+        
+        financial_stats = {
+            'total': financial_fields.count(),
+            'complete': len(set(financial_with_data)),
+        }
+        financial_stats['percentage'] = (
+            round((financial_stats['complete'] / financial_stats['total']) * 100)
+            if financial_stats['total'] > 0 else 0
+        )
+        
+        # Focus on current year financial data only
+        focus_year = year
+        focus_year_label = f"{financial_stats['percentage']}% complete for {year.label}"
+        
+        # Calculate general data completion (temporal data)
+        general_fields = DataField.objects.filter(category='general')
+        general_with_data = FinancialFigure.objects.filter(
+            council=council,
+            year=year,
+            field__in=general_fields
+        ).values_list('field_id', flat=True)
+        
+        general_stats = {
+            'total': general_fields.count(),
+            'complete': len(set(general_with_data)),
+        }
+        general_stats['percentage'] = (
+            round((general_stats['complete'] / general_stats['total']) * 100)
+            if general_stats['total'] > 0 else 0
+        )
+        
+        # Calculate overall completion
+        total_fields = characteristics_stats['total'] + financial_stats['total'] + general_stats['total']
+        total_complete = characteristics_stats['complete'] + financial_stats['complete'] + general_stats['complete']
+        overall_percentage = round((total_complete / total_fields) * 100) if total_fields > 0 else 0
+        
+        overall_stats = {
+            'total_fields': total_fields,
+            'complete': total_complete,
+            'percentage': overall_percentage
+        }
+        
+        completion_data = {
+            'overall': {
+                'total_fields': financial_stats['total'],  # Focus on financial fields only
+                'complete': financial_stats['complete'],
+                'percentage': financial_stats['percentage']
+            },
+            'by_category': {
+                'characteristics': characteristics_stats,
+                'financial': financial_stats,
+                'general': general_stats
+            },
+            'year': {
+                'id': focus_year.id,  # Use focus year (current or previous)
+                'label': focus_year.label,
+                'display': getattr(focus_year, 'display', None) or focus_year.label.replace('/', '-')
+            },
+            'focus': {
+                'year_label': focus_year_label,  # e.g., "100% complete for 2024/25" or "2024/25 complete, 20% complete for 2023/24"
+                'is_current_year': focus_year.id == year.id,
+                'financial_progress': financial_stats['percentage']
+            }
+        }
+        
+        # Log completion calculation for debugging
+        log_council_edit_event(
+            request, 'info', 'performance',
+            'Completion Percentage Calculated',
+            f'Calculated completion for {council.name}: {focus_year_label}',
+            details={
+                'council_slug': council_slug,
+                'focus_year_label': focus_year_label,
+                'focus_year_id': focus_year.id,
+                'requested_year': year.label,
+                'financial_percentage': financial_stats['percentage'],
+                'financial_fields': f"{financial_stats['complete']}/{financial_stats['total']}",
+                'is_current_year_focus': focus_year.id == year.id
+            }
+        )
+        
+        return JsonResponse({
+            'success': True,
+            'completion': completion_data
+        })
+        
+    except Exception as e:
+        logger.error(f"Error calculating completion percentage for {council_slug}: {e}")
+        return JsonResponse({
+            'success': False,
+            'error': 'Failed to calculate completion percentage'
+        }, status=500)

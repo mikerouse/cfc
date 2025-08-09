@@ -42,6 +42,50 @@ const CouncilEditApp = ({ councilData, initialYears, csrfToken }) => {
   
   // Available years for temporal data
   const [years, setYears] = useState(initialYears || []);
+  
+  // Progress tracking with AJAX API
+  const [progressData, setProgressData] = useState(null);
+
+  /**
+   * Update completion progress using the new AJAX API
+   */
+  const updateCompletionProgress = useCallback(async () => {
+    if (!councilData?.slug) return;
+    
+    try {
+      // Build API URL - include year if available
+      let apiUrl = `/api/council/${councilData.slug}/completion/`;
+      if (selectedYear?.id) {
+        apiUrl += `${selectedYear.id}/`;
+      }
+      
+      const response = await fetch(apiUrl, {
+        headers: { 
+          'X-CSRFToken': csrfToken,
+          'X-Requested-With': 'XMLHttpRequest'
+        }
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success) {
+          setProgressData(data.completion);
+          
+          // Update legacy progress state for compatibility (now focused on financial data)
+          setProgress({
+            characteristics: data.completion.by_category.characteristics.complete,
+            financial: data.completion.by_category.financial.complete,
+            total: data.completion.overall.complete, // Now focuses on financial fields only
+            points: Math.round(data.completion.overall.complete * 2.5) // Estimate points
+          });
+          
+          console.log(`📊 Progress updated via API: ${data.completion.focus.year_label} (Financial: ${data.completion.focus.financial_progress}%)`);
+        }
+      }
+    } catch (error) {
+      console.error('Failed to update completion progress:', error);
+    }
+  }, [councilData?.slug, selectedYear?.id, csrfToken]);
 
   /**
    * Load initial data for the council
@@ -59,7 +103,11 @@ const CouncilEditApp = ({ councilData, initialYears, csrfToken }) => {
     if (selectedYear && currentView === 'financial') {
       loadFinancialData(selectedYear);
     }
-  }, [selectedYear, currentView]);
+    // Update progress when year changes
+    if (selectedYear) {
+      updateCompletionProgress();
+    }
+  }, [selectedYear, currentView, updateCompletionProgress]);
 
   /**
    * Fetch all council data from the backend
@@ -80,14 +128,8 @@ const CouncilEditApp = ({ councilData, initialYears, csrfToken }) => {
           characteristics: charData.available_fields || []
         }));
         
-        // Update progress for characteristics
-        const completedCount = Object.keys(charData.characteristics || {}).length;
-        const totalCount = (charData.available_fields || []).length;
-        setProgress(prev => ({
-          ...prev,
-          characteristics: completedCount,
-          total: prev.total + totalCount
-        }));
+        // Calculate progress using our new API
+        await updateCompletionProgress();
       }
 
       // Load available years
@@ -198,8 +240,8 @@ const CouncilEditApp = ({ councilData, initialYears, csrfToken }) => {
           return newErrors;
         });
         
-        // Update progress
-        updateProgress();
+        // Update progress using our new API
+        await updateCompletionProgress();
         
         // Show success feedback
         showSuccessMessage(`${result.field_name || 'Field'} updated successfully! +${result.points || 3} points`);
@@ -270,19 +312,12 @@ const CouncilEditApp = ({ councilData, initialYears, csrfToken }) => {
   /**
    * Update progress tracking (simplified for new system)
    */
+  /**
+   * Legacy updateProgress function - now delegates to API-based progress calculation
+   */
   const updateProgress = useCallback(() => {
-    const charCount = Object.keys(characteristics).length;
-    const financialCount = Object.keys(financialData).length;
-    
-    const totalCompleted = charCount + financialCount;
-    const pointsEarned = totalCompleted * 3; // 3 points per field
-    
-    setProgress(prev => ({
-      ...prev,
-      total: totalCompleted,
-      points: pointsEarned
-    }));
-  }, [characteristics, financialData]);
+    updateCompletionProgress();
+  }, [updateCompletionProgress]);
 
   /**
    * Show success message with auto-hide
@@ -334,7 +369,7 @@ const CouncilEditApp = ({ councilData, initialYears, csrfToken }) => {
           councilData={councilData}
           years={years}
           onBack={handleBackToLanding}
-          onSave={(fieldSlug, value) => saveField(fieldSlug, value, selectedYear?.id)}
+          onSave={(fieldSlug, value, yearId) => saveField(fieldSlug, value, yearId)}
           onValidate={validateField}
           csrfToken={csrfToken}
           className="min-h-screen"
