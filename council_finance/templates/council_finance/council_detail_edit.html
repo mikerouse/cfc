@@ -220,10 +220,10 @@
   </div>
 
   <!-- Include React components -->
-  {% load vite %}
+  {% load static %}
   {% now "U" as cache_bust %}
-  <script type="module" src="{% vite_js %}?v={{ cache_bust }}"></script>
-  <link rel="stylesheet" href="{% vite_css %}?v={{ cache_bust }}">
+  <script type="module" src="{% static 'frontend/main-Biw1EjPN.js' %}?v={{ cache_bust }}"></script>
+  <link rel="stylesheet" href="{% static 'frontend/main-CWCzAves.css' %}?v={{ cache_bust }}">
 
   <!-- Back Link -->
   <div class="mt-8 pt-6 border-t border-gray-200">

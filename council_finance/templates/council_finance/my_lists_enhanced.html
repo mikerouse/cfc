@@ -138,10 +138,10 @@
 {% block extra_scripts %}
 {{ block.super }}
 <!-- Load the compiled React app -->
-{% load vite %}
+{% load static %}
 {% now "U" as timestamp %}
-<script type="module" src="{% vite_js %}?v={{ timestamp }}"></script>
-<link rel="stylesheet" href="{% vite_css %}?v={{ timestamp }}">
+<script type="module" src="{% static 'frontend/main-Biw1EjPN.js' %}?v={{ timestamp }}"></script>
+<link rel="stylesheet" href="{% static 'frontend/main-CWCzAves.css' %}?v={{ timestamp }}">
 
 <!-- Error timeout -->
 <script>

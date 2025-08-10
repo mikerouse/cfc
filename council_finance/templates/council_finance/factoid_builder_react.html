@@ -108,8 +108,8 @@
 </script>
 
 <!-- Styles first -->
-{% load vite %}
-<link rel="stylesheet" href="{% vite_css %}">
+{% load static %}
+<link rel="stylesheet" href="{% static 'frontend/main-CWCzAves.css' %}">
 
 <!-- React script loaded after DOM content is ready -->
 <script>
@@ -120,7 +120,7 @@
         const script = document.createElement('script');
         script.type = 'module';
         script.crossOrigin = 'anonymous';
-        script.src = '{% vite_js %}';
+        script.src = '{% static "frontend/main-Biw1EjPN.js" %}';
         script.onload = function() {
             console.log('✅ React script loaded successfully');
         };
