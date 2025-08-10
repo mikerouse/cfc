@@ -11,10 +11,15 @@ from django.contrib.auth.decorators import login_required
 from django.views.decorators.http import require_http_methods
 from django.views.decorators.csrf import csrf_exempt
 from django.core.exceptions import ValidationError
+from django.core.files.storage import default_storage
 from django.db import transaction
 from django.utils import timezone
 import json
 import logging
+import tempfile
+import os
+import requests
+from decimal import Decimal
 
 from council_finance.models import (
     Council, DataField, CouncilCharacteristic, FinancialFigure, 
@@ -1242,4 +1247,305 @@ def council_completion_percentage_api(request, council_slug, year_id=None):
         return JsonResponse({
             'success': False,
             'error': 'Failed to calculate completion percentage'
+        }, status=500)
+
+
+@login_required
+@require_http_methods(['POST'])
+def process_pdf_api(request):
+    """
+    Process PDF financial statements using Apache Tika and OpenAI
+    
+    Body (multipart/form-data):
+    {
+        "council_slug": "birmingham",
+        "year_id": 1,
+        "pdf_file": <file>,  // OR
+        "pdf_url": "https://example.com/statement.pdf",
+        "source_type": "upload" | "url"
+    }
+    
+    Returns:
+    {
+        "success": true,
+        "extracted_data": {
+            "total-debt": {
+                "value": 1500000000,
+                "field_name": "Total Debt",
+                "source_text": "Total borrowing £1.5bn as at March 2024...",
+                "page_number": 12
+            }
+        },
+        "confidence_scores": {
+            "total-debt": 0.95,
+            "current-liabilities": 0.87
+        },
+        "processing_stats": {
+            "fields_found": 15,
+            "processing_time": 23.4,
+            "pages_processed": 45
+        }
+    }
+    """
+    start_time = timezone.now()
+    
+    try:
+        # Parse request data
+        council_slug = request.POST.get('council_slug')
+        year_id = request.POST.get('year_id')
+        source_type = request.POST.get('source_type')
+        
+        if not all([council_slug, year_id, source_type]):
+            return JsonResponse({
+                'success': False,
+                'error': 'council_slug, year_id, and source_type are required'
+            }, status=400)
+        
+        # Get council and year
+        council = get_object_or_404(Council, slug=council_slug)
+        year = get_object_or_404(FinancialYear, id=year_id)
+        
+        # Log PDF processing attempt
+        log_council_edit_event(
+            request, 'info', 'data_processing',
+            'PDF Processing Started',
+            f'Starting PDF processing for {council.name} ({year.label})',
+            details={
+                'council_slug': council_slug,
+                'year_id': year_id,
+                'year_label': year.label,
+                'source_type': source_type,
+                'user_tier': getattr(request.user, 'tier', None)
+            }
+        )
+        
+        # Get PDF content
+        pdf_path = None
+        cleanup_file = False
+        
+        try:
+            if source_type == 'upload':
+                pdf_file = request.FILES.get('pdf_file')
+                if not pdf_file:
+                    return JsonResponse({
+                        'success': False,
+                        'error': 'PDF file is required for upload'
+                    }, status=400)
+                
+                # Save uploaded file temporarily
+                with tempfile.NamedTemporaryFile(suffix='.pdf', delete=False) as temp_file:
+                    for chunk in pdf_file.chunks():
+                        temp_file.write(chunk)
+                    pdf_path = temp_file.name
+                    cleanup_file = True
+                    
+            elif source_type == 'url':
+                pdf_url = request.POST.get('pdf_url')
+                if not pdf_url:
+                    return JsonResponse({
+                        'success': False,
+                        'error': 'PDF URL is required for URL source'
+                    }, status=400)
+                
+                # Download PDF from URL
+                try:
+                    response = requests.get(pdf_url, timeout=60)
+                    response.raise_for_status()
+                    
+                    with tempfile.NamedTemporaryFile(suffix='.pdf', delete=False) as temp_file:
+                        temp_file.write(response.content)
+                        pdf_path = temp_file.name
+                        cleanup_file = True
+                        
+                except requests.RequestException as e:
+                    return JsonResponse({
+                        'success': False,
+                        'error': f'Failed to download PDF: {str(e)}'
+                    }, status=400)
+            
+            # Extract text using Apache Tika
+            tika_start = timezone.now()
+            try:
+                from tika import parser
+                parsed_pdf = parser.from_file(pdf_path)
+                pdf_text = parsed_pdf['content'] or ''
+                
+                tika_time = (timezone.now() - tika_start).total_seconds()
+                
+                if not pdf_text.strip():
+                    return JsonResponse({
+                        'success': False,
+                        'error': 'Could not extract text from PDF'
+                    }, status=400)
+                    
+            except Exception as tika_error:
+                log_council_edit_event(
+                    request, 'error', 'integration',
+                    'PDF Text Extraction Failed',
+                    f'Apache Tika failed to extract text: {str(tika_error)}',
+                    details={
+                        'council_slug': council_slug,
+                        'year_label': year.label,
+                        'error_type': type(tika_error).__name__,
+                        'file_size': os.path.getsize(pdf_path) if pdf_path else 0
+                    }
+                )
+                return JsonResponse({
+                    'success': False,
+                    'error': 'Failed to extract text from PDF'
+                }, status=500)
+            
+            # AI analysis using OpenAI
+            ai_start = timezone.now()
+            try:
+                # Get financial field definitions for the AI prompt
+                financial_fields = DataField.objects.filter(
+                    category__in=['balance_sheet', 'income', 'spending']
+                ).values('slug', 'name', 'explanation')
+                
+                field_definitions = {}
+                for field in financial_fields:
+                    field_definitions[field['slug']] = {
+                        'name': field['name'],
+                        'description': field['explanation'] or ''
+                    }
+                
+                # Import OpenAI here to avoid import issues if not installed
+                import openai
+                from django.conf import settings
+                
+                openai.api_key = settings.OPENAI_API_KEY
+                
+                # Construct AI prompt
+                prompt = f"""
+You are a financial data extraction specialist. Extract financial figures from this council financial statement for {council.name} ({year.label}).
+
+Find values for these specific fields (amounts in £, return as integers):
+{json.dumps(field_definitions, indent=2)}
+
+PDF Content:
+{pdf_text[:8000]}  # Limit text to avoid token limits
+
+Return ONLY valid JSON in this exact format:
+{{
+  "extracted_data": {{
+    "field-slug": {{
+      "value": 1500000000,
+      "field_name": "Field Name",
+      "source_text": "relevant text excerpt",
+      "page_number": 1
+    }}
+  }},
+  "confidence_scores": {{
+    "field-slug": 0.95
+  }}
+}}
+
+Rules:
+- Only include fields you find clear numeric values for
+- Convert all amounts to integers (£1.5m becomes 1500000)
+- Confidence 0.0-1.0 based on text clarity
+- Include relevant source text excerpt
+- Skip fields you cannot find or are unsure about
+"""
+                
+                response = openai.ChatCompletion.create(
+                    model="gpt-4",
+                    messages=[{"role": "user", "content": prompt}],
+                    temperature=0.1,
+                    max_tokens=2000
+                )
+                
+                ai_time = (timezone.now() - ai_start).total_seconds()
+                
+                # Parse AI response
+                ai_content = response.choices[0].message.content.strip()
+                
+                # Extract JSON from response (handle cases where AI adds explanatory text)
+                import re
+                json_match = re.search(r'\{.*\}', ai_content, re.DOTALL)
+                if json_match:
+                    ai_content = json_match.group(0)
+                
+                ai_result = json.loads(ai_content)
+                extracted_data = ai_result.get('extracted_data', {})
+                confidence_scores = ai_result.get('confidence_scores', {})
+                
+            except Exception as ai_error:
+                log_council_edit_event(
+                    request, 'error', 'integration',
+                    'AI Analysis Failed',
+                    f'OpenAI API failed: {str(ai_error)}',
+                    details={
+                        'council_slug': council_slug,
+                        'year_label': year.label,
+                        'error_type': type(ai_error).__name__,
+                        'text_length': len(pdf_text) if 'pdf_text' in locals() else 0
+                    }
+                )
+                return JsonResponse({
+                    'success': False,
+                    'error': 'AI analysis failed. Please try manual entry.'
+                }, status=500)
+                
+        finally:
+            # Clean up temporary file
+            if cleanup_file and pdf_path and os.path.exists(pdf_path):
+                try:
+                    os.unlink(pdf_path)
+                except Exception:
+                    pass
+        
+        # Calculate processing stats
+        total_processing_time = (timezone.now() - start_time).total_seconds()
+        
+        processing_stats = {
+            'fields_found': len(extracted_data),
+            'processing_time': total_processing_time,
+            'tika_time': tika_time if 'tika_time' in locals() else 0,
+            'ai_time': ai_time if 'ai_time' in locals() else 0,
+            'pages_processed': pdf_text.count('\f') + 1 if 'pdf_text' in locals() else 0
+        }
+        
+        # Log successful processing
+        log_council_edit_event(
+            request, 'info', 'data_processing',
+            'PDF Processing Completed',
+            f'Successfully processed PDF for {council.name} ({year.label}): {len(extracted_data)} fields found',
+            details={
+                'council_slug': council_slug,
+                'year_label': year.label,
+                'fields_found': len(extracted_data),
+                'processing_time_seconds': total_processing_time,
+                'source_type': source_type,
+                'avg_confidence': sum(confidence_scores.values()) / len(confidence_scores) if confidence_scores else 0
+            }
+        )
+        
+        return JsonResponse({
+            'success': True,
+            'extracted_data': extracted_data,
+            'confidence_scores': confidence_scores,
+            'processing_stats': processing_stats
+        })
+        
+    except Exception as e:
+        total_processing_time = (timezone.now() - start_time).total_seconds()
+        
+        log_council_edit_event(
+            request, 'error', 'system',
+            'PDF Processing Failed',
+            f'Unexpected error processing PDF: {str(e)}',
+            details={
+                'council_slug': council_slug if 'council_slug' in locals() else None,
+                'year_id': year_id if 'year_id' in locals() else None,
+                'error_type': type(e).__name__,
+                'processing_time_seconds': total_processing_time
+            }
+        )
+        
+        logger.error(f"Error processing PDF: {e}")
+        return JsonResponse({
+            'success': False,
+            'error': 'PDF processing failed. Please try again or use manual entry.'
         }, status=500)

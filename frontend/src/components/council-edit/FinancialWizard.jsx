@@ -2,6 +2,8 @@ import React, { useState, useCallback, useEffect } from 'react';
 import CategorySelection from './CategorySelection';
 import CategoryFieldEntry from './CategoryFieldEntry';
 import SaveSuccessModal from './SaveSuccessModal';
+import PDFUploadProcessor from './PDFUploadProcessor';
+import AIExtractionReview from './AIExtractionReview';
 
 /**
  * Redesigned wizard for financial data editing
@@ -32,6 +34,11 @@ const FinancialWizard = ({
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [savedChangeCount, setSavedChangeCount] = useState(0);
   const [yearProgressData, setYearProgressData] = useState({}); // Cache progress data for years
+  
+  // PDF processing states
+  const [pdfStep, setPdfStep] = useState('upload'); // 'upload', 'review'
+  const [extractedData, setExtractedData] = useState({});
+  const [confidenceScores, setConfidenceScores] = useState({});
 
   // Load data when year is selected
   useEffect(() => {
@@ -195,11 +202,59 @@ const FinancialWizard = ({
   const handleMethodSelect = (method) => {
     setSelectedMethod(method);
     if (method === 'pdf') {
-      setCurrentStep(4); // Skip category selection for PDF for now
+      setPdfStep('upload');
+      setCurrentStep(4); // Go to PDF upload
     } else {
       setCurrentStep(3); // Go to category selection for manual entry
     }
   };
+
+  // PDF processing handlers
+  const handlePDFProcessingComplete = useCallback((data, scores) => {
+    setExtractedData(data);
+    setConfidenceScores(scores);
+    setPdfStep('review');
+  }, []);
+
+  const handlePDFReviewConfirm = useCallback(async (finalData) => {
+    try {
+      // Convert the PDF data into the same format as manual changes for review
+      const pdfChanges = {};
+      Object.entries(finalData).forEach(([fieldSlug, value]) => {
+        const field = availableFields.financial.find(f => f.slug === fieldSlug);
+        if (field) {
+          pdfChanges[fieldSlug] = {
+            fieldName: field.name || fieldSlug.replace(/-/g, ' '),
+            originalValue: '',
+            newValue: value,
+            originalFormatted: 'Not set',
+            newFormatted: `£${(value / 1000000).toFixed(3)}m`
+          };
+        }
+      });
+      
+      setAllChanges(pdfChanges);
+      setSavedChangeCount(Object.keys(pdfChanges).length);
+      setShowSuccessModal(true);
+    } catch (error) {
+      console.error('Error confirming PDF data:', error);
+    }
+  }, [availableFields.financial]);
+
+  const handlePDFReviewReject = useCallback(() => {
+    // Reset PDF processing
+    setExtractedData({});
+    setConfidenceScores({});
+    setPdfStep('upload');
+  }, []);
+
+  const handlePDFBack = useCallback(() => {
+    if (pdfStep === 'review') {
+      setPdfStep('upload');
+    } else {
+      setCurrentStep(2); // Back to method selection
+    }
+  }, [pdfStep]);
 
   const handleCategorySelect = (category) => {
     setSelectedCategory(category);
@@ -234,8 +289,20 @@ const FinancialWizard = ({
     const steps = [
       { number: 1, title: 'Select Year', active: currentStep >= 1, completed: currentStep > 1, clickable: true },
       { number: 2, title: 'Choose Method', active: currentStep >= 2, completed: currentStep > 2, clickable: selectedYear },
-      { number: 3, title: 'Choose Category', active: currentStep >= 3, completed: currentStep > 3, clickable: selectedYear && selectedMethod },
-      { number: 4, title: 'Edit Data', active: currentStep >= 4, completed: false, clickable: selectedYear && selectedMethod && (selectedCategory || selectedMethod === 'pdf') }
+      { 
+        number: 3, 
+        title: selectedMethod === 'pdf' ? 'Process PDF' : 'Choose Category', 
+        active: currentStep >= 3, 
+        completed: currentStep > 3, 
+        clickable: selectedYear && selectedMethod && selectedMethod !== 'pdf'
+      },
+      { 
+        number: 4, 
+        title: selectedMethod === 'pdf' ? 'Review & Save' : 'Edit Data', 
+        active: currentStep >= 4, 
+        completed: false, 
+        clickable: selectedYear && selectedMethod && (selectedCategory || selectedMethod === 'pdf') 
+      }
     ];
 
     const totalChanges = Object.keys(allChanges).length;
@@ -499,25 +566,30 @@ const FinancialWizard = ({
 
   const renderDataEntry = () => {
     if (selectedMethod === 'pdf') {
-      return (
-        <div className="text-center py-12">
-          <div className="text-6xl mb-6">🚧</div>
-          <h3 className="text-xl font-semibold text-gray-900 mb-4">PDF Upload Coming Soon</h3>
-          <p className="text-gray-600 mb-6 max-w-md mx-auto">
-            The PDF upload feature is currently being developed. 
-            For now, please use manual entry to add your financial data.
-          </p>
-          <button 
-            onClick={() => {
-              setSelectedMethod('manual');
-              setCurrentStep(3); // Go back to category selection
-            }}
-            className="bg-blue-600 text-white px-6 py-3 font-medium hover:bg-blue-700 transition-colors"
-          >
-            Switch to Manual Entry
-          </button>
-        </div>
-      );
+      if (pdfStep === 'upload') {
+        return (
+          <PDFUploadProcessor
+            councilData={councilData}
+            selectedYear={selectedYear}
+            csrfToken={csrfToken}
+            onProcessingComplete={handlePDFProcessingComplete}
+            onBack={handlePDFBack}
+          />
+        );
+      } else if (pdfStep === 'review') {
+        return (
+          <AIExtractionReview
+            councilData={councilData}
+            selectedYear={selectedYear}
+            extractedData={extractedData}
+            confidenceScores={confidenceScores}
+            onConfirm={handlePDFReviewConfirm}
+            onReject={handlePDFReviewReject}
+            onBack={handlePDFBack}
+            csrfToken={csrfToken}
+          />
+        );
+      }
     }
 
     // Filter fields for the selected category
