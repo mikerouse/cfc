@@ -1250,6 +1250,7 @@ def council_completion_percentage_api(request, council_slug, year_id=None):
         }, status=500)
 
 
+
 @login_required
 @require_http_methods(['POST'])
 def process_pdf_api(request):
@@ -1366,7 +1367,14 @@ def process_pdf_api(request):
             # Extract text using Apache Tika
             tika_start = timezone.now()
             try:
-                from tika import parser
+                try:
+                    from tika import parser
+                except ImportError:
+                    return JsonResponse({
+                        'success': False,
+                        'error': 'Apache Tika is not installed. Please install python-tika to use PDF processing.'
+                    }, status=500)
+                
                 parsed_pdf = parser.from_file(pdf_path)
                 pdf_text = parsed_pdf['content'] or ''
                 
@@ -1411,10 +1419,22 @@ def process_pdf_api(request):
                     }
                 
                 # Import OpenAI here to avoid import issues if not installed
-                import openai
-                from django.conf import settings
-                
-                openai.api_key = settings.OPENAI_API_KEY
+                try:
+                    import openai
+                    from django.conf import settings
+                    
+                    if not hasattr(settings, 'OPENAI_API_KEY'):
+                        return JsonResponse({
+                            'success': False,
+                            'error': 'OpenAI API key not configured. Please set OPENAI_API_KEY in settings.'
+                        }, status=500)
+                    
+                    openai.api_key = settings.OPENAI_API_KEY
+                except ImportError:
+                    return JsonResponse({
+                        'success': False,
+                        'error': 'OpenAI library is not installed. Please install openai to use AI PDF processing.'
+                    }, status=500)
                 
                 # Construct AI prompt
                 prompt = f"""
