@@ -14,7 +14,9 @@ import LoadingSpinner from './LoadingSpinner';
  * 2. Council Details: Simple form for characteristics (non-temporal)
  * 3. Financial Data: Wizard flow (Year → Method → Entry)
  */
-const CouncilEditApp = ({ councilData, initialYears, csrfToken }) => {
+const CouncilEditApp = ({ councilData, initialYears, csrfToken, focusYear = '2024/25' }) => {
+  // Extract the year pattern from the focus year (e.g., '2024' from '2024/25')
+  const FOCUS_YEAR_PATTERN = focusYear.split('/')[0];
   const { isMobile, isTablet } = useDeviceType();
   
   // Navigation state - replaces old tab system
@@ -141,7 +143,14 @@ const CouncilEditApp = ({ councilData, initialYears, csrfToken }) => {
         const yearsData = await yearsResponse.json();
         setYears(yearsData.years || []);
         if (yearsData.years?.length > 0 && !selectedYear) {
-          setSelectedYear(yearsData.years[0]);
+          // Select the current focus year (2024/25) if available, otherwise don't auto-select
+          const focusYear = yearsData.years.find(year => 
+            year.label && year.label.includes(FOCUS_YEAR_PATTERN)
+          );
+          if (focusYear) {
+            setSelectedYear(focusYear);
+          }
+          // Don't auto-select future years - let user explicitly choose
         }
       }
 
@@ -205,7 +214,29 @@ const CouncilEditApp = ({ councilData, initialYears, csrfToken }) => {
     // Determine category from current view
     const category = currentView === 'characteristics' ? 'characteristics' : 'financial';
     
-    // Optimistic update
+    // Convert financial values from millions to full amounts
+    let processedValue = value;
+    if (category === 'financial' && value && typeof value === 'string') {
+      const numValue = parseFloat(value);
+      if (!isNaN(numValue)) {
+        // Financial fields entered in millions need conversion to full amounts
+        // e.g., user enters "166.897" meaning £166.897 million = £166,897,000
+        const financialFieldSlugs = [
+          'total-income', 'total-expenditure', 'interest-payments', 'interest-paid',
+          'capital-expenditure', 'business-rates-income', 'council-tax-income',
+          'non-ring-fenced-government-grants-income', 'current-assets', 'current-liabilities',
+          'long-term-liabilities', 'total-reserves', 'usable-reserves', 'unusable-reserves',
+          'total-debt', 'pension-liability', 'finance-leases', 'finance-leases-pfi-liabilities'
+        ];
+        
+        if (financialFieldSlugs.includes(fieldSlug)) {
+          processedValue = (numValue * 1000000).toString(); // Convert millions to full amount
+          console.log(`💰 Converting ${fieldSlug}: ${value} million → ${processedValue} (full amount)`);
+        }
+      }
+    }
+    
+    // Optimistic update with processed value
     if (category === 'characteristics') {
       setCharacteristics(prev => ({ ...prev, [fieldSlug]: value }));
     } else if (category === 'financial') {
@@ -225,7 +256,7 @@ const CouncilEditApp = ({ councilData, initialYears, csrfToken }) => {
         },
         body: JSON.stringify({
           field: fieldSlug,
-          value: value,
+          value: processedValue, // Send the converted value to backend
           category: category
         })
       });
@@ -343,6 +374,8 @@ const CouncilEditApp = ({ councilData, initialYears, csrfToken }) => {
         <CouncilEditLanding
           councilData={councilData}
           progress={progress}
+          progressData={progressData}
+          focusYear={focusYear}
           onChoiceSelect={handleChoiceSelect}
           className="min-h-screen"
         />

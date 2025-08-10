@@ -29,7 +29,7 @@ from council_finance.models import (
     CouncilCharacteristicHistory, CouncilFollow, Contribution,
     CouncilType, CouncilNation
 )
-# from council_finance.agents.counter_agent import CounterAgent  # No longer needed - using cached service
+from council_finance.agents.counter_agent import CounterAgent
 
 # Import utility functions we'll need
 from .general import log_activity, current_financial_year_label
@@ -963,10 +963,14 @@ def council_edit_react(request, slug):
         council_data_json = json.dumps(council_data)
         years_data_json = json.dumps(years_data)
         
+        # Get current focus year from settings (defaults to 2024/25 if not set)
+        current_focus_year = getattr(settings, 'CURRENT_FOCUS_YEAR', '2024/25')
+        
         context = {
             'council': council,
             'council_data_json': council_data_json,
             'years_data_json': years_data_json,
+            'current_focus_year': current_focus_year,
         }
         
         return render(request, 'council_finance/council_edit_react.html', context)

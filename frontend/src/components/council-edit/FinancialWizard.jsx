@@ -31,6 +31,7 @@ const FinancialWizard = ({
   const [allChanges, setAllChanges] = useState({}); // Track all changes across categories
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [savedChangeCount, setSavedChangeCount] = useState(0);
+  const [yearProgressData, setYearProgressData] = useState({}); // Cache progress data for years
 
   // Load data when year is selected
   useEffect(() => {
@@ -38,6 +39,56 @@ const FinancialWizard = ({
       loadYearData(selectedYear);
     }
   }, [selectedYear]);
+
+  // Load progress data for all years when component mounts
+  useEffect(() => {
+    const loadAllYearProgress = async () => {
+      if (!councilData?.slug || !years.length || !csrfToken) return;
+      
+      const progressPromises = years.map(async (year) => {
+        try {
+          const response = await fetch(`/api/council/${councilData.slug}/completion/${year.id}/`, {
+            headers: { 'X-CSRFToken': csrfToken }
+          });
+          
+          if (response.ok) {
+            const data = await response.json();
+            if (data.success && data.completion?.overall) {
+              return {
+                yearId: year.id,
+                progress: {
+                  completed: data.completion.overall.complete || 0,
+                  total: data.completion.overall.total_fields || 9,
+                  percentage: data.completion.overall.percentage || 0
+                }
+              };
+            }
+          }
+        } catch (error) {
+          console.error('Error fetching completion data for year:', error);
+        }
+        
+        // Fallback
+        return {
+          yearId: year.id,
+          progress: { completed: 0, total: 9, percentage: 0 }
+        };
+      });
+      
+      try {
+        const results = await Promise.all(progressPromises);
+        const progressMap = {};
+        results.forEach(({ yearId, progress }) => {
+          progressMap[yearId] = progress;
+        });
+        setYearProgressData(progressMap);
+      } catch (error) {
+        console.error('Error loading year progress data:', error);
+      }
+    };
+    
+    loadAllYearProgress();
+  }, [councilData?.slug, years, csrfToken]);
 
   const loadYearData = useCallback(async (year) => {
     if (!year?.id) return;
@@ -104,21 +155,37 @@ const FinancialWizard = ({
     }
   }, [councilData?.slug, csrfToken]);
 
-  const calculateProgress = useCallback((year) => {
-    // This would calculate based on actual data for the year
-    // For now, return mock progress
-    const completed = Math.floor(Math.random() * 15) + 5;
-    const total = 20;
-    return { completed, total, percentage: Math.round((completed / total) * 100) };
-  }, []);
+  const calculateProgress = useCallback(async (year) => {
+    // Use real completion API data instead of mock values
+    try {
+      const response = await fetch(`/api/council/${councilData?.slug}/completion/${year.id}/`, {
+        headers: { 'X-CSRFToken': csrfToken }
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success && data.completion?.overall) {
+          return {
+            completed: data.completion.overall.complete || 0,
+            total: data.completion.overall.total_fields || 9,
+            percentage: data.completion.overall.percentage || 0
+          };
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching completion data for year:', error);
+    }
+    
+    // Fallback to basic calculation based on 9 financial fields
+    return { completed: 0, total: 9, percentage: 0 };
+  }, [councilData?.slug, csrfToken]);
 
-  const getYearStatus = useCallback((year) => {
-    const progress = calculateProgress(year);
+  const getYearStatus = useCallback((progress) => {
     if (progress.percentage >= 100) return { label: 'Complete', color: 'green' };
     if (progress.percentage >= 75) return { label: 'Nearly complete', color: 'blue' };
     if (progress.percentage >= 25) return { label: 'In progress', color: 'amber' };
     return { label: 'Needs attention', color: 'red' };
-  }, [calculateProgress]);
+  }, []);
 
   const handleYearSelect = (year) => {
     setSelectedYear(year);
@@ -264,8 +331,8 @@ const FinancialWizard = ({
 
       <div className="space-y-3">
         {years.map(year => {
-          const progress = calculateProgress(year);
-          const status = getYearStatus(year);
+          const progress = yearProgressData[year.id] || { completed: 0, total: 9, percentage: 0 };
+          const status = getYearStatus(progress);
           
           return (
             <div

@@ -1,0 +1,180 @@
+// Input Groups with Leading/Trailing Add-ons
+// GOV.UK inspired design with Tailwind compatibility
+
+// Base input group container
+.input-group {
+  @apply relative flex items-center w-full;
+  
+  // Input field within group
+  &__input {
+    @apply flex-1 min-w-0 border-2 border-gray-300 bg-white text-base;
+    @apply focus:ring-0 focus:border-blue-600 focus:outline-none;
+    @apply transition-colors duration-200;
+    @apply py-3 text-gray-900 min-h-[48px];
+    
+    // Disabled state
+    &:disabled {
+      @apply bg-gray-50 text-gray-600 cursor-not-allowed border-gray-300;
+    }
+    
+    // Error state
+    &.error {
+      @apply border-red-500 focus:border-red-500;
+    }
+    
+    // Success state
+    &.success {
+      @apply border-green-500 focus:border-green-500;
+    }
+    
+    // Warning state
+    &.warning {
+      @apply border-yellow-500 focus:border-yellow-500;
+    }
+    
+    // Hover state (only when not disabled)
+    &:not(:disabled):hover {
+      @apply border-gray-400;
+    }
+  }
+  
+  // Leading add-on (£ symbol)
+  &__leading {
+    @apply flex items-center px-3 bg-gray-50 border-2 border-r-0 border-gray-300;
+    @apply text-gray-700 font-medium text-base min-h-[48px];
+    @apply select-none pointer-events-none;
+    
+    // Match input states
+    .input-group__input:focus + &,
+    & + .input-group__input:focus {
+      @apply border-blue-600;
+    }
+    
+    .input-group__input.error + &,
+    & + .input-group__input.error {
+      @apply border-red-500;
+    }
+    
+    .input-group__input.success + &,
+    & + .input-group__input.success {
+      @apply border-green-500;
+    }
+    
+    .input-group__input.warning + &,
+    & + .input-group__input.warning {
+      @apply border-yellow-500;
+    }
+    
+    .input-group__input:disabled + &,
+    & + .input-group__input:disabled {
+      @apply bg-gray-50 border-gray-300 text-gray-500;
+    }
+  }
+  
+  // Trailing add-on (millions text)
+  &__trailing {
+    @apply flex items-center px-3 bg-gray-50 border-2 border-l-0 border-gray-300;
+    @apply text-gray-700 font-medium text-sm min-h-[48px];
+    @apply select-none pointer-events-none;
+    
+    // Match input states
+    .input-group__input:focus + &,
+    & + .input-group__input:focus {
+      @apply border-blue-600;
+    }
+    
+    .input-group__input.error + &,
+    & + .input-group__input.error {
+      @apply border-red-500;
+    }
+    
+    .input-group__input.success + &,
+    & + .input-group__input.success {
+      @apply border-green-500;
+    }
+    
+    .input-group__input.warning + &,
+    & + .input-group__input.warning {
+      @apply border-yellow-500;
+    }
+    
+    .input-group__input:disabled + &,
+    & + .input-group__input:disabled {
+      @apply bg-gray-50 border-gray-300 text-gray-500;
+    }
+  }
+  
+  // Input with leading add-on
+  &--leading {
+    .input-group__input {
+      @apply border-l-0;
+    }
+  }
+  
+  // Input with trailing add-on
+  &--trailing {
+    .input-group__input {
+      @apply border-r-0;
+    }
+  }
+  
+  // Input with both leading and trailing
+  &--both {
+    .input-group__input {
+      @apply border-l-0 border-r-0;
+    }
+  }
+  
+  // Focus group styling
+  &:focus-within {
+    .input-group__leading,
+    .input-group__trailing {
+      @apply border-blue-600;
+    }
+  }
+}
+
+// Specific monetary input styling
+.monetary-input-group {
+  .input-group();
+  .input-group--both();
+  
+  .input-group__leading {
+    @apply bg-blue-50 text-blue-700 border-blue-200;
+  }
+  
+  .input-group__trailing {
+    @apply bg-blue-50 text-blue-600 text-xs;
+  }
+  
+  &:focus-within {
+    .input-group__leading,
+    .input-group__trailing {
+      @apply border-blue-600;
+    }
+  }
+}
+
+// Error state for monetary inputs
+.monetary-input-group--error {
+  .input-group__leading,
+  .input-group__trailing {
+    @apply bg-red-50 border-red-500 text-red-700;
+  }
+}
+
+// Success state for monetary inputs
+.monetary-input-group--success {
+  .input-group__leading,
+  .input-group__trailing {
+    @apply bg-green-50 border-green-500 text-green-700;
+  }
+}
+
+// Disabled state for monetary inputs
+.monetary-input-group--disabled {
+  .input-group__leading,
+  .input-group__trailing {
+    @apply bg-gray-50 border-gray-300 text-gray-500;
+  }
+}

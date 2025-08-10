@@ -7,6 +7,8 @@ import React from 'react';
 const CouncilEditLanding = ({ 
   councilData, 
   progress = {}, 
+  progressData = null,
+  focusYear = '2024/25',
   onChoiceSelect,
   className = ""
 }) => {
@@ -14,6 +16,63 @@ const CouncilEditLanding = ({
   const formatProgress = (completed, total) => {
     if (!total || total === 0) return '0%';
     return `${Math.round((completed / total) * 100)}%`;
+  };
+
+  // Get accurate financial progress from API data
+  const getFinancialProgress = () => {
+    if (progressData?.focus) {
+      // Only show progress for the current focus year
+      // Don't confuse users with future year percentages
+      const yearLabel = progressData.focus.year_label || '';
+      const focusYearPattern = focusYear.split('/')[0]; // Extract '2024' from '2024/25'
+      
+      // Check if this is for the current focus year
+      if (yearLabel.includes(focusYearPattern)) {
+        return {
+          percentage: progressData.focus.financial_progress || 0,
+          label: progressData.focus.year_label || 'No data',
+          completed: progressData.overall?.complete || 0,
+          total: progressData.overall?.total_fields || 9
+        };
+      } else {
+        // For future years, show a different message
+        return {
+          percentage: 0,
+          label: `Focus on ${focusYear} first`,
+          completed: 0,
+          total: 9
+        };
+      }
+    }
+    
+    // Fallback to showing focus year message
+    return {
+      percentage: 0,
+      label: `No data for ${focusYear}`,
+      completed: 0,
+      total: 9
+    };
+  };
+
+  // Get accurate characteristics progress from API data
+  const getCharacteristicsProgress = () => {
+    if (progressData?.by_category?.characteristics) {
+      const charData = progressData.by_category.characteristics;
+      return {
+        completed: charData.complete || 0,
+        total: charData.total || 3,
+        percentage: charData.percentage || 0,
+        label: `${charData.percentage || 0}% complete`
+      };
+    }
+    
+    // Fallback to legacy format
+    return {
+      completed: progress.characteristics || 0,
+      total: 3, // Real total from API
+      percentage: formatProgress(progress.characteristics || 0, 3),
+      label: `${formatProgress(progress.characteristics || 0, 3)} complete`
+    };
   };
 
   const getLastUpdated = () => {
@@ -59,7 +118,7 @@ const CouncilEditLanding = ({
               <div className="text-right">
                 <span className="text-sm text-gray-500">Status</span>
                 <div className="text-sm font-medium text-green-600">
-                  {formatProgress(progress.characteristics || 0, 8)} complete
+                  {getCharacteristicsProgress().label}
                 </div>
               </div>
             </div>
@@ -98,7 +157,7 @@ const CouncilEditLanding = ({
               <div className="text-right">
                 <span className="text-sm text-gray-500">Status</span>
                 <div className="text-sm font-medium text-amber-600">
-                  {formatProgress(progress.financial || 0, 20)} complete
+                  {getFinancialProgress().label}
                 </div>
               </div>
             </div>
@@ -133,8 +192,8 @@ const CouncilEditLanding = ({
         <div id="council-edit-recent-activity" className="bg-gray-50 rounded-lg p-4">
           <h4 className="font-medium text-gray-900 mb-2">Recent activity</h4>
           <ul className="text-sm text-gray-600 space-y-1">
-            <li>• Financial data for 2024/25 - {formatProgress(progress.financial || 0, 20)} complete</li>
-            <li>• Council details - {formatProgress(progress.characteristics || 0, 8)} complete</li>
+            <li>• Financial data - {getFinancialProgress().label}</li>
+            <li>• Council details - {getCharacteristicsProgress().label}</li>
             <li>• Last updated {getLastUpdated()}</li>
           </ul>
         </div>

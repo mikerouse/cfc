@@ -1076,7 +1076,6 @@ def council_edit_context_api(request, council_slug):
         }, status=500)
 
 
-@login_required
 @require_http_methods(['GET'])
 def council_completion_percentage_api(request, council_slug, year_id=None):
     """
@@ -1128,7 +1127,7 @@ def council_completion_percentage_api(request, council_slug, year_id=None):
         completion_data = {}
         
         # Calculate characteristics completion (non-temporal data)
-        characteristics_fields = DataField.objects.filter(category='characteristics')
+        characteristics_fields = DataField.objects.filter(category='characteristic')  # Fixed: singular 'characteristic'
         characteristics_with_data = CouncilCharacteristic.objects.filter(
             council=council,
             field__in=characteristics_fields

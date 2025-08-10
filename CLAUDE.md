@@ -872,6 +872,69 @@ The corrections system has been decommissioned and replaced by the comprehensive
 - No user templates or builders
 - All counter associations DEPRECATED
 
+# FINANCIAL DATA CONVERSION SYSTEM (2025-08-10)
+
+**CRITICAL**: The council edit interface uses a millions-based entry system with automatic conversion to full amounts for database storage.
+
+## How It Works
+
+**User Interface Design**:
+- Users enter financial values in millions (e.g., "166.897" for £166.897 million)
+- Frontend shows a currency preview: "166.897" → "£166,897,000" 
+- This matches how council financial statements are typically presented
+
+**Automatic Conversion**:
+```javascript
+// In CouncilEditApp.jsx saveField function
+if (financialFieldSlugs.includes(fieldSlug)) {
+  processedValue = (numValue * 1000000).toString(); // Convert millions to full amount
+  console.log(`💰 Converting ${fieldSlug}: ${value} million → ${processedValue} (full amount)`);
+}
+```
+
+**Affected Fields**:
+- `total-income`, `total-expenditure`, `interest-payments`, `interest-paid`
+- `capital-expenditure`, `business-rates-income`, `council-tax-income`
+- `non-ring-fenced-government-grants-income`, `current-assets`, `current-liabilities`
+- `long-term-liabilities`, `total-reserves`, `usable-reserves`, `unusable-reserves`
+- `total-debt`, `pension-liability`, `finance-leases`, `finance-leases-pfi-liabilities`
+
+## Data Flow
+
+1. **User Entry**: "166.897" (meaning £166.897 million)
+2. **Frontend Preview**: Shows "£166,897,000" to confirm understanding
+3. **Automatic Conversion**: JavaScript converts to "166897000" before saving
+4. **Database Storage**: Stores as `Decimal('166897000.00')` 
+5. **Display**: CounterAgent formats as "£166.9m" or "£166,897,000" depending on context
+
+## Why This System
+
+**User Experience**: Council financial figures are naturally thought of in millions
+**Data Consistency**: Ensures frontend preview matches stored/displayed values  
+**Prevention**: Stops the bug where "166.897" was stored as £167 instead of £166.9 million
+
+## Debugging Data Issues
+
+**Check Conversion**: Look for console logs: `💰 Converting field-name: X million → Y (full amount)`
+
+**Verify Storage**: 
+```python
+from council_finance.models import FinancialFigure
+figure = FinancialFigure.objects.get(council=council, field=field, year=year)
+print(f'Stored: {figure.value}')  # Should be full amount like 166897000.00
+```
+
+**Common Issues**:
+- Missing field from `financialFieldSlugs` array → No conversion applied
+- Non-numeric input → Conversion skipped, raw value stored
+- Old data before fix → May need manual correction
+
+## Migration Notes
+
+**Existing Data**: Fields entered before 2025-08-10 may need manual correction if they show unexpectedly small values (e.g., £167 instead of £166.9 million)
+
+**Testing**: When testing data entry, verify both the preview display and the final stored/displayed amount match expectations
+
 # Creator's rules that AI should follow
 
 - We care about comments. There should be useful and descriptive comments.

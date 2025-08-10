@@ -1,33 +1,3 @@
-.App {
-  text-align: center;
-}
-
-.App-header {
-  background-color: #282c34;
-  min-height: 100vh;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  font-size: calc(10px + 2vmin);
-  color: white;
-}
-
-.App-header button {
-  background-color: #61dafb;
-  color: #282c34;
-  border: none;
-  padding: 10px 20px;
-  font-size: 16px;
-  border-radius: 5px;
-  cursor: pointer;
-  margin-top: 20px;
-}
-
-.App-header button:hover {
-  background-color: #21b6d4;
-}
-
 /* Input Groups with Leading/Trailing Add-ons */
 /* GOV.UK inspired design with Tailwind compatibility */
 
@@ -70,14 +40,14 @@
 .input-group__leading {
   @apply flex items-center px-3 bg-gray-50 border-2 border-r-0 border-gray-300;
   @apply text-gray-700 font-medium text-base min-h-[48px];
-  @apply select-none pointer-events-none rounded-l;
+  @apply select-none pointer-events-none;
 }
 
 /* Trailing add-on (millions text) */
 .input-group__trailing {
   @apply flex items-center px-3 bg-gray-50 border-2 border-l-0 border-gray-300;
   @apply text-gray-700 font-medium text-sm min-h-[48px];
-  @apply select-none pointer-events-none rounded-r;
+  @apply select-none pointer-events-none;
 }
 
 /* Input with leading add-on */
@@ -93,6 +63,14 @@
 /* Input with both leading and trailing */
 .input-group--both .input-group__input {
   @apply border-l-0 border-r-0 rounded-none;
+}
+
+.input-group--leading .input-group__leading {
+  @apply rounded-l;
+}
+
+.input-group--trailing .input-group__trailing {
+  @apply rounded-r;
 }
 
 /* Focus group styling */
