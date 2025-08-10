@@ -46,6 +46,27 @@
   .overflow-x-auto::-webkit-scrollbar-thumb:hover {
     background: #94a3b8;
   }
+
+  /* Clean, simple styling */
+  .clean-input {
+    border: 1px solid #d1d5db;
+    transition: all 0.2s ease;
+  }
+  
+  .clean-input:focus {
+    outline: none;
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+  }
+  
+  .clean-input:hover {
+    border-color: #9ca3af;
+  }
+
+  /* Remove excessive rounded corners but keep subtle ones */
+  .no-round {
+    border-radius: 0;
+  }
 </style>
 {% endblock %}
 
@@ -55,6 +76,7 @@
      data-council='{{ council_data_json|safe }}'
      data-years='{{ years_data_json|safe }}'
      data-csrf-token="{{ csrf_token }}"
+     data-focus-year="{{ current_focus_year }}"
      data-react-timeout="5000">
   
   <!-- Loading State -->

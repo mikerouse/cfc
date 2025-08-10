@@ -79,16 +79,18 @@ function initializeReactApps() {
     console.log('🏛️ Council Edit container found, initializing...');
     try {
       // Parse data from template
-      let councilData, yearsData, csrfToken;
+      let councilData, yearsData, csrfToken, focusYear;
       try {
         councilData = JSON.parse(councilEditContainer.dataset.council || '{}');
         yearsData = JSON.parse(councilEditContainer.dataset.years || '[]');
         csrfToken = councilEditContainer.dataset.csrfToken || '';
+        focusYear = councilEditContainer.dataset.focusYear || '2024/25';
         
         console.log('📊 Council Edit: Data parsed successfully', {
           council: councilData.name,
           years: yearsData.length,
-          hasCSRF: !!csrfToken
+          hasCSRF: !!csrfToken,
+          focusYear: focusYear
         });
       } catch (error) {
         console.error('❌ Council Edit: Failed to parse data', error);
@@ -102,6 +104,7 @@ function initializeReactApps() {
         councilData={councilData}
         initialYears={yearsData} 
         csrfToken={csrfToken}
+        focusYear={focusYear}
       />);
       
       // Mark as mounted

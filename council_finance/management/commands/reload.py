@@ -224,9 +224,9 @@ class Command(BaseCommand):
                 )
                 return
             
-            # Run npm build in frontend directory
+            # Run Vite build in frontend directory (no package.json needed)
             build_result = subprocess.run([
-                'npm', 'run', 'build'
+                'npx', 'vite', 'build'
             ], cwd=frontend_dir, capture_output=True, text=True, timeout=120)
             
             if build_result.returncode != 0:
@@ -247,7 +247,7 @@ class Command(BaseCommand):
             )
         except FileNotFoundError:
             self.stdout.write(
-                self.style.WARNING('npm not found, skipping React rebuild')
+                self.style.WARNING('npx/vite not found, skipping React rebuild')
             )
         except Exception as e:
             self.stdout.write(
@@ -255,70 +255,84 @@ class Command(BaseCommand):
             )
 
     def _update_template_build_references(self):
-        """Update template references to use new build files with cache busting."""
+        """Copy Vite build files to static directory and update template references."""
         try:
             import glob
             import re
+            import shutil
             
-            # Find the new build files
-            static_frontend_dir = os.path.join(os.getcwd(), 'static', 'frontend')
-            if not os.path.exists(static_frontend_dir):
+            # Find Vite build files in frontend/dist/assets/
+            frontend_dir = os.path.join(os.getcwd(), 'frontend')
+            dist_assets_dir = os.path.join(frontend_dir, 'dist', 'assets')
+            
+            if not os.path.exists(dist_assets_dir):
+                self.stdout.write('   ! Vite dist directory not found')
                 return
             
-            # Get the latest main JS and CSS files
-            js_files = glob.glob(os.path.join(static_frontend_dir, 'main-*.js'))
-            css_files = glob.glob(os.path.join(static_frontend_dir, 'main-*.css'))
+            # Find the latest build files
+            js_files = glob.glob(os.path.join(dist_assets_dir, 'index-*.js'))
+            css_files = glob.glob(os.path.join(dist_assets_dir, 'index-*.css'))
             
             if not js_files or not css_files:
-                self.stdout.write('   ! No build files found to update')
+                self.stdout.write('   ! No Vite build files found')
                 return
             
-            # Get the newest files (in case multiple exist)
+            # Get the newest files
             latest_js = max(js_files, key=os.path.getctime) if js_files else None
             latest_css = max(css_files, key=os.path.getctime) if css_files else None
             
-            if latest_js:
-                latest_js_name = os.path.basename(latest_js)
-            if latest_css:
-                latest_css_name = os.path.basename(latest_css)
+            # Copy files to static directory
+            static_frontend_dir = os.path.join(os.getcwd(), 'static', 'frontend')
+            os.makedirs(static_frontend_dir, exist_ok=True)
             
-            template_files = [
-                'my_lists_enhanced.html',
-                'council_edit_react.html',
-                'factoid_builder_react.html',
-            ]
-
-            for filename in template_files:
-                template_path = os.path.join(
-                    os.getcwd(),
-                    'council_finance',
-                    'templates',
-                    'council_finance',
-                    filename,
-                )
-
-                if os.path.exists(template_path):
-                    with open(template_path, 'r', encoding='utf-8') as f:
-                        content = f.read()
-
-                    if latest_js:
-                        js_pattern = r'src="{% static \'frontend/main-[^\']+\.js\' %}"'
-                        js_replacement = f'src="{{{{ static \'frontend/{latest_js_name}\' }}}}?v={{{{ \'now\'|date:\'U\' }}}}"'
-                        content = re.sub(js_pattern, js_replacement, content)
-
-                    if latest_css:
-                        css_pattern = r'href="{% static \'frontend/main-[^\']+\.css\' %}"'
-                        css_replacement = f'href="{{{{ static \'frontend/{latest_css_name}\' }}}}?v={{{{ \'now\'|date:\'U\' }}}}"'
-                        content = re.sub(css_pattern, css_replacement, content)
-
-                    with open(template_path, 'w', encoding='utf-8') as f:
-                        f.write(content)
-
-                    self.stdout.write(f'   > Updated {filename} with {latest_js_name} and {latest_css_name}')
+            if latest_js:
+                shutil.copy2(latest_js, os.path.join(static_frontend_dir, 'main.js'))
+                self.stdout.write(f'   > Copied {os.path.basename(latest_js)} to main.js')
+                
+            if latest_css:
+                shutil.copy2(latest_css, os.path.join(static_frontend_dir, 'main.css'))
+                self.stdout.write(f'   > Copied {os.path.basename(latest_css)} to main.css')
+            
+            # Update Vite manifest for development
+            self._update_vite_manifest()
+            
+                            
+        except Exception as e:
+            self.stdout.write(
+                self.style.WARNING(f'Frontend file copying failed: {e}')
+            )
+            
+    def _update_vite_manifest(self):
+        """Update the Vite manifest.json file for development template tags."""
+        try:
+            import json
+            
+            # Create/update the Vite manifest for the template tags
+            static_frontend_dir = os.path.join(os.getcwd(), 'static', 'frontend')
+            vite_dir = os.path.join(static_frontend_dir, '.vite')
+            os.makedirs(vite_dir, exist_ok=True)
+            
+            manifest_path = os.path.join(vite_dir, 'manifest.json')
+            
+            # Create a simple manifest pointing to our main files
+            manifest_data = {
+                "src/main.jsx": {
+                    "file": "main.js",
+                    "name": "main",
+                    "src": "src/main.jsx",
+                    "isEntry": True,
+                    "css": ["main.css"]
+                }
+            }
+            
+            with open(manifest_path, 'w', encoding='utf-8') as f:
+                json.dump(manifest_data, f, indent=2)
+                
+            self.stdout.write('   > Updated Vite manifest for development')
             
         except Exception as e:
             self.stdout.write(
-                self.style.WARNING(f'Template update failed: {e}')
+                self.style.WARNING(f'Vite manifest update failed: {e}')
             )
 
     def _stop_existing_servers(self):

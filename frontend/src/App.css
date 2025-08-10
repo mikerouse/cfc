@@ -27,3 +27,112 @@
 .App-header button:hover {
   background-color: #21b6d4;
 }
+
+/* Input Groups with Leading/Trailing Add-ons */
+/* GOV.UK inspired design with Tailwind compatibility */
+
+/* Base input group container */
+.input-group {
+  @apply relative flex items-center w-full;
+}
+
+/* Input field within group */
+.input-group__input {
+  @apply flex-1 min-w-0 border-2 border-gray-300 bg-white text-base;
+  @apply focus:ring-0 focus:border-blue-600 focus:outline-none;
+  @apply transition-colors duration-200;
+  @apply py-3 text-gray-900 min-h-[48px];
+}
+
+.input-group__input:disabled {
+  @apply bg-gray-50 text-gray-600 cursor-not-allowed border-gray-300;
+}
+
+.input-group__input.error {
+  @apply border-red-500;
+}
+.input-group__input.error:focus {
+  @apply border-red-500;
+}
+
+.input-group__input.success {
+  @apply border-green-500;
+}
+.input-group__input.success:focus {
+  @apply border-green-500;
+}
+
+.input-group__input:not(:disabled):hover {
+  @apply border-gray-400;
+}
+
+/* Leading add-on (£ symbol) */
+.input-group__leading {
+  @apply flex items-center px-3 bg-gray-50 border-2 border-r-0 border-gray-300;
+  @apply text-gray-700 font-medium text-base min-h-[48px];
+  @apply select-none pointer-events-none rounded-l;
+}
+
+/* Trailing add-on (millions text) */
+.input-group__trailing {
+  @apply flex items-center px-3 bg-gray-50 border-2 border-l-0 border-gray-300;
+  @apply text-gray-700 font-medium text-sm min-h-[48px];
+  @apply select-none pointer-events-none rounded-r;
+}
+
+/* Input with leading add-on */
+.input-group--leading .input-group__input {
+  @apply border-l-0 rounded-l-none;
+}
+
+/* Input with trailing add-on */
+.input-group--trailing .input-group__input {
+  @apply border-r-0 rounded-r-none;
+}
+
+/* Input with both leading and trailing */
+.input-group--both .input-group__input {
+  @apply border-l-0 border-r-0 rounded-none;
+}
+
+/* Focus group styling */
+.input-group:focus-within .input-group__leading,
+.input-group:focus-within .input-group__trailing {
+  @apply border-blue-600;
+}
+
+/* Specific monetary input styling */
+.monetary-input-group {
+  @apply relative flex items-center w-full;
+}
+
+.monetary-input-group .input-group__leading {
+  @apply bg-blue-50 text-blue-800 border-blue-200 font-semibold;
+}
+
+.monetary-input-group .input-group__trailing {
+  @apply bg-blue-50 text-blue-600 text-xs border-blue-200;
+}
+
+.monetary-input-group:focus-within .input-group__leading,
+.monetary-input-group:focus-within .input-group__trailing {
+  @apply border-blue-600;
+}
+
+/* Error state for monetary inputs */
+.monetary-input-group--error .input-group__leading,
+.monetary-input-group--error .input-group__trailing {
+  @apply bg-red-50 border-red-500 text-red-700;
+}
+
+/* Success state for monetary inputs */
+.monetary-input-group--success .input-group__leading,
+.monetary-input-group--success .input-group__trailing {
+  @apply bg-green-50 border-green-500 text-green-700;
+}
+
+/* Disabled state for monetary inputs */
+.monetary-input-group--disabled .input-group__leading,
+.monetary-input-group--disabled .input-group__trailing {
+  @apply bg-gray-100 border-gray-300 text-gray-500;
+}

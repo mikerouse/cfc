@@ -1024,46 +1024,20 @@ class SpreadsheetEditor {
         }
     }
 
-    updateProgress() {
-        const rows = document.querySelectorAll('.editable-row');
-        let total = rows.length;
-        let complete = 0;
-        let pending = 0;
-        let missing = 0;
+    // DISABLED: Legacy updateProgress method - React system now handles all progress
+    async updateProgress() {
+        console.log('🚫 Legacy spreadsheet_editor.js updateProgress() disabled - React system now active');
+        // This method is disabled to prevent competing with React progress calculation
+        // The React-based CouncilEditApp.jsx handles all progress updates via API calls
+        return;
+    }
 
-        rows.forEach(row => {
-            const statusBadge = row.querySelector('[class*="bg-green-100"]');
-            const pendingBadge = row.querySelector('[class*="bg-yellow-100"]');
-            
-            if (statusBadge && statusBadge.textContent.includes('Complete')) {
-                complete++;
-            } else if (pendingBadge && pendingBadge.textContent.includes('Pending')) {
-                pending++;
-            } else {
-                missing++;
-            }
-        });
-
-        // Update progress bar
-        const progressBar = document.getElementById('progress-bar');
-        const progressText = document.getElementById('progress-text');
-        
-        if (progressBar && progressText) {
-            const percentage = total > 0 ? Math.round((complete / total) * 100) : 0;
-            progressBar.style.width = `${percentage}%`;
-            progressText.textContent = `${complete}/${total} fields complete (${percentage}%)`;
-        }
-
-        // Update summary counts
-        const totalElement = document.getElementById('total-fields');
-        const missingElement = document.getElementById('missing-count');
-        const pendingElement = document.getElementById('pending-count');
-        const completeElement = document.getElementById('complete-count');
-
-        if (totalElement) totalElement.textContent = total;
-        if (missingElement) missingElement.textContent = missing;
-        if (pendingElement) pendingElement.textContent = pending;
-        if (completeElement) completeElement.textContent = complete;
+    // DISABLED: Legacy fallback method - React system now handles progress calculation
+    updateProgressFallback() {
+        console.log('🚫 Legacy progress calculation disabled - React system active');
+        // This method is disabled to prevent competing progress calculations
+        // The new React-based system handles progress via API calls
+        return;
     }
 
     triggerProgressUpdate() {

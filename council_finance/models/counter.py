@@ -83,22 +83,27 @@ class CounterDefinition(models.Model):
         except (TypeError, ValueError):
             return "0"
 
+        # ALL FINANCIAL DATA IS NOW STORED IN POUNDS (as of data migration)
+        # No conversion needed - use the value directly
+        actual_value_in_pounds = value
+
         # Apply "friendly" formatting if requested
         if self.friendly_format:
-            abs_val = abs(value)
+            abs_val = abs(actual_value_in_pounds)
             if abs_val >= 1_000_000_000:
-                value_str = f"{value / 1_000_000_000:.1f}b"
+                value_str = f"{actual_value_in_pounds / 1_000_000_000:.1f}b"
             elif abs_val >= 1_000_000:
-                value_str = f"{value / 1_000_000:.1f}m"
+                value_str = f"{actual_value_in_pounds / 1_000_000:.1f}m"
             elif abs_val >= 1_000:
-                value_str = f"{value / 1_000:.1f}k"
+                value_str = f"{actual_value_in_pounds / 1_000:.1f}k"
             else:
-                value_str = f"{value:.{self.precision}f}"
+                value_str = f"{actual_value_in_pounds:.{self.precision}f}"
         else:
+            # For non-friendly format, show the full amount in pounds
             value_str = (
-                f"{value:,.{self.precision}f}"
+                f"{actual_value_in_pounds:,.{self.precision}f}"
                 if self.show_currency
-                else f"{value:.{self.precision}f}"
+                else f"{actual_value_in_pounds:.{self.precision}f}"
             )
 
         if self.show_currency:

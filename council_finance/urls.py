@@ -304,6 +304,10 @@ urlpatterns = [
     path("api/council/<slug:council_slug>/years/", council_edit_api.council_available_years_api, name="council_available_years_api"), 
     path("api/council/<slug:council_slug>/edit-context/", council_edit_api.council_edit_context_api, name="council_edit_context_api"),
     
+    # Completion percentage calculation
+    path("api/council/<slug:council_slug>/completion/", council_edit_api.council_completion_percentage_api, name="council_completion_percentage_api"),
+    path("api/council/<slug:council_slug>/completion/<int:year_id>/", council_edit_api.council_completion_percentage_api, name="council_completion_percentage_year_api"),
+    
     # React council edit interface (no fallback)
     path("councils/<slug:slug>/edit/", council_views.council_edit_react, name="council_edit"),
     
