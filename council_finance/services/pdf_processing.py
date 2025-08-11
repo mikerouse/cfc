@@ -428,6 +428,9 @@ class TikaFinancialExtractor:
             'notes': 'Extracted using fallback regex patterns due to content filter'
         }
         
+        # Track metadata for each extraction
+        extraction_metadata = {}
+        
         # Define regex patterns for financial figures
         # Handle various formats: £123,456, £6.2m, 123.4 million, etc.
         # Capture both the number and the scale indicator in separate groups
@@ -504,11 +507,16 @@ class TikaFinancialExtractor:
                         # For 4-column group balance sheet patterns (Entity Group Entity Group)
                         if len(groups) >= 4 and field in ['current_liabilities', 'reserves']:
                             # Take the 4th column (Group current year)
-                            value_str = groups[3].replace(',', '') if groups[3] else groups[0].replace(',', '')
+                            raw_value_str = groups[3] if groups[3] else groups[0]
                         else:
                             # Standard single-value extraction
-                            value_str = groups[0].replace(',', '')
+                            raw_value_str = groups[0]
                         
+                        # Check if value has comma thousand separators (e.g., "132,743")
+                        has_comma_thousands = ',' in raw_value_str and len(raw_value_str.split(',')[-1]) == 3
+                        
+                        # Clean value string for parsing
+                        value_str = raw_value_str.replace(',', '')
                         value = float(value_str)
                         
                         # Check scale indicator from second capture group (if it exists and not a 4-column pattern)
@@ -516,24 +524,94 @@ class TikaFinancialExtractor:
                         if len(groups) == 2 and groups[1]:  # Only for 2-group patterns
                             scale_indicator = groups[1].strip().lower()
                         
-                        # Apply scale multipliers
+                        # Apply scale multipliers with improved logic
                         if scale_indicator in ['million', 'm']:
                             value *= 1000000
                         elif scale_indicator in ['thousand', 'k']:
                             value *= 1000
-                        # For council financial statements, if no scale indicator but value < 1000,
-                        # it's likely in millions (standard format)
-                        elif not scale_indicator and value < 10000:
-                            value *= 1000000  # Assume millions for council finances
+                        elif not scale_indicator:
+                            # Improved logic for council financial statements:
+                            if has_comma_thousands:
+                                # If comma separators are used (e.g., "132,743"), value is already in correct scale
+                                # Convert to full amount: 132,743 -> 132,743,000
+                                value *= 1000
+                            elif value < 10000:
+                                # If no commas and value < 10000, likely in millions (e.g., "132.743")
+                                value *= 1000000
                         
                         # Convert to int for storage
                         extracted_data[field] = int(value)
+                        
+                        # Store metadata for this extraction
+                        source_text = match.group(0)  # Full matched text
+                        page_number = self._detect_page_number_for_match(text_content, source_text)
+                        
+                        extraction_metadata[field] = {
+                            'source_text': source_text,
+                            'page_number': page_number,
+                            'raw_value': raw_value_str,
+                            'has_comma_thousands': has_comma_thousands,
+                            'scale_indicator': scale_indicator
+                        }
+                        
                         break  # Use first match for each field
                         
                     except (ValueError, AttributeError, IndexError):
                         continue
         
+        # Add metadata to the result
+        extracted_data['_metadata'] = extraction_metadata
         return extracted_data
+
+    def _detect_page_number_for_match(self, text_content: str, match_text: str) -> Optional[int]:
+        """
+        Try to detect page number based on text patterns around a matched financial figure.
+        
+        Args:
+            text_content: Full PDF text content
+            match_text: The specific text that was matched
+            
+        Returns:
+            Page number if detected, None otherwise
+        """
+        import re
+        
+        # Find the position of the match in the text
+        match_pos = text_content.lower().find(match_text.lower())
+        if match_pos == -1:
+            return None
+        
+        # Look for page indicators in text around the match (within 2000 characters)
+        context_start = max(0, match_pos - 1000)
+        context_end = min(len(text_content), match_pos + 1000)
+        context = text_content[context_start:context_end]
+        
+        # Common page number patterns in UK financial statements
+        page_patterns = [
+            r'page\s+(\d+)',  # "Page 42"
+            r'p\.?\s*(\d+)',  # "p. 42" or "p 42"
+            r'(\d+)\s*(?:\r?\n|\r)',  # Number at end of line (common page footer)
+            r'^\s*(\d+)\s*$',  # Standalone number on its own line
+        ]
+        
+        # Look for page numbers, preferring those closer to the match
+        best_page = None
+        best_distance = float('inf')
+        
+        for pattern in page_patterns:
+            for match_obj in re.finditer(pattern, context, re.IGNORECASE | re.MULTILINE):
+                page_num = int(match_obj.group(1))
+                # Only consider reasonable page numbers (1-200)
+                if 1 <= page_num <= 200:
+                    # Calculate distance from the financial data match
+                    page_pos = context_start + match_obj.start()
+                    distance = abs(page_pos - match_pos)
+                    
+                    if distance < best_distance:
+                        best_distance = distance
+                        best_page = page_num
+        
+        return best_page
 
     def _extract_json_from_text(self, text: str) -> Optional[Dict[str, Any]]:
         """
