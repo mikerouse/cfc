@@ -75,12 +75,29 @@ const PDFUploadProcessor = ({
   }, []);
 
   const processPDF = useCallback(async () => {
+    console.log('🔄 PDF Processing Started');
+    console.log('📊 Council:', councilData);
+    console.log('📅 Year:', selectedYear);
+    console.log('📤 Upload Method:', uploadMethod);
+    
+    if (uploadMethod === 'upload' && file) {
+      console.log('📄 File Details:', {
+        name: file.name,
+        size: file.size,
+        type: file.type,
+        lastModified: new Date(file.lastModified)
+      });
+    } else if (uploadMethod === 'url') {
+      console.log('🔗 PDF URL:', fileUrl);
+    }
+
     setProcessing(true);
     setError(null);
     setProgress(0);
 
     try {
       // Stage 1: Upload/Submit
+      console.log('📤 Stage 1: Starting upload/submit');
       setProcessingStage('upload');
       setProgress(10);
       
@@ -91,14 +108,30 @@ const PDFUploadProcessor = ({
       if (uploadMethod === 'upload' && file) {
         formData.append('pdf_file', file);
         formData.append('source_type', 'upload');
+        console.log('📎 Attached file to FormData');
       } else if (uploadMethod === 'url' && fileUrl) {
         formData.append('pdf_url', fileUrl);
         formData.append('source_type', 'url');
+        console.log('🔗 Added URL to FormData');
+      }
+
+      // Log FormData contents
+      console.log('📋 FormData contents:');
+      for (let [key, value] of formData.entries()) {
+        if (value instanceof File) {
+          console.log(`  ${key}: File(${value.name}, ${value.size} bytes)`);
+        } else {
+          console.log(`  ${key}: ${value}`);
+        }
       }
 
       // Stage 2: Extract text with Tika
+      console.log('📄 Stage 2: Starting text extraction');
       setProcessingStage('extract');
       setProgress(30);
+      
+      const startTime = Date.now();
+      console.log('🌐 Sending request to /api/council/process-pdf/');
       
       const response = await fetch('/api/council/process-pdf/', {
         method: 'POST',
@@ -107,33 +140,81 @@ const PDFUploadProcessor = ({
         },
         body: formData
       });
+      
+      const requestTime = Date.now() - startTime;
+      console.log(`⏱️ Request completed in ${requestTime}ms`);
+      console.log('📡 Response status:', response.status, response.statusText);
 
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'PDF processing failed');
+        console.error('❌ Response not OK:', response.status, response.statusText);
+        const errorText = await response.text();
+        console.error('📄 Error response body:', errorText);
+        
+        try {
+          const errorData = JSON.parse(errorText);
+          throw new Error(errorData.error || 'PDF processing failed');
+        } catch (parseError) {
+          console.error('❌ Failed to parse error response as JSON:', parseError);
+          throw new Error(`Server error (${response.status}): ${errorText.substring(0, 200)}...`);
+        }
       }
 
       // Stage 3: AI Analysis
+      console.log('🤖 Stage 3: AI Analysis phase');
       setProcessingStage('analyze');
       setProgress(60);
       
+      console.log('📄 Reading response JSON...');
       const result = await response.json();
+      console.log('✅ Response JSON parsed successfully');
+      console.log('📊 API Response:', result);
+      
+      // Check if we got extracted data
+      if (result.extracted_data) {
+        console.log('📈 Extracted data found:', Object.keys(result.extracted_data).length, 'fields');
+        Object.entries(result.extracted_data).forEach(([fieldSlug, data]) => {
+          console.log(`  📊 ${fieldSlug}:`, data);
+        });
+      } else {
+        console.warn('⚠️ No extracted_data in response');
+      }
+      
+      if (result.confidence_scores) {
+        console.log('🎯 Confidence scores:', result.confidence_scores);
+      } else {
+        console.warn('⚠️ No confidence_scores in response');
+      }
+      
+      if (result.processing_stats) {
+        console.log('📈 Processing stats:', result.processing_stats);
+      }
       
       // Stage 4: Field Mapping
+      console.log('🗂️ Stage 4: Field mapping phase');
       setProcessingStage('map');
       setProgress(90);
       
       // Stage 5: Complete
+      console.log('✅ Stage 5: Processing complete');
       setProcessingStage('complete');
       setProgress(100);
       
       // Pass extracted data to parent component for review
+      console.log('🔄 Passing data to parent component...');
       setTimeout(() => {
+        console.log('📤 Calling onProcessingComplete with:');
+        console.log('  - extracted_data:', result.extracted_data);
+        console.log('  - confidence_scores:', result.confidence_scores);
         onProcessingComplete(result.extracted_data, result.confidence_scores);
       }, 1000);
       
     } catch (error) {
-      console.error('PDF processing error:', error);
+      console.error('💥 PDF processing error:', error);
+      console.error('📄 Error details:', {
+        name: error.name,
+        message: error.message,
+        stack: error.stack
+      });
       setError(error.message || 'Failed to process PDF. Please try again.');
       setProcessing(false);
       setProcessingStage('');

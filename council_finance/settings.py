@@ -113,6 +113,9 @@ OPENAI_MODEL = os.getenv('OPENAI_MODEL', 'gpt-4o-mini')
 DEFAULT_FACTOID_COUNT = int(os.getenv('DEFAULT_FACTOID_COUNT', '3'))
 SITEWIDE_FACTOID_CACHE_DURATION = int(os.getenv('SITEWIDE_FACTOID_CACHE_DURATION', '86400'))
 
+# PDF Processing Configuration
+TIKA_ENDPOINT = os.getenv('TIKA_ENDPOINT')
+
 # App Logic Configuration
 CURRENT_FOCUS_YEAR = os.getenv('CURRENT_FOCUS_YEAR', '2024/25')
 

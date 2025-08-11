@@ -81,7 +81,7 @@ const CouncilEditApp = ({ councilData, initialYears, csrfToken, focusYear = '202
             points: Math.round(data.completion.overall.complete * 2.5) // Estimate points
           });
           
-          console.log(`📊 Progress updated via API: ${data.completion.focus.year_label} (Financial: ${data.completion.focus.financial_progress}%)`);
+          // console.log(`📊 Progress updated via API: ${data.completion.focus.year_label} (Financial: ${data.completion.focus.financial_progress}%)`);
         }
       }
     } catch (error) {
