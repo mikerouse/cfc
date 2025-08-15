@@ -1252,6 +1252,7 @@ def council_completion_percentage_api(request, council_slug, year_id=None):
 
 
 
+@csrf_exempt
 @login_required
 @require_http_methods(['POST'])
 def process_pdf_api(request):
@@ -1739,317 +1740,151 @@ def process_pdf_api(request):
                     'error': 'Failed to extract text from PDF'
                 }, status=500)
             
-            # AI analysis using OpenAI
+            # Use the new cost-controlled hybrid extraction system
             ai_start = timezone.now()
-            print("🤖 Starting AI analysis with OpenAI...")
+            print("🤖 Starting hybrid extraction (regex-first with AI validation)...")
             
-            # Log AI processing start
+            # Log hybrid processing start
             log_council_edit_event(
                 request, 'info', 'data_processing',
-                'PDF AI Analysis Started',
-                f'Starting OpenAI analysis for {council.name} ({year.label})',
+                'PDF Hybrid Analysis Started',
+                f'Starting cost-controlled hybrid extraction for {council.name} ({year.label})',
                 details={
                     'council_slug': council_slug,
                     'year_label': year.label,
-                    'stage': 'ai_analysis',
+                    'stage': 'hybrid_analysis',
                     'text_length': len(pdf_text),
-                    'text_word_count': len(pdf_text.split())
+                    'text_word_count': len(pdf_text.split()),
+                    'extraction_method': 'hybrid_regex_ai'
                 }
             )
             
             try:
-                # Get financial field definitions for the AI prompt
-                print("📊 Loading financial field definitions...")
-                financial_fields = DataField.objects.filter(
-                    category__in=['balance_sheet', 'income', 'spending']
-                ).values('slug', 'name', 'explanation')
+                # Use the new hybrid extractor
+                from council_finance.services.pdf_processing import TikaFinancialExtractor
                 
-                field_definitions = {}
-                for field in financial_fields:
-                    field_definitions[field['slug']] = {
-                        'name': field['name'],
-                        'description': field['explanation'] or ''
-                    }
-                print(f"📋 Loaded {len(field_definitions)} field definitions")
-                
-                # Log field definitions loading
-                log_council_edit_event(
-                    request, 'info', 'data_processing',
-                    'AI Field Definitions Loaded',
-                    f'Loaded {len(field_definitions)} financial field definitions for AI analysis',
-                    details={
-                        'council_slug': council_slug,
-                        'year_label': year.label,
-                        'field_count': len(field_definitions),
-                        'field_categories': ['balance_sheet', 'income', 'spending'],
-                        'sample_fields': list(field_definitions.keys())[:10]  # Show first 10 fields
-                    }
+                extractor = TikaFinancialExtractor()
+                hybrid_result = extractor.extract_with_hybrid_approach(
+                    pdf_text, 
+                    council_name=council.name, 
+                    year=year.label
                 )
                 
-                # Import OpenAI here to avoid import issues if not installed
-                try:
-                    from openai import OpenAI
-                    from django.conf import settings
+                ai_time = (timezone.now() - ai_start).total_seconds()
+                
+                if hybrid_result['success']:
+                    print(f"✅ Hybrid extraction successful in {ai_time:.2f}s")
+                    print(f"📊 Method: {hybrid_result['extraction_method']}")
+                    print(f"🎯 Confidence: {hybrid_result['confidence_score']:.1%}")
+                    print(f"💰 AI validation used: {hybrid_result['ai_validation_used']}")
                     
-                    if not hasattr(settings, 'OPENAI_API_KEY') or not settings.OPENAI_API_KEY:
-                        print("❌ OpenAI API key not configured")
-                        
-                        log_council_edit_event(
-                            request, 'critical', 'configuration',
-                            'OpenAI API Key Not Configured',
-                            f'OpenAI API key missing - AI analysis cannot proceed',
-                            details={
-                                'council_slug': council_slug,
-                                'year_label': year.label,
-                                'missing_setting': 'OPENAI_API_KEY',
-                                'required_for': 'AI financial data analysis'
+                    # Convert hybrid results to API format
+                    extracted_data = {}
+                    confidence_scores = {}
+                    
+                    # Map the internal field names to API field names for compatibility
+                    field_mapping = {
+                        'revenue_income': 'total-income',
+                        'total_expenditure': 'total-expenditure', 
+                        'current_assets': 'current-assets',
+                        'current_liabilities': 'current-liabilities',
+                        'long_term_liabilities': 'long-term-liabilities',
+                        'total_debt': 'total-debt',
+                        'interest_payments': 'interest-paid',
+                        'reserves': 'total-reserves'
+                    }
+                    
+                    # Get financial field definitions for display names
+                    financial_fields = DataField.objects.filter(
+                        category__in=['balance_sheet', 'income', 'spending']
+                    ).values('slug', 'name', 'explanation')
+                    
+                    field_definitions = {}
+                    for field in financial_fields:
+                        field_definitions[field['slug']] = {
+                            'name': field['name'],
+                            'description': field['explanation'] or ''
+                        }
+                    
+                    # Convert results to API format
+                    hybrid_data = hybrid_result['extracted_data']
+                    metadata = hybrid_data.get('_metadata', {})
+                    
+                    for internal_field, api_field in field_mapping.items():
+                        if hybrid_data.get(internal_field) and api_field in field_definitions:
+                            field_metadata = metadata.get(internal_field, {})
+                            
+                            extracted_data[api_field] = {
+                                'value': hybrid_data[internal_field],
+                                'field_name': field_definitions[api_field]['name'],
+                                'source_text': field_metadata.get('source_text', 'Detected via enhanced regex patterns'),
+                                'page_number': field_metadata.get('page_number'),
+                                'ai_reasoning': f"Hybrid extraction: {hybrid_result['extraction_method']}"
                             }
-                        )
-                        
-                        return JsonResponse({
-                            'success': False,
-                            'error': 'OpenAI API key not configured. Please set OPENAI_API_KEY in settings.'
-                        }, status=500)
+                            
+                            # Set confidence score
+                            confidence_scores[api_field] = hybrid_result['confidence_score']
                     
-                    # Initialize OpenAI client with v1.0+ API
-                    openai_client = OpenAI(api_key=settings.OPENAI_API_KEY)
-                    print("✅ OpenAI client configured successfully")
-                    
-                except ImportError:
-                    print("❌ OpenAI library not available")
-                    
+                    # Log successful hybrid analysis
                     log_council_edit_event(
-                        request, 'critical', 'configuration',
-                        'OpenAI Library Not Available',
-                        f'OpenAI library not installed - AI analysis cannot proceed',
+                        request, 'info', 'data_processing',
+                        'Hybrid Analysis Complete',
+                        f'Hybrid extraction successful: {len(extracted_data)} fields extracted using {hybrid_result["extraction_method"]}',
                         details={
                             'council_slug': council_slug,
                             'year_label': year.label,
-                            'missing_dependency': 'openai',
-                            'required_for': 'AI financial data analysis'
+                            'fields_extracted': len(extracted_data),
+                            'extraction_method': hybrid_result['extraction_method'],
+                            'ai_validation_used': hybrid_result['ai_validation_used'],
+                            'confidence_score': hybrid_result['confidence_score'],
+                            'processing_time_seconds': ai_time,
+                            'ai_cost_estimate_gbp': hybrid_result.get('ai_cost_estimate', 0.0),
+                            'quality_assessment': hybrid_result.get('quality_assessment', {})
+                        }
+                    )
+                    
+                else:
+                    print(f"❌ Hybrid extraction failed: {hybrid_result.get('error_message', 'Unknown error')}")
+                    
+                    log_council_edit_event(
+                        request, 'error', 'data_processing',
+                        'Hybrid Analysis Failed',
+                        f'Hybrid extraction failed: {hybrid_result.get("error_message", "Unknown error")}',
+                        details={
+                            'council_slug': council_slug,
+                            'year_label': year.label,
+                            'error_message': hybrid_result.get('error_message'),
+                            'processing_time_seconds': ai_time,
+                            'stage': 'hybrid_analysis'
                         }
                     )
                     
                     return JsonResponse({
                         'success': False,
-                        'error': 'OpenAI library is not installed. Please install openai to use AI PDF processing.'
+                        'error': 'Hybrid extraction failed. Please try manual entry.'
                     }, status=500)
                 
-                # First, use existing regex to identify potential financial figures
-                print("🔍 Phase 1: Regex-based candidate detection")
-                from council_finance.services.pdf_processing import TikaFinancialExtractor
-                
-                extractor = TikaFinancialExtractor()
-                regex_results = extractor._extract_financial_data_fallback(pdf_text)
-                
-                # Convert regex results to field candidates format
-                regex_candidates = {}
-                field_mapping = {
-                    'revenue_income': 'total-income',
-                    'total_expenditure': 'total-expenditure', 
-                    'current_assets': 'current-assets',
-                    'current_liabilities': 'current-liabilities',
-                    'long_term_liabilities': 'long-term-liabilities',
-                    'total_debt': 'total-debt',
-                    'interest_payments': 'interest-paid',
-                    'reserves': 'total-reserves'
-                }
-                
-                # Extract metadata if available
-                metadata = regex_results.get('_metadata', {})
-                
-                for regex_field, field_slug in field_mapping.items():
-                    if regex_results.get(regex_field) and field_slug in field_definitions:
-                        field_metadata = metadata.get(regex_field, {})
-                        
-                        regex_candidates[field_slug] = {
-                            'value': regex_results[regex_field],
-                            'field_name': field_definitions[field_slug]['name'],
-                            'source_text': field_metadata.get('source_text', f"Detected via regex pattern matching"),
-                            'page_number': field_metadata.get('page_number'),
-                            'detection_method': 'regex',
-                            'confidence': 0.7,
-                            'raw_extraction_details': {
-                                'raw_value': field_metadata.get('raw_value'),
-                                'has_comma_thousands': field_metadata.get('has_comma_thousands', False),
-                                'scale_indicator': field_metadata.get('scale_indicator', '')
-                            }
-                        }
-                
-                print(f"📊 Found {len(regex_candidates)} potential matches using regex")
-                
-                # Log regex findings
-                log_council_edit_event(
-                    request, 'info', 'data_processing',
-                    'Regex Candidate Detection Complete',
-                    f'Identified {len(regex_candidates)} potential financial figures using pattern matching',
-                    details={
-                        'council_slug': council_slug,
-                        'year_label': year.label,
-                        'regex_candidates_found': len(regex_candidates),
-                        'candidate_fields': list(regex_candidates.keys()),
-                        'stage': 'regex_detection'
-                    }
-                )
-                
-                # Construct AI validation prompt  
-                prompt = f"""
-You are a financial data validation specialist. You will be given potential financial figures found by regex patterns in {council.name} ({year.label}) financial statement, and you need to validate and refine them.
-
-TARGET FIELDS (amounts in £, return as integers):
-{json.dumps(field_definitions, indent=2)}
-
-REGEX-DETECTED CANDIDATES:
-{json.dumps(regex_candidates, indent=2)}
-
-PDF CONTENT (for context and validation):
-{pdf_text[:15000]}
-
-Your task:
-1. Review each regex candidate
-2. Validate if the figure matches the intended field  
-3. Check the surrounding context for accuracy
-4. Provide confidence scores and reasoning
-5. Add any obvious fields that regex missed
-
-Return ONLY valid JSON in this exact format:
-{{
-  "extracted_data": {{
-    "field-slug": {{
-      "value": 1500000000,
-      "field_name": "Field Name", 
-      "source_text": "exact text containing the figure",
-      "page_number": null,
-      "ai_reasoning": "Validated: This figure appears in the Income Statement as Council Tax income. The context confirms it's the total annual amount."
-    }}
-  }},
-  "confidence_scores": {{
-    "field-slug": 0.95
-  }}
-}}
-
-VALIDATION RULES:
-- Start with regex candidates but validate each one carefully
-- Confidence 0.0-1.0 based on context clarity and field match accuracy
-- Include exact source text containing the figure
-- Explain WHY this figure matches this field (validation reasoning)
-- Convert amounts to integers (£1.5m = 1500000, £150.5m = 150500000)
-- Reject candidates that don't match the target field definition
-- Add any clear fields that regex missed
-- Leave page_number as null
-"""
-                
-                # Log AI API call
-                print("🌐 Making OpenAI API call...")
-                log_council_edit_event(
-                    request, 'info', 'integration',
-                    'OpenAI API Call Started',
-                    f'Making ChatGPT API call for {council.name} ({year.label})',
-                    details={
-                        'council_slug': council_slug,
-                        'year_label': year.label,
-                        'model': 'gpt-4',
-                        'prompt_length': len(prompt),
-                        'text_length_sent': len(pdf_text[:20000]),
-                        'temperature': 0.1,
-                        'max_tokens': 2000
-                    }
-                )
-                
-                api_call_start = timezone.now()
-                response = openai_client.chat.completions.create(
-                    model=settings.OPENAI_MODEL or "gpt-4o-mini",
-                    messages=[{"role": "user", "content": prompt}],
-                    temperature=0.1,
-                    max_tokens=2000
-                )
-                api_call_time = (timezone.now() - api_call_start).total_seconds()
+            except Exception as extraction_error:
                 ai_time = (timezone.now() - ai_start).total_seconds()
-                
-                print(f"✅ OpenAI API call complete in {api_call_time:.2f}s (total AI time: {ai_time:.2f}s)")
-                
-                # Parse AI response
-                ai_content = response.choices[0].message.content.strip()
-                print(f"📄 AI Response length: {len(ai_content)} characters")
-                
-                # Extract JSON from response (handle cases where AI adds explanatory text)
-                import re
-                json_match = re.search(r'\{.*\}', ai_content, re.DOTALL)
-                if json_match:
-                    ai_content = json_match.group(0)
-                    print("✅ Extracted JSON from AI response")
-                else:
-                    print("⚠️ No JSON found in AI response")
-                
-                try:
-                    ai_result = json.loads(ai_content)
-                    extracted_data = ai_result.get('extracted_data', {})
-                    confidence_scores = ai_result.get('confidence_scores', {})
-                    
-                    print(f"📊 AI extracted {len(extracted_data)} fields with {len(confidence_scores)} confidence scores")
-                    
-                    # Log successful AI analysis
-                    avg_confidence = sum(confidence_scores.values()) / len(confidence_scores) if confidence_scores else 0
-                    log_council_edit_event(
-                        request, 'info', 'data_processing',
-                        'AI Analysis Complete',
-                        f'OpenAI successfully analyzed PDF: {len(extracted_data)} fields extracted',
-                        details={
-                            'council_slug': council_slug,
-                            'year_label': year.label,
-                            'fields_extracted': len(extracted_data),
-                            'confidence_scores_count': len(confidence_scores),
-                            'average_confidence': round(avg_confidence, 3),
-                            'api_call_time_seconds': api_call_time,
-                            'total_ai_time_seconds': ai_time,
-                            'response_length': len(ai_content),
-                            'model_used': 'gpt-4'
-                        }
-                    )
-                    
-                except json.JSONDecodeError as json_error:
-                    print(f"❌ Failed to parse AI response as JSON: {json_error}")
-                    print(f"📄 Raw AI response: {ai_content[:500]}...")
-                    
-                    log_council_edit_event(
-                        request, 'error', 'integration',
-                        'AI Response JSON Parse Failed',
-                        f'OpenAI returned invalid JSON: {str(json_error)}',
-                        details={
-                            'council_slug': council_slug,
-                            'year_label': year.label,
-                            'json_error': str(json_error),
-                            'response_preview': ai_content[:500],
-                            'response_length': len(ai_content),
-                            'api_call_time_seconds': api_call_time
-                        }
-                    )
-                    
-                    # Return empty data rather than failing completely
-                    extracted_data = {}
-                    confidence_scores = {}
-                
-            except Exception as ai_error:
-                ai_time = (timezone.now() - ai_start).total_seconds()
-                print(f"💥 AI analysis failed after {ai_time:.2f}s: {ai_error}")
+                print(f"💥 Hybrid extraction failed after {ai_time:.2f}s: {extraction_error}")
                 
                 log_council_edit_event(
                     request, 'error', 'integration',
-                    'AI Analysis Failed',
-                    f'OpenAI API failed: {str(ai_error)}',
+                    'Hybrid Extraction Failed',
+                    f'Hybrid extraction system failed: {str(extraction_error)}',
                     details={
                         'council_slug': council_slug,
                         'year_label': year.label,
-                        'error_type': type(ai_error).__name__,
-                        'error_message': str(ai_error),
+                        'error_type': type(extraction_error).__name__,
+                        'error_message': str(extraction_error),
                         'text_length': len(pdf_text) if 'pdf_text' in locals() else 0,
-                        'ai_processing_time_seconds': ai_time,
-                        'stage': 'ai_analysis'
+                        'processing_time_seconds': ai_time,
+                        'stage': 'hybrid_extraction'
                     }
                 )
                 return JsonResponse({
                     'success': False,
-                    'error': 'AI analysis failed. Please try manual entry.'
+                    'error': 'PDF processing failed. Please try manual entry.'
                 }, status=500)
                 
         finally:
@@ -2062,64 +1897,7 @@ VALIDATION RULES:
                     print(f"⚠️ Failed to cleanup temp file: {cleanup_error}")
                     pass
         
-        print(f"✅ PDF Processing Complete!")
-        print(f"⏱️ Total processing time: {total_processing_time:.2f}s")
-        print(f"📊 Fields extracted: {len(extracted_data)}")
-        print(f"🎯 Confidence scores: {len(confidence_scores)}")
-        print(f"📈 Processing stats: {processing_stats}")
-        
-        # Log successful processing with performance metrics
-        avg_confidence = sum(confidence_scores.values()) / len(confidence_scores) if confidence_scores else 0
-        performance_category = 'performance' if total_processing_time > 30 else 'data_processing'
-        
-        log_council_edit_event(
-            request, 'info', performance_category,
-            'PDF Processing Completed Successfully',
-            f'PDF processing complete for {council.name} ({year.label}): {len(extracted_data)} fields extracted in {total_processing_time:.2f}s',
-            details={
-                'council_slug': council_slug,
-                'year_label': year.label,
-                'fields_extracted': len(extracted_data),
-                'confidence_scores_count': len(confidence_scores),
-                'average_confidence': round(avg_confidence, 3),
-                'total_processing_time_seconds': total_processing_time,
-                'tika_time_seconds': tika_time if 'tika_time' in locals() else 0,
-                'ai_time_seconds': ai_time if 'ai_time' in locals() else 0,
-                'source_type': source_type,
-                'file_size_bytes': os.path.getsize(pdf_path) if pdf_path and os.path.exists(pdf_path) else 0,
-                'text_extracted_chars': len(pdf_text) if 'pdf_text' in locals() else 0,
-                'pages_processed': processing_stats.get('pages_processed', 0),
-                'performance_flags': {
-                    'slow_processing': total_processing_time > 30,
-                    'slow_tika': tika_time > 10 if 'tika_time' in locals() else False,
-                    'slow_ai': ai_time > 15 if 'ai_time' in locals() else False,
-                    'low_confidence': avg_confidence < 0.5
-                }
-            },
-            council=council  # Link to the council object
-        )
-        
-        # Log performance warning if processing was slow
-        if total_processing_time > 30:
-            log_council_edit_event(
-                request, 'warning', 'performance',
-                'Slow PDF Processing Detected',
-                f'PDF processing took {total_processing_time:.2f}s (>30s threshold) for {council.name}',
-                details={
-                    'council_slug': council_slug,
-                    'year_label': year.label,
-                    'processing_time_seconds': total_processing_time,
-                    'performance_breakdown': {
-                        'tika_time': tika_time if 'tika_time' in locals() else 0,
-                        'ai_time': ai_time if 'ai_time' in locals() else 0,
-                        'other_time': total_processing_time - (tika_time if 'tika_time' in locals() else 0) - (ai_time if 'ai_time' in locals() else 0)
-                    },
-                    'file_size_bytes': os.path.getsize(pdf_path) if pdf_path and os.path.exists(pdf_path) else 0,
-                    'text_length': len(pdf_text) if 'pdf_text' in locals() else 0
-                }
-            )
-        
-        # Calculate processing stats
+        # Calculate processing stats (must be before logging and response)
         total_processing_time = (timezone.now() - start_time).total_seconds()
         
         processing_stats = {
@@ -2130,7 +1908,7 @@ VALIDATION RULES:
             'pages_processed': pdf_text.count('\f') + 1 if 'pdf_text' in locals() else 0
         }
         
-        # Create PDFDocument record BEFORE file cleanup
+        # Create PDFDocument record BEFORE logging final results
         pdf_document = None
         try:
             from council_finance.models import PDFDocument

@@ -61,30 +61,33 @@ class AIAnalysisResult:
 
 class TikaFinancialExtractor:
     """
-    Main class for extracting financial data from PDF documents.
+    Cost-effective hybrid financial data extractor for hobby projects.
     
-    This class handles the complete workflow:
-    1. PDF text extraction via Apache Tika
-    2. AI analysis of extracted content using OpenAI
-    3. Data validation and mapping to database fields
+    Strategy:
+    1. PDF text extraction via Apache Tika (free, already deployed)
+    2. PRIMARY: Enhanced regex extraction (free, already working well)
+    3. SECONDARY: Minimal AI validation only for ambiguous cases (cheap)
     
-    Usage:
-        extractor = TikaFinancialExtractor()
-        result = extractor.process_pdf('/path/to/financial_statement.pdf')
-        
-        if result['success']:
-            financial_data = result['extracted_data']
-            # Process extracted data...
+    Cost Control:
+    - Regex-first approach (£0 per document)
+    - AI only for validation/disambiguation (~£0.001-0.01 per document)
+    - Strict token limits and model selection
+    - Daily cost tracking and limits
     """
     
     def __init__(self):
-        """Initialize the extractor with configured endpoints."""
+        """Initialize the extractor with cost-controlled configuration."""
         self.tika_endpoint = os.getenv('TIKA_ENDPOINT', 'https://cfc-tika.onrender.com/tika')
         
-        # Initialize OpenAI client
+        # Cost control settings
+        self.ai_enabled = os.getenv('AI_VALIDATION_ENABLED', 'true').lower() == 'true'
+        self.daily_ai_limit = int(os.getenv('DAILY_AI_CALLS_LIMIT', '50'))  # Max 50 AI calls per day
+        self.max_ai_tokens = int(os.getenv('MAX_AI_TOKENS_PER_CALL', '500'))  # Very conservative
+        
+        # Initialize OpenAI client with cost controls
         openai_key = os.getenv('OPENAI_API_KEY')
-        if not openai_key:
-            logger.warning("OpenAI API key not configured - AI analysis will be disabled")
+        if not openai_key or not self.ai_enabled:
+            logger.info("AI validation disabled - using regex-only extraction")
             self.openai_client = None
         else:
             self.openai_client = OpenAI(api_key=openai_key)
@@ -94,6 +97,52 @@ class TikaFinancialExtractor:
             '£', 'income', 'expenditure', 'assets', 'liabilities', 'debt', 
             'revenue', 'borrowing', 'reserves', 'balance', 'surplus', 'deficit'
         ]
+        
+        # Daily usage tracking
+        self._track_daily_usage()
+    
+    def _track_daily_usage(self):
+        """Track daily AI usage to enforce cost limits."""
+        from django.core.cache import cache
+        from datetime import date
+        
+        today = date.today().isoformat()
+        self.daily_usage_key = f'pdf_ai_calls_{today}'
+        self.daily_cost_key = f'pdf_ai_cost_{today}'
+        
+        # Get current usage
+        self.daily_calls = cache.get(self.daily_usage_key, 0)
+        self.daily_cost = float(cache.get(self.daily_cost_key, 0.0))
+    
+    def _can_use_ai(self) -> bool:
+        """Check if AI can be used within daily limits."""
+        if not self.openai_client:
+            return False
+            
+        if self.daily_calls >= self.daily_ai_limit:
+            logger.warning(f"Daily AI limit reached ({self.daily_calls}/{self.daily_ai_limit})")
+            return False
+            
+        max_daily_cost = float(os.getenv('MAX_DAILY_AI_COST', '1.0'))  # £1 per day max
+        if self.daily_cost >= max_daily_cost:
+            logger.warning(f"Daily AI cost limit reached (£{self.daily_cost:.3f}/£{max_daily_cost})")
+            return False
+            
+        return True
+    
+    def _increment_ai_usage(self, estimated_cost: float):
+        """Track AI usage and costs."""
+        from django.core.cache import cache
+        
+        self.daily_calls += 1
+        self.daily_cost += estimated_cost
+        
+        # Update cache with 25-hour expiry (safe buffer past midnight)
+        cache.set(self.daily_usage_key, self.daily_calls, 60 * 60 * 25)
+        cache.set(self.daily_cost_key, self.daily_cost, 60 * 60 * 25)
+        
+        logger.info(f"AI usage: {self.daily_calls}/{self.daily_ai_limit} calls, "
+                   f"£{self.daily_cost:.3f} cost today")
 
     def extract_text_from_pdf(self, pdf_path: str) -> ExtractionResult:
         """
@@ -178,9 +227,15 @@ class TikaFinancialExtractor:
                 error_message=error_msg
             )
 
-    def analyze_with_ai(self, text_content: str, council_name: str = "", year: str = "") -> AIAnalysisResult:
+    def extract_with_hybrid_approach(self, text_content: str, council_name: str = "", year: str = "") -> Dict[str, Any]:
         """
-        Analyze extracted text using OpenAI to identify financial data.
+        Cost-effective hybrid extraction: Regex-first with optional AI validation.
+        
+        This is the main entry point that replaces analyze_with_ai().
+        Strategy:
+        1. Run enhanced regex extraction (free, high accuracy)
+        2. Assess confidence and completeness
+        3. Use AI validation only for ambiguous/missing cases (cheap)
         
         Args:
             text_content: Raw text extracted from PDF
@@ -188,175 +243,411 @@ class TikaFinancialExtractor:
             year: Financial year (for context)
             
         Returns:
-            AIAnalysisResult containing extracted financial data
+            Dictionary containing extraction results and metadata
         """
-        if not self.openai_client:
-            return AIAnalysisResult(
-                success=False,
-                error_message="OpenAI client not configured"
-            )
-            
-        logger.info(f"Starting AI analysis of financial content ({len(text_content):,} characters)")
+        logger.info(f"Starting hybrid extraction for {len(text_content):,} characters")
         start_time = time.time()
         
-        try:
-            # Pre-process content to avoid content filter issues
-            cleaned_content = self._clean_content_for_ai(text_content)
-            
-            # Prepare context-aware prompt
-            context = f"Council: {council_name}, Year: {year}" if council_name or year else "Council financial statement"
-            
-            system_prompt = """You are a financial analyst specializing in UK council financial statements. 
-            Extract key financial figures and return them as JSON with the following structure:
-            
-            {
-                "revenue_income": number_or_null,
-                "total_expenditure": number_or_null,
-                "current_assets": number_or_null,
-                "current_liabilities": number_or_null,
-                "long_term_liabilities": number_or_null,
-                "total_debt": number_or_null,
-                "interest_payments": number_or_null,
-                "reserves": number_or_null,
-                "borrowing": number_or_null,
-                "net_worth": number_or_null,
-                "confidence": "high|medium|low",
-                "notes": "Brief explanation of data quality and any issues"
-            }
-            
-            Only extract clearly identifiable monetary values in pounds. 
-            Use null for any figures that cannot be determined with confidence.
-            All monetary values should be in pounds (remove £ symbol and commas)."""
-            
-            user_prompt = f"Extract financial data from this {context}:\n\n{cleaned_content[:8000]}"  # Limit content to avoid token limits
-            
-            # Debug: Log the actual prompt being sent
-            logger.info(f"Sending prompt to OpenAI (first 200 chars): {user_prompt[:200]}...")
-            
-            print(f"DEBUG - Making OpenAI API call with model: gpt-3.5-turbo")
-            print(f"DEBUG - User prompt length: {len(user_prompt)}")
-            print(f"DEBUG - System prompt length: {len(system_prompt)}")
-            
-            response = self.openai_client.chat.completions.create(
-                model="gpt-3.5-turbo",
-                messages=[
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": user_prompt}
-                ],
-                max_tokens=1000,
-                temperature=0.1  # Low temperature for consistent extraction
+        # Step 1: Enhanced regex extraction (PRIMARY - always runs)
+        regex_results = self._extract_financial_data_enhanced(text_content)
+        
+        # Step 2: Assess extraction quality
+        quality_assessment = self._assess_extraction_quality(regex_results, text_content)
+        
+        # Step 3: Decide if AI validation is needed and worthwhile
+        needs_ai_validation = (
+            quality_assessment['confidence'] < 0.8 or  # Low confidence
+            quality_assessment['missing_critical_fields'] > 2 or  # Many missing fields
+            quality_assessment['has_ambiguous_values']  # Unclear values detected
+        )
+        
+        final_results = regex_results.copy()
+        ai_validation_used = False
+        ai_cost = 0.0
+        
+        if needs_ai_validation and self._can_use_ai():
+            logger.info("Running targeted AI validation for ambiguous cases")
+            ai_validation = self._validate_with_ai_minimal(
+                text_content, regex_results, quality_assessment
             )
             
-            print(f"DEBUG - API response received: {response}")
+            if ai_validation['success']:
+                # Merge AI improvements with regex results
+                final_results = self._merge_extraction_results(regex_results, ai_validation['data'])
+                ai_validation_used = True
+                ai_cost = ai_validation.get('estimated_cost', 0.01)
+                self._increment_ai_usage(ai_cost)
+        
+        processing_time = time.time() - start_time
+        
+        # Calculate final confidence score
+        final_confidence = self._calculate_hybrid_confidence(
+            final_results, quality_assessment, ai_validation_used
+        )
+        
+        logger.info(f"Hybrid extraction complete: {processing_time:.2f}s, "
+                   f"confidence: {final_confidence:.1%}, AI used: {ai_validation_used}")
+        
+        return {
+            'success': True,
+            'extracted_data': final_results,
+            'confidence_score': final_confidence,
+            'processing_time': processing_time,
+            'extraction_method': 'hybrid_regex_ai' if ai_validation_used else 'enhanced_regex',
+            'ai_validation_used': ai_validation_used,
+            'ai_cost_estimate': ai_cost,
+            'quality_assessment': quality_assessment,
+            'notes': f"Regex extraction with{'out' if not ai_validation_used else ''} AI validation"
+        }
+    
+    def _validate_with_ai_minimal(self, text_content: str, regex_results: Dict, quality_assessment: Dict) -> Dict[str, Any]:
+        """
+        Minimal AI validation for specific ambiguous cases only.
+        
+        This uses a targeted, cost-efficient approach:
+        - Only sends small text excerpts containing the ambiguous values
+        - Uses cheapest model (gpt-4o-mini)
+        - Strict token limits
+        - Focused prompts for specific validation tasks
+        """
+        if not self._can_use_ai():
+            return {'success': False, 'error': 'AI usage limits exceeded'}
+        
+        try:
+            # Identify specific issues to resolve with AI
+            ambiguous_fields = quality_assessment.get('ambiguous_fields', [])
+            missing_critical = quality_assessment.get('missing_critical_fields_list', [])
             
-            processing_time = time.time() - start_time
+            # Create targeted validation queries
+            validation_queries = []
             
-            # Check if content was filtered
-            if (response.choices and 
-                response.choices[0].finish_reason == 'content_filter'):
-                logger.warning("OpenAI content filter triggered - using fallback extraction")
-                print("DEBUG - Content filter triggered, attempting fallback extraction")
-                
-                # Use fallback extraction method
-                fallback_data = self._extract_financial_data_fallback(text_content)
-                
-                return AIAnalysisResult(
-                    success=True,
-                    extracted_data=fallback_data,
-                    confidence_score=0.6,  # Lower confidence for fallback
-                    processing_time=processing_time,
-                    raw_response="Content filtered - used fallback extraction"
-                )
+            # Only validate specific problematic fields, not everything
+            for field in ambiguous_fields[:3]:  # Max 3 ambiguous fields to keep costs down
+                field_context = self._extract_field_context(text_content, field)
+                if field_context:
+                    validation_queries.append({
+                        'field': field,
+                        'context': field_context[:300],  # Very small context
+                        'regex_value': regex_results.get(field)
+                    })
+            
+            if not validation_queries:
+                return {'success': False, 'error': 'No specific validation needed'}
+            
+            # Ultra-compact prompt for cost efficiency
+            prompt_parts = []
+            for query in validation_queries:
+                prompt_parts.append(f"{query['field']}: found {query['regex_value']} in \"{query['context']}\"")
+            
+            minimal_prompt = f"""Validate these financial figures from UK council statement:
+{chr(10).join(prompt_parts)}
+
+Return only JSON: {{"validated_fields": {{"field_name": correct_number_or_null}}, "confidence": "high|medium|low"}}"""
+            
+            # Use cheapest model with strict limits
+            response = self.openai_client.chat.completions.create(
+                model="gpt-4o-mini",  # Cheapest model, good enough for validation
+                messages=[{"role": "user", "content": minimal_prompt}],
+                max_tokens=self.max_ai_tokens,  # Very strict limit
+                temperature=0.0  # Deterministic for validation
+            )
+            
+            # Track estimated cost (gpt-4o-mini: ~$0.00015 input, $0.0006 output per 1K tokens)
+            input_tokens = len(minimal_prompt.split()) * 1.3  # Rough token estimate
+            output_tokens = self.max_ai_tokens
+            estimated_cost_usd = (input_tokens * 0.00015 + output_tokens * 0.0006) / 1000
+            estimated_cost_gbp = estimated_cost_usd * 0.79  # Rough USD to GBP
             
             if response.choices and response.choices[0].message:
-                raw_response = response.choices[0].message.content
-                logger.info(f"AI analysis completed ({processing_time:.2f} seconds)")
-                print(f"DEBUG - Raw AI response: {repr(raw_response)}")
-                
                 try:
-                    # Parse JSON response - try direct parsing first
-                    extracted_data = json.loads(raw_response)
-                    
-                    # Check if all financial fields are null/empty (AI found no data)
-                    financial_fields = ['revenue_income', 'total_expenditure', 'current_assets', 
-                                       'current_liabilities', 'long_term_liabilities', 'total_debt', 
-                                       'interest_payments', 'reserves', 'borrowing', 'net_worth']
-                    
-                    has_financial_data = any(extracted_data.get(field) is not None and 
-                                           isinstance(extracted_data.get(field), (int, float)) and 
-                                           extracted_data.get(field) > 0 
-                                           for field in financial_fields)
-                    
-                    if not has_financial_data:
-                        logger.warning("AI returned no financial data - using fallback extraction")
-                        print("DEBUG - AI found no data, attempting fallback extraction")
-                        
-                        # Use fallback extraction method
-                        fallback_data = self._extract_financial_data_fallback(text_content)
-                        
-                        return AIAnalysisResult(
-                            success=True,
-                            extracted_data=fallback_data,
-                            confidence_score=0.6,  # Lower confidence for fallback
-                            processing_time=processing_time,
-                            raw_response="AI found no data - used fallback extraction"
-                        )
-                    
-                    # Determine confidence score
-                    confidence_score = self._calculate_confidence_score(extracted_data)
-                    
-                    logger.info(f"Successfully extracted {len(extracted_data)} financial fields "
-                              f"with confidence score {confidence_score:.2f}")
-                    
-                    return AIAnalysisResult(
-                        success=True,
-                        extracted_data=extracted_data,
-                        confidence_score=confidence_score,
-                        processing_time=processing_time,
-                        raw_response=raw_response
-                    )
-                    
-                except json.JSONDecodeError as e:
-                    # Try to extract JSON from response that might have extra text
-                    logger.warning(f"Direct JSON parsing failed, attempting to extract JSON: {str(e)}")
-                    extracted_json = self._extract_json_from_text(raw_response)
-                    
-                    if extracted_json:
-                        extracted_data = extracted_json
-                        confidence_score = self._calculate_confidence_score(extracted_data)
-                        
-                        logger.info(f"Successfully extracted JSON from response text")
-                        return AIAnalysisResult(
-                            success=True,
-                            extracted_data=extracted_data,
-                            confidence_score=confidence_score,
-                            processing_time=processing_time,
-                            raw_response=raw_response
-                        )
-                    else:
-                        logger.error(f"Could not extract valid JSON from AI response: {raw_response[:200]}...")
-                        return AIAnalysisResult(
-                            success=False,
-                            processing_time=processing_time,
-                            error_message=f"AI response is not valid JSON: {str(e)}",
-                            raw_response=raw_response
-                        )
+                    validation_data = json.loads(response.choices[0].message.content)
+                    return {
+                        'success': True,
+                        'data': validation_data.get('validated_fields', {}),
+                        'confidence': validation_data.get('confidence', 'medium'),
+                        'estimated_cost': estimated_cost_gbp
+                    }
+                except json.JSONDecodeError:
+                    return {'success': False, 'error': 'AI returned invalid JSON'}
             else:
-                return AIAnalysisResult(
-                    success=False,
-                    processing_time=processing_time,
-                    error_message="OpenAI returned empty response"
-                )
+                return {'success': False, 'error': 'AI returned empty response'}
                 
         except Exception as e:
-            processing_time = time.time() - start_time
-            error_msg = f"AI analysis failed: {str(e)}"
-            logger.error(error_msg)
-            return AIAnalysisResult(
-                success=False,
-                processing_time=processing_time,
-                error_message=error_msg
+            logger.error(f"AI validation failed: {e}")
+            return {'success': False, 'error': str(e)}
+    
+    def _extract_field_context(self, text_content: str, field_name: str) -> str:
+        """Extract small text context around a specific field for AI validation."""
+        import re
+        
+        # Field-specific search terms
+        search_terms = {
+            'revenue_income': ['total income', 'gross income', 'revenue'],
+            'total_expenditure': ['total expenditure', 'net expenditure'],
+            'current_liabilities': ['current liabilities'],
+            'reserves': ['total reserves', 'usable reserves'],
+            'total_debt': ['total debt', 'total borrowing']
+        }
+        
+        terms = search_terms.get(field_name, [field_name.replace('_', ' ')])
+        
+        for term in terms:
+            # Find the term and extract surrounding context
+            pattern = rf'.{{0,150}}{re.escape(term)}.{{0,150}}'
+            match = re.search(pattern, text_content, re.IGNORECASE)
+            if match:
+                return match.group(0)
+        
+        return ""
+    
+    def _assess_extraction_quality(self, extracted_data: Dict[str, Any], text_content: str) -> Dict[str, Any]:
+        """
+        Assess the quality and completeness of regex extraction results.
+        
+        Args:
+            extracted_data: Results from regex extraction
+            text_content: Original PDF text for context analysis
+            
+        Returns:
+            Quality assessment with confidence score and recommendations
+        """
+        # Critical fields that should typically be present in council statements
+        critical_fields = ['revenue_income', 'total_expenditure', 'current_liabilities', 'reserves']
+        
+        # Count extracted fields
+        extracted_fields = [k for k, v in extracted_data.items() 
+                           if v is not None and isinstance(v, (int, float)) and v > 0]
+        
+        missing_critical = [f for f in critical_fields if f not in extracted_fields]
+        
+        # Check for potentially ambiguous values (very round numbers might be placeholders)
+        ambiguous_fields = []
+        for field, value in extracted_data.items():
+            if isinstance(value, (int, float)) and value > 0:
+                # Flag suspiciously round numbers that might be wrong
+                if value % 1000000 == 0 and value > 10000000:  # Exactly X million
+                    ambiguous_fields.append(field)
+                elif str(int(value)).endswith('00000'):  # Ends in many zeros
+                    ambiguous_fields.append(field)
+        
+        # Calculate base confidence
+        field_count_score = min(1.0, len(extracted_fields) / 6)  # Up to 6 key fields
+        critical_coverage = 1.0 - (len(missing_critical) / len(critical_fields))
+        ambiguity_penalty = len(ambiguous_fields) * 0.1
+        
+        confidence = max(0.3, min(1.0, (field_count_score + critical_coverage) / 2 - ambiguity_penalty))
+        
+        # Check if text seems to contain financial data
+        financial_indicators = sum(1 for term in self.financial_terms 
+                                 if term.lower() in text_content.lower())
+        
+        return {
+            'confidence': confidence,
+            'extracted_field_count': len(extracted_fields),
+            'missing_critical_fields': len(missing_critical),
+            'missing_critical_fields_list': missing_critical,
+            'ambiguous_fields': ambiguous_fields,
+            'has_ambiguous_values': len(ambiguous_fields) > 0,
+            'financial_indicators_found': financial_indicators,
+            'recommendation': self._get_quality_recommendation(confidence, missing_critical, ambiguous_fields)
+        }
+    
+    def _get_quality_recommendation(self, confidence: float, missing_critical: List[str], ambiguous_fields: List[str]) -> str:
+        """Generate quality improvement recommendations."""
+        if confidence >= 0.9:
+            return "Excellent extraction quality - no AI validation needed"
+        elif confidence >= 0.7:
+            if ambiguous_fields:
+                return f"Good extraction but {len(ambiguous_fields)} ambiguous values need validation"
+            return "Good extraction quality - minimal AI validation beneficial"
+        elif confidence >= 0.5:
+            return f"Moderate quality - missing {len(missing_critical)} critical fields, AI validation recommended"
+        else:
+            return "Low extraction quality - AI validation strongly recommended"
+    
+    def _merge_extraction_results(self, regex_results: Dict[str, Any], ai_validated: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Merge regex extraction results with AI validation data.
+        
+        Args:
+            regex_results: Original regex extraction results
+            ai_validated: AI validation results for specific fields
+            
+        Returns:
+            Merged results with improved accuracy
+        """
+        merged = regex_results.copy()
+        
+        # Apply AI corrections/validations
+        for field, ai_value in ai_validated.items():
+            if ai_value is not None and isinstance(ai_value, (int, float)) and ai_value > 0:
+                regex_value = regex_results.get(field)
+                
+                if regex_value is None:
+                    # AI found a field that regex missed
+                    merged[field] = ai_value
+                    logger.info(f"AI found missing field {field}: {ai_value}")
+                elif abs(ai_value - regex_value) / max(ai_value, regex_value) > 0.1:  # >10% difference
+                    # Significant disagreement - use AI value but flag for review
+                    merged[field] = ai_value
+                    logger.warning(f"AI corrected {field}: {regex_value} -> {ai_value}")
+                # If values are similar, keep regex value (it's often more reliable)
+        
+        # Update confidence and notes
+        merged['confidence'] = 'medium'  # Hybrid results get medium confidence
+        merged['notes'] = 'Enhanced with AI validation for ambiguous cases'
+        
+        return merged
+    
+    def _calculate_hybrid_confidence(self, final_results: Dict[str, Any], quality_assessment: Dict[str, Any], ai_used: bool) -> float:
+        """
+        Calculate final confidence score for hybrid extraction.
+        
+        Args:
+            final_results: Final merged extraction results
+            quality_assessment: Quality assessment from regex extraction
+            ai_used: Whether AI validation was used
+            
+        Returns:
+            Final confidence score between 0.0 and 1.0
+        """
+        base_confidence = quality_assessment['confidence']
+        
+        # AI validation boosts confidence
+        if ai_used:
+            ai_bonus = 0.15  # Moderate boost for AI validation
+            final_confidence = min(1.0, base_confidence + ai_bonus)
+        else:
+            final_confidence = base_confidence
+        
+        # Additional boost if many fields extracted successfully
+        extracted_count = sum(1 for v in final_results.values() 
+                            if v is not None and isinstance(v, (int, float)) and v > 0)
+        
+        if extracted_count >= 5:  # Good coverage
+            final_confidence = min(1.0, final_confidence + 0.05)
+        
+        return round(final_confidence, 2)
+    
+    def _validate_with_ai_minimal(self, text_content: str, regex_results: Dict, quality_assessment: Dict) -> Dict[str, Any]:
+        """
+        Minimal AI validation for specific ambiguous cases only.
+        
+        This uses a targeted, cost-efficient approach:
+        - Only sends small text excerpts containing the ambiguous values
+        - Uses cheapest model (gpt-4o-mini)
+        - Strict token limits
+        - Focused prompts for specific validation tasks
+        """
+        if not self._can_use_ai():
+            return {'success': False, 'error': 'AI usage limits exceeded'}
+        
+        try:
+            # Identify specific issues to resolve with AI
+            ambiguous_fields = quality_assessment.get('ambiguous_fields', [])
+            missing_critical = quality_assessment.get('missing_critical_fields_list', [])
+            
+            # Create targeted validation queries
+            validation_queries = []
+            
+            # Only validate specific problematic fields, not everything
+            for field in ambiguous_fields[:3]:  # Max 3 ambiguous fields to keep costs down
+                field_context = self._extract_field_context(text_content, field)
+                if field_context:
+                    validation_queries.append({
+                        'field': field,
+                        'context': field_context[:300],  # Very small context
+                        'regex_value': regex_results.get(field)
+                    })
+            
+            if not validation_queries:
+                return {'success': False, 'error': 'No specific validation needed'}
+            
+            # Ultra-compact prompt for cost efficiency
+            prompt_parts = []
+            for query in validation_queries:
+                prompt_parts.append(f"{query['field']}: found {query['regex_value']} in \"{query['context']}\"")
+            
+            minimal_prompt = f"""Validate these financial figures from UK council statement:
+{chr(10).join(prompt_parts)}
+
+Return only JSON: {{"validated_fields": {{"field_name": correct_number_or_null}}, "confidence": "high|medium|low"}}"""
+            
+            # Use cheapest model with strict limits
+            response = self.openai_client.chat.completions.create(
+                model="gpt-4o-mini",  # Cheapest model, good enough for validation
+                messages=[{"role": "user", "content": minimal_prompt}],
+                max_tokens=self.max_ai_tokens,  # Very strict limit
+                temperature=0.0  # Deterministic for validation
             )
+            
+            # Track estimated cost (gpt-4o-mini: ~$0.00015 input, $0.0006 output per 1K tokens)
+            input_tokens = len(minimal_prompt.split()) * 1.3  # Rough token estimate
+            output_tokens = self.max_ai_tokens
+            estimated_cost_usd = (input_tokens * 0.00015 + output_tokens * 0.0006) / 1000
+            estimated_cost_gbp = estimated_cost_usd * 0.79  # Rough USD to GBP
+            
+            if response.choices and response.choices[0].message:
+                try:
+                    validation_data = json.loads(response.choices[0].message.content)
+                    return {
+                        'success': True,
+                        'data': validation_data.get('validated_fields', {}),
+                        'confidence': validation_data.get('confidence', 'medium'),
+                        'estimated_cost': estimated_cost_gbp
+                    }
+                except json.JSONDecodeError:
+                    return {'success': False, 'error': 'AI returned invalid JSON'}
+            else:
+                return {'success': False, 'error': 'AI returned empty response'}
+                
+        except Exception as e:
+            logger.error(f"AI validation failed: {e}")
+            return {'success': False, 'error': str(e)}
+    
+    def _extract_field_context(self, text_content: str, field_name: str) -> str:
+        """Extract small text context around a specific field for AI validation."""
+        import re
+        
+        # Field-specific search terms
+        search_terms = {
+            'revenue_income': ['total income', 'gross income', 'revenue'],
+            'total_expenditure': ['total expenditure', 'net expenditure'],
+            'current_liabilities': ['current liabilities'],
+            'reserves': ['total reserves', 'usable reserves'],
+            'total_debt': ['total debt', 'total borrowing']
+        }
+        
+        terms = search_terms.get(field_name, [field_name.replace('_', ' ')])
+        
+        for term in terms:
+            # Find the term and extract surrounding context
+            pattern = rf'.{{0,150}}{re.escape(term)}.{{0,150}}'
+            match = re.search(pattern, text_content, re.IGNORECASE)
+            if match:
+                return match.group(0)
+        
+        return ""
+    
+    # Backward compatibility - redirect old method to new hybrid approach
+    def analyze_with_ai(self, text_content: str, council_name: str = "", year: str = "") -> AIAnalysisResult:
+        """
+        Backward compatibility wrapper for the hybrid approach.
+        
+        DEPRECATED: Use extract_with_hybrid_approach() for new implementations.
+        """
+        logger.warning("analyze_with_ai() is deprecated, use extract_with_hybrid_approach()")
+        
+        hybrid_result = self.extract_with_hybrid_approach(text_content, council_name, year)
+        
+        # Convert hybrid result to AIAnalysisResult format for compatibility
+        return AIAnalysisResult(
+            success=hybrid_result['success'],
+            extracted_data=hybrid_result['extracted_data'],
+            confidence_score=hybrid_result['confidence_score'],
+            processing_time=hybrid_result['processing_time'],
+            raw_response=hybrid_result.get('notes', 'Hybrid extraction result')
+        )
 
     def _clean_content_for_ai(self, text_content: str) -> str:
         """
@@ -401,15 +692,18 @@ class TikaFinancialExtractor:
             
         return result
 
-    def _extract_financial_data_fallback(self, text_content: str) -> Dict[str, Any]:
+    def _extract_financial_data_enhanced(self, text_content: str) -> Dict[str, Any]:
         """
-        Fallback extraction method using regex patterns when OpenAI fails.
+        Enhanced regex extraction method - PRIMARY extraction system.
+        
+        This is now the main extraction method, refined for UK council statements.
+        Much more sophisticated than the original fallback version.
         
         Args:
             text_content: Raw PDF text content
             
         Returns:
-            Dictionary of extracted financial data
+            Dictionary of extracted financial data with confidence metadata
         """
         import re
         
@@ -424,34 +718,40 @@ class TikaFinancialExtractor:
             'reserves': None,
             'borrowing': None,
             'net_worth': None,
-            'confidence': 'low',
-            'notes': 'Extracted using fallback regex patterns due to content filter'
+            'confidence': 'medium',  # Enhanced regex gets medium confidence
+            'notes': 'Extracted using enhanced regex patterns optimized for UK councils'
         }
         
         # Track metadata for each extraction
         extraction_metadata = {}
         
-        # Define regex patterns for financial figures
-        # Handle various formats: £123,456, £6.2m, 123.4 million, etc.
-        # Capture both the number and the scale indicator in separate groups
+        # Enhanced regex patterns based on UK council statement analysis
         # PRIORITY ORDER: Group Balance Sheet > Main Balance Sheet > Other sections
         patterns = {
             'revenue_income': [
+                # Balance sheet formats
                 r'total\s*income[:\s]*\(([0-9,.]+)\)',  # Format: "total income (4,357.2)"
                 r'\([0-9,.]+\)\s*total\s*income\s*\(([0-9,.]+)\)',  # Balance sheet format
-                r'(?:total|gross)?\s*(?:revenue|income)[:\s]*£?([0-9,.]+)\s*(million|m|thousand|k|\s|$)',
+                # Income statement formats
+                r'(?:total|gross)\s*(?:revenue|income)[:\s]*£?([0-9,.]+)\s*(million|m|thousand|k|\s|$)',
                 r'(?:revenue|income)[:\s]*£?([0-9,.]+)\s*(million|m|thousand|k|\s|$)',
                 r'gross\s*income[:\s]*£?([0-9,.]+)\s*(million|m|thousand|k|\s|$)',
+                # Alternative formats
+                r'income\s*from\s*operations[:\s]*£?([0-9,.]+)\s*(million|m|thousand|k|\s|$)',
             ],
             'total_expenditure': [
+                # Specific council formats
                 r'total\s*expenditure\s*([0-9,.]+)',  # Match: "total expenditure 1,325.8"
                 r'([0-9,.]+)\s*total\s*expenditure',  # Match: "1,325.8 total expenditure"
-                r'(?:total|net)?\s*expenditure[:\s]*£?([0-9,.]+)\s*(million|m|thousand|k|\s|$)',
+                r'(?:total|net)\s*expenditure[:\s]*£?([0-9,.]+)\s*(million|m|thousand|k|\s|$)',
                 r'net\s*cost\s*of\s*services[:\s]*£?([0-9,.]+)\s*(million|m|thousand|k|\s|$)',
+                # Additional patterns
+                r'operating\s*expenditure[:\s]*£?([0-9,.]+)\s*(million|m|thousand|k|\s|$)',
             ],
             'current_assets': [
                 r'current\s*assets[:\s]*£?([0-9,.]+)\s*(million|m|thousand|k|\s|$)',
                 r'total\s*current\s*assets[:\s]*£?([0-9,.]+)\s*(million|m|thousand|k|\s|$)',
+                r'short.{0,10}term\s*assets[:\s]*£?([0-9,.]+)\s*(million|m|thousand|k|\s|$)',
             ],
             'current_liabilities': [
                 # PRIORITY 1: Group Balance Sheet patterns (Entity Group Entity Group format)
@@ -472,14 +772,17 @@ class TikaFinancialExtractor:
                 r'long.{0,10}term\s*liabilities[:\s]*£?\(([0-9,.]+)\)',  # Match: "Long-term liabilities £(665.8)" or "(665.8)"
                 r'(?:long.{0,10}term)\s*(?:debt|liabilities|borrowing)[:\s]*£?([0-9,.]+)\s*(million|m|thousand|k|\s|$)',
                 r'long\s*term\s*borrowing[:\s]*£?([0-9,.]+)\s*(million|m|thousand|k|\s|$)',
+                r'non.{0,10}current\s*liabilities[:\s]*£?([0-9,.]+)\s*(million|m|thousand|k|\s|$)',
             ],
             'interest_payments': [
                 r'interest\s*(?:payments?|paid|costs?)[:\s]*£?([0-9,.]+)\s*(million|m|thousand|k|\s|$)',
                 r'financing\s*costs[:\s]*£?([0-9,.]+)\s*(million|m|thousand|k|\s|$)',
+                r'debt\s*servicing[:\s]*£?([0-9,.]+)\s*(million|m|thousand|k|\s|$)',
             ],
             'total_debt': [
                 r'total\s*(?:debt|borrowing)[:\s]*£?([0-9,.]+)\s*(million|m|thousand|k|\s|$)',
                 r'gross\s*debt[:\s]*£?([0-9,.]+)\s*(million|m|thousand|k|\s|$)',
+                r'outstanding\s*borrowing[:\s]*£?([0-9,.]+)\s*(million|m|thousand|k|\s|$)',
             ],
             'reserves': [
                 # PRIORITY 1: Group Balance Sheet patterns (Entity Group Entity Group format)
@@ -562,6 +865,16 @@ class TikaFinancialExtractor:
         # Add metadata to the result
         extracted_data['_metadata'] = extraction_metadata
         return extracted_data
+    
+    # Keep the original fallback method for backward compatibility
+    def _extract_financial_data_fallback(self, text_content: str) -> Dict[str, Any]:
+        """
+        Backward compatibility: calls the enhanced method.
+        
+        DEPRECATED: Use _extract_financial_data_enhanced() directly.
+        """
+        logger.warning("_extract_financial_data_fallback() is deprecated, use _extract_financial_data_enhanced()")
+        return self._extract_financial_data_enhanced(text_content)
 
     def _detect_page_number_for_match(self, text_content: str, match_text: str) -> Optional[int]:
         """
