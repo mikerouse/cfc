@@ -2053,23 +2053,14 @@ VALIDATION RULES:
                 }, status=500)
                 
         finally:
-            # Clean up temporary file
+            # Clean up temporary file AFTER creating PDFDocument record
             if cleanup_file and pdf_path and os.path.exists(pdf_path):
                 try:
                     os.unlink(pdf_path)
-                except Exception:
+                    print(f"🗑️ Cleaned up temporary file: {pdf_path}")
+                except Exception as cleanup_error:
+                    print(f"⚠️ Failed to cleanup temp file: {cleanup_error}")
                     pass
-        
-        # Calculate processing stats
-        total_processing_time = (timezone.now() - start_time).total_seconds()
-        
-        processing_stats = {
-            'fields_found': len(extracted_data),
-            'processing_time': total_processing_time,
-            'tika_time': tika_time if 'tika_time' in locals() else 0,
-            'ai_time': ai_time if 'ai_time' in locals() else 0,
-            'pages_processed': pdf_text.count('\f') + 1 if 'pdf_text' in locals() else 0
-        }
         
         print(f"✅ PDF Processing Complete!")
         print(f"⏱️ Total processing time: {total_processing_time:.2f}s")
@@ -2128,6 +2119,164 @@ VALIDATION RULES:
                 }
             )
         
+        # Calculate processing stats
+        total_processing_time = (timezone.now() - start_time).total_seconds()
+        
+        processing_stats = {
+            'fields_found': len(extracted_data),
+            'processing_time': total_processing_time,
+            'tika_time': tika_time if 'tika_time' in locals() else 0,
+            'ai_time': ai_time if 'ai_time' in locals() else 0,
+            'pages_processed': pdf_text.count('\f') + 1 if 'pdf_text' in locals() else 0
+        }
+        
+        # Create PDFDocument record BEFORE file cleanup
+        pdf_document = None
+        try:
+            from council_finance.models import PDFDocument
+            from django.core.files.base import ContentFile
+            
+            # Read PDF file before cleanup
+            pdf_content = None
+            original_filename = 'document.pdf'
+            
+            if source_type == 'upload' and pdf_path and os.path.exists(pdf_path):
+                with open(pdf_path, 'rb') as f:
+                    pdf_content = f.read()
+                # Get original filename from the uploaded file
+                pdf_file = request.FILES.get('pdf_file')
+                original_filename = pdf_file.name if pdf_file else 'uploaded_file.pdf'
+                print(f"📄 Read PDF for storage: {len(pdf_content)} bytes from {pdf_path}")
+            elif source_type == 'url' and pdf_path and os.path.exists(pdf_path):
+                with open(pdf_path, 'rb') as f:
+                    pdf_content = f.read()
+                pdf_url = request.POST.get('pdf_url', '')
+                original_filename = pdf_url.split('/')[-1] if pdf_url else 'downloaded_file.pdf'
+                if not original_filename.endswith('.pdf'):
+                    original_filename += '.pdf'
+                print(f"📄 Read PDF for storage: {len(pdf_content)} bytes from {pdf_path}")
+            
+            if pdf_content:
+                # Create ContentFile for Django FileField
+                pdf_file_obj = ContentFile(pdf_content, name=original_filename)
+                
+                # Create PDFDocument record
+                pdf_document = PDFDocument.objects.create(
+                    original_filename=original_filename,
+                    file=pdf_file_obj,
+                    file_size=len(pdf_content),
+                    council=council,
+                    financial_year=year,
+                    uploaded_by=request.user,
+                    processing_status=PDFDocument.PROCESSING_COMPLETED,
+                    processing_started_at=start_time,
+                    processing_completed_at=timezone.now(),
+                    extraction_results=extracted_data,
+                    confidence_scores=confidence_scores,
+                    page_count=processing_stats.get('pages_processed', 0)
+                )
+                
+                print(f"✅ Created PDFDocument: {pdf_document.id}")
+                print(f"🔐 Access token: {pdf_document.access_token[:20]}...")
+                print(f"🔗 Secure URL: {pdf_document.get_secure_url()}")
+                
+                # Log PDF document creation
+                log_council_edit_event(
+                    request, 'info', 'data_processing',
+                    'PDF Document Record Created',
+                    f'Created PDFDocument record for {original_filename} ({len(pdf_content)} bytes)',
+                    details={
+                        'council_slug': council_slug,
+                        'year_label': year.label,
+                        'document_id': str(pdf_document.id),
+                        'filename': original_filename,
+                        'file_size': len(pdf_content),
+                        'extraction_fields': len(extracted_data),
+                        'processing_time_seconds': total_processing_time
+                    }
+                )
+            else:
+                print(f"⚠️ No PDF content to store (file may have been cleaned up)")
+            
+        except Exception as pdf_doc_error:
+            print(f"⚠️ Failed to create PDFDocument record: {pdf_doc_error}")
+            import traceback
+            print(f"📄 Full traceback: {traceback.format_exc()}")
+            
+            log_council_edit_event(
+                request, 'warning', 'data_processing',
+                'PDF Document Creation Failed',
+                f'Failed to create PDFDocument record: {str(pdf_doc_error)}',
+                details={
+                    'council_slug': council_slug,
+                    'year_label': year.label,
+                    'error_message': str(pdf_doc_error),
+                    'source_type': source_type,
+                    'file_path': pdf_path if 'pdf_path' in locals() else None,
+                    'file_exists': os.path.exists(pdf_path) if 'pdf_path' in locals() else False
+                }
+            )
+        
+        print(f"✅ PDF Processing Complete!")
+        print(f"⏱️ Total processing time: {total_processing_time:.2f}s")
+        print(f"📊 Fields extracted: {len(extracted_data)}")
+        print(f"🎯 Confidence scores: {len(confidence_scores)}")
+        print(f"📄 PDF Document created: {pdf_document is not None}")
+        print(f"📈 Processing stats: {processing_stats}")
+        
+        # Log successful processing with performance metrics
+        avg_confidence = sum(confidence_scores.values()) / len(confidence_scores) if confidence_scores else 0
+        performance_category = 'performance' if total_processing_time > 30 else 'data_processing'
+        
+        log_council_edit_event(
+            request, 'info', performance_category,
+            'PDF Processing Completed Successfully',
+            f'PDF processing complete for {council.name} ({year.label}): {len(extracted_data)} fields extracted in {total_processing_time:.2f}s',
+            details={
+                'council_slug': council_slug,
+                'year_label': year.label,
+                'fields_extracted': len(extracted_data),
+                'confidence_scores_count': len(confidence_scores),
+                'average_confidence': round(avg_confidence, 3),
+                'total_processing_time_seconds': total_processing_time,
+                'tika_time_seconds': tika_time if 'tika_time' in locals() else 0,
+                'ai_time_seconds': ai_time if 'ai_time' in locals() else 0,
+                'source_type': source_type,
+                'file_size_bytes': os.path.getsize(pdf_path) if pdf_path and os.path.exists(pdf_path) else 0,
+                'text_extracted_chars': len(pdf_text) if 'pdf_text' in locals() else 0,
+                'pages_processed': processing_stats.get('pages_processed', 0),
+                'pdf_document_created': pdf_document is not None,
+                'performance_flags': {
+                    'slow_processing': total_processing_time > 30,
+                    'slow_tika': tika_time > 10 if 'tika_time' in locals() else False,
+                    'slow_ai': ai_time > 15 if 'ai_time' in locals() else False,
+                    'low_confidence': avg_confidence < 0.5
+                }
+            },
+            council=council  # Link to the council object
+        )
+        
+        # Log performance warning if processing was slow
+        if total_processing_time > 30:
+            log_council_edit_event(
+                request, 'warning', 'performance',
+                'Slow PDF Processing Detected',
+                f'PDF processing took {total_processing_time:.2f}s (>30s threshold) for {council.name}',
+                details={
+                    'council_slug': council_slug,
+                    'year_label': year.label,
+                    'processing_time_seconds': total_processing_time,
+                    'performance_breakdown': {
+                        'tika_time': tika_time if 'tika_time' in locals() else 0,
+                        'ai_time': ai_time if 'ai_time' in locals() else 0,
+                        'other_time': total_processing_time - (tika_time if 'tika_time' in locals() else 0) - (ai_time if 'ai_time' in locals() else 0)
+                    },
+                    'file_size_bytes': os.path.getsize(pdf_path) if pdf_path and os.path.exists(pdf_path) else 0,
+                    'text_length': len(pdf_text) if 'pdf_text' in locals() else 0
+                }
+            )
+        
+        # Prepare response data
         response_data = {
             'success': True,
             'extracted_data': extracted_data,
@@ -2135,7 +2284,22 @@ VALIDATION RULES:
             'processing_stats': processing_stats
         }
         
-        print(f"📤 Returning response: {json.dumps(response_data, indent=2)}")
+        # Add PDF document info if created successfully
+        if pdf_document:
+            response_data['pdf_document'] = {
+                'id': str(pdf_document.id),
+                'access_token': pdf_document.access_token,
+                'filename': pdf_document.original_filename,
+                'secure_url': pdf_document.get_secure_url(),
+                'file_size': pdf_document.file_size,
+                'created_at': pdf_document.created_at.isoformat()
+            }
+            print(f"📦 Added PDF document info to response")
+        else:
+            print(f"⚠️ No PDF document info added to response")
+        
+        print(f"📤 Returning response with PDF document: {pdf_document is not None}")
+        print(f"📊 Response keys: {list(response_data.keys())}")
         return JsonResponse(response_data)
         
     except Exception as e:
@@ -2187,4 +2351,209 @@ VALIDATION RULES:
         return JsonResponse({
             'success': False,
             'error': 'PDF processing failed. Please try again or use manual entry.'
+        }, status=500)
+
+
+@require_http_methods(['GET'])
+def pdf_serve(request, document_id, access_token):
+    """
+    Secure PDF serving endpoint for PDF.js integration.
+    
+    Validates access token and user permissions before serving PDF content.
+    Includes proper headers for PDF viewing and CORS if needed.
+    
+    URL Pattern: /api/pdf/{document_id}/{access_token}/
+    
+    Returns:
+    - PDF file content with proper headers for PDF.js
+    - 403 if access denied
+    - 404 if document not found
+    - 410 if access token expired
+    """
+    try:
+        # Import PDFDocument model
+        from council_finance.models import PDFDocument
+        
+        # Get document by UUID
+        try:
+            document = PDFDocument.objects.get(id=document_id, is_active=True)
+        except PDFDocument.DoesNotExist:
+            log_council_edit_event(
+                request, 'warning', 'security',
+                'PDF Access - Document Not Found',
+                f'Attempt to access non-existent PDF document: {document_id}',
+                details={
+                    'document_id': str(document_id),
+                    'access_token_provided': bool(access_token),
+                    'user_authenticated': request.user.is_authenticated,
+                    'user_id': request.user.id if request.user.is_authenticated else None
+                }
+            )
+            return JsonResponse({
+                'success': False,
+                'error': 'Document not found'
+            }, status=404)
+        
+        # Validate access token
+        if document.access_token != access_token:
+            log_council_edit_event(
+                request, 'warning', 'security',
+                'PDF Access - Invalid Access Token',
+                f'Invalid access token for PDF document: {document.original_filename}',
+                details={
+                    'document_id': str(document_id),
+                    'document_filename': document.original_filename,
+                    'council_slug': document.council.slug,
+                    'token_provided': access_token[:10] + '...' if access_token else None,
+                    'token_length': len(access_token) if access_token else 0,
+                    'user_id': request.user.id if request.user.is_authenticated else None
+                }
+            )
+            return JsonResponse({
+                'success': False,
+                'error': 'Access denied'
+            }, status=403)
+        
+        # Check if access token is expired
+        if not document.is_access_token_valid():
+            log_council_edit_event(
+                request, 'warning', 'security',
+                'PDF Access - Token Expired',
+                f'Expired access token for PDF document: {document.original_filename}',
+                details={
+                    'document_id': str(document_id),
+                    'document_filename': document.original_filename,
+                    'council_slug': document.council.slug,
+                    'token_expired_at': document.access_expires_at.isoformat() if document.access_expires_at else None,
+                    'current_time': timezone.now().isoformat(),
+                    'user_id': request.user.id if request.user.is_authenticated else None
+                }
+            )
+            return JsonResponse({
+                'success': False,
+                'error': 'Access token expired'
+            }, status=410)
+        
+        # Check user permissions
+        if not document.can_be_accessed_by(request.user):
+            log_council_edit_event(
+                request, 'warning', 'security',
+                'PDF Access - User Permission Denied',
+                f'User lacks permission to access PDF: {document.original_filename}',
+                details={
+                    'document_id': str(document_id),
+                    'document_filename': document.original_filename,
+                    'council_slug': document.council.slug,
+                    'user_authenticated': request.user.is_authenticated,
+                    'user_id': request.user.id if request.user.is_authenticated else None,
+                    'user_is_staff': request.user.is_staff if request.user.is_authenticated else False,
+                    'document_uploader_id': document.uploaded_by.id if document.uploaded_by else None
+                }
+            )
+            return JsonResponse({
+                'success': False,
+                'error': 'Access denied'
+            }, status=403)
+        
+        # Get file content
+        if not document.file or not document.file.name:
+            log_council_edit_event(
+                request, 'error', 'data_quality',
+                'PDF Access - File Missing',
+                f'PDF document record exists but file is missing: {document.original_filename}',
+                details={
+                    'document_id': str(document_id),
+                    'document_filename': document.original_filename,
+                    'council_slug': document.council.slug,
+                    'file_field_value': str(document.file),
+                    'created_at': document.created_at.isoformat()
+                }
+            )
+            return JsonResponse({
+                'success': False,
+                'error': 'File not available'
+            }, status=404)
+        
+        try:
+            # Read file content
+            file_content = document.file.read()
+            file_size = len(file_content)
+            
+            # Record access
+            document.record_access()
+            
+            # Log successful access
+            log_council_edit_event(
+                request, 'info', 'user_activity',
+                'PDF Successfully Served',
+                f'PDF document served to user: {document.original_filename} ({file_size} bytes)',
+                details={
+                    'document_id': str(document_id),
+                    'document_filename': document.original_filename,
+                    'council_slug': document.council.slug,
+                    'file_size_bytes': file_size,
+                    'user_id': request.user.id if request.user.is_authenticated else None,
+                    'access_count': document.access_count,
+                    'processing_status': document.processing_status
+                }
+            )
+            
+            # Create HTTP response with proper headers for PDF viewing
+            from django.http import HttpResponse
+            
+            response = HttpResponse(file_content, content_type='application/pdf')
+            
+            # Set headers for PDF.js compatibility
+            response['Content-Disposition'] = f'inline; filename="{document.original_filename}"'
+            response['Content-Length'] = str(file_size)
+            response['Accept-Ranges'] = 'bytes'
+            
+            # CORS headers if needed (for development)
+            response['Access-Control-Allow-Origin'] = '*'
+            response['Access-Control-Allow-Methods'] = 'GET'
+            response['Access-Control-Allow-Headers'] = 'Range'
+            
+            # Cache control
+            response['Cache-Control'] = 'private, max-age=3600'  # 1 hour cache
+            response['ETag'] = f'"{document.id}-{document.updated_at.timestamp()}"'
+            
+            return response
+            
+        except Exception as file_error:
+            log_council_edit_event(
+                request, 'error', 'integration',
+                'PDF File Read Error',
+                f'Failed to read PDF file: {str(file_error)}',
+                details={
+                    'document_id': str(document_id),
+                    'document_filename': document.original_filename,
+                    'council_slug': document.council.slug,
+                    'file_path': document.file.name,
+                    'error_type': type(file_error).__name__,
+                    'error_message': str(file_error)
+                }
+            )
+            return JsonResponse({
+                'success': False,
+                'error': 'Failed to read file'
+            }, status=500)
+    
+    except Exception as e:
+        log_council_edit_event(
+            request, 'error', 'exception',
+            'PDF Serving Error',
+            f'Unexpected error serving PDF: {str(e)}',
+            details={
+                'document_id': str(document_id),
+                'access_token_length': len(access_token) if access_token else 0,
+                'error_type': type(e).__name__,
+                'error_message': str(e),
+                'user_authenticated': request.user.is_authenticated,
+                'user_id': request.user.id if request.user.is_authenticated else None
+            }
+        )
+        logger.error(f"Error serving PDF {document_id}: {e}")
+        return JsonResponse({
+            'success': False,
+            'error': 'Internal server error'
         }, status=500)

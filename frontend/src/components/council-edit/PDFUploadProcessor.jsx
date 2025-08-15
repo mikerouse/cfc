@@ -1,4 +1,5 @@
 import React, { useState, useCallback, useRef } from 'react';
+import PDFViewer from './PDFViewer';
 
 /**
  * PDF Upload and Processing Component
@@ -23,6 +24,10 @@ const PDFUploadProcessor = ({
   const [processingStage, setProcessingStage] = useState('');
   const [error, setError] = useState(null);
   const [progress, setProgress] = useState(0);
+  const [showViewer, setShowViewer] = useState(false);
+  const [pdfViewerData, setPdfViewerData] = useState(null);
+  const [extractedData, setExtractedData] = useState(null);
+  const [confidenceScores, setConfidenceScores] = useState(null);
   const fileInputRef = useRef(null);
 
   // Processing stages for user feedback
@@ -199,14 +204,32 @@ const PDFUploadProcessor = ({
       setProcessingStage('complete');
       setProgress(100);
       
-      // Pass extracted data to parent component for review
-      console.log('🔄 Passing data to parent component...');
-      setTimeout(() => {
-        console.log('📤 Calling onProcessingComplete with:');
-        console.log('  - extracted_data:', result.extracted_data);
-        console.log('  - confidence_scores:', result.confidence_scores);
-        onProcessingComplete(result.extracted_data, result.confidence_scores);
-      }, 1000);
+      // Store extracted data and show PDF viewer
+      console.log('💾 Storing extracted data for PDF viewer...');
+      setExtractedData(result.extracted_data || {});
+      setConfidenceScores(result.confidence_scores || {});
+      
+      // Check if we have PDF document info from the response
+      if (result.pdf_document) {
+        console.log('📄 PDF document info received:', result.pdf_document);
+        setPdfViewerData({
+          documentId: result.pdf_document.id,
+          accessToken: result.pdf_document.access_token,
+          filename: result.pdf_document.filename,
+          secure_url: result.pdf_document.secure_url
+        });
+        setShowViewer(true);
+        setProcessing(false);
+      } else {
+        // Fallback: show results directly (old workflow)
+        console.log('📤 No PDF document info, falling back to old workflow');
+        setTimeout(() => {
+          console.log('📤 Calling onProcessingComplete with:');
+          console.log('  - extracted_data:', result.extracted_data);
+          console.log('  - confidence_scores:', result.confidence_scores);
+          onProcessingComplete(result.extracted_data, result.confidence_scores);
+        }, 1000);
+      }
       
     } catch (error) {
       console.error('💥 PDF processing error:', error);
@@ -445,6 +468,103 @@ const PDFUploadProcessor = ({
                   </div>
                 );
               })}
+            </div>
+          </div>
+        )}
+        
+        {/* PDF Viewer with Extraction Highlights */}
+        {showViewer && pdfViewerData && (
+          <div className="mt-8">
+            <div className="mb-6">
+              <h3 className="text-xl font-bold text-gray-900 mb-2">
+                Review Extracted Data
+              </h3>
+              <p className="text-gray-600">
+                Review the extracted financial figures below. Click on highlighted areas in the PDF to see what was extracted.
+              </p>
+            </div>
+            
+            <div className="grid lg:grid-cols-2 gap-8">
+              {/* PDF Viewer */}
+              <div className="lg:col-span-1">
+                <h4 className="text-lg font-semibold text-gray-900 mb-4">PDF Document</h4>
+                <PDFViewer
+                  pdfUrl={pdfViewerData.secure_url}
+                  extractedData={extractedData}
+                  highlightedField={null}
+                  onFieldClick={(fieldSlug) => {
+                    console.log(`PDF field clicked: ${fieldSlug}`);
+                    // Could scroll to the corresponding field in the extracted data list
+                  }}
+                  className="border rounded-lg shadow-sm"
+                  preset="financial"
+                  showControls={true}
+                />
+              </div>
+              
+              {/* Extracted Data Summary */}
+              <div className="lg:col-span-1">
+                <h4 className="text-lg font-semibold text-gray-900 mb-4">Extracted Financial Data</h4>
+                <div className="space-y-4 max-h-96 overflow-y-auto">
+                  {Object.entries(extractedData).length > 0 ? (
+                    Object.entries(extractedData).map(([fieldSlug, data]) => (
+                      <div key={fieldSlug} className="bg-white border border-gray-200 rounded-lg p-4">
+                        <div className="flex justify-between items-start mb-2">
+                          <h5 className="font-medium text-gray-900">{data.field_name}</h5>
+                          <span className="text-sm text-gray-500">
+                            {Math.round((confidenceScores[fieldSlug] || 0) * 100)}% confident
+                          </span>
+                        </div>
+                        <p className="text-2xl font-bold text-blue-600 mb-2">
+                          £{data.value ? data.value.toLocaleString() : 'N/A'}
+                        </p>
+                        {data.source_text && (
+                          <p className="text-sm text-gray-600 mb-2">
+                            <strong>Source:</strong> "{data.source_text.substring(0, 100)}..."
+                          </p>
+                        )}
+                        {data.ai_reasoning && (
+                          <p className="text-xs text-gray-500">
+                            <strong>AI Notes:</strong> {data.ai_reasoning.substring(0, 150)}...
+                          </p>
+                        )}
+                      </div>
+                    ))
+                  ) : (
+                    <p className="text-gray-500 text-center py-8">
+                      No financial data was extracted from this PDF.
+                    </p>
+                  )}
+                </div>
+                
+                {/* Action Buttons */}
+                <div className="mt-6 flex space-x-3">
+                  <button
+                    onClick={() => {
+                      console.log('✅ User approved extraction results');
+                      onProcessingComplete(extractedData, confidenceScores);
+                    }}
+                    className="flex-1 bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 transition-colors"
+                  >
+                    ✅ Approve & Continue
+                  </button>
+                  <button
+                    onClick={() => {
+                      console.log('🔄 User wants to try again');
+                      setShowViewer(false);
+                      setPdfViewerData(null);
+                      setExtractedData(null);
+                      setConfidenceScores(null);
+                      setFile(null);
+                      setFileUrl('');
+                      setError(null);
+                    }}
+                    className="px-4 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50 transition-colors"
+                  >
+                    🔄 Try Again
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
         )}

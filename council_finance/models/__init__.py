@@ -92,6 +92,7 @@ from .predictive_analytics import (
 )
 from .counter_result import CounterResult
 from .site_feedback import SiteFeedback, SiteAnnouncement
+from .pdf_document import PDFDocument, PDFProcessingLog
 
 __all__ = [
     'Council',
@@ -167,4 +168,6 @@ __all__ = [
     'CounterResult',
     'SiteFeedback',
     'SiteAnnouncement',
+    'PDFDocument',
+    'PDFProcessingLog',
 ]

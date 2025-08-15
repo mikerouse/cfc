@@ -311,6 +311,9 @@ urlpatterns = [
     # PDF processing for AI-powered data extraction
     path("api/council/process-pdf/", council_edit_api.process_pdf_api, name="process_pdf_api"),
     
+    # PDF serving for PDF.js integration
+    path("api/pdf/<uuid:document_id>/<str:access_token>/", council_edit_api.pdf_serve, name="pdf_serve"),
+    
     # React council edit interface (no fallback)
     path("councils/<slug:slug>/edit/", council_views.council_edit_react, name="council_edit"),
     
