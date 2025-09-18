@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% load static %}
+{% load static vite %}
 
 {% block title %}{{ page_title }}{% endblock %}
 
@@ -108,8 +108,7 @@
 </script>
 
 <!-- Styles first -->
-{% load static %}
-<link rel="stylesheet" href="{% static 'frontend/main-CWCzAves.css' %}">
+<link rel="stylesheet" href="{% vite_css 'src/main.jsx' %}">
 
 <!-- React script loaded after DOM content is ready -->
 <script>
@@ -120,7 +119,7 @@
         const script = document.createElement('script');
         script.type = 'module';
         script.crossOrigin = 'anonymous';
-        script.src = '{% static "frontend/main-Biw1EjPN.js" %}';
+        script.src = '{% vite_js "src/main.jsx" %}';
         script.onload = function() {
             console.log('✅ React script loaded successfully');
         };
