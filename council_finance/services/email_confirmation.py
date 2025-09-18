@@ -28,10 +28,20 @@ class EmailConfirmationService:
         self.from_email = getattr(settings, 'DEFAULT_FROM_EMAIL', 'noreply@councilfinance.com')
     
     def _safe_log_activity(self, request, activity, details=None, extra=None):
-        """Safely log activity, avoiding circular imports."""
+        """Safely log activity, avoiding circular imports.
+        Merge details into extra and pass only supported args to log_activity.
+        """
         try:
             from council_finance.views.general import log_activity
-            log_activity(request, activity=activity, details=details, extra=extra)
+            # Merge details into extra under a standard key
+            merged_extra = {}
+            if isinstance(extra, dict):
+                merged_extra.update(extra)
+            elif extra is not None:
+                merged_extra['note'] = str(extra)
+            if details is not None:
+                merged_extra['details'] = details
+            log_activity(request, activity=activity, extra=merged_extra or None)
         except ImportError:
             logger.info(f"Activity: {activity}" + (f" - {details}" if details else ""))
     
