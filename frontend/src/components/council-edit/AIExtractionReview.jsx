@@ -25,68 +25,59 @@ const AIExtractionReview = ({
   const [editingFields, setEditingFields] = useState(new Set());
   const [saving, setSaving] = useState(false);
 
-  // Group extracted fields by category
+  // Group extracted fields by confidence level as per design specifications
   const fieldGroups = useMemo(() => {
     const groups = {
-      income: {
-        title: '💷 Income & Expenditure',
+      high: {
+        title: 'High Confidence Fields',
+        description: 'AI is very confident about these extractions',
         fields: [],
-        icon: '💷'
+        icon: '✅',
+        bgColor: 'bg-green-50',
+        borderColor: 'border-green-200'
       },
-      balance: {
-        title: '⚖️ Balance Sheet',
+      medium: {
+        title: 'Medium Confidence Fields', 
+        description: 'Please review these extractions carefully',
         fields: [],
-        icon: '⚖️'
+        icon: '⚠️',
+        bgColor: 'bg-yellow-50',
+        borderColor: 'border-yellow-200'
       },
-      debt: {
-        title: '📊 Debt & Obligations',
+      low: {
+        title: 'Low Confidence Fields',
+        description: 'These extractions need verification',
         fields: [],
-        icon: '📊'
-      },
-      other: {
-        title: '📁 Other Fields',
-        fields: [],
-        icon: '📁'
+        icon: '❌',
+        bgColor: 'bg-red-50',
+        borderColor: 'border-red-200'
       }
     };
 
-    // Map of field slugs to categories
-    const categoryMap = {
-      'total-income': 'income',
-      'total-expenditure': 'income',
-      'interest-payments': 'income',
-      'interest-paid': 'income',
-      'business-rates-income': 'income',
-      'council-tax-income': 'income',
-      'non-ring-fenced-government-grants-income': 'income',
-      'capital-expenditure': 'income',
-      'current-assets': 'balance',
-      'current-liabilities': 'balance',
-      'long-term-liabilities': 'balance',
-      'total-reserves': 'balance',
-      'usable-reserves': 'balance',
-      'unusable-reserves': 'balance',
-      'total-debt': 'debt',
-      'pension-liability': 'debt',
-      'finance-leases': 'debt',
-      'finance-leases-pfi-liabilities': 'debt'
-    };
-
-    // Process extracted data
+    // Process extracted data and group by confidence level
     Object.entries(extractedData).forEach(([fieldSlug, data]) => {
-      const category = categoryMap[fieldSlug] || 'other';
-      groups[category].fields.push({
+      const confidence = confidenceScores[fieldSlug] || 0;
+      const field = {
         slug: fieldSlug,
         name: data.field_name || fieldSlug.replace(/-/g, ' '),
         value: data.value,
-        confidence: confidenceScores[fieldSlug] || 0,
+        confidence,
         source_text: data.source_text || '',
         page: data.page_number || null,
         ai_reasoning: data.ai_reasoning || ''
-      });
+      };
+
+      // Categorize by confidence level
+      if (confidence >= 0.8) {
+        groups.high.fields.push(field);
+      } else if (confidence >= 0.6) {
+        groups.medium.fields.push(field);
+      } else {
+        groups.low.fields.push(field);
+      }
     });
 
-    // Sort fields by confidence score (highest first)
+    // Sort fields within each group by confidence score (highest first)
     Object.values(groups).forEach(group => {
       group.fields.sort((a, b) => b.confidence - a.confidence);
     });
@@ -208,14 +199,16 @@ const AIExtractionReview = ({
   const hasEdits = Object.keys(editedValues).length > 0;
 
   return (
-    <div className={`bg-white ${className}`}>
-      <div className="max-w-6xl mx-auto px-4 py-6 sm:px-6 sm:py-8">
+    <div className={`bg-white ${className}`} id="extraction-review-container">
+      <div className="max-w-none xl:max-w-desktop mx-auto px-4 py-6 sm:px-6 sm:py-8">
         
         {/* Header */}
-        <div className="mb-8">
+        <div className="mb-8" id="extraction-review-header">
           <button
             onClick={onBack}
-            className="inline-flex items-center text-blue-600 hover:text-blue-800 text-sm font-medium mb-4"
+            className="inline-flex items-center text-blue-600 hover:text-blue-800 text-sm font-medium mb-4 min-h-[44px] px-2"
+            id="extraction-review-back-btn"
+            aria-label="Go back to PDF upload step"
           >
             <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" />
@@ -223,16 +216,16 @@ const AIExtractionReview = ({
             Back to upload
           </button>
           
-          <h2 className="text-2xl font-bold text-gray-900 mb-2">
+          <h2 className="text-2xl font-bold text-gray-900 mb-2" id="extraction-review-title">
             Review Extracted Data
           </h2>
-          <p className="text-gray-600">
+          <p className="text-gray-600" id="extraction-review-description">
             AI has extracted {totalCount} financial fields from the PDF. Please review and confirm.
           </p>
         </div>
 
         {/* Summary Stats - GOV.UK Style */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8" id="extraction-review-stats">
           <div className="border-l-4 border-gray-400 bg-gray-50 p-4">
             <p className="text-sm text-gray-600 mb-1">Total Fields</p>
             <p className="text-2xl font-bold text-gray-900">{totalCount}</p>
@@ -257,14 +250,22 @@ const AIExtractionReview = ({
             if (group.fields.length === 0) return null;
             
             return (
-              <div key={groupKey} className="border border-gray-300 mb-6">
-                <div className="bg-gray-50 px-6 py-4 border-b border-gray-300">
-                  <h3 className="text-lg font-semibold text-gray-900">
-                    {group.title.replace(group.icon, '').trim()}
-                    <span className="ml-3 text-sm font-normal text-gray-600">
-                      ({group.fields.length} field{group.fields.length !== 1 ? 's' : ''})
+              <div key={groupKey} className={`border ${group.borderColor} mb-6`} id={`extraction-review-group-${groupKey}`}>
+                <div className={`${group.bgColor} px-6 py-4 border-b ${group.borderColor}`} id={`extraction-review-group-${groupKey}-header`}>
+                  <div className="flex items-center space-x-3">
+                    <span className="text-2xl" role="img" aria-label={`${groupKey} confidence`}>
+                      {group.icon}
                     </span>
-                  </h3>
+                    <div>
+                      <h3 className="text-lg font-semibold text-gray-900">
+                        {group.title}
+                        <span className="ml-3 text-sm font-normal text-gray-600">
+                          ({group.fields.length} field{group.fields.length !== 1 ? 's' : ''})
+                        </span>
+                      </h3>
+                      <p className="text-sm text-gray-700 mt-1">{group.description}</p>
+                    </div>
+                  </div>
                 </div>
                 
                 <div className="divide-y divide-gray-200">
@@ -277,6 +278,7 @@ const AIExtractionReview = ({
                       <div
                         key={field.slug}
                         className={`p-6 ${isRejected ? 'bg-gray-50' : 'bg-white'}`}
+                        id={`extraction-review-field-${field.slug}`}
                       >
                         {/* Field Header */}
                         <div className="mb-4 pb-3 border-b border-gray-200">
@@ -357,11 +359,11 @@ const AIExtractionReview = ({
                         </div>
 
                         {/* Action Buttons - Full Width */}
-                        <div className="flex space-x-3 mb-4">
+                        <div className="flex space-x-3 mb-4" id={`extraction-review-actions-${field.slug}`}>
                           <button
                             onClick={() => handleApprove(field.slug)}
                             disabled={isRejected}
-                            className={`flex-1 py-2 px-4 text-sm font-medium border-2 transition-colors ${
+                            className={`flex-1 py-3 px-4 text-sm font-medium border-2 transition-colors min-h-[44px] ${
                               approvedFields.has(field.slug)
                                 ? 'bg-green-600 text-white border-green-600'
                                 : isRejected
@@ -374,7 +376,7 @@ const AIExtractionReview = ({
                           <button
                             onClick={() => handleEdit(field.slug)}
                             disabled={isRejected}
-                            className={`flex-1 py-2 px-4 text-sm font-medium border-2 transition-colors ${
+                            className={`flex-1 py-3 px-4 text-sm font-medium border-2 transition-colors min-h-[44px] ${
                               editingFields.has(field.slug) || isEdited
                                 ? 'bg-blue-600 text-white border-blue-600'
                                 : isRejected
@@ -386,7 +388,7 @@ const AIExtractionReview = ({
                           </button>
                           <button
                             onClick={() => handleReject(field.slug)}
-                            className={`flex-1 py-2 px-4 text-sm font-medium border-2 transition-colors ${
+                            className={`flex-1 py-3 px-4 text-sm font-medium border-2 transition-colors min-h-[44px] ${
                               isRejected
                                 ? 'bg-red-600 text-white border-red-600'
                                 : 'bg-white text-red-600 border-red-600 hover:bg-red-50'

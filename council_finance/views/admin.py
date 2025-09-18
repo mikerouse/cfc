@@ -2182,7 +2182,7 @@ def _get_field_sample_value(field, council_slug=None, year=None):
 
 @login_required
 def field_list(request):
-    """Display list of all data fields with management options."""
+    """Display list of all data fields with management options and CoreFinancialFigure integration."""
     if not request.user.is_superuser:
         messages.error(request, "You don't have permission to access field management.")
         return redirect('home')
@@ -2207,6 +2207,32 @@ def field_list(request):
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
     
+    # CoreFinancialFigure integration data
+    from ..models.core_financial_figure import CoreFinancialFigure, CORE_FIELD_MAPPING
+    
+    core_financial_stats = {
+        'total_core_records': CoreFinancialFigure.objects.count(),
+        'councils_with_core_data': CoreFinancialFigure.objects.values('council').distinct().count(),
+        'core_fields_count': len(CORE_FIELD_MAPPING),
+        'core_field_names': list(CORE_FIELD_MAPPING.keys()),
+    }
+    
+    # System architecture information
+    system_info = {
+        'schema_approach': 'Hybrid Fixed Schema + Dynamic Calculated Fields',
+        'core_fields_fixed': True,
+        'atomic_processing_enabled': True,
+        'pdf_processing_atomic': True,
+        'data_integrity_mode': 'Atomic Transactions',
+    }
+    
+    # Legacy to core migration status
+    migration_stats = {
+        'legacy_financial_figures': FinancialFigure.objects.count(),
+        'core_financial_figures': CoreFinancialFigure.objects.count(),
+        'migration_recommended': FinancialFigure.objects.count() > 0,
+    }
+    
     context = {
         'page_obj': page_obj,
         'search_query': search_query,
@@ -2214,7 +2240,25 @@ def field_list(request):
         'field_categories': DataField.FIELD_CATEGORIES,
         'total_fields': DataField.objects.count(),
         'meta_fields_count': DataField.objects.filter(show_in_meta=True).count(),
+        'core_financial_stats': core_financial_stats,
+        'system_info': system_info,
+        'migration_stats': migration_stats,
+        'core_field_mapping': CORE_FIELD_MAPPING,
     }
+    
+    log_activity(
+        request,
+        activity="field_management_access",
+        log_type="admin",
+        action="view_field_list_with_core_integration",
+        extra={
+            'total_fields': fields.count(),
+            'search_query': search_query,
+            'category_filter': category_filter,
+            'core_records_count': core_financial_stats['total_core_records'],
+            'system_approach': 'hybrid_fixed_schema',
+        }
+    )
     
     return render(request, 'council_finance/admin/field_list.html', context)
 

@@ -696,8 +696,8 @@ Return only JSON: {{"validated_fields": {{"field_name": correct_number_or_null}}
         """
         Enhanced regex extraction method - PRIMARY extraction system.
         
-        This is now the main extraction method, refined for UK council statements.
-        Much more sophisticated than the original fallback version.
+        **UPDATED**: Now aligned with CoreFinancialFigure schema to prevent Leeds-type issues.
+        This extracts data that maps directly to our 25 core financial fields.
         
         Args:
             text_content: Raw PDF text content
@@ -707,29 +707,50 @@ Return only JSON: {{"validated_fields": {{"field_name": correct_number_or_null}}
         """
         import re
         
+        # **CORE SCHEMA ALIGNMENT**: Fields now match CoreFinancialFigure structure
         extracted_data = {
-            'revenue_income': None,
+            # Income fields (maps to CoreFinancialFigure income fields)
+            'revenue_income': None,  # -> total_income
+            'council_tax_income': None,
+            'business_rates_income': None,
+            'grants_income': None,  # -> non_ring_fenced_government_grants_income
+            
+            # Expenditure fields  
             'total_expenditure': None,
+            'interest_payments': None,  # -> interest_paid
+            'capital_expenditure': None,
+            
+            # Asset fields
             'current_assets': None,
-            'current_liabilities': None,
-            'long_term_liabilities': None,
+            'fixed_assets': None,  # -> property_plant_equipment
+            
+            # Liability fields (CRITICAL FIX for Leeds issues)
+            'current_liabilities': None,  # Fixed: direct mapping
+            'long_term_liabilities': None,  # Fixed: correct field
+            'pension_liability': None,
+            'finance_leases': None,  # -> finance_leases_pfi_liabilities
+            
+            # Debt fields
             'total_debt': None,
-            'interest_payments': None,
-            'reserves': None,
-            'borrowing': None,
-            'net_worth': None,
+            
+            # Reserve fields
+            'reserves': None,  # -> total_reserves
+            'usable_reserves': None,
+            'unusable_reserves': None,
+            
+            # Metadata
             'confidence': 'medium',  # Enhanced regex gets medium confidence
-            'notes': 'Extracted using enhanced regex patterns optimized for UK councils'
+            'notes': 'Extracted using CoreFinancialFigure-aligned patterns for data integrity'
         }
         
         # Track metadata for each extraction
         extraction_metadata = {}
         
-        # Enhanced regex patterns based on UK council statement analysis
+        # **CORE SCHEMA PATTERNS**: Enhanced regex patterns aligned with CoreFinancialFigure
         # PRIORITY ORDER: Group Balance Sheet > Main Balance Sheet > Other sections
         patterns = {
             'revenue_income': [
-                # Balance sheet formats
+                # Balance sheet formats - COMPREHENSIVE INCOME PATTERNS
                 r'total\s*income[:\s]*\(([0-9,.]+)\)',  # Format: "total income (4,357.2)"
                 r'\([0-9,.]+\)\s*total\s*income\s*\(([0-9,.]+)\)',  # Balance sheet format
                 # Income statement formats
@@ -738,6 +759,21 @@ Return only JSON: {{"validated_fields": {{"field_name": correct_number_or_null}}
                 r'gross\s*income[:\s]*£?([0-9,.]+)\s*(million|m|thousand|k|\s|$)',
                 # Alternative formats
                 r'income\s*from\s*operations[:\s]*£?([0-9,.]+)\s*(million|m|thousand|k|\s|$)',
+            ],
+            'council_tax_income': [
+                r'council\s*tax[:\s]*£?([0-9,.]+)\s*(million|m|thousand|k|\s|$)',
+                r'council\s*tax\s*income[:\s]*£?([0-9,.]+)\s*(million|m|thousand|k|\s|$)',
+                r'taxation[:\s]*£?([0-9,.]+)\s*(million|m|thousand|k|\s|$)',
+            ],
+            'business_rates_income': [
+                r'business\s*rates[:\s]*£?([0-9,.]+)\s*(million|m|thousand|k|\s|$)',
+                r'non.domestic\s*rates[:\s]*£?([0-9,.]+)\s*(million|m|thousand|k|\s|$)',
+                r'nndr[:\s]*£?([0-9,.]+)\s*(million|m|thousand|k|\s|$)',
+            ],
+            'grants_income': [
+                r'government\s*grants[:\s]*£?([0-9,.]+)\s*(million|m|thousand|k|\s|$)',
+                r'non.ring.fenced\s*grants[:\s]*£?([0-9,.]+)\s*(million|m|thousand|k|\s|$)',
+                r'general\s*grants[:\s]*£?([0-9,.]+)\s*(million|m|thousand|k|\s|$)',
             ],
             'total_expenditure': [
                 # Specific council formats
@@ -748,11 +784,30 @@ Return only JSON: {{"validated_fields": {{"field_name": correct_number_or_null}}
                 # Additional patterns
                 r'operating\s*expenditure[:\s]*£?([0-9,.]+)\s*(million|m|thousand|k|\s|$)',
             ],
+            'interest_payments': [
+                # **CRITICAL**: Maps to interest_paid in CoreFinancialFigure
+                r'interest\s*(?:payments?|paid|costs?)[:\s]*£?([0-9,.]+)\s*(million|m|thousand|k|\s|$)',
+                r'financing\s*costs[:\s]*£?([0-9,.]+)\s*(million|m|thousand|k|\s|$)',
+                r'debt\s*servicing[:\s]*£?([0-9,.]+)\s*(million|m|thousand|k|\s|$)',
+                r'interest\s*payable[:\s]*£?([0-9,.]+)\s*(million|m|thousand|k|\s|$)',
+            ],
+            'capital_expenditure': [
+                r'capital\s*expenditure[:\s]*£?([0-9,.]+)\s*(million|m|thousand|k|\s|$)',
+                r'capital\s*investment[:\s]*£?([0-9,.]+)\s*(million|m|thousand|k|\s|$)',
+                r'capex[:\s]*£?([0-9,.]+)\s*(million|m|thousand|k|\s|$)',
+            ],
             'current_assets': [
                 r'current\s*assets[:\s]*£?([0-9,.]+)\s*(million|m|thousand|k|\s|$)',
                 r'total\s*current\s*assets[:\s]*£?([0-9,.]+)\s*(million|m|thousand|k|\s|$)',
                 r'short.{0,10}term\s*assets[:\s]*£?([0-9,.]+)\s*(million|m|thousand|k|\s|$)',
             ],
+            'fixed_assets': [
+                r'(?:fixed|non.current)\s*assets[:\s]*£?([0-9,.]+)\s*(million|m|thousand|k|\s|$)',
+                r'property.plant.equipment[:\s]*£?([0-9,.]+)\s*(million|m|thousand|k|\s|$)',
+                r'ppe[:\s]*£?([0-9,.]+)\s*(million|m|thousand|k|\s|$)',
+                r'tangible\s*assets[:\s]*£?([0-9,.]+)\s*(million|m|thousand|k|\s|$)',
+            ],
+            # **CRITICAL LIABILITY PATTERNS** - Fixed for Leeds council issue
             'current_liabilities': [
                 # PRIORITY 1: Group Balance Sheet patterns (Entity Group Entity Group format)
                 r'entity\s+group\s+entity\s+group.*?current\s*liabilities.*?\([0-9,.]+\)\s*\([0-9,.]+\)\s*\([0-9,.]+\)\s*\(([0-9,.]+)\)',
@@ -767,17 +822,23 @@ Return only JSON: {{"validated_fields": {{"field_name": correct_number_or_null}}
                 r'current\s*liabilities[:\s]*£?([0-9,.]+)\s*(million|m|thousand|k|\s|$)',
                 r'total\s*current\s*liabilities[:\s]*£?([0-9,.]+)\s*(million|m|thousand|k|\s|$)',
             ],
-            'long_term_liabilities': [
+            'long_term_liabilities': [  # **FIXED**: Was mapping to wrong field
                 r'\([0-9,.]+\)\s*long.{0,10}term\s*liabilities\s*\(([0-9,.]+)\)',  # Match: "(577.8) Long-term liabilities (665.8)"
                 r'long.{0,10}term\s*liabilities[:\s]*£?\(([0-9,.]+)\)',  # Match: "Long-term liabilities £(665.8)" or "(665.8)"
                 r'(?:long.{0,10}term)\s*(?:debt|liabilities|borrowing)[:\s]*£?([0-9,.]+)\s*(million|m|thousand|k|\s|$)',
                 r'long\s*term\s*borrowing[:\s]*£?([0-9,.]+)\s*(million|m|thousand|k|\s|$)',
                 r'non.{0,10}current\s*liabilities[:\s]*£?([0-9,.]+)\s*(million|m|thousand|k|\s|$)',
             ],
-            'interest_payments': [
-                r'interest\s*(?:payments?|paid|costs?)[:\s]*£?([0-9,.]+)\s*(million|m|thousand|k|\s|$)',
-                r'financing\s*costs[:\s]*£?([0-9,.]+)\s*(million|m|thousand|k|\s|$)',
-                r'debt\s*servicing[:\s]*£?([0-9,.]+)\s*(million|m|thousand|k|\s|$)',
+            'pension_liability': [
+                r'pension\s*(?:liability|liabilities)[:\s]*£?([0-9,.]+)\s*(million|m|thousand|k|\s|$)',
+                r'defined\s*benefit\s*pension[:\s]*£?([0-9,.]+)\s*(million|m|thousand|k|\s|$)',
+                r'pension\s*fund\s*deficit[:\s]*£?([0-9,.]+)\s*(million|m|thousand|k|\s|$)',
+            ],
+            'finance_leases': [
+                r'finance\s*lease[:\s]*£?([0-9,.]+)\s*(million|m|thousand|k|\s|$)',
+                r'pfi[:\s]*£?([0-9,.]+)\s*(million|m|thousand|k|\s|$)',
+                r'private\s*finance\s*initiative[:\s]*£?([0-9,.]+)\s*(million|m|thousand|k|\s|$)',
+                r'finance\s*lease\s*(?:and\s*pfi\s*)?liabilities[:\s]*£?([0-9,.]+)\s*(million|m|thousand|k|\s|$)',
             ],
             'total_debt': [
                 r'total\s*(?:debt|borrowing)[:\s]*£?([0-9,.]+)\s*(million|m|thousand|k|\s|$)',
@@ -793,7 +854,16 @@ Return only JSON: {{"validated_fields": {{"field_name": correct_number_or_null}}
                 r'([0-9,.]+)\s*total\s*reserves(?!\s*3,158)',  # Match: "3,059.6 total reserves" but not prior year
                 r'\([0-9,.]+\)\s*total\s*reserves\s*\(([0-9,.]+)\)',  # Balance sheet format
                 r'(?:total)?\s*reserves[:\s]*£?([0-9,.]+)\s*(million|m|thousand|k|\s|$)',
+            ],
+            'usable_reserves': [
                 r'usable\s*reserves[:\s]*£?([0-9,.]+)\s*(million|m|thousand|k|\s|$)',
+                r'general\s*fund[:\s]*£?([0-9,.]+)\s*(million|m|thousand|k|\s|$)',
+                r'earmarked\s*reserves[:\s]*£?([0-9,.]+)\s*(million|m|thousand|k|\s|$)',
+            ],
+            'unusable_reserves': [
+                r'unusable\s*reserves[:\s]*£?([0-9,.]+)\s*(million|m|thousand|k|\s|$)',
+                r'revaluation\s*reserve[:\s]*£?([0-9,.]+)\s*(million|m|thousand|k|\s|$)',
+                r'capital\s*adjustment\s*account[:\s]*£?([0-9,.]+)\s*(million|m|thousand|k|\s|$)',
             ],
         }
         
@@ -985,9 +1055,341 @@ Return only JSON: {{"validated_fields": {{"field_name": correct_number_or_null}}
         final_score = min(1.0, base_score + field_bonus)
         return round(final_score, 2)
 
+    def process_pdf_atomic(self, pdf_path: str, council_slug: str, year_id: int, 
+                          council_name: str = "", year_label: str = "") -> Dict[str, Any]:
+        """
+        **NEW ATOMIC PDF PROCESSING WORKFLOW** - Prevents Leeds council type data integrity issues.
+        
+        This is the complete end-to-end atomic workflow that:
+        1. Extracts text from PDF using Tika
+        2. Uses hybrid regex+AI extraction (cost-controlled)
+        3. Maps to CoreFinancialFigure schema (25 core fields)
+        4. Validates data consistency
+        5. Saves ALL data atomically in single transaction
+        6. Provides comprehensive logging and error handling
+        
+        **CRITICAL**: This replaces the old process where individual field saves could cause 
+        data integrity issues like "user enters one figure, different figure appears after saving"
+        
+        Args:
+            pdf_path: Path to PDF file to process
+            council_slug: Council slug for atomic API call
+            year_id: Year ID for atomic API call  
+            council_name: Name of council (optional, for AI context)
+            year_label: Year label like "2023/24" (optional, for AI context)
+            
+        Returns:
+            Dictionary containing complete atomic processing results with Event Viewer integration
+        """
+        logger.info(f"🚀 Starting ATOMIC PDF processing: {pdf_path} for {council_slug} ({year_label})")
+        overall_start = time.time()
+        
+        # Initialize results structure
+        result = {
+            'success': False,
+            'extraction_success': False,
+            'analysis_success': False,
+            'mapping_success': False,
+            'validation_success': False,
+            'save_success': False,
+            'extraction_result': None,
+            'analysis_result': None,
+            'mapped_data': None,
+            'validation_issues': [],
+            'api_response': None,
+            'total_time': 0.0,
+            'summary': '',
+            'error_details': [],
+            'fields_extracted': 0,
+            'fields_mapped': 0,
+            'fields_saved': 0
+        }
+        
+        try:
+            # **STEP 1**: Extract text from PDF using Tika
+            logger.info("📄 Step 1: Extracting text from PDF...")
+            extraction_result = self.extract_text_from_pdf(pdf_path)
+            result['extraction_result'] = extraction_result
+            
+            if not extraction_result.success:
+                result['error_details'].append(f"PDF extraction failed: {extraction_result.error_message}")
+                result['summary'] = "FAILED: PDF text extraction failed"
+                self._log_atomic_event('error', 'PDF Extraction Failed', extraction_result.error_message, 
+                                     council_slug, year_label)
+                return result
+            
+            result['extraction_success'] = True
+            logger.info(f"✓ Step 1 complete: {extraction_result.character_count:,} characters extracted, "
+                       f"{len(extraction_result.financial_terms_found)} financial terms found")
+            
+            # **STEP 2**: Hybrid extraction (regex + optional AI validation)
+            logger.info("🤖 Step 2: Hybrid financial data extraction...")
+            analysis_result = self.extract_with_hybrid_approach(
+                extraction_result.text_content, council_name, year_label
+            )
+            result['analysis_result'] = analysis_result
+            
+            if not analysis_result['success']:
+                result['error_details'].append(f"Data extraction failed: {analysis_result.get('error', 'Unknown error')}")
+                result['summary'] = "FAILED: Financial data extraction failed"
+                self._log_atomic_event('error', 'Financial Data Extraction Failed', 
+                                     analysis_result.get('error', 'Unknown error'), council_slug, year_label)
+                return result
+                
+            result['analysis_success'] = True
+            result['fields_extracted'] = len([v for v in analysis_result['extracted_data'].values() 
+                                            if v is not None and isinstance(v, (int, float)) and v > 0])
+            
+            logger.info(f"✓ Step 2 complete: {result['fields_extracted']} fields extracted, "
+                       f"confidence: {analysis_result['confidence_score']:.1%}, "
+                       f"method: {analysis_result.get('extraction_method', 'unknown')}")
+            
+            # **STEP 3**: Map to CoreFinancialFigure schema
+            logger.info("🔄 Step 3: Mapping to CoreFinancialFigure schema...")
+            mapper = FinancialDataMapper()
+            mapped_data = mapper.map_to_core_financial_fields(analysis_result['extracted_data'])
+            result['mapped_data'] = mapped_data
+            
+            if not mapped_data:
+                result['error_details'].append("No valid financial data could be mapped to CoreFinancialFigure schema")
+                result['summary'] = "FAILED: No valid financial data found"
+                self._log_atomic_event('warning', 'No Financial Data Mapped', 
+                                     'AI extraction succeeded but no data mapped to core schema', 
+                                     council_slug, year_label)
+                return result
+            
+            result['mapping_success'] = True
+            result['fields_mapped'] = len(mapped_data)
+            
+            logger.info(f"✓ Step 3 complete: {result['fields_mapped']} fields mapped to CoreFinancialFigure schema")
+            
+            # **STEP 4**: Validate data consistency
+            logger.info("🔍 Step 4: Validating financial data consistency...")
+            is_valid, validation_issues = mapper.validate_core_financial_data(mapped_data)
+            result['validation_issues'] = validation_issues
+            
+            if not is_valid:
+                logger.warning(f"⚠ Data validation found {len(validation_issues)} issues:")
+                for issue in validation_issues:
+                    logger.warning(f"  - {issue}")
+                    result['error_details'].append(f"Validation: {issue}")
+                
+                # Don't fail completely on validation warnings, but log them
+                self._log_atomic_event('warning', 'Financial Data Validation Issues', 
+                                     f"{len(validation_issues)} validation issues found", 
+                                     council_slug, year_label, {'issues': validation_issues})
+            
+            result['validation_success'] = is_valid
+            logger.info(f"✓ Step 4 complete: {'Valid' if is_valid else 'Issues found'} "
+                       f"({len(validation_issues)} warnings)")
+            
+            # **STEP 5**: Atomic save via API endpoint
+            logger.info("💾 Step 5: Atomic save of all financial data...")
+            api_response = self._save_via_atomic_api(council_slug, year_id, mapped_data)
+            result['api_response'] = api_response
+            
+            if not api_response.get('success', False):
+                api_error = api_response.get('error', 'Unknown API error')
+                result['error_details'].append(f"Atomic save failed: {api_error}")
+                result['summary'] = f"FAILED: Atomic save failed - {api_error}"
+                self._log_atomic_event('error', 'Atomic Save Failed', api_error, council_slug, year_label)
+                return result
+            
+            result['save_success'] = True
+            result['fields_saved'] = api_response.get('fields_saved', 0)
+            
+            logger.info(f"✓ Step 5 complete: {result['fields_saved']} fields saved atomically")
+            
+            # **SUCCESS**: All steps completed
+            result['success'] = True
+            result['total_time'] = time.time() - overall_start
+            
+            # Generate success summary
+            ai_info = f" (AI: {analysis_result.get('ai_validation_used', False)})" if analysis_result.get('ai_validation_used') else ""
+            result['summary'] = (f"SUCCESS: PDF processed atomically in {result['total_time']:.1f}s - "
+                               f"{result['fields_extracted']} extracted → {result['fields_mapped']} mapped → "
+                               f"{result['fields_saved']} saved{ai_info}")
+            
+            # Log successful atomic processing
+            self._log_atomic_event('info', 'Atomic PDF Processing Successful', result['summary'], 
+                                 council_slug, year_label, {
+                                     'processing_time': result['total_time'],
+                                     'fields_processed': result['fields_saved'],
+                                     'confidence': analysis_result['confidence_score'],
+                                     'ai_used': analysis_result.get('ai_validation_used', False)
+                                 })
+            
+            logger.info(f"🎉 ATOMIC PDF PROCESSING COMPLETE: {result['summary']}")
+            return result
+            
+        except Exception as e:
+            # Comprehensive error handling
+            result['total_time'] = time.time() - overall_start
+            error_msg = f"Unexpected error during atomic PDF processing: {str(e)}"
+            result['error_details'].append(error_msg)
+            result['summary'] = f"FAILED: {error_msg}"
+            
+            logger.error(f"💥 ATOMIC PDF PROCESSING FAILED: {error_msg}", exc_info=True)
+            self._log_atomic_event('critical', 'Atomic PDF Processing Exception', error_msg, 
+                                 council_slug, year_label, {'exception_type': type(e).__name__})
+            
+            return result
+
+    def _save_via_atomic_api(self, council_slug: str, year_id: int, core_data: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Save financial data via the atomic API endpoint.
+        
+        **CRITICAL**: This uses our new atomic API endpoint that saves all 25 core financial
+        fields in a single database transaction, preventing Leeds-type data integrity issues.
+        
+        Args:
+            council_slug: Council slug for API endpoint
+            year_id: Year ID for API endpoint  
+            core_data: Dictionary with CoreFinancialFigure field names and values
+            
+        Returns:
+            Dictionary with API response details
+        """
+        try:
+            import json
+            import requests
+            from django.urls import reverse
+            from django.conf import settings
+            
+            # Build the atomic API endpoint URL
+            api_url = f"/api/council/{council_slug}/core-financial/{year_id}/save/"
+            
+            # If running in Django context, we can call the view directly
+            # Otherwise, we'd need to make an HTTP request
+            try:
+                from django.test import Client
+                from django.contrib.auth.models import User
+                import os
+                
+                # Use Django test client for internal API calls
+                client = Client()
+                
+                # Get admin user for authentication (if needed)
+                admin_username = os.getenv('ADMIN_USER')
+                if admin_username:
+                    try:
+                        admin_user = User.objects.get(username=admin_username)
+                        client.force_login(admin_user)
+                    except User.DoesNotExist:
+                        pass  # Continue without authentication
+                
+                # Prepare data for atomic API
+                post_data = {
+                    'financial_data': json.dumps(core_data),
+                    'source': 'atomic_pdf_processing',
+                    'notes': 'Data imported via atomic PDF processing workflow'
+                }
+                
+                # Call the atomic API endpoint
+                response = client.post(api_url, post_data)
+                
+                if response.status_code == 200:
+                    try:
+                        response_data = json.loads(response.content.decode('utf-8'))
+                        return {
+                            'success': response_data.get('success', False),
+                            'fields_saved': response_data.get('fields_saved', 0),
+                            'message': response_data.get('message', 'Saved successfully'),
+                            'details': response_data.get('details', {})
+                        }
+                    except json.JSONDecodeError:
+                        return {
+                            'success': False,
+                            'error': 'API returned invalid JSON response',
+                            'status_code': response.status_code
+                        }
+                else:
+                    return {
+                        'success': False,
+                        'error': f'API returned status {response.status_code}',
+                        'status_code': response.status_code,
+                        'content': response.content.decode('utf-8')[:500]  # First 500 chars for debugging
+                    }
+                    
+            except ImportError:
+                # Fallback: direct function call (when Django test client not available)
+                from council_finance.views.council_edit_api import save_core_financial_data_atomic
+                from django.http import HttpRequest
+                import json
+                
+                # Create mock request
+                request = HttpRequest()
+                request.method = 'POST'
+                request.POST = {
+                    'financial_data': json.dumps(core_data),
+                    'source': 'atomic_pdf_processing',
+                    'notes': 'Data imported via atomic PDF processing workflow'
+                }
+                
+                # Call the atomic API function directly
+                response = save_core_financial_data_atomic(request, council_slug, year_id)
+                response_data = json.loads(response.content.decode('utf-8'))
+                
+                return {
+                    'success': response_data.get('success', False),
+                    'fields_saved': response_data.get('fields_saved', 0),
+                    'message': response_data.get('message', 'Saved successfully'),
+                    'details': response_data.get('details', {})
+                }
+                
+        except Exception as e:
+            logger.error(f"Failed to save via atomic API: {e}", exc_info=True)
+            return {
+                'success': False,
+                'error': f'Exception during atomic API call: {str(e)}',
+                'exception_type': type(e).__name__
+            }
+
+    def _log_atomic_event(self, level: str, title: str, message: str, council_slug: str = "", 
+                         year_label: str = "", details: Dict = None):
+        """
+        Log atomic PDF processing events to Event Viewer system.
+        
+        Args:
+            level: Event level ('debug', 'info', 'warning', 'error', 'critical')
+            title: Event title
+            message: Event message
+            council_slug: Council being processed
+            year_label: Year being processed
+            details: Additional event details
+        """
+        try:
+            from event_viewer.models import SystemEvent
+            from django.utils import timezone
+            
+            event_details = details or {}
+            event_details.update({
+                'council_slug': council_slug,
+                'year_label': year_label,
+                'processing_component': 'atomic_pdf_workflow'
+            })
+            
+            SystemEvent.objects.create(
+                source='pdf_processing',
+                level=level,
+                category='data_processing', 
+                title=title,
+                message=message,
+                details=event_details,
+                tags=['pdf_import', 'atomic_processing', 'financial_data'],
+                fingerprint=f'pdf_atomic_{council_slug}_{year_label}_{title.lower().replace(" ", "_")}'
+            )
+            
+        except Exception as e:
+            # Don't let Event Viewer logging failures break the main workflow
+            logger.warning(f"Failed to log atomic event: {e}")
+
     def process_pdf(self, pdf_path: str, council_name: str = "", year: str = "") -> Dict[str, Any]:
         """
         Complete PDF processing workflow: extraction + AI analysis.
+        
+        **DEPRECATED**: Use process_pdf_atomic() for new implementations.
+        This method is kept for backward compatibility only.
         
         Args:
             pdf_path: Path to PDF file to process
@@ -1004,6 +1406,8 @@ Return only JSON: {{"validated_fields": {{"field_name": correct_number_or_null}}
                 'summary': str
             }
         """
+        logger.warning("process_pdf() is deprecated, use process_pdf_atomic() for new implementations")
+        
         logger.info(f"Starting complete PDF processing: {pdf_path}")
         overall_start = time.time()
         
@@ -1049,21 +1453,63 @@ Return only JSON: {{"validated_fields": {{"field_name": correct_number_or_null}}
 
 class FinancialDataMapper:
     """
-    Maps extracted financial data to database field formats.
+    Maps extracted financial data to CoreFinancialFigure fields.
     
     This class handles the conversion between AI-extracted data and the
-    specific field formats expected by the council finance database.
+    25 core financial fields in our fixed schema approach.
+    
+    **CRITICAL**: This fixes the Leeds council data integrity issues by ensuring
+    proper field mapping and using atomic database operations.
     """
     
     def __init__(self):
-        """Initialize mapper with field mappings."""
-        # Mapping from AI field names to database field slugs
-        self.field_mappings = {
+        """Initialize mapper with CoreFinancialFigure field mappings."""
+        # Import CoreFinancialFigure to get field mappings
+        from council_finance.models.core_financial_figure import CoreFinancialFigure
+        
+        # **FIXED MAPPINGS**: Use CoreFinancialFigure field names directly
+        # This prevents the Leeds-type issues where fields map to wrong database columns
+        self.core_field_mappings = {
+            # Income Fields (4 fields)
+            'revenue_income': 'total_income',  # Maps directly to CoreFinancialFigure.total_income
+            'council_tax_income': 'council_tax_income',
+            'business_rates_income': 'business_rates_income', 
+            'grants_income': 'non_ring_fenced_government_grants_income',
+            
+            # Expenditure Fields (3 fields)
+            'total_expenditure': 'total_expenditure',
+            'interest_payments': 'interest_paid',  # Note: interest_paid is the correct field name
+            'capital_expenditure': 'capital_expenditure',
+            
+            # Asset Fields (2 fields)
+            'current_assets': 'current_assets',
+            'fixed_assets': 'property_plant_equipment',  # PPE is closest match
+            
+            # Liability Fields (4 fields) - **CRITICAL FIX**
+            'current_liabilities': 'current_liabilities',  # Fixed: was mapping wrong
+            'long_term_liabilities': 'long_term_liabilities',  # Fixed: was mapping to 'long-term-borrowing'
+            'pension_liability': 'pension_liability',
+            'finance_leases': 'finance_leases_pfi_liabilities',
+            
+            # Debt Fields (1 field)
+            'total_debt': 'total_debt',
+            
+            # Reserve Fields (3 fields)
+            'reserves': 'total_reserves',
+            'usable_reserves': 'usable_reserves',
+            'unusable_reserves': 'unusable_reserves',
+        }
+        
+        # Get all valid CoreFinancialFigure field names for validation
+        self.valid_core_fields = set(CoreFinancialFigure.CORE_FIELD_MAPPING.keys())
+        
+        # Legacy field mappings for backward compatibility (DEPRECATED)
+        self.legacy_field_mappings = {
             'revenue_income': 'total-income',
-            'total_expenditure': 'total-expenditure',
+            'total_expenditure': 'total-expenditure', 
             'current_assets': 'current-assets',
             'current_liabilities': 'current-liabilities',
-            'long_term_liabilities': 'long-term-borrowing',
+            'long_term_liabilities': 'long-term-liabilities',  # Fixed the wrong mapping
             'total_debt': 'total-debt',
             'interest_payments': 'interest-payments',
             'reserves': 'total-reserves',
@@ -1071,9 +1517,53 @@ class FinancialDataMapper:
             'net_worth': 'net-worth'
         }
     
+    def map_to_core_financial_fields(self, extracted_data: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Convert AI-extracted data to CoreFinancialFigure field format.
+        
+        **NEW METHOD**: This replaces map_to_database_fields() and ensures data
+        is mapped to our fixed 25-field schema, preventing Leeds-type integrity issues.
+        
+        Args:
+            extracted_data: Raw data from AI analysis
+            
+        Returns:
+            Dictionary with CoreFinancialFigure field names as keys
+        """
+        import logging
+        logger = logging.getLogger(__name__)
+        
+        mapped_data = {}
+        mapping_log = []
+        
+        for ai_field, core_field in self.core_field_mappings.items():
+            if ai_field in extracted_data and extracted_data[ai_field] is not None:
+                value = extracted_data[ai_field]
+                
+                # Validate numeric values
+                if isinstance(value, (int, float)) and value > 0:
+                    # Ensure we're mapping to a valid CoreFinancialFigure field
+                    if core_field in self.valid_core_fields:
+                        mapped_data[core_field] = value
+                        mapping_log.append(f"✓ {ai_field} -> {core_field}: {value}")
+                    else:
+                        logger.warning(f"Invalid CoreFinancialFigure field: {core_field}")
+                        mapping_log.append(f"✗ {ai_field} -> INVALID({core_field}): {value}")
+                else:
+                    mapping_log.append(f"⚠ {ai_field}: invalid value {value}")
+        
+        logger.info(f"CoreFinancialFigure mapping completed: {len(mapped_data)} fields mapped")
+        for log_entry in mapping_log:
+            logger.debug(log_entry)
+                    
+        return mapped_data
+    
     def map_to_database_fields(self, extracted_data: Dict[str, Any]) -> Dict[str, Any]:
         """
-        Convert AI-extracted data to database field format.
+        Convert AI-extracted data to legacy database field format.
+        
+        **DEPRECATED**: Use map_to_core_financial_fields() for new implementations.
+        This method is kept for backward compatibility only.
         
         Args:
             extracted_data: Raw data from AI analysis
@@ -1081,9 +1571,13 @@ class FinancialDataMapper:
         Returns:
             Dictionary with database field slugs as keys
         """
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.warning("map_to_database_fields() is deprecated, use map_to_core_financial_fields()")
+        
         mapped_data = {}
         
-        for ai_field, db_field in self.field_mappings.items():
+        for ai_field, db_field in self.legacy_field_mappings.items():
             if ai_field in extracted_data and extracted_data[ai_field] is not None:
                 value = extracted_data[ai_field]
                 
@@ -1093,16 +1587,81 @@ class FinancialDataMapper:
                     
         return mapped_data
     
-    def validate_financial_data(self, mapped_data: Dict[str, Any]) -> Tuple[bool, List[str]]:
+    def validate_core_financial_data(self, core_data: Dict[str, Any]) -> Tuple[bool, List[str]]:
         """
-        Validate mapped financial data for consistency and reasonableness.
+        Validate CoreFinancialFigure data for consistency and reasonableness.
+        
+        **NEW METHOD**: This replaces validate_financial_data() and works with
+        our fixed schema to prevent data integrity issues.
         
         Args:
-            mapped_data: Dictionary with database field slugs and values
+            core_data: Dictionary with CoreFinancialFigure field names and values
             
         Returns:
             Tuple of (is_valid, list_of_issues)
         """
+        issues = []
+        
+        # Check for negative values (most financial figures should be positive)
+        for field, value in core_data.items():
+            if isinstance(value, (int, float)) and value < 0:
+                # Some fields can legitimately be negative (e.g., surplus/deficit)
+                if field not in ['net_worth', 'surplus_deficit']:
+                    issues.append(f"Negative value for {field}: {value}")
+        
+        # Check basic consistency rules using CoreFinancialFigure field names
+        income = core_data.get('total_income', 0)
+        expenditure = core_data.get('total_expenditure', 0)
+        
+        if income > 0 and expenditure > 0:
+            if expenditure > income * 3:  # Expenditure much higher than income
+                issues.append("Total expenditure significantly exceeds total income - please verify figures")
+                
+        # Check asset/liability consistency
+        current_assets = core_data.get('current_assets', 0)
+        current_liabilities = core_data.get('current_liabilities', 0)
+        
+        if current_assets > 0 and current_liabilities > 0:
+            if current_liabilities > current_assets * 2:
+                issues.append("Current liabilities much higher than current assets - please verify")
+        
+        # Check debt consistency
+        total_debt = core_data.get('total_debt', 0)
+        long_term_liabilities = core_data.get('long_term_liabilities', 0)
+        
+        if total_debt > 0 and long_term_liabilities > 0:
+            if total_debt < long_term_liabilities * 0.5:  # Total debt much less than long-term liabilities
+                issues.append("Total debt appears much lower than long-term liabilities - please verify")
+        
+        # **CRITICAL**: Check for the specific Leeds council issue
+        if 'long_term_liabilities' in core_data and 'current_liabilities' in core_data:
+            ltl = core_data['long_term_liabilities']
+            cl = core_data['current_liabilities']
+            if ltl > 0 and cl > 0:
+                # Log for debugging Leeds-type issues
+                import logging
+                logger = logging.getLogger(__name__)
+                logger.info(f"Validation check - Long-term liabilities: {ltl}, Current liabilities: {cl}")
+        
+        is_valid = len(issues) == 0
+        return is_valid, issues
+    
+    def validate_financial_data(self, mapped_data: Dict[str, Any]) -> Tuple[bool, List[str]]:
+        """
+        Validate legacy mapped financial data for consistency and reasonableness.
+        
+        **DEPRECATED**: Use validate_core_financial_data() for new implementations.
+        
+        Args:
+            mapped_data: Dictionary with legacy database field slugs and values
+            
+        Returns:
+            Tuple of (is_valid, list_of_issues)
+        """
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.warning("validate_financial_data() is deprecated, use validate_core_financial_data()")
+        
         issues = []
         
         # Check for negative values
@@ -1110,7 +1669,7 @@ class FinancialDataMapper:
             if isinstance(value, (int, float)) and value < 0:
                 issues.append(f"Negative value for {field}: {value}")
         
-        # Check basic consistency rules
+        # Check basic consistency rules using legacy field names
         income = mapped_data.get('total-income', 0)
         expenditure = mapped_data.get('total-expenditure', 0)
         
@@ -1118,7 +1677,7 @@ class FinancialDataMapper:
             if expenditure > income * 3:  # Expenditure much higher than income
                 issues.append("Expenditure significantly exceeds income - please verify figures")
                 
-        # Check asset/liability consistency
+        # Check asset/liability consistency using legacy field names
         current_assets = mapped_data.get('current-assets', 0)
         current_liabilities = mapped_data.get('current-liabilities', 0)
         

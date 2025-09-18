@@ -38,6 +38,7 @@ from .new_data_model import (
     FinancialFigure,
     FinancialFigureHistory,
 )
+from .core_financial_figure import CoreFinancialFigure
 from .follow_models import (
     FollowableItem,
     FeedUpdate,
@@ -131,6 +132,7 @@ __all__ = [
     'CouncilCharacteristicHistory',
     'FinancialFigure',
     'FinancialFigureHistory',
+    'CoreFinancialFigure',
     'FollowableItem',
     'FeedUpdate',
     'FeedInteraction',

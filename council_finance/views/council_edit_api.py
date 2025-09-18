@@ -24,7 +24,7 @@ from decimal import Decimal
 
 from council_finance.models import (
     Council, DataField, CouncilCharacteristic, FinancialFigure, 
-    FinancialYear, ActivityLog
+    FinancialYear, ActivityLog, CoreFinancialFigure
 )
 
 # Event Viewer integration
@@ -1783,15 +1783,61 @@ def process_pdf_api(request):
                     confidence_scores = {}
                     
                     # Map the internal field names to API field names for compatibility
+                    # EXPANDED MAPPING - now includes all available database fields
                     field_mapping = {
+                        # Income fields
                         'revenue_income': 'total-income',
-                        'total_expenditure': 'total-expenditure', 
+                        'total_income': 'total-income',
+                        'council_tax_income': 'council-tax-income',
+                        'business_rates_income': 'business-rates-income',
+                        'non_ring_fenced_government_grants_income': 'non-ring-fenced-government-grants-income',
+                        
+                        # Expenditure fields
+                        'total_expenditure': 'total-expenditure',
+                        'interest_payments': 'interest-paid',
+                        'interest_paid': 'interest-paid',
+                        'capital_expenditure': 'capital-expenditure',
+                        
+                        # Balance sheet - Assets
                         'current_assets': 'current-assets',
+                        'total_assets': 'current-assets',  # Fallback mapping
+                        
+                        # Balance sheet - Liabilities  
                         'current_liabilities': 'current-liabilities',
                         'long_term_liabilities': 'long-term-liabilities',
                         'total_debt': 'total-debt',
-                        'interest_payments': 'interest-paid',
-                        'reserves': 'total-reserves'
+                        'pension_liability': 'pension-liability',
+                        'finance_leases': 'finance-leases',
+                        'finance_leases_pfi_liabilities': 'finance-leases-pfi-liabilities',
+                        
+                        # Reserves
+                        'reserves': 'total-reserves',
+                        'total_reserves': 'total-reserves',
+                        'usable_reserves': 'usable-reserves',
+                        'unusable_reserves': 'unusable-reserves',
+                        
+                        # Additional common financial statement fields
+                        'net_assets': 'total-reserves',  # Often equivalent to total reserves
+                        'borrowing': 'total-debt',  # Alternative term for debt
+                        'provisions': 'current-liabilities',  # Often part of current liabilities
+                        'creditors': 'current-liabilities',  # Part of current liabilities
+                        'debtors': 'current-assets',  # Part of current assets
+                        'cash_equivalents': 'current-assets',  # Part of current assets
+                        'investments': 'current-assets',  # Part of current assets
+                        
+                        # Alternative field names commonly found in financial statements
+                        'total_comprehensive_income': 'total-income',
+                        'gross_expenditure': 'total-expenditure',
+                        'net_expenditure': 'total-expenditure',
+                        'financing_costs': 'interest-paid',
+                        'borrowing_costs': 'interest-paid',
+                        'debt_charges': 'interest-paid',
+                        'short_term_liabilities': 'current-liabilities',
+                        'long_term_borrowing': 'long-term-liabilities',
+                        'external_borrowing': 'total-debt',
+                        'general_fund_balance': 'usable-reserves',
+                        'earmarked_reserves': 'usable-reserves',
+                        'capital_reserves': 'unusable-reserves'
                     }
                     
                     # Get financial field definitions for display names
@@ -2334,4 +2380,796 @@ def pdf_serve(request, document_id, access_token):
         return JsonResponse({
             'success': False,
             'error': 'Internal server error'
+        }, status=500)
+
+
+@login_required
+@require_http_methods(['POST'])
+def save_core_financial_data_atomic(request, council_slug, year_id):
+    """
+    Save all core financial fields atomically in a single transaction
+    
+    This endpoint fixes the Leeds council data integrity issues where individual
+    field saves caused wrong figures to be stored. All 25 core financial fields
+    are saved together with proper validation and rollback on any errors.
+    
+    Body:
+    {
+        "financial_data": {
+            "total-income": "166897000",
+            "total-expenditure": "175892000", 
+            "current-liabilities": "45678000",
+            "long-term-liabilities": "234567000",
+            "interest-paid": "8976000",
+            // ... other core financial fields
+        }
+    }
+    
+    Returns:
+    {
+        "success": true,
+        "saved_fields": 15,
+        "validation_errors": [],
+        "core_financial_figure_id": "uuid-here"
+    }
+    """
+    start_time = timezone.now()
+    
+    try:
+        council = get_object_or_404(Council, slug=council_slug)
+        year = get_object_or_404(FinancialYear, id=year_id)
+        
+        # Parse request data
+        data = json.loads(request.body)
+        financial_data = data.get('financial_data', {})
+        
+        if not financial_data:
+            log_council_edit_event(
+                request, 'warning', 'data_validation',
+                'Atomic Save - No Financial Data',
+                f'Atomic save called for {council.name} ({year.label}) with no financial data',
+                details={
+                    'council_slug': council_slug,
+                    'year_id': year_id,
+                    'year_label': year.label,
+                    'request_data_keys': list(data.keys())
+                }
+            )
+            return JsonResponse({
+                'success': False,
+                'error': 'No financial data provided'
+            }, status=400)
+        
+        # Log atomic save attempt
+        log_council_edit_event(
+            request, 'info', 'data_processing',
+            'Atomic Financial Data Save Started',
+            f'Starting atomic save for {council.name} ({year.label}) with {len(financial_data)} fields',
+            details={
+                'council_slug': council_slug,
+                'year_label': year.label,
+                'fields_provided': list(financial_data.keys()),
+                'field_count': len(financial_data),
+                'operation_type': 'atomic_core_financial_save'
+            }
+        )
+        
+        validation_errors = []
+        processed_data = {}
+        
+        # Import CoreFinancialFigure for field mapping
+        from council_finance.models.core_financial_figure import CoreFinancialFigure
+        
+        # Validate and convert all fields before database operations
+        for api_field_slug, value in financial_data.items():
+            try:
+                # Convert API field slug to CoreFinancialFigure field name
+                core_field_name = None
+                for field_name, field_info in CoreFinancialFigure.CORE_FIELD_MAPPING.items():
+                    if field_info['slug'] == api_field_slug:
+                        core_field_name = field_name
+                        break
+                
+                if not core_field_name:
+                    validation_errors.append({
+                        'field': api_field_slug,
+                        'error': f'Unknown field: {api_field_slug}'
+                    })
+                    continue
+                
+                # Validate and convert value
+                if value is None or value == '':
+                    processed_data[core_field_name] = None
+                else:
+                    try:
+                        # Convert to Decimal for proper monetary storage
+                        decimal_value = Decimal(str(value).replace(',', ''))
+                        processed_data[core_field_name] = decimal_value
+                        
+                        # Log successful validation
+                        if decimal_value > 1000000:  # Log large amounts for debugging
+                            log_council_edit_event(
+                                request, 'info', 'data_validation',
+                                'Atomic Save - Large Amount Validated',
+                                f'Validated large amount for {api_field_slug}: £{decimal_value:,.0f}',
+                                details={
+                                    'council_slug': council_slug,
+                                    'year_label': year.label,
+                                    'field_slug': api_field_slug,
+                                    'core_field_name': core_field_name,
+                                    'original_value': str(value),
+                                    'decimal_value': str(decimal_value)
+                                }
+                            )
+                            
+                    except (ValueError, TypeError) as conv_error:
+                        validation_errors.append({
+                            'field': api_field_slug,
+                            'error': f'Invalid numeric value: {value}'
+                        })
+                        continue
+                        
+            except Exception as field_error:
+                validation_errors.append({
+                    'field': api_field_slug,
+                    'error': f'Field processing error: {str(field_error)}'
+                })
+                continue
+        
+        # Return validation errors if any found
+        if validation_errors:
+            log_council_edit_event(
+                request, 'warning', 'data_validation',
+                'Atomic Save - Validation Errors',
+                f'Validation failed for {len(validation_errors)} fields in atomic save',
+                details={
+                    'council_slug': council_slug,
+                    'year_label': year.label,
+                    'validation_errors': validation_errors,
+                    'valid_fields': len(processed_data),
+                    'total_fields': len(financial_data)
+                }
+            )
+            return JsonResponse({
+                'success': False,
+                'error': 'Validation errors in financial data',
+                'validation_errors': validation_errors
+            }, status=400)
+        
+        # Atomic database operation
+        with transaction.atomic():
+            try:
+                # Get or create CoreFinancialFigure record
+                core_figure, created = CoreFinancialFigure.objects.get_or_create(
+                    council=council,
+                    financial_year=year,
+                    defaults=processed_data
+                )
+                
+                if not created:
+                    # Update existing record with new data
+                    old_values = {}
+                    updated_fields = []
+                    
+                    for field_name, new_value in processed_data.items():
+                        old_value = getattr(core_figure, field_name)
+                        if old_value != new_value:
+                            old_values[field_name] = str(old_value) if old_value is not None else None
+                            setattr(core_figure, field_name, new_value)
+                            updated_fields.append(field_name)
+                    
+                    core_figure.save()
+                    
+                    # Log field changes for debugging
+                    if updated_fields:
+                        log_council_edit_event(
+                            request, 'info', 'data_integrity',
+                            'Atomic Save - Fields Updated',
+                            f'Updated {len(updated_fields)} fields in existing CoreFinancialFigure',
+                            details={
+                                'council_slug': council_slug,
+                                'year_label': year.label,
+                                'core_figure_id': str(core_figure.id),
+                                'updated_fields': updated_fields,
+                                'old_values': old_values,
+                                'operation_type': 'update_existing'
+                            }
+                        )
+                else:
+                    # Log new record creation
+                    log_council_edit_event(
+                        request, 'info', 'data_integrity',
+                        'Atomic Save - New Record Created',
+                        f'Created new CoreFinancialFigure with {len(processed_data)} fields',
+                        details={
+                            'council_slug': council_slug,
+                            'year_label': year.label,
+                            'core_figure_id': str(core_figure.id),
+                            'fields_saved': list(processed_data.keys()),
+                            'operation_type': 'create_new'
+                        }
+                    )
+                
+                # Create ActivityLog entry
+                ActivityLog.objects.create(
+                    user=request.user,
+                    activity_type='update',
+                    description=f"Atomic update of financial data for {council.name} ({year.label})",
+                    related_council=council,
+                    details={
+                        'operation_type': 'atomic_core_financial_save',
+                        'fields_saved': len(processed_data),
+                        'created_new_record': created,
+                        'core_figure_id': str(core_figure.id),
+                        'year': year.label
+                    }
+                )
+                
+            except Exception as db_error:
+                log_council_edit_event(
+                    request, 'error', 'data_integrity',
+                    'Atomic Save - Database Error',
+                    f'Database error in atomic save: {str(db_error)}',
+                    details={
+                        'council_slug': council_slug,
+                        'year_label': year.label,
+                        'error_type': type(db_error).__name__,
+                        'error_message': str(db_error),
+                        'fields_being_saved': list(processed_data.keys()),
+                        'processed_data_sample': {k: str(v) for k, v in list(processed_data.items())[:5]}
+                    }
+                )
+                raise
+        
+        # Invalidate cache
+        try:
+            from django.core.cache import cache
+            cache_key = f"counter_values:{council.slug}:{year.label}"
+            cache.delete(cache_key)
+            
+            log_cache_operation(
+                council_slug, 'invalidation', [cache_key],
+                success=True,
+                details={
+                    'reason': 'atomic_core_financial_save',
+                    'fields_updated': len(processed_data),
+                    'year_label': year.label
+                }
+            )
+            
+        except Exception as cache_error:
+            log_cache_operation(
+                council_slug, 'invalidation', [f"counter_values:{council.slug}:{year.label}"],
+                success=False, error_message=str(cache_error),
+                details={
+                    'reason': 'atomic_core_financial_save',
+                    'fields_updated': len(processed_data),
+                    'error_type': type(cache_error).__name__
+                }
+            )
+            # Don't fail on cache errors
+            logger.warning(f"Cache invalidation failed: {cache_error}")
+        
+        # Calculate processing time
+        total_processing_time = (timezone.now() - start_time).total_seconds()
+        
+        # Log successful completion
+        log_council_edit_event(
+            request, 'info', 'data_processing',
+            'Atomic Financial Data Save Complete',
+            f'Successfully saved {len(processed_data)} fields atomically for {council.name} ({year.label}) in {total_processing_time:.2f}s',
+            details={
+                'council_slug': council_slug,
+                'year_label': year.label,
+                'core_figure_id': str(core_figure.id),
+                'fields_saved': len(processed_data),
+                'created_new_record': created,
+                'processing_time_seconds': total_processing_time,
+                'operation_type': 'atomic_core_financial_save'
+            }
+        )
+        
+        return JsonResponse({
+            'success': True,
+            'saved_fields': len(processed_data),
+            'validation_errors': [],
+            'core_financial_figure_id': str(core_figure.id),
+            'created': created,
+            'processing_time': total_processing_time
+        })
+        
+    except json.JSONDecodeError as json_error:
+        log_council_edit_event(
+            request, 'error', 'data_validation',
+            'Atomic Save - Invalid JSON',
+            f'Invalid JSON in atomic save request: {str(json_error)}',
+            details={
+                'council_slug': council_slug,
+                'year_id': year_id,
+                'error_type': 'JSONDecodeError',
+                'request_body_length': len(request.body) if request.body else 0
+            }
+        )
+        return JsonResponse({
+            'success': False,
+            'error': 'Invalid JSON data'
+        }, status=400)
+        
+    except Exception as e:
+        total_processing_time = (timezone.now() - start_time).total_seconds()
+        
+        log_council_edit_event(
+            request, 'error', 'system',
+            'Atomic Financial Data Save Failed',
+            f'Unexpected error in atomic save: {str(e)}',
+            details={
+                'council_slug': council_slug,
+                'year_id': year_id,
+                'error_type': type(e).__name__,
+                'error_message': str(e),
+                'processing_time_seconds': total_processing_time,
+                'operation_type': 'atomic_core_financial_save'
+            }
+        )
+        
+        logger.error(f"Error in atomic save for {council_slug}/{year_id}: {e}")
+        return JsonResponse({
+            'success': False,
+            'error': 'Failed to save financial data atomically'
+        }, status=500)
+
+
+@login_required
+@require_http_methods(['GET'])
+def get_core_financial_data_api(request, council_slug, year_id):
+    """
+    Get core financial data using the Fixed Schema approach
+    
+    Returns data from CoreFinancialFigure model with all 25 core fields
+    in a consistent format regardless of how the data was originally entered.
+    
+    Returns:
+    {
+        "success": true,
+        "core_financial_data": {
+            "total-income": "166897000",
+            "total-expenditure": "175892000",
+            "current-liabilities": "45678000",
+            // ... all 25 core financial fields
+        },
+        "completeness": {
+            "total_fields": 25,
+            "populated_fields": 15,
+            "percentage": 60
+        },
+        "last_updated": "2025-08-15T08:13:00Z"
+    }
+    """
+    try:
+        council = get_object_or_404(Council, slug=council_slug)
+        year = get_object_or_404(FinancialYear, id=year_id)
+        
+        # Get CoreFinancialFigure record
+        from council_finance.models.core_financial_figure import CoreFinancialFigure
+        
+        try:
+            core_figure = CoreFinancialFigure.objects.get(
+                council=council,
+                financial_year=year
+            )
+            
+            # Convert to API format using field mapping
+            core_financial_data = {}
+            populated_fields = 0
+            
+            for field_name, field_info in CoreFinancialFigure.CORE_FIELD_MAPPING.items():
+                field_value = getattr(core_figure, field_name)
+                api_slug = field_info['slug']
+                
+                if field_value is not None:
+                    core_financial_data[api_slug] = str(field_value)
+                    populated_fields += 1
+                else:
+                    core_financial_data[api_slug] = None
+            
+            # Calculate completeness
+            total_fields = len(CoreFinancialFigure.CORE_FIELD_MAPPING)
+            completeness_percentage = round((populated_fields / total_fields) * 100) if total_fields > 0 else 0
+            
+            # Log successful retrieval
+            log_council_edit_event(
+                request, 'info', 'data_processing',
+                'Core Financial Data Retrieved',
+                f'Retrieved core financial data for {council.name} ({year.label}): {populated_fields}/{total_fields} fields populated',
+                details={
+                    'council_slug': council_slug,
+                    'year_label': year.label,
+                    'core_figure_id': str(core_figure.id),
+                    'populated_fields': populated_fields,
+                    'total_fields': total_fields,
+                    'completeness_percentage': completeness_percentage,
+                    'last_updated': core_figure.updated_at.isoformat()
+                }
+            )
+            
+            return JsonResponse({
+                'success': True,
+                'core_financial_data': core_financial_data,
+                'completeness': {
+                    'total_fields': total_fields,
+                    'populated_fields': populated_fields,
+                    'percentage': completeness_percentage
+                },
+                'last_updated': core_figure.updated_at.isoformat(),
+                'core_figure_id': str(core_figure.id)
+            })
+            
+        except CoreFinancialFigure.DoesNotExist:
+            # No core figure exists yet - return empty structure
+            from council_finance.models.core_financial_figure import CoreFinancialFigure
+            
+            empty_data = {}
+            for field_name, field_info in CoreFinancialFigure.CORE_FIELD_MAPPING.items():
+                empty_data[field_info['slug']] = None
+            
+            log_council_edit_event(
+                request, 'info', 'data_processing',
+                'Core Financial Data - No Record Found',
+                f'No CoreFinancialFigure exists for {council.name} ({year.label}) - returning empty structure',
+                details={
+                    'council_slug': council_slug,
+                    'year_label': year.label,
+                    'total_fields': len(CoreFinancialFigure.CORE_FIELD_MAPPING),
+                    'structure_returned': 'empty'
+                }
+            )
+            
+            return JsonResponse({
+                'success': True,
+                'core_financial_data': empty_data,
+                'completeness': {
+                    'total_fields': len(CoreFinancialFigure.CORE_FIELD_MAPPING),
+                    'populated_fields': 0,
+                    'percentage': 0
+                },
+                'last_updated': None,
+                'core_figure_id': None
+            })
+        
+    except Exception as e:
+        log_council_edit_event(
+            request, 'error', 'system',
+            'Core Financial Data Retrieval Failed',
+            f'Error retrieving core financial data for {council_slug}/{year_id}: {str(e)}',
+            details={
+                'council_slug': council_slug,
+                'year_id': year_id,
+                'error_type': type(e).__name__,
+                'error_message': str(e)
+            }
+        )
+        
+        logger.error(f"Error retrieving core financial data for {council_slug}/{year_id}: {e}")
+        return JsonResponse({
+            'success': False,
+            'error': 'Failed to retrieve core financial data'
+        }, status=500)
+
+
+@login_required
+@require_http_methods(['POST'])
+def migrate_legacy_to_core_api(request, council_slug, year_id):
+    """
+    Migrate legacy FinancialFigure data to CoreFinancialFigure format
+    
+    This endpoint helps transition from the old flexible field system to the new
+    fixed schema approach. It maps existing FinancialFigure records to the 
+    appropriate CoreFinancialFigure fields.
+    
+    Body:
+    {
+        "force_overwrite": false,  // Whether to overwrite existing CoreFinancialFigure
+        "field_mapping_overrides": {  // Optional custom field mappings
+            "some-legacy-field": "total_income"
+        }
+    }
+    
+    Returns:
+    {
+        "success": true,
+        "migrated_fields": 12,
+        "skipped_fields": 3,
+        "mapping_log": [
+            {
+                "legacy_field": "total-debt", 
+                "core_field": "total_debt",
+                "value": "150000000",
+                "action": "migrated"
+            }
+        ]
+    }
+    """
+    start_time = timezone.now()
+    
+    try:
+        council = get_object_or_404(Council, slug=council_slug)
+        year = get_object_or_404(FinancialYear, id=year_id)
+        
+        # Parse request data
+        data = json.loads(request.body)
+        force_overwrite = data.get('force_overwrite', False)
+        custom_mapping = data.get('field_mapping_overrides', {})
+        
+        # Log migration attempt
+        log_council_edit_event(
+            request, 'info', 'data_processing',
+            'Legacy to Core Migration Started',
+            f'Starting migration of legacy FinancialFigure data to CoreFinancialFigure for {council.name} ({year.label})',
+            details={
+                'council_slug': council_slug,
+                'year_label': year.label,
+                'force_overwrite': force_overwrite,
+                'custom_mapping_count': len(custom_mapping),
+                'operation_type': 'legacy_to_core_migration'
+            }
+        )
+        
+        # Check if CoreFinancialFigure already exists
+        from council_finance.models.core_financial_figure import CoreFinancialFigure
+        
+        existing_core = CoreFinancialFigure.objects.filter(
+            council=council,
+            financial_year=year
+        ).first()
+        
+        if existing_core and not force_overwrite:
+            log_council_edit_event(
+                request, 'warning', 'data_validation',
+                'Migration Blocked - Core Record Exists',
+                f'CoreFinancialFigure already exists for {council.name} ({year.label}) and force_overwrite=False',
+                details={
+                    'council_slug': council_slug,
+                    'year_label': year.label,
+                    'existing_core_id': str(existing_core.id),
+                    'force_overwrite': force_overwrite
+                }
+            )
+            return JsonResponse({
+                'success': False,
+                'error': 'CoreFinancialFigure already exists. Use force_overwrite=true to replace it.',
+                'existing_core_id': str(existing_core.id)
+            }, status=409)
+        
+        # Get legacy FinancialFigure records
+        legacy_figures = FinancialFigure.objects.filter(
+            council=council,
+            year=year,
+            field__category__in=['balance_sheet', 'income', 'spending']
+        ).select_related('field')
+        
+        if not legacy_figures.exists():
+            log_council_edit_event(
+                request, 'warning', 'data_quality',
+                'Migration - No Legacy Data Found',
+                f'No legacy FinancialFigure records found for {council.name} ({year.label})',
+                details={
+                    'council_slug': council_slug,
+                    'year_label': year.label,
+                    'searched_categories': ['balance_sheet', 'income', 'spending']
+                }
+            )
+            return JsonResponse({
+                'success': False,
+                'error': 'No legacy financial data found to migrate'
+            }, status=404)
+        
+        # Create field mapping from legacy slugs to core field names
+        # This maps the API field slugs to CoreFinancialFigure field names
+        slug_to_core_mapping = {}
+        for field_name, field_info in CoreFinancialFigure.CORE_FIELD_MAPPING.items():
+            slug_to_core_mapping[field_info['slug']] = field_name
+        
+        # Apply custom mapping overrides
+        slug_to_core_mapping.update(custom_mapping)
+        
+        # Process migration
+        migration_log = []
+        migrated_data = {}
+        skipped_count = 0
+        
+        for figure in legacy_figures:
+            legacy_slug = figure.field.slug
+            
+            if legacy_slug in slug_to_core_mapping:
+                core_field = slug_to_core_mapping[legacy_slug]
+                
+                # Get value from appropriate field
+                if figure.field.content_type in ['monetary', 'integer', 'percentage']:
+                    value = figure.value
+                else:
+                    # Skip non-numeric fields for core financial data
+                    migration_log.append({
+                        'legacy_field': legacy_slug,
+                        'core_field': None,
+                        'value': figure.text_value,
+                        'action': 'skipped_non_numeric'
+                    })
+                    skipped_count += 1
+                    continue
+                
+                if value is not None:
+                    migrated_data[core_field] = value
+                    migration_log.append({
+                        'legacy_field': legacy_slug,
+                        'core_field': core_field,
+                        'value': str(value),
+                        'action': 'migrated'
+                    })
+                else:
+                    migration_log.append({
+                        'legacy_field': legacy_slug,
+                        'core_field': core_field,
+                        'value': None,
+                        'action': 'skipped_null'
+                    })
+                    skipped_count += 1
+            else:
+                migration_log.append({
+                    'legacy_field': legacy_slug,
+                    'core_field': None,
+                    'value': str(figure.value or figure.text_value),
+                    'action': 'skipped_no_mapping'
+                })
+                skipped_count += 1
+        
+        if not migrated_data:
+            log_council_edit_event(
+                request, 'warning', 'data_quality',
+                'Migration - No Mappable Data',
+                f'No legacy data could be mapped to core fields for {council.name} ({year.label})',
+                details={
+                    'council_slug': council_slug,
+                    'year_label': year.label,
+                    'legacy_records_found': legacy_figures.count(),
+                    'skipped_count': skipped_count,
+                    'migration_log': migration_log[:10]  # First 10 entries
+                }
+            )
+            return JsonResponse({
+                'success': False,
+                'error': 'No legacy data could be mapped to core financial fields',
+                'migration_log': migration_log
+            }, status=400)
+        
+        # Atomic migration
+        with transaction.atomic():
+            if existing_core and force_overwrite:
+                # Update existing record
+                for field_name, value in migrated_data.items():
+                    setattr(existing_core, field_name, value)
+                existing_core.save()
+                core_figure = existing_core
+                created = False
+            else:
+                # Create new record
+                core_figure = CoreFinancialFigure.objects.create(
+                    council=council,
+                    financial_year=year,
+                    **migrated_data
+                )
+                created = True
+            
+            # Create ActivityLog entry
+            ActivityLog.objects.create(
+                user=request.user,
+                activity_type='update',
+                description=f"Migrated legacy financial data to core schema for {council.name} ({year.label})",
+                related_council=council,
+                details={
+                    'operation_type': 'legacy_to_core_migration',
+                    'migrated_fields': len(migrated_data),
+                    'skipped_fields': skipped_count,
+                    'created_new_record': created,
+                    'core_figure_id': str(core_figure.id),
+                    'year': year.label
+                }
+            )
+        
+        # Invalidate cache
+        try:
+            from django.core.cache import cache
+            cache_key = f"counter_values:{council.slug}:{year.label}"
+            cache.delete(cache_key)
+            
+            log_cache_operation(
+                council_slug, 'invalidation', [cache_key],
+                success=True,
+                details={
+                    'reason': 'legacy_to_core_migration',
+                    'migrated_fields': len(migrated_data),
+                    'year_label': year.label
+                }
+            )
+            
+        except Exception as cache_error:
+            log_cache_operation(
+                council_slug, 'invalidation', [f"counter_values:{council.slug}:{year.label}"],
+                success=False, error_message=str(cache_error),
+                details={
+                    'reason': 'legacy_to_core_migration',
+                    'migrated_fields': len(migrated_data),
+                    'error_type': type(cache_error).__name__
+                }
+            )
+            # Don't fail on cache errors
+            logger.warning(f"Cache invalidation failed: {cache_error}")
+        
+        # Calculate processing time
+        total_processing_time = (timezone.now() - start_time).total_seconds()
+        
+        # Log successful migration
+        log_council_edit_event(
+            request, 'info', 'data_processing',
+            'Legacy to Core Migration Complete',
+            f'Successfully migrated {len(migrated_data)} fields from legacy to core schema for {council.name} ({year.label}) in {total_processing_time:.2f}s',
+            details={
+                'council_slug': council_slug,
+                'year_label': year.label,
+                'core_figure_id': str(core_figure.id),
+                'migrated_fields': len(migrated_data),
+                'skipped_fields': skipped_count,
+                'created_new_record': created,
+                'processing_time_seconds': total_processing_time,
+                'migration_log': migration_log
+            }
+        )
+        
+        return JsonResponse({
+            'success': True,
+            'migrated_fields': len(migrated_data),
+            'skipped_fields': skipped_count,
+            'migration_log': migration_log,
+            'core_financial_figure_id': str(core_figure.id),
+            'created': created,
+            'processing_time': total_processing_time
+        })
+        
+    except json.JSONDecodeError as json_error:
+        log_council_edit_event(
+            request, 'error', 'data_validation',
+            'Migration - Invalid JSON',
+            f'Invalid JSON in migration request: {str(json_error)}',
+            details={
+                'council_slug': council_slug,
+                'year_id': year_id,
+                'error_type': 'JSONDecodeError',
+                'request_body_length': len(request.body) if request.body else 0
+            }
+        )
+        return JsonResponse({
+            'success': False,
+            'error': 'Invalid JSON data'
+        }, status=400)
+        
+    except Exception as e:
+        total_processing_time = (timezone.now() - start_time).total_seconds()
+        
+        log_council_edit_event(
+            request, 'error', 'system',
+            'Legacy to Core Migration Failed',
+            f'Unexpected error in migration: {str(e)}',
+            details={
+                'council_slug': council_slug,
+                'year_id': year_id,
+                'error_type': type(e).__name__,
+                'error_message': str(e),
+                'processing_time_seconds': total_processing_time,
+                'operation_type': 'legacy_to_core_migration'
+            }
+        )
+        
+        logger.error(f"Error in legacy migration for {council_slug}/{year_id}: {e}")
+        return JsonResponse({
+            'success': False,
+            'error': 'Failed to migrate legacy data to core schema'
         }, status=500)

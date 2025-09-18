@@ -30,6 +30,176 @@
         </div>
     </div>
 
+    <!-- Core Financial System Status -->
+    {% if core_financial_stats or system_info or migration_stats %}
+    
+    <!-- Hybrid Approach Explanation -->
+    <div class="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg border border-blue-200 p-4 xl:p-6 mb-6">
+        <div class="flex items-start">
+            <div class="flex-shrink-0">
+                <svg class="w-6 h-6 text-blue-600 mt-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.031 9-11.622 0-1.042-.133-2.052-.382-3.016z"/>
+                </svg>
+            </div>
+            <div class="ml-3">
+                <h3 class="text-lg font-semibold text-blue-900 mb-2">Hybrid Fixed Schema + Dynamic Calculated Fields Architecture</h3>
+                <p class="text-sm text-blue-800 mb-3">
+                    <strong>Data Integrity Solution:</strong> This system now uses a Fixed Schema approach for core financial fields 
+                    (25 standardised fields like total income, expenditure, assets, liabilities) combined with dynamic calculated fields 
+                    for complex financial metrics. This ensures data integrity while maintaining flexibility for advanced financial analysis.
+                </p>
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                    <div class="flex items-center text-sm text-blue-700">
+                        <svg class="w-4 h-4 mr-2 text-green-600" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+                        </svg>
+                        Atomic Transactions
+                    </div>
+                    <div class="flex items-center text-sm text-blue-700">
+                        <svg class="w-4 h-4 mr-2 text-green-600" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+                        </svg>
+                        AI-Enhanced PDFs
+                    </div>
+                    <div class="flex items-center text-sm text-blue-700">
+                        <svg class="w-4 h-4 mr-2 text-green-600" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+                        </svg>
+                        Fixed Schema
+                    </div>
+                    <div class="flex items-center text-sm text-blue-700">
+                        <svg class="w-4 h-4 mr-2 text-green-600" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+                        </svg>
+                        Dynamic Calculations
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 xl:gap-6 mb-6">
+        
+        <!-- Core Financial Statistics -->
+        {% if core_financial_stats %}
+        <div class="bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg border border-blue-200 p-4 xl:p-6">
+            <div class="flex items-center mb-3">
+                <svg class="w-5 h-5 text-blue-600 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
+                </svg>
+                <h3 class="text-lg font-semibold text-blue-900">Core Financial Schema</h3>
+            </div>
+            <div class="space-y-2">
+                <div class="flex justify-between items-center">
+                    <span class="text-sm text-blue-700">Total Core Records:</span>
+                    <span class="font-semibold text-blue-900">{{ core_financial_stats.total_core_records|floatformat:0 }}</span>
+                </div>
+                <div class="flex justify-between items-center">
+                    <span class="text-sm text-blue-700">Councils with Core Data:</span>
+                    <span class="font-semibold text-blue-900">{{ core_financial_stats.councils_with_core_data|floatformat:0 }}</span>
+                </div>
+                <div class="flex justify-between items-center">
+                    <span class="text-sm text-blue-700">Core Fields:</span>
+                    <span class="font-semibold text-blue-900">{{ core_financial_stats.core_fields_count }}</span>
+                </div>
+                <div class="mt-3 pt-2 border-t border-blue-200">
+                    <div class="text-xs text-blue-600 font-medium mb-1">Core Field Types:</div>
+                    <div class="text-xs text-blue-700 leading-relaxed">
+                        {% for field_name in core_financial_stats.core_field_names|slice:":6" %}
+                            <span class="inline-block bg-blue-200 text-blue-800 px-2 py-0.5 rounded text-xs mr-1 mb-1">{{ field_name }}</span>
+                        {% endfor %}
+                        {% if core_financial_stats.core_field_names|length > 6 %}
+                            <span class="text-blue-600">+{{ core_financial_stats.core_field_names|length|add:"-6" }} more</span>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- System Architecture Information -->
+        {% if system_info %}
+        <div class="bg-gradient-to-br from-green-50 to-green-100 rounded-lg border border-green-200 p-4 xl:p-6">
+            <div class="flex items-center mb-3">
+                <svg class="w-5 h-5 text-green-600 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/>
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                </svg>
+                <h3 class="text-lg font-semibold text-green-900">System Architecture</h3>
+            </div>
+            <div class="space-y-2">
+                <div>
+                    <span class="text-sm text-green-700 block">Schema Approach:</span>
+                    <span class="text-xs text-green-800 font-medium bg-green-200 px-2 py-1 rounded">{{ system_info.schema_approach }}</span>
+                </div>
+                <div class="flex justify-between items-center mt-3">
+                    <span class="text-sm text-green-700">Atomic Processing:</span>
+                    {% if system_info.atomic_processing_enabled %}
+                        <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-200 text-green-800">
+                            <svg class="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+                            </svg>
+                            Enabled
+                        </span>
+                    {% else %}
+                        <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-red-200 text-red-800">Disabled</span>
+                    {% endif %}
+                </div>
+                <div class="flex justify-between items-center">
+                    <span class="text-sm text-green-700">Core Integration:</span>
+                    {% if system_info.core_integration_enabled %}
+                        <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-200 text-green-800">
+                            <svg class="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+                            </svg>
+                            Active
+                        </span>
+                    {% else %}
+                        <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-red-200 text-red-800">Inactive</span>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Migration Status Dashboard -->
+        {% if migration_stats %}
+        <div class="bg-gradient-to-br from-amber-50 to-amber-100 rounded-lg border border-amber-200 p-4 xl:p-6">
+            <div class="flex items-center mb-3">
+                <svg class="w-5 h-5 text-amber-600 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"/>
+                </svg>
+                <h3 class="text-lg font-semibold text-amber-900">Migration Status</h3>
+            </div>
+            <div class="space-y-2">
+                <div class="flex justify-between items-center">
+                    <span class="text-sm text-amber-700">Legacy Records:</span>
+                    <span class="font-semibold text-amber-900">{{ migration_stats.legacy_financial_figures|floatformat:0 }}</span>
+                </div>
+                <div class="flex justify-between items-center">
+                    <span class="text-sm text-amber-700">Core Records:</span>
+                    <span class="font-semibold text-amber-900">{{ migration_stats.core_financial_figures|floatformat:0 }}</span>
+                </div>
+                {% if migration_stats.migration_recommendation %}
+                <div class="mt-3 pt-2 border-t border-amber-200">
+                    <div class="text-xs text-amber-600 font-medium mb-1">Recommendation:</div>
+                    <div class="text-xs text-amber-800 leading-relaxed">{{ migration_stats.migration_recommendation }}</div>
+                </div>
+                {% endif %}
+                {% if migration_stats.legacy_financial_figures > 0 %}
+                <div class="mt-2">
+                    <button class="w-full text-xs bg-amber-200 hover:bg-amber-300 text-amber-800 font-medium py-1.5 px-3 rounded transition-colors" onclick="migrateLegacyData()">
+                        🔄 Start Migration Process
+                    </button>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+        {% endif %}
+        
+    </div>
+    {% endif %}
+
     <!-- Filters Section -->
     <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-4 xl:p-6 mb-6">
         <form method="get" class="space-y-4 lg:space-y-0 lg:flex lg:items-end lg:gap-4">

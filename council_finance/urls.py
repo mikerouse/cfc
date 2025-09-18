@@ -308,6 +308,15 @@ urlpatterns = [
     path("api/council/<slug:council_slug>/completion/", council_edit_api.council_completion_percentage_api, name="council_completion_percentage_api"),
     path("api/council/<slug:council_slug>/completion/<int:year_id>/", council_edit_api.council_completion_percentage_api, name="council_completion_percentage_year_api"),
     
+    # ============================================================================
+    # CORE FINANCIAL FIGURE API ENDPOINTS (ATOMIC DATA OPERATIONS)
+    # ============================================================================
+    
+    # Atomic core financial data operations (Fixed Schema approach)
+    path("api/council/<slug:council_slug>/core-financial/<int:year_id>/save/", council_edit_api.save_core_financial_data_atomic, name="save_core_financial_data_atomic"),
+    path("api/council/<slug:council_slug>/core-financial/<int:year_id>/", council_edit_api.get_core_financial_data_api, name="get_core_financial_data_api"),
+    path("api/council/<slug:council_slug>/core-financial/<int:year_id>/migrate/", council_edit_api.migrate_legacy_to_core_api, name="migrate_legacy_to_core_api"),
+    
     # PDF processing for AI-powered data extraction
     path("api/council/process-pdf/", council_edit_api.process_pdf_api, name="process_pdf_api"),
     
